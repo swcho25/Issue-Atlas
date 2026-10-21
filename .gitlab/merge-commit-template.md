@@ -22,7 +22,7 @@ Merged-by: %{merged_by}
 ```
 Merge: infra: 모노레포·하네스 초기 구성 (S15P31C108-61)
 
-dev → main · !1
+develop → main · !1
 https://lab.ssafy.com/s15-final/S15P31C108/-/merge_requests/1
 
 Merged-by: 정우현 <...>
