@@ -22,6 +22,8 @@
     "check": "node scripts/check.mjs",
     "check:all": "node scripts/check.mjs --all",
     "lint": "pnpm frontend:lint",
-    "build": "pnpm frontend:build && pnpm backend:build"
+    "build": "pnpm frontend:build && pnpm backend:build",
+    "backend:format:check": "node scripts/gradle.mjs spotlessCheck",
+    "backend:format": "node scripts/gradle.mjs spotlessApply"
   }
 }

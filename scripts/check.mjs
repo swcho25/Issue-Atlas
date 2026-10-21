@@ -105,6 +105,10 @@ const steps = {
       "다시 실행              pnpm frontend:e2e",
     ],
   },
+  "backend format": {
+    cmd: () => [process.execPath, [join(root, "scripts", "gradle.mjs"), "spotlessCheck"]],
+    fix: ["Java 포맷 자동 수정      pnpm backend:format", "다시 검사               pnpm backend:format:check"],
+  },
   "backend test": {
     needsDocker: true,
     cmd: () => [process.execPath, [join(root, "scripts", "gradle.mjs"), "test"]],
@@ -118,11 +122,12 @@ const steps = {
 };
 
 function plan() {
-  if (all) return { label: "전체", names: ["harness", "frontend lint", "frontend typecheck", "frontend test", "frontend e2e", "backend build"] };
+  if (all) return { label: "전체", names: ["harness", "backend format", "frontend lint", "frontend typecheck", "frontend test", "frontend e2e", "backend build"] };
   const { base, files } = changedFiles();
   const areas = areasOf(files);
   const names = [];
   if (areas.has("harness")) names.push("harness");
+  if (areas.has("backend")) names.push("backend format");
   if (areas.has("frontend")) names.push("frontend lint", "frontend typecheck", "frontend test");
   if (areas.has("backend")) names.push("backend test");
   const notes = [];
