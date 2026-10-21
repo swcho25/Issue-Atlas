@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+# 커밋 제목 규칙: <type>: <명사형 요약>  (예: feat: 근거 수요표 API 추가)
+set -eu
+
+subject="$(sed -n '1p' "$1")"
+
+case "$subject" in
+  Merge\ *|Revert\ *) exit 0 ;;
+esac
+
+if ! printf '%s' "$subject" | grep -Eq '^(feat|fix|refactor|test|docs|infra|chore|perf|security): .+'; then
+  cat >&2 <<MSG
+[FAIL] 커밋 제목 형식이 맞지 않습니다: $subject
+
+  형식   <type>: <명사형 요약>
+  type   feat · fix · refactor · test · docs · infra · chore · perf · security
+  예     feat: 근거 수요표 API 추가
+MSG
+  exit 1
+fi

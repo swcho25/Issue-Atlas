@@ -1,0 +1,40 @@
+# 로컬 개발용 데이터 의존성. 팀 전원이 같은 버전을 쓴다.
+#
+#   pnpm infra:up     기동
+#   pnpm infra:down   중지 (데이터는 볼륨에 남음)
+#
+# 값은 .env 로 덮어쓸 수 있다. 아래는 로컬 전용 기본값이다.
+#
+# 이미지는 digest 로 고정한다. 태그는 위로 움직여서, 아무도 커밋하지 않았는데 다른 DB 엔진이 올라올 수 있다.
+# 올릴 때는 태그와 digest 를 함께 바꾸고 MR 에 버전 차이를 적는다.
+#   docker buildx imagetools inspect postgis/postgis:<tag>
+
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    # PostgreSQL 17 + PostGIS 3.5 (2026-10-21 고정). backend 테스트(Testcontainers)도 같은 태그를 쓴다.
+    image: postgis/postgis:17-3.5-alpine@sha256:894f570c0cf0664ed5576a8fd5d5bfb8fb1b19d592885b686c3a88c8bd90c41f
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME:-issue_atlas}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-atlaslocal}
+      # 저장은 UTC 로 고정한다. 표시 시간대(KST)는 애플리케이션이 정한다.
+      TZ: UTC
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    logging: *bounded-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-issue_atlas}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres-data:

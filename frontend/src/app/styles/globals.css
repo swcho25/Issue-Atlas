@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+/*
+ * 다크 모드: 기본은 OS 설정을 따르고, <html data-theme="light|dark"> 로 강제할 수 있다.
+ * Tailwind 의 dark: 변형도 같은 규칙을 쓴다.
+ */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+/* 디자인 토큰. Figma 변수 컬렉션(Theme · Theme Dark)이 확정되면 값을 여기서 바꾼다. */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+/* 토큰을 Tailwind 유틸리티로 노출한다: bg-background, text-foreground … */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+}
+
+body {
+  @apply bg-background text-foreground font-sans antialiased;
+}
