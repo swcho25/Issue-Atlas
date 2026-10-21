@@ -21,5 +21,10 @@ Spring Boot 4.1 · Java 21 · Gradle 9 · Spring Data JPA · Flyway · PostgreSQ
 - Docker 가 꺼져 있으면 테스트가 실패한다. 그때는 실패 원인을 그대로 보고한다
 - 구조 규칙은 `ArchitectureTest`(ArchUnit)에 있다: 기능 패키지 순환 금지, 필드 주입 금지, System.out 금지, 컨트롤러의 리포지토리 직접 사용 금지. Service·Repository의 역방향 의존 금지도 검사한다
 
+## 포맷
+- Spotless + Google Java Format(AOSP): 공백 4칸. 버전은 build.gradle에 고정한다
+- 검사 `pnpm backend:format:check`, 자동 수정 `pnpm backend:format`. src 아래 Java만 대상이며 Docker는 필요 없다
+- pnpm check와 Gradle check/build에서 검사한다. 상세: [Java 포맷 규칙](../docs/backend-format.md)
+
 ## 검사 (루트에서)
 `pnpm backend:test` · `pnpm backend:build`

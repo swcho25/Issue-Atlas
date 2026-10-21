@@ -9,15 +9,14 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration(proxyBeanMethods = false)
 class TestcontainersConfiguration {
 
-	// 운영과 같은 PostGIS 이미지로 테스트한다. 루트 docker-compose.yml 과 태그를 맞춘다.
-	private static final DockerImageName POSTGIS = DockerImageName
-		.parse("postgis/postgis:17-3.5-alpine")
-		.asCompatibleSubstituteFor("postgres");
+    // 운영과 같은 PostGIS 이미지로 테스트한다. 루트 docker-compose.yml 과 태그를 맞춘다.
+    private static final DockerImageName POSTGIS =
+            DockerImageName.parse("postgis/postgis:17-3.5-alpine")
+                    .asCompatibleSubstituteFor("postgres");
 
-	@Bean
-	@ServiceConnection
-	PostgreSQLContainer postgresContainer() {
-		return new PostgreSQLContainer(POSTGIS);
-	}
-
+    @Bean
+    @ServiceConnection
+    PostgreSQLContainer postgresContainer() {
+        return new PostgreSQLContainer(POSTGIS);
+    }
 }
