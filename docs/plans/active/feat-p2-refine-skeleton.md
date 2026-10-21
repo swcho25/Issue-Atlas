@@ -8,7 +8,7 @@
 - [x] P1 「데이터」 실데이터 샘플(KOSIS 순이동 3건 · 에어코리아 확정자료 3건)을 넣으면 레코드마다 `validation_status`(pass/fixed/held)와 `issues` 가 붙어 나온다
 - [x] 필수 필드 누락 · 금지 소스 · URL 속 API 키 실제 값이 있으면 held 와 사유 코드가 붙는다 (지금 KOSIS 샘플은 `content_hash` 가 null 이라 held 가 나와야 한다)
 - [x] P1 이 채운 시간·좌표 칸(`observed_*`, `published_at`, `geometry`)은 값이 바뀌지 않고 그대로 나온다
-- [ ] 같은 입력을 두 번 돌리면 출력이 바이트 단위로 같다
+- [x] 같은 입력을 두 번 돌리면 출력이 바이트 단위로 같다
 
 ## 진행
 <!-- 날짜: 한 일 · 결정 · 막혔던 것 -->
@@ -22,10 +22,13 @@
 - 2026-10-21: 완료 조건 3 나머지 (`url.py`). raw_url·file_name 둘 다 없음 → `MISSING_REQUIRED`(`raw_url|file_name`). 호스트가 naver.com · kakao.com · kinds.or.kr · bigkinds.or.kr(하위 도메인 포함) → `FORBIDDEN_SOURCE`. 쿼리의 키 이름(apiKey · serviceKey · key · authKey · token · access_token · secret · client_secret, 대소문자·_·- 무시)에 `<KEY>` 가 아닌 값 → `SECRET_IN_URL`. pytest 47건, `pnpm check` PASS
 - 2026-10-21: 키가 든 레코드는 held 이면서 출력 raw_url 의 키 값을 `<KEY>` 로 바꿈. held 레코드도 저장되니 키를 DB 에 남기지 않으려고. 나머지 쿼리는 글자 그대로 둠
 - 2026-10-21: 완료 조건 4. 시간·공간 9칸(published_at · observed_* · geometry · location_precision · geometry_role)이 held/pass 모두에서 그대로 나오는 테스트 + 24시 레코드 값 직접 확인. 이 테스트는 처음부터 통과해서, run.py 를 일부러 세 가지로 망가뜨려(published_at 지우기 · UTC 로 바꾸기 · geometry_role 빼기) 실패하는 것을 확인함. 출력 geometry 를 고치면 입력도 바뀌던 문제(얕은 복사)는 실패 테스트로 잡고 deepcopy 로 고침. pytest 67건, `pnpm check` PASS
+- 2026-10-21: 완료 조건 5. `python -m pipeline.refine <JSON 배열 파일>` → JSONL(stdout). 직렬화는 `serialize.dumps_record` 한 곳(키 정렬 · 공백 없음 · 한글 그대로), 줄바꿈은 Windows 에서도 LF. 실샘플 두 파일을 해시 시드가 다른 두 프로세스로 돌려 바이트 비교. 변형 확인: 출력에 `now()` 넣기 → 바이트 비교 실패, `print()` 로 쓰기 → LF 테스트 실패. pytest 71건, `pnpm check` PASS
 
 ## 다음 할 일 / 범위 밖
 - 금지 소스에 daum.net(카카오 포털 뉴스)을 넣을지 확인 — PRD 는 "네이버·카카오 API" 라고만 씀
 - 첨부 URL(`attachments`)의 키 검사는 문서 처리 때
+- 입력 형식(지금은 JSON 배열 파일)을 P1 출력 형식과 맞추기 — P1 이 JSONL·DB 로 넘기면 바꿈
+- `refined_at` 을 넣을 때는 `now()` 가 아니라 실행 단위(run)에서 받은 값으로 — 아니면 완료 조건 5 가 깨짐
 - `fixed` 상태는 아직 만들 규칙이 없음 (정규화 단계에서 소수점 오차 반올림 등이 첫 후보)
 - 장성우에게 물을 것: `dedup_key` 이름이 P1(수정일 포함 멱등 키)과 P2(중복 판정 키)에서 뜻이 다름 · KOSIS 샘플 `content_hash` null · C1 레코드에 원본 payload 연결(`raw_record_id`) 없음
 - 범위 밖: 전재 묶기, 뉴스·보도자료 문서 처리, 지표 사전(탭 10) 매핑, 측정소정보 레코드(P3 매핑 표 쪽)
