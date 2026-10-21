@@ -44,10 +44,12 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 
 ## 브랜치 · 커밋 · MR · Jira
 - 기본 브랜치 `develop`, 배포 기준 `main`(MR 로만 병합). force push 금지
-- 브랜치 `<type>/<kebab-case>` — Jira 키는 넣지 않는다
+- 브랜치 `<type>/<kebab-case>` — Jira 키는 넣지 않는다. Jira 의 「브랜치 만들기」 버튼은 키가 든 이름을 만들므로 쓰지 않는다
 - type: `feat` `fix` `refactor` `test` `docs` `infra` `chore` `perf` `security`
-- 커밋 `<type>: <명사형 요약>` (예: `feat: 근거 수요표 API 추가`) — `.githooks/commit-msg` 가 검사
-- MR 제목 `<type>: <명사형 요약> (S15P31C108-XX)`. 목적 하나, 300줄 이하 권장
+- 커밋 `<type>: <명사형 요약>` (예: `feat: 근거 수요표 API 추가`) — `.githooks/commit-msg` 가 검사. 깃모지·Jira 키는 제목에 넣지 않는다(키는 본문·MR 제목)
+- 커밋 하나 = 되돌릴 수 있는 논리 변경 하나. `WIP`·중간 저장 커밋은 MR 전에 정리한다
+- MR 제목 `<type>: <명사형 요약> (S15P31C108-XX)`. 목적 하나, 300줄 이하 권장. `develop → main` 은 `chore: develop → main 반영 (YYYY-MM-DD)`
+- 병합은 Merge commit(스쿼시 X), 머지 커밋 메시지는 `.gitlab/merge-commit-template.md`. 기능 브랜치는 머지 때 삭제
 - Jira 프로젝트 `S15P31C108`. 이슈 생성·전이는 `start`·`finish` 스킬이 Atlassian MCP 로 한다. 이슈 요약은 `[에픽 접두어] 명사형 요약`(예: `[S2] 근거 상세 패널 추가`), 필드 ID·전이 ID 는 매번 조회한다
 
 ## 하지 않는 것
