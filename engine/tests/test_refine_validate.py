@@ -1,20 +1,7 @@
-import json
-from pathlib import Path
-
 import pytest
 
 from pipeline.refine import RULE_VERSION, refine_record
-
-FIXTURES = Path(__file__).parent / "fixtures" / "p1"
-
-
-def load(name):
-    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
-
-
-P1_SAMPLES = load("kosis_net_migration.json") + load("airkorea_final_pm25.json")
-SAMPLE_IDS = [r["dedup_key"] for r in P1_SAMPLES]
-HASH = "sha256:" + "0" * 64
+from tests.samples import HASH, P1_SAMPLES, SAMPLE_IDS
 
 # P1 C1 초안 2-1 표에서 필수(✓)인 칸. raw_url · file_name(둘 중 하나)은 따로 본다
 REQUIRED = [

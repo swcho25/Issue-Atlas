@@ -7,7 +7,7 @@
 - [x] engine/AGENTS.md 의 (미정) 칸을 채운다 (Python 3.13 · uv · ruff · pytest). `pnpm engine:lint`·`pnpm engine:test` 가 돌고, `pnpm check` 가 engine 변경 시 둘을 돌린다
 - [x] P1 「데이터」 실데이터 샘플(KOSIS 순이동 3건 · 에어코리아 확정자료 3건)을 넣으면 레코드마다 `validation_status`(pass/fixed/held)와 `issues` 가 붙어 나온다
 - [x] 필수 필드 누락 · 금지 소스 · URL 속 API 키 실제 값이 있으면 held 와 사유 코드가 붙는다 (지금 KOSIS 샘플은 `content_hash` 가 null 이라 held 가 나와야 한다)
-- [ ] P1 이 채운 시간·좌표 칸(`observed_*`, `published_at`, `geometry`)은 값이 바뀌지 않고 그대로 나온다
+- [x] P1 이 채운 시간·좌표 칸(`observed_*`, `published_at`, `geometry`)은 값이 바뀌지 않고 그대로 나온다
 - [ ] 같은 입력을 두 번 돌리면 출력이 바이트 단위로 같다
 
 ## 진행
@@ -21,6 +21,7 @@
 - 2026-10-21: `issues` 는 코드 문자열 목록이 아니라 `{"code", "field"}` 객체 목록으로 함 (어느 칸이 문제인지 남기려고). 로컬 P2 초안은 코드 목록이었음 → C1 정리 때 맞춤
 - 2026-10-21: 완료 조건 3 나머지 (`url.py`). raw_url·file_name 둘 다 없음 → `MISSING_REQUIRED`(`raw_url|file_name`). 호스트가 naver.com · kakao.com · kinds.or.kr · bigkinds.or.kr(하위 도메인 포함) → `FORBIDDEN_SOURCE`. 쿼리의 키 이름(apiKey · serviceKey · key · authKey · token · access_token · secret · client_secret, 대소문자·_·- 무시)에 `<KEY>` 가 아닌 값 → `SECRET_IN_URL`. pytest 47건, `pnpm check` PASS
 - 2026-10-21: 키가 든 레코드는 held 이면서 출력 raw_url 의 키 값을 `<KEY>` 로 바꿈. held 레코드도 저장되니 키를 DB 에 남기지 않으려고. 나머지 쿼리는 글자 그대로 둠
+- 2026-10-21: 완료 조건 4. 시간·공간 9칸(published_at · observed_* · geometry · location_precision · geometry_role)이 held/pass 모두에서 그대로 나오는 테스트 + 24시 레코드 값 직접 확인. 이 테스트는 처음부터 통과해서, run.py 를 일부러 세 가지로 망가뜨려(published_at 지우기 · UTC 로 바꾸기 · geometry_role 빼기) 실패하는 것을 확인함. 출력 geometry 를 고치면 입력도 바뀌던 문제(얕은 복사)는 실패 테스트로 잡고 deepcopy 로 고침. pytest 67건, `pnpm check` PASS
 
 ## 다음 할 일 / 범위 밖
 - 금지 소스에 daum.net(카카오 포털 뉴스)을 넣을지 확인 — PRD 는 "네이버·카카오 API" 라고만 씀
