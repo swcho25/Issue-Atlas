@@ -23,6 +23,8 @@
 - 2026-10-21: 키가 든 레코드는 held 이면서 출력 raw_url 의 키 값을 `<KEY>` 로 바꿈. held 레코드도 저장되니 키를 DB 에 남기지 않으려고. 나머지 쿼리는 글자 그대로 둠
 - 2026-10-21: 완료 조건 4. 시간·공간 9칸(published_at · observed_* · geometry · location_precision · geometry_role)이 held/pass 모두에서 그대로 나오는 테스트 + 24시 레코드 값 직접 확인. 이 테스트는 처음부터 통과해서, run.py 를 일부러 세 가지로 망가뜨려(published_at 지우기 · UTC 로 바꾸기 · geometry_role 빼기) 실패하는 것을 확인함. 출력 geometry 를 고치면 입력도 바뀌던 문제(얕은 복사)는 실패 테스트로 잡고 deepcopy 로 고침. pytest 67건, `pnpm check` PASS
 - 2026-10-21: 완료 조건 5. `python -m pipeline.refine <JSON 배열 파일>` → JSONL(stdout). 직렬화는 `serialize.dumps_record` 한 곳(키 정렬 · 공백 없음 · 한글 그대로), 줄바꿈은 Windows 에서도 LF. 실샘플 두 파일을 해시 시드가 다른 두 프로세스로 돌려 바이트 비교. 변형 확인: 출력에 `now()` 넣기 → 바이트 비교 실패, `print()` 로 쓰기 → LF 테스트 실패. pytest 71건, `pnpm check` PASS
+- 2026-10-21: origin/develop(0d3e42f, 새 커밋 6개) 위로 rebase (push 전이라 머지 커밋 없이). 충돌 2곳 — AGENTS.md 명령 표, check.mjs `--all` 목록 — 은 develop 쪽(harness · frontend test · e2e)에 engine 을 더해 합침. `pnpm check` PASS (harness · frontend lint·typecheck·test · engine lint·test)
+- 2026-10-21: 브랜치 push 뒤 origin/develop(00d011e, backend 기반 커밋 4개)을 merge 로 받음 (push 한 브랜치라 rebase 대신). 충돌 2곳 — AGENTS.md 명령 표, check.mjs `--all` 목록 — 은 develop 의 backend format 에 engine 을 더해 합침. `pnpm check` PASS
 
 ## 다음 할 일 / 범위 밖
 - 금지 소스에 daum.net(카카오 포털 뉴스)을 넣을지 확인 — PRD 는 "네이버·카카오 API" 라고만 씀
