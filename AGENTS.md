@@ -46,7 +46,7 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 - type: `feat` `fix` `refactor` `test` `docs` `infra` `chore` `perf` `security`
 - 커밋 `<type>: <명사형 요약>` (예: `feat: 근거 수요표 API 추가`) — `.githooks/commit-msg` 가 검사
 - MR 제목 `<type>: <명사형 요약> (S15P31C108-XX)`. 목적 하나, 300줄 이하 권장
-- Jira 프로젝트 `S15P31C108`. 이슈 생성·전이는 `start`·`finish` 스킬이 Atlassian MCP 로 한다. 필드 ID·전이 ID 는 매번 조회한다
+- Jira 프로젝트 `S15P31C108`. 이슈 생성·전이는 `start`·`finish` 스킬이 Atlassian MCP 로 한다. 이슈 요약은 `[에픽 접두어] 명사형 요약`(예: `[S2] 근거 상세 패널 추가`), 필드 ID·전이 ID 는 매번 조회한다
 
 ## 하지 않는 것
 - `.env`·키 파일을 읽거나 커밋하지 않는다. 공유할 값은 `.env.example` 에 이름과 설명만
