@@ -1,9 +1,10 @@
 # Jira 처리 (start · finish 가 필요할 때만 읽는다)
 
-Atlassian MCP(`.mcp.json` · `.codex/config.toml`) 로 한다. 프로젝트 키 `S15P31C108`.
-cloudId 는 `getAccessibleAtlassianResources` 로 얻는다(사이트 ssafy.atlassian.net).
+Atlassian MCP(`.mcp.json` · `.codex/config.toml`) 로 한다. 프로젝트 키 `S15P31C108`, 사이트 ssafy.atlassian.net.
+커넥터마다 도구 이름·인자가 다르다. **아래 이름은 하는 일 기준이다.** 지금 세션에 있는 도구 목록에서 맞는 것을 고르고,
+없으면 커넥터의 탐색 도구(discover 등)로 찾는다. cloudId 는 세션에서 한 번 조회해 계속 쓴다.
 
-## 검색
+## 검색 (이슈 검색 도구, JQL)
 
 ```
 project = S15P31C108 AND statusCategory != Done AND summary ~ "<핵심 단어>" ORDER BY updated DESC
@@ -20,25 +21,43 @@ project = S15P31C108 AND issuetype = 에픽 AND statusCategory != Done
 - 하네스·빌드·인프라 작업은 `[공통] 개발 환경·하네스`.
 - 맞는 에픽이 없으면 비워 두고 확인 메시지에 「에픽 없음」이라고 쓴다.
 
-## 생성
+## 생성 (이슈 생성 도구) — 팀 형식
 
-- 이슈 유형 `스토리`. 요약은 커밋 제목과 같은 명사형(예: `근거 수요표 API 추가`).
-- 설명: 완료 조건 목록 + 브랜치 이름.
-- 부모(에픽): `parent` 에 에픽 키.
-- 담당자: `atlassianUserInfo` 의 account_id.
-- 스프린트·Story Point 는 커스텀 필드다. `getJiraIssueTypeMetaWithFields` 로 이름이 「Sprint」「Story Point」인 필드 ID 를 찾는다.
-  - 스프린트 값은 활성 스프린트 id(숫자). 같은 프로젝트의 진행 중 이슈를 `fields: ["<sprint 필드 ID>"]` 로 조회해 `state: active` 인 것을 쓴다.
-  - Story Point 는 사람이 주면 넣고, 아니면 비운다.
+| 필드 | 값 |
+| --- | --- |
+| 이슈 유형 | `스토리` |
+| 요약 | `[<에픽 접두어>] <명사형 요약>` — 예: `[S2] 근거 상세 패널 추가`, `[공통] 하네스 4단계 적용`. 커밋·MR 제목에는 접두어를 넣지 않는다 |
+| 상위 항목 | 에픽 키 |
+| 담당자 | 현재 사용자(사용자 정보 도구의 accountId) |
+| 스프린트 | 활성 스프린트. 생성 도구가 스프린트 지정을 지원하면 함께, 아니면 생성 뒤 이동 도구로 |
+| Story Points | 확인 메시지에서 사람에게 받는다(팀 기본 1) |
+| 설명 | 아래 형식 |
 
-## 전이
+```markdown
+* **담당**: <이름>
 
-`getTransitionsForJiraIssue` 로 이름을 보고 고른다. ID 를 외워 쓰지 않는다.
+## 완료 조건
+- [ ] …
+
+브랜치: <type>/<name>
+```
+
+- 필드 ID(스프린트·Story Points 등)는 저장소에 적지 않는다. 필요하면 그때 조회한다.
+
+## 전이 (전이 도구)
+
+전이는 **이름으로** 고른다. ID 를 외워 쓰지 않는다.
 
 | 언제 | 상태 |
 | --- | --- |
 | start 끝 | `진행 중` |
 | MR 머지 뒤 (사람이 요청할 때) | `완료` |
 
-## 코멘트 (finish)
+## 코멘트 (코멘트 도구, finish)
 
-`addCommentToJiraIssue` — 브랜치, 커밋 해시, 완료 조건 결과, (있으면) MR 링크.
+브랜치, 커밋 해시, 완료 조건 결과, (있으면) MR 링크.
+
+## 연결이 안 될 때
+
+`403 The app is not installed on this instance` 처럼 권한 오류가 나면 재시도하지 않는다.
+사람에게 커넥터 재연결(Atlassian 연결 해제 → 다시 연결, ssafy 사이트 선택)을 요청하고, 그동안 만들 이슈 내용을 채팅에 남긴다.
