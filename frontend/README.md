@@ -39,6 +39,8 @@ frontend/
 | `pnpm frontend:dev` | 개발 서버 (http://localhost:3000) |
 | `pnpm frontend:lint` | ESLint + FSD 검사 |
 | `pnpm frontend:typecheck` | 라우트 타입 생성 + tsc |
+| `pnpm frontend:test` | 단위 · 컴포넌트 테스트 (Vitest) |
+| `pnpm frontend:e2e` | 빌드 + 페이지 테스트 (Playwright). 처음 한 번 `pnpm --filter frontend exec playwright install chromium` |
 | `pnpm frontend:build` | 프로덕션 빌드 |
 
 ## 스타일 (Tailwind CSS 4)
