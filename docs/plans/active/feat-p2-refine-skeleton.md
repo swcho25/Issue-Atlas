@@ -6,7 +6,7 @@
 <!-- 검증 가능한 문장으로. 이 목록이 끝나면 작업이 끝난다. -->
 - [x] engine/AGENTS.md 의 (미정) 칸을 채운다 (Python 3.13 · uv · ruff · pytest). `pnpm engine:lint`·`pnpm engine:test` 가 돌고, `pnpm check` 가 engine 변경 시 둘을 돌린다
 - [x] P1 「데이터」 실데이터 샘플(KOSIS 순이동 3건 · 에어코리아 확정자료 3건)을 넣으면 레코드마다 `validation_status`(pass/fixed/held)와 `issues` 가 붙어 나온다
-- [ ] 필수 필드 누락 · 금지 소스 · URL 속 API 키 실제 값이 있으면 held 와 사유 코드가 붙는다 (지금 KOSIS 샘플은 `content_hash` 가 null 이라 held 가 나와야 한다)
+- [x] 필수 필드 누락 · 금지 소스 · URL 속 API 키 실제 값이 있으면 held 와 사유 코드가 붙는다 (지금 KOSIS 샘플은 `content_hash` 가 null 이라 held 가 나와야 한다)
 - [ ] P1 이 채운 시간·좌표 칸(`observed_*`, `published_at`, `geometry`)은 값이 바뀌지 않고 그대로 나온다
 - [ ] 같은 입력을 두 번 돌리면 출력이 바이트 단위로 같다
 
@@ -19,9 +19,12 @@
 - 2026-10-21: engine 도구 설정 (uv 프로젝트, pytest 9.1 · ruff 0.17, `pnpm engine:lint`·`engine:test`, check.mjs engine 영역·`--all` 연결). `pnpm check` PASS — frontend lint 25.6s · typecheck 10.7s · engine lint 0.8s · test 2.6s. 일부러 넣은 린트·테스트 실패가 exit 1 로 잡히는 것도 확인
 - 2026-10-21: P1 샘플 6건을 `engine/tests/fixtures/p1/` 로 옮김 (원문이 "같은 모양"·"다른 칸만"인 4건은 기준 레코드에 덮어써 만듦, 출처는 같은 폴더 README). 검증 단계 `validate.py` + `refine_record` 추가: 필수 12칸(P1 초안 ✓) 누락·빈 문자열 → held + `MISSING_REQUIRED`. 실샘플 6건은 모두 `content_hash` 가 없어 held, 해시를 채우면 pass. pytest 25건, `pnpm check` PASS
 - 2026-10-21: `issues` 는 코드 문자열 목록이 아니라 `{"code", "field"}` 객체 목록으로 함 (어느 칸이 문제인지 남기려고). 로컬 P2 초안은 코드 목록이었음 → C1 정리 때 맞춤
+- 2026-10-21: 완료 조건 3 나머지 (`url.py`). raw_url·file_name 둘 다 없음 → `MISSING_REQUIRED`(`raw_url|file_name`). 호스트가 naver.com · kakao.com · kinds.or.kr · bigkinds.or.kr(하위 도메인 포함) → `FORBIDDEN_SOURCE`. 쿼리의 키 이름(apiKey · serviceKey · key · authKey · token · access_token · secret · client_secret, 대소문자·_·- 무시)에 `<KEY>` 가 아닌 값 → `SECRET_IN_URL`. pytest 47건, `pnpm check` PASS
+- 2026-10-21: 키가 든 레코드는 held 이면서 출력 raw_url 의 키 값을 `<KEY>` 로 바꿈. held 레코드도 저장되니 키를 DB 에 남기지 않으려고. 나머지 쿼리는 글자 그대로 둠
 
 ## 다음 할 일 / 범위 밖
-- 완료 조건 3 나머지: 금지 소스 · URL 속 API 키 실제 값 (`<KEY>` 자리표시는 통과) · raw_url/file_name 둘 다 없음
+- 금지 소스에 daum.net(카카오 포털 뉴스)을 넣을지 확인 — PRD 는 "네이버·카카오 API" 라고만 씀
+- 첨부 URL(`attachments`)의 키 검사는 문서 처리 때
 - `fixed` 상태는 아직 만들 규칙이 없음 (정규화 단계에서 소수점 오차 반올림 등이 첫 후보)
 - 장성우에게 물을 것: `dedup_key` 이름이 P1(수정일 포함 멱등 키)과 P2(중복 판정 키)에서 뜻이 다름 · KOSIS 샘플 `content_hash` null · C1 레코드에 원본 payload 연결(`raw_record_id`) 없음
 - 범위 밖: 전재 묶기, 뉴스·보도자료 문서 처리, 지표 사전(탭 10) 매핑, 측정소정보 레코드(P3 매핑 표 쪽)
