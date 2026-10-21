@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # frontend 규칙
 
-Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced Design. 사람용 설명은 `README.md`.
+Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced Design · TanStack Query · Zod. 기술 선택의 이유는 `docs/frontend-architecture.md`, 사람용 설명은 `README.md`.
 
 ## 폴더
 - `app/` — Next 라우팅만. `page.tsx` 는 `src/pages/<slice>` 를 다시 내보내기만 한다
@@ -21,17 +21,29 @@ Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced 
 - 위 레이어에서 아래 레이어로만 import 한다. 같은 레이어의 다른 슬라이스는 import 하지 않는다
 - 슬라이스 밖에서는 `index.ts` 로만 가져온다. `@/` = `src/`
 - 슬라이스는 실제로 쓰일 때 만든다. 쓰이지 않는 슬라이스는 steiger 가 에러로 막는다
+- 한 곳에서만 쓰는 코드는 그 슬라이스 안에 둔다. 두 곳 이상에서 쓰이면 `entities`·`features` 로 옮긴다
+- 라우팅은 Next App Router 만. React Router 를 넣지 않는다
 
 ## 서버 · 클라이언트
 - 결과를 읽는 화면(논증 카드 결과, 근거 상세, 내 질문)은 서버 컴포넌트
 - 지도(MapLibre) · 슬라이더 · 선택 UI 는 `"use client"`. MapLibre 는 서버에서 그리지 않는다
-- Spring API 는 `@/shared/api` 로만 부른다. `API_BASE_URL` 은 서버 전용
+- Spring API 는 `@/shared/api` 로만 부른다. 서버 컴포넌트 `apiGet`, 클라이언트 `browserGet`(같은 출처 `/api/*` → rewrites). `API_BASE_URL` 은 서버 전용
+
+## 데이터
+- 응답은 항상 Zod 스키마로 검증한다(`apiGet`·`browserGet` 둘째 인자). 스키마는 슬라이스 `model/schema.ts`, 타입은 `z.infer`
+- 클라이언트 데이터는 TanStack Query. 쿼리는 슬라이스 `api/` 에 `queryOptions(...)` 로 정의하고 컴포넌트는 `useQuery(그 옵션)`
+- 서버 상태를 `useState`·전역 스토어에 복사하지 않는다
 
 ## 스타일
 - Tailwind 유틸리티 우선. 색·글꼴은 `src/app/styles/globals.css` 의 토큰(`bg-background` 등)으로만
 - 다크 모드는 `dark:` 변형. 하드코딩 색을 쓰지 않는다
 
+## 테스트
+- 작성·실행은 `test` 스킬. 단위(스키마·변환)·컴포넌트(상태 있는 것만)는 필요할 때, 페이지(Playwright)는 페이지 완성 시 1~3개
+- 테스트 파일은 대상 옆 `*.test.ts(x)`, 페이지 테스트는 `e2e/`. 도구는 `@/shared/lib/test`(`renderWithQuery`, `mswServer`) — 앱 코드에서 import 하지 않는다
+- 스냅샷 테스트를 쓰지 않는다. 테스트를 통과시키려고 기대값을 바꾸거나 skip 하지 않는다
+
 ## 검사 (루트에서)
-`pnpm frontend:lint`(ESLint + steiger + prettier) · `pnpm frontend:typecheck` · `pnpm frontend:build`
+`pnpm frontend:lint`(ESLint + steiger + prettier) · `pnpm frontend:typecheck` · `pnpm frontend:test` · `pnpm frontend:e2e`(빌드 포함)
 
 포맷은 Prettier(`.prettierrc.json`, Tailwind 클래스 정렬 포함). Claude 는 편집 후 훅이 자동으로 맞추고, Codex·사람은 `pnpm --filter frontend format`

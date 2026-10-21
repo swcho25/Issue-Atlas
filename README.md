@@ -28,7 +28,7 @@ S15P31C108/
 ```
 
 ## 시작하기
-필요한 것: Node 20.19 이상(corepack 포함), Java 21, Docker
+필요한 것: Node 24.15 이상 또는 22.22 이상(corepack 포함, `.nvmrc` = 24), Java 21, Docker
 
 ```bash
 corepack enable          # pnpm 활성화 (버전은 package.json 의 packageManager 로 고정)

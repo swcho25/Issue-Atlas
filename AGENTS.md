@@ -12,7 +12,7 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 | `backend/` | Spring Boot 4.1 · Java 21 · Gradle · Flyway · PostGIS | `backend/AGENTS.md` |
 | `engine/` | Python 서비스 자리 (빈 틀) | `engine/AGENTS.md` |
 | `contracts/` | 레인 간 계약 C1 · C2 · C3 (바꾸면 받는 쪽 리뷰 필수) | `contracts/README.md` |
-| `.agents/skills/` | 스킬 원본 start · check · finish · review · handoff (`.claude/skills/` 는 연결 파일) | 각 `SKILL.md` |
+| `.agents/skills/` | 스킬 원본 start · check · test · finish · review · handoff (`.claude/skills/` 는 연결 파일) | 각 `SKILL.md` |
 | `docs/plans/` | 작업별 실행 계획 (`active/` 진행 중, `done/` 끝남) | `docs/plans/TEMPLATE.md` |
 | `docs/harness-plan.md` | 이 하네스의 설계와 도입 순서 | — |
 
@@ -21,15 +21,15 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 | --- | --- |
 | `pnpm install` | 의존성 + git 훅 연결 |
 | `pnpm infra:up` / `infra:down` | 로컬 PostGIS |
-| `pnpm frontend:dev` · `frontend:lint` · `frontend:typecheck` · `frontend:build` | 프론트 |
+| `pnpm frontend:dev` · `frontend:lint` · `frontend:typecheck` · `frontend:test` · `frontend:e2e` · `frontend:build` | 프론트 (`e2e` 는 빌드 + Playwright) |
 | `pnpm backend:dev` · `backend:test` · `backend:build` | 백엔드 (`test` 는 Docker 필요) |
-| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck / backend: test). push 전 훅도 이것을 돌린다 |
-| `pnpm check:all` | 전체 lint · typecheck · test · build (MR 전) |
+| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck·test / backend: test). push 전 훅도 이것을 돌린다 |
+| `pnpm check:all` | 전체 lint · typecheck · test · build · e2e (MR 전) |
 
 ## 작업 흐름
 1. `/start`(Claude) 또는 `$start`(Codex)로 시작한다. Jira 이슈 확인·생성, 브랜치, 실행 계획 파일을 만든다.
 2. 실행 계획(`docs/plans/active/<branch>.md`)의 **완료 조건**만큼만 구현한다. 범위 밖 발견은 계획 파일의 「다음 할 일」에 적는다.
-3. `/check`로 바뀐 영역을 검사하고, `/finish`로 커밋·MR 초안까지 간다. push 는 사람이 한다.
+3. `/check`로 바뀐 영역을 검사하고, frontend 를 바꿨으면 `/test`로 필요한 테스트를 쓴 뒤 `/finish`로 커밋·MR 초안까지 간다. push 는 사람이 한다.
 4. 세션을 끊을 때는 `/handoff`로 계획 파일의 「다음 할 일」을 채운다.
 
 설명·조사만 요청받으면 이슈·브랜치·계획 파일을 만들지 않는다.

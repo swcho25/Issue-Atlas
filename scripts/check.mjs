@@ -1,6 +1,6 @@
 // 바뀐 영역만 검사한다. 실패하면 무엇이 틀렸는지와 고치는 명령을 함께 출력한다.
 //   pnpm check        기준 브랜치(origin/develop, 없으면 origin/main) 이후 바뀐 파일 + 작업 트리 변경
-//   pnpm check:all    전체 lint · typecheck · test · build (MR 전)
+//   pnpm check:all    전체 lint · typecheck · test · build · e2e (MR 전)
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -84,9 +84,21 @@ const steps = {
     cmd: () => pnpmCommand(["--filter", "frontend", "typecheck"]),
     fix: ["위 tsc 오류의 파일:줄을 고친 뒤      pnpm frontend:typecheck"],
   },
-  "frontend build": {
-    cmd: () => pnpmCommand(["--filter", "frontend", "build"]),
-    fix: ["다시 확인      pnpm frontend:build"],
+  "frontend test": {
+    cmd: () => pnpmCommand(["--filter", "frontend", "test"]),
+    fix: [
+      "위 출력의 실패한 테스트 이름 · 기대값 · 실제값을 보고 고친 뒤      pnpm frontend:test",
+      "한 파일만 반복 실행          pnpm --filter frontend exec vitest <파일 경로>",
+    ],
+  },
+  "frontend e2e": {
+    // next build 를 포함한다(빌드 검사를 겸함)
+    cmd: () => pnpmCommand(["--filter", "frontend", "e2e"]),
+    fix: [
+      "실패 기록(trace)        frontend/test-results/ → pnpm --filter frontend exec playwright show-trace <trace.zip>",
+      "브라우저가 없다는 오류면  pnpm --filter frontend exec playwright install chromium",
+      "다시 실행              pnpm frontend:e2e",
+    ],
   },
   "backend test": {
     needsDocker: true,
@@ -101,11 +113,11 @@ const steps = {
 };
 
 function plan() {
-  if (all) return { label: "전체", names: ["frontend lint", "frontend typecheck", "frontend build", "backend build"] };
+  if (all) return { label: "전체", names: ["frontend lint", "frontend typecheck", "frontend test", "frontend e2e", "backend build"] };
   const { base, files } = changedFiles();
   const areas = areasOf(files);
   const names = [];
-  if (areas.has("frontend")) names.push("frontend lint", "frontend typecheck");
+  if (areas.has("frontend")) names.push("frontend lint", "frontend typecheck", "frontend test");
   if (areas.has("backend")) names.push("backend test");
   const notes = [];
   if (areas.has("contracts")) notes.push("contracts 변경: 검사기 없음. 받는 쪽(frontend·backend) 리뷰를 MR 에 요청하세요");

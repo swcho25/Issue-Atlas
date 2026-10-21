@@ -28,7 +28,9 @@ frontend:
     - pnpm install --frozen-lockfile
     - pnpm frontend:lint
     - pnpm frontend:typecheck
-    - pnpm frontend:build
+    - pnpm frontend:test
+    - pnpm --filter frontend exec playwright install --with-deps chromium
+    - pnpm frontend:e2e   # next build 포함
 
 backend:
   stage: check
