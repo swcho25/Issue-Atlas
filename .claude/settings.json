@@ -9,5 +9,23 @@
       "Edit(**/*.pem)", "Edit(**/*.key)", "Edit(**/*.p12)", "Edit(**/*.jks)",
       "Bash(git push --force*)", "Bash(git push -f*)", "Bash(git push origin main*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/format-file.mjs\"", "timeout": 15 }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/plan-reminder.mjs\"", "timeout": 10 }
+        ]
+      }
+    ]
   }
 }

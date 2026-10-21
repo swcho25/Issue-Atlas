@@ -15,6 +15,7 @@ Spring Boot 4.1 · Java 21 · Gradle 9 · Spring Data JPA · Flyway · PostgreSQ
 ## 테스트
 - 통합 테스트는 Testcontainers 로 실제 PostGIS(`postgis/postgis:17-3.5-alpine`)에서 돈다. H2 로 대체하지 않는다
 - Docker 가 꺼져 있으면 테스트가 실패한다. 그때는 실패 원인을 그대로 보고한다
+- 구조 규칙은 `ArchitectureTest`(ArchUnit)에 있다: 기능 패키지 순환 금지, 필드 주입 금지, System.out 금지, 컨트롤러의 리포지토리 직접 사용 금지. 패키지 구조가 정해지면 계층 규칙을 여기에 더한다
 
 ## 검사 (루트에서)
 `pnpm backend:test` · `pnpm backend:build`

@@ -74,6 +74,7 @@ const steps = {
   "frontend lint": {
     cmd: () => pnpmCommand(["--filter", "frontend", "lint"]),
     fix: [
+      "포맷(prettier) 자동 수정  pnpm --filter frontend format",
       "ESLint 자동 수정          pnpm --filter frontend exec eslint --fix .",
       "FSD(steiger) 위반은 import 방향(app → pages → widgets → features → entities → shared)과",
       "슬라이스 public API(index.ts)를 확인          frontend/AGENTS.md",

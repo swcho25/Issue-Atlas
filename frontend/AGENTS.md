@@ -32,4 +32,6 @@ Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced 
 - 다크 모드는 `dark:` 변형. 하드코딩 색을 쓰지 않는다
 
 ## 검사 (루트에서)
-`pnpm frontend:lint`(ESLint + steiger) · `pnpm frontend:typecheck` · `pnpm frontend:build`
+`pnpm frontend:lint`(ESLint + steiger + prettier) · `pnpm frontend:typecheck` · `pnpm frontend:build`
+
+포맷은 Prettier(`.prettierrc.json`, Tailwind 클래스 정렬 포함). Claude 는 편집 후 훅이 자동으로 맞추고, Codex·사람은 `pnpm --filter frontend format`
