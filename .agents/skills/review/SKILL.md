@@ -5,7 +5,7 @@ description: 현재 브랜치의 변경을 리뷰어 관점에서 점검한다. 
 
 # review
 
-1. 범위: `git diff origin/dev...HEAD` + 커밋 안 된 변경. `origin/dev` 가 없으면 `origin/main`.
+1. 범위: `git diff origin/develop...HEAD` + 커밋 안 된 변경. `origin/develop` 가 없으면 `origin/main`.
 2. 실행 계획 `docs/plans/active/<branch>.md` 의 완료 조건과 대조한다 — 빠진 것, 범위를 넘은 것.
 3. 아래 순서로 본다. 확실한 것만 적고, 추측은 「확인 필요」로 따로 둔다.
    1. **정확성**: 경계값, null, 시간대(UTC), 에러 처리, 트랜잭션

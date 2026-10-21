@@ -1,5 +1,5 @@
 // 바뀐 영역만 검사한다. 실패하면 무엇이 틀렸는지와 고치는 명령을 함께 출력한다.
-//   pnpm check        기준 브랜치(origin/dev, 없으면 origin/main) 이후 바뀐 파일 + 작업 트리 변경
+//   pnpm check        기준 브랜치(origin/develop, 없으면 origin/main) 이후 바뀐 파일 + 작업 트리 변경
 //   pnpm check:all    전체 lint · typecheck · test · build (MR 전)
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -36,7 +36,7 @@ function pnpmCommand(args) {
 }
 
 function changedFiles() {
-  const base = ["origin/dev", "origin/main"].find((ref) => git(["rev-parse", "--verify", "--quiet", ref]) !== null);
+  const base = ["origin/develop", "origin/main"].find((ref) => git(["rev-parse", "--verify", "--quiet", ref]) !== null);
   const files = new Set();
   if (base) {
     const mergeBase = git(["merge-base", base, "HEAD"])?.trim();

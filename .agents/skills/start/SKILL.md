@@ -24,7 +24,7 @@ description: 작업 시작 — Jira 이슈 확인·생성, 브랜치, 실행 계
 
 ```
 Jira    S15P31C108-XX 재사용 | 새 스토리 "[S2] <요약>" (에픽 S15P31C108-YY) · SP 1
-브랜치  <type>/<name>  (기준 origin/dev)
+브랜치  <type>/<name>  (기준 origin/develop)
 완료 조건
   - [ ] …
 ```
@@ -32,8 +32,8 @@ Jira    S15P31C108-XX 재사용 | 새 스토리 "[S2] <요약>" (에픽 S15P31C1
 ## 3. 실행
 
 1. Jira: 이슈 생성 또는 재사용 → 팀 형식(요약 접두어 · 담당 줄), 담당자 나, 활성 스프린트, 상태 `진행 중` → [jira.md](jira.md) 「생성」「전이」.
-2. 브랜치: `git fetch origin` → `git switch -c <branch> origin/dev`.
-   `origin/dev` 가 없으면 만들지 말고 사람에게 묻는다.
+2. 브랜치: `git fetch origin` → `git switch -c <branch> origin/develop`.
+   `origin/develop` 가 없으면 만들지 말고 사람에게 묻는다.
 3. 실행 계획: `docs/plans/TEMPLATE.md` 를 `docs/plans/active/<branch 의 / 를 - 로>.md` 로 복사해 채운다.
    - 제목, Jira 키, PRD, 묶음/단위, 완료 조건
    - 진행: `- YYYY-MM-DD: 시작`
