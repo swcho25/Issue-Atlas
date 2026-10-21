@@ -7,3 +7,5 @@ PRD v4.1 의 계약을 여기에 둔다. 계약을 바꾸는 MR 은 양쪽 담�
 | C1 | 공통 메타 필드(PRD 7.1) — JSON Schema | 수집 → 분석 | 10/23 동결 |
 | C2 | API 응답(논증 카드 6칸 · 근거 · 관측점) — OpenAPI | backend → frontend | 10/30 v0.1 · 11/13 v1 |
 | C3 | card_revision(수정 제안·승인) | 검수 화면 ↔ 되쓰기 | W3 |
+
+공통 HTTP 오류 응답: [v0.1 초안](http-errors/) — C2 통합 전 frontend 리뷰 필요.

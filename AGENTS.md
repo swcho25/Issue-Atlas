@@ -22,9 +22,9 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 | `pnpm install` | 의존성 + git 훅 연결 |
 | `pnpm infra:up` / `infra:down` | 로컬 PostGIS |
 | `pnpm frontend:dev` · `frontend:lint` · `frontend:typecheck` · `frontend:test` · `frontend:e2e` · `frontend:build` | 프론트 (`e2e` 는 빌드 + Playwright) |
-| `pnpm backend:dev` · `backend:test` · `backend:build` | 백엔드 (`test` 는 Docker 필요) |
+| `pnpm backend:dev` · `backend:format:check` · `backend:format` · `backend:test` · `backend:build` | 백엔드 (`test` 는 Docker 필요) |
 | `pnpm engine:lint` · `engine:test` | engine (uv 필요) |
-| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck·test / backend: test / engine: lint·test / scripts·.githooks: 하네스 자체 검사). push 전 훅도 이것을 돌린다 |
+| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck·test / backend: 포맷·test / engine: lint·test / scripts·.githooks: 하네스 자체 검사). push 전 훅도 이것을 돌린다 |
 | `pnpm check:all` | 전체 lint · typecheck · test · build · e2e (MR 전) |
 
 ## 작업 흐름
