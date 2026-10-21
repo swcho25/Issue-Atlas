@@ -11,6 +11,11 @@ Spring Boot 4.1 · Java 21 · Gradle 9 · Spring Data JPA · Flyway · PostgreSQ
 - API 는 PRD 8장 API 5종 + 보조 API. 응답 구조는 `contracts/`(계약 C2)와 같아야 한다
 - Swagger UI: `/swagger-ui.html`
 
+## 오류 응답
+- common/exception/ApiExceptionHandler가 MVC 오류를 ProblemDetail(application/problem+json)로 변환한다
+- @Valid 요청 DTO를 사용하고 없는 리소스는 ResourceNotFoundException으로 처리한다. 내부 예외 메시지는 응답에 노출하지 않는다
+- 계약과 코드 표: [공통 HTTP 오류 v0.1](../contracts/http-errors/README.md). 성공 응답은 C2 협의 후 정한다
+
 ## DB
 - 스키마는 Flyway 마이그레이션(`src/main/resources/db/migration`)으로만 바꾼다. `ddl-auto` 는 `validate`
 - 파일 이름 `V<4자리 번호>__<설명>.sql`. 이미 병합된 마이그레이션은 고치지 않고 새 번호로 추가한다
