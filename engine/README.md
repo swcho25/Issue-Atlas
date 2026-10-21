@@ -1,14 +1,16 @@
-# engine/ — Python 서비스 자리 (비워 둠)
+# engine/ — Python 서비스
 
-수집·정제·지역·시간 매핑(pipeline)과 카드 분류·LLM 판정(ai)이 들어올 자리다.
-아직 구성을 정하지 않았다. 첫 코드가 들어올 때 다음을 함께 한다.
+수집·정제·지역·시간 매핑(pipeline)과 카드 분류·LLM 판정(ai)이 들어온다.
+Python 3.13 · uv · ruff · pytest. 규칙은 `AGENTS.md`.
 
-- 하위 폴더와 담당을 이 표에 적는다
-- `AGENTS.md` 의 `(미정)` 칸을 채운다 (에이전트 규칙)
-- `AGENTS.md` 의 `(미정)` 칸을 채운다 (에이전트 규칙)
-- 루트 `package.json` 에 `engine:*` 스크립트를 추가한다
-- 필요하면 `docker-compose.yml` 에 서비스를 추가한다
+```bash
+uv --directory engine sync   # 처음 한 번 (.venv 생성)
+pnpm engine:lint             # 루트에서
+pnpm engine:test
+```
+
+새 폴더를 만들면 아래 표에 담당과 함께 적는다.
 
 | 폴더 | 담당 | 성격 |
 | --- | --- | --- |
-| (미정) | | |
+| `pipeline/refine/` | 박준우 | P2 정제 — 검증·정규화·저장 범위 게이트·중복 |

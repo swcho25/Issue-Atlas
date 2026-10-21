@@ -1,0 +1,24 @@
+[project]
+name = "issue-atlas-engine"
+version = "0.1.0"
+description = "Issue Atlas 수집·정제·지역·시간 매핑(pipeline)과 카드 분류·LLM 판정(ai)"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]

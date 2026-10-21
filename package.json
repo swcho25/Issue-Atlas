@@ -19,6 +19,8 @@
     "backend:dev": "node scripts/gradle.mjs bootRun",
     "backend:test": "node scripts/gradle.mjs test",
     "backend:build": "node scripts/gradle.mjs build",
+    "engine:lint": "uv --directory engine run --locked ruff check . && uv --directory engine run --locked ruff format --check .",
+    "engine:test": "uv --directory engine run --locked pytest",
     "check": "node scripts/check.mjs",
     "check:all": "node scripts/check.mjs --all",
     "lint": "pnpm frontend:lint",

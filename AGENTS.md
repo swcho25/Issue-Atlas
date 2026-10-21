@@ -10,7 +10,7 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 | --- | --- | --- |
 | `frontend/` | Next.js 16 · TypeScript · Tailwind 4 · FSD | `frontend/AGENTS.md` |
 | `backend/` | Spring Boot 4.1 · Java 21 · Gradle · Flyway · PostGIS | `backend/AGENTS.md` |
-| `engine/` | Python 서비스 자리 (빈 틀) | `engine/AGENTS.md` |
+| `engine/` | Python 3.13 · uv · ruff · pytest | `engine/AGENTS.md` |
 | `contracts/` | 레인 간 계약 C1 · C2 · C3 (바꾸면 받는 쪽 리뷰 필수) | `contracts/README.md` |
 | `.agents/skills/` | 스킬 원본 start · check · test · finish · review · handoff (`.claude/skills/` 는 연결 파일) | 각 `SKILL.md` |
 | `docs/plans/` | 작업별 실행 계획 (`active/` 진행 중, `done/` 끝남) | `docs/plans/TEMPLATE.md` |
@@ -23,7 +23,8 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 | `pnpm infra:up` / `infra:down` | 로컬 PostGIS |
 | `pnpm frontend:dev` · `frontend:lint` · `frontend:typecheck` · `frontend:test` · `frontend:e2e` · `frontend:build` | 프론트 (`e2e` 는 빌드 + Playwright) |
 | `pnpm backend:dev` · `backend:test` · `backend:build` | 백엔드 (`test` 는 Docker 필요) |
-| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck·test / backend: test / scripts·.githooks: 하네스 자체 검사). push 전 훅도 이것을 돌린다 |
+| `pnpm engine:lint` · `engine:test` | engine (uv 필요) |
+| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck·test / backend: test / engine: lint·test / scripts·.githooks: 하네스 자체 검사). push 전 훅도 이것을 돌린다 |
 | `pnpm check:all` | 전체 lint · typecheck · test · build · e2e (MR 전) |
 
 ## 작업 흐름
