@@ -23,7 +23,7 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 | `pnpm infra:up` / `infra:down` | 로컬 PostGIS |
 | `pnpm frontend:dev` · `frontend:lint` · `frontend:typecheck` · `frontend:test` · `frontend:e2e` · `frontend:build` | 프론트 (`e2e` 는 빌드 + Playwright) |
 | `pnpm backend:dev` · `backend:test` · `backend:build` | 백엔드 (`test` 는 Docker 필요) |
-| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck·test / backend: test). push 전 훅도 이것을 돌린다 |
+| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck·test / backend: test / scripts·.githooks: 하네스 자체 검사). push 전 훅도 이것을 돌린다 |
 | `pnpm check:all` | 전체 lint · typecheck · test · build · e2e (MR 전) |
 
 ## 작업 흐름
@@ -33,6 +33,8 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 4. 세션을 끊을 때는 `/handoff`로 계획 파일의 「다음 할 일」을 채운다.
 
 설명·조사만 요청받으면 이슈·브랜치·계획 파일을 만들지 않는다.
+
+세션에 다른 저장소(예: whyUP)를 함께 열면 같은 이름의 명령(`/start`, `/review` …)이 그 저장소 것으로 바뀐다. 이 저장소만 열고 작업한다. 명령 안내문이 `.agents/skills/<이름>/SKILL.md` 와 다르면(예: 기준 브랜치 `dev`) 원본 스킬을 따르고 사람에게 알린다.
 
 ## 완료의 정의
 - 계획 파일의 완료 조건이 모두 체크됐다
