@@ -86,6 +86,7 @@ whyUP의 작업 유형 스킬(db-migration, api-contract-sync 등)은 같은 실
 | commit-msg 훅 | 커밋 | 제목 형식, 실패 시 예시 출력 | 있음 |
 | pre-commit 훅 | 커밋 | 비밀 파일 차단 | 있음 |
 | pre-push 훅 | push | `pnpm check` | 있음 |
+| 하네스 자체 검사 | `scripts/`·`.githooks/` 변경 시 `pnpm check` | scripts 문법, git 훅 셸 문법, Claude 훅이 어떤 입력에도 exit 0 (`scripts/check-harness.mjs`) | 있음 (2026-10-21, S15P31C108-67) |
 | GitLab CI | MR | `pnpm check:all` | 설정만 있음 (`.gitlab/ci/check.gitlab-ci.yml`, Runner 준비 후 include) |
 
 모든 센서의 실패 메시지는 **무엇이 틀렸는지 + 고치는 명령**을 함께 출력한다.

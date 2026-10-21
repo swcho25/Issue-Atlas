@@ -61,6 +61,7 @@ function areasOf(files) {
     else if (f.startsWith("backend/") || f === "docker-compose.yml") areas.add("backend");
     else if (f.startsWith("contracts/")) areas.add("contracts");
     else if (f.startsWith("engine/")) areas.add("engine");
+    else if (f.startsWith("scripts/") || f.startsWith(".githooks/")) areas.add("harness");
   }
   return areas;
 }
@@ -71,6 +72,10 @@ const dockerHint = [
 ];
 
 const steps = {
+  harness: {
+    cmd: () => [process.execPath, [join(root, "scripts", "check-harness.mjs")]],
+    fix: ["위 [harness] 줄의 파일을 고친 뒤      node scripts/check-harness.mjs"],
+  },
   "frontend lint": {
     cmd: () => pnpmCommand(["--filter", "frontend", "lint"]),
     fix: [
@@ -113,10 +118,11 @@ const steps = {
 };
 
 function plan() {
-  if (all) return { label: "전체", names: ["frontend lint", "frontend typecheck", "frontend test", "frontend e2e", "backend build"] };
+  if (all) return { label: "전체", names: ["harness", "frontend lint", "frontend typecheck", "frontend test", "frontend e2e", "backend build"] };
   const { base, files } = changedFiles();
   const areas = areasOf(files);
   const names = [];
+  if (areas.has("harness")) names.push("harness");
   if (areas.has("frontend")) names.push("frontend lint", "frontend typecheck", "frontend test");
   if (areas.has("backend")) names.push("backend test");
   const notes = [];

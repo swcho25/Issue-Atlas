@@ -15,8 +15,9 @@ project = S15P31C108 AND statusCategory != Done AND summary ~ "<핵심 단어>" 
 ## 에픽
 
 ```
-project = S15P31C108 AND issuetype = 에픽 AND statusCategory != Done
+project = S15P31C108 AND issuetype = Epic AND statusCategory != Done
 ```
+- JQL 의 이슈 유형은 **영문 이름**(`Epic`, `Story`)으로 쓴다. 한국어 이름(`에픽`)은 오류 없이 0건을 돌려준다 (2026-10-21 확인)
 - 에픽 요약이 `[P1]`~`[P8]`(데이터·로직), `[S1]`~`[S4]`(화면), `[공통]` 으로 시작한다. 인원 분배 v2 의 묶음과 같다.
 - 하네스·빌드·인프라 작업은 `[공통] 개발 환경·하네스`.
 - 맞는 에픽이 없으면 비워 두고 확인 메시지에 「에픽 없음」이라고 쓴다.
