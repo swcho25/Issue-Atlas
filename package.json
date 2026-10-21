@@ -1,0 +1,25 @@
+{
+  "name": "issue-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "frontend:dev": "pnpm --filter frontend dev",
+    "frontend:build": "pnpm --filter frontend build",
+    "frontend:lint": "pnpm --filter frontend lint",
+    "frontend:typecheck": "pnpm --filter frontend typecheck",
+    "backend:dev": "node scripts/gradle.mjs bootRun",
+    "backend:test": "node scripts/gradle.mjs test",
+    "backend:build": "node scripts/gradle.mjs build",
+    "check": "node scripts/check.mjs",
+    "check:all": "node scripts/check.mjs --all",
+    "lint": "pnpm frontend:lint",
+    "build": "pnpm frontend:build && pnpm backend:build"
+  }
+}

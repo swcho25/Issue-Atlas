@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# push 전에 바뀐 영역만 검사한다 (scripts/check.mjs).
+set -eu
+
+if ! node scripts/check.mjs; then
+  cat >&2 <<MSG
+
+[FAIL] pre-push 검사 실패. 위 [FAIL] 안내대로 고친 뒤 다시 push 하세요.
+  다시 검사   pnpm check
+MSG
+  exit 1
+fi

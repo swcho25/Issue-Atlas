@@ -1,0 +1,12 @@
+# pnpm 워크스페이스. Node 패키지만 여기에 올린다.
+# backend(Gradle)와 engine(Python)은 워크스페이스 밖이며 루트 package.json 스크립트로 부른다.
+packages:
+  - frontend
+
+# 설치 스크립트를 실행할 의존성을 명시적으로 고른다(나머지는 막힘).
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+
+minimumReleaseAgeExclude:
+  - steiger@0.8.0

@@ -1,0 +1,40 @@
+# Node
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+
+# Gradle
+backend/.gradle/
+backend/build/
+
+# Python (engine)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 환경 변수
+.env
+.env.*
+!.env.example
+
+# 키·인증서
+*.pem
+*.key
+*.p12
+*.jks
+
+# IDE · OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# 로그
+*.log

@@ -1,0 +1,4 @@
+# start · finish 스킬이 Jira 이슈 생성·전이에 쓴다. 인증은 각자 클라이언트에서 한 번 한다.
+# Claude 쪽 선언은 루트 .mcp.json — 두 파일이 같은 URL 을 가리켜야 한다.
+[mcp_servers.atlassian]
+url = "https://mcp.atlassian.com/v1/mcp/authv2"

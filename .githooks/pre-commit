@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# 비밀 파일(.env, 키·인증서)이 스테이지되면 커밋을 막는다.
+set -eu
+
+blocked="$(git diff --cached --name-only | grep -E '(^|/)(\.env($|\.)|.*\.(pem|key|p12|jks)$)' | grep -vE '\.env\.example$' || true)"
+if [ -n "$blocked" ]; then
+  cat >&2 <<MSG
+[FAIL] 비밀 파일은 커밋할 수 없습니다:
+$blocked
+
+  스테이지에서 제외   git restore --staged <파일>
+  필요한 값 공유      .env.example 에 이름과 설명만 추가 (실제 값은 각자 .env 에)
+MSG
+  exit 1
+fi
