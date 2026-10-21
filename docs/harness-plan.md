@@ -81,11 +81,11 @@ whyUP의 작업 유형 스킬(db-migration, api-contract-sync 등)은 같은 실
 | `pnpm check` | 에이전트·사람이 수시로 | 변경 파일로 영역 판별 → frontend(eslint + steiger + tsc) / backend(gradle test) / contracts | 있음 |
 | `pnpm check:all` | MR 전 | 전체 lint · typecheck · test · build | 있음 |
 | steiger (FSD) | check에 포함 | 레이어 방향 · public API 위반 | 있음 |
-| ArchUnit (backend) | backend test에 포함 | 패키지 의존 방향 | 백엔드 구조 정해지면 |
+| ArchUnit (backend) | backend test에 포함 | 패키지 의존 방향 | 있음 (기본 규칙 4개, 계층 규칙은 구조 정해지면) |
 | commit-msg 훅 | 커밋 | 제목 형식, 실패 시 예시 출력 | 있음 |
 | pre-commit 훅 | 커밋 | 비밀 파일 차단 | 있음 |
 | pre-push 훅 | push | `pnpm check` | 있음 |
-| GitLab CI | MR | `pnpm check:all` | 서버 준비 후 |
+| GitLab CI | MR | `pnpm check:all` | 설정만 있음 (`.gitlab/ci/check.gitlab-ci.yml`, Runner 준비 후 include) |
 
 모든 센서의 실패 메시지는 **무엇이 틀렸는지 + 고치는 명령**을 함께 출력한다.
 
@@ -95,8 +95,8 @@ whyUP의 작업 유형 스킬(db-migration, api-contract-sync 등)은 같은 실
 | --- | --- | --- |
 | `.env` · 키 파일 읽기·수정 금지 | `permissions.deny` | 정규식 가드 대신 권한으로. 오탐 없음 |
 | `git push --force`, `main` 직접 push | `permissions.deny` + GitLab 보호 브랜치 | 서버에서도 막힘 |
-| 편집 후 포맷 | `PostToolUse`(Edit\|Write) → 바뀐 파일 하나만 포맷, 수 초 안 | 빠르고 결정적 |
-| 압축(compaction) 후 맥락 복구 | `SessionStart`(compact) → 현재 브랜치의 실행 계획 파일 경로 출력 | 긴 세션에서 목표를 잃지 않게 |
+| 편집 후 포맷 | `PostToolUse`(Edit\|Write) → 바뀐 파일 하나만 포맷, 수 초 안 | 빠르고 결정적 · 적용 (frontend 파일만, Prettier) |
+| 압축(compaction) 후 맥락 복구 | `SessionStart`(compact) → 현재 브랜치의 실행 계획 파일 경로 출력 | 긴 세션에서 목표를 잃지 않게 · 적용 |
 | 매 턴 검사(Stop 훅) | **두지 않는다** | whyUP의 180초 대기 재발 방지. `/check`로 명시 실행 |
 | 작업 기록 없는 편집 차단 | **두지 않는다** | 실행 계획은 `start`가 만들고, 없으면 `finish`가 경고만 |
 
@@ -107,7 +107,7 @@ whyUP의 작업 유형 스킬(db-migration, api-contract-sync 등)은 같은 실
 | 1 | W1 (이번 주) · 적용 | `CLAUDE.md` → `@AGENTS.md`, 루트 AGENTS.md를 지도형으로 재작성, frontend/backend AGENTS.md, 실행 계획 템플릿, `.claude/settings.json` 권한 | Claude·Codex 새 세션에서 규칙 질문에 맞게 답함 |
 | 2 | W1~W2 · 적용 | `pnpm check`(변경 영역 판별) · `check:all` · pre-push 훅, 에러 메시지에 해결 명령 | 프론트만 바꾸면 백엔드 테스트가 안 돎, 60초 안 |
 | 3 | W2 · 적용(시범 실행 전) | 스킬 5개(start · check · finish · review · handoff), Claude 연결 파일 | 한 기능을 start → finish까지 실제로 한 번 돌려 봄 |
-| 4 | W3~ | 포맷 훅, compaction 훅, ArchUnit, CI | 팀원 1명 이상이 실사용 |
+| 4 | W3~ · 적용(CI 는 Runner 대기) | 포맷 훅, compaction 훅, ArchUnit, CI | 팀원 1명 이상이 실사용 |
 | 계속 | 매주 금요일 15분 | **하네스 회고**: 이번 주 에이전트가 두 번 틀린 것 → AGENTS.md 한 줄 또는 센서 하나로. 안 쓰인 규칙·스킬은 삭제 | AGENTS.md 줄 수가 늘기만 하지 않음 |
 
 ## 5. 하네스가 잘 도는지 보는 지표
