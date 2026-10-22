@@ -9,6 +9,7 @@ Spring Boot 4.1 · Java 21 · Gradle 9 · Spring Data JPA · Flyway · PostgreSQ
 - 생성자 주입을 사용한다. 요청·응답 DTO는 기본 record, Entity는 API 응답으로 직접 반환하지 않는다
 - 트랜잭션은 Service의 업무 단위에 둔다. 조회는 readOnly=true, 변경은 쓰기 트랜잭션으로 구분한다
 - API 는 PRD 8장 API 5종 + 보조 API. 응답 구조는 `contracts/`(계약 C2)와 같아야 한다
+- 인증은 Spring Security 서버 세션(auth/config/SecurityConfig). 관리자 전용 API는 `/v1/admin/**` 아래에 두고, 권한 판정은 필터 체인 한 곳에서만 한다(컨트롤러에 역할 검사를 따로 넣지 않는다)
 - Swagger UI: `/swagger-ui.html`
 
 ## 오류 응답
