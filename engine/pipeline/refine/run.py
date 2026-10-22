@@ -1,5 +1,6 @@
 """레코드 1건을 정제 단계에 차례로 통과시킨다."""
 
+from .normalize import clean_number
 from .storage import apply_storage_scope
 from .url import mask_secrets
 from .validate import validate
@@ -15,6 +16,8 @@ def refine_record(record: dict) -> dict:
     # held 레코드도 저장되므로 저장 범위는 늘 적용한다. 출력은 입력과 객체를 나누지 않는다
     out, scope_issues = apply_storage_scope(record)
     issues += scope_issues
+    if "value" in out:
+        out["value"] = clean_number(out["value"])
     out.update(
         validation_status=_status(issues),
         issues=issues,
