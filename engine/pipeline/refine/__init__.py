@@ -4,6 +4,6 @@
 같은 입력이면 같은 출력이 나와야 한다 (rule_version 으로 규칙 판을 남긴다).
 """
 
-from .run import RULE_VERSION, refine_record
+from .run import RULE_VERSION, refine_record, refine_records
 
-__all__ = ["RULE_VERSION", "refine_record"]
+__all__ = ["RULE_VERSION", "refine_record", "refine_records"]

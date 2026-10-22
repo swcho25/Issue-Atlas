@@ -38,6 +38,7 @@
 **합치기**
 - 2026-10-22: 뼈대 MR !13 이 develop 에 머지됨(f90240f, 박준우). 값 모양 검사와 저장 범위를 MR 하나 · Jira 하나(S15P31C108-74)로 합치기로 함(박준우). -76 은 "-74 로 합침" 댓글 뒤 완료 처리
 - 2026-10-22: 이 브랜치에 origin/develop 을 merge(a175df9, 충돌 없음). 뼈대 MR 뒤에 만든 계획 파일 정리 커밋(484dc62)이 develop 에 못 들어가서 이 브랜치로 옮김(64834d2). 원격 `feat/p2-refine-skeleton`(그 커밋만 담겨 다시 생겼던 것) · `feat/p2-refine-value-checks`(이 브랜치에 다 들어 있음) 삭제. 계획 파일 두 개를 이 파일 하나로 합침
+- 2026-10-22: finish — `pnpm check:all` 은 개발 PC 환경 때문에 끝까지 못 돎(backend format·build: Java 없음 · Docker 꺼짐, frontend e2e: Playwright chromium 미설치). 이 브랜치는 backend/·frontend/ 를 바꾸지 않음. 나머지는 하나씩 돌려 PASS — harness · frontend lint·typecheck·test · engine lint·test(pytest 91건)
 
 ## 다음 할 일 / 범위 밖
 - MR !11 리뷰 반영 확인: 성우님이 `content_hash` 를 null 불가 · pattern 으로 바꾸면 계약 예시에 진짜 해시가 들어오고, "해시 null → held" 테스트를 다른 방법(해시 지우기)으로 바꿔야 함
