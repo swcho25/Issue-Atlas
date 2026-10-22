@@ -20,6 +20,7 @@ Spring Boot 4.1 · Java 21 · Gradle 9 · Spring Data JPA · Flyway · PostgreSQ
 - 스키마는 Flyway 마이그레이션(`src/main/resources/db/migration`)으로만 바꾼다. `ddl-auto` 는 `validate`
 - 파일 이름 `V<4자리 번호>__<설명>.sql`. 이미 병합된 마이그레이션은 고치지 않고 새 번호로 추가한다
 - 시각은 UTC 로 저장한다(`TIMESTAMPTZ`). 좌표는 WGS84
+- 수집·지역 테이블 V0002 계약: [DB 기반 v0.1](../contracts/database/README.md). 새 FK·CHECK 변경 시 실제 PostGIS 통합 테스트를 함께 갱신한다
 
 ## 테스트
 - 통합 테스트는 Testcontainers 로 실제 PostGIS(`postgis/postgis:17-3.5-alpine`)에서 돈다. H2 로 대체하지 않는다
