@@ -22,3 +22,6 @@ AIRKOREA = [
 STATION = [load("airkorea-station")]
 P1_SAMPLES = KOSIS + AIRKOREA + STATION
 SAMPLE_IDS = [r["dedup_key"] for r in P1_SAMPLES]
+# 이용허락이 정해진 관측값 레코드 (측정소정보는 license_type 이 아직 TBD)
+OBSERVATIONS = KOSIS + AIRKOREA
+OBSERVATION_IDS = [r["dedup_key"] for r in OBSERVATIONS]

@@ -75,7 +75,8 @@ def issue(code, field):
                 "content_hash": HASH,
                 "geometry": {"type": "Point", "coordinates": [0, 0]},
             },
-            [issue("INVALID_VALUE", "geometry")],
+            # 측정소정보는 이용허락이 아직 TBD 라 저장 범위 게이트도 보류 사유를 붙인다
+            [issue("INVALID_VALUE", "geometry"), issue("LICENSE_UNKNOWN", "license_type")],
             id="좌표가 한국 범위 밖",
         ),
         pytest.param(
