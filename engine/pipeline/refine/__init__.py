@@ -1,0 +1,9 @@
+"""P2 정제: 검증 → 정규화 → 저장 범위 게이트 → 중복.
+
+입력은 P1 이 넘기는 C1 레코드, 출력은 같은 레코드에 정제 칸을 더한 것이다.
+같은 입력이면 같은 출력이 나와야 한다 (rule_version 으로 규칙 판을 남긴다).
+"""
+
+from .run import RULE_VERSION, refine_record
+
+__all__ = ["RULE_VERSION", "refine_record"]
