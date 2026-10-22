@@ -193,6 +193,28 @@ class AuthIntegrationTest {
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
+    @Test
+    void 로그인해도_허용하지_않은_경로는_403() throws Exception {
+        MockHttpSession admin = login(ADMIN, ADMIN_PASSWORD);
+
+        for (String path : new String[] {"/unlisted-path", "/error"}) {
+            mvc.perform(get(path).session(admin))
+                    .andExpect(status().isForbidden())
+                    .andExpect(
+                            content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+        }
+    }
+
+    @Test
+    void 로그인한_사용자의_API_없는_경로는_404() throws Exception {
+        MockHttpSession admin = login(ADMIN, ADMIN_PASSWORD);
+
+        mvc.perform(get("/v1/unlisted-path").session(admin))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
     private MockHttpSession login(String email, String password) throws Exception {
         return (MockHttpSession)
                 mvc.perform(

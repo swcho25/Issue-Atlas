@@ -1,6 +1,6 @@
 # feat/auth-session — 로그인·역할 2개 추가
 
-- Jira: S15P31C108-XX (사용자가 생성 예정) · PRD: FR-I6 · 묶음/단위: P7-15
+- Jira: [S15P31C108-78](https://ssafy.atlassian.net/browse/S15P31C108-78) · PRD: FR-I6 · 묶음/단위: P7-15
 
 ## 완료 조건
 
@@ -23,12 +23,13 @@
 - 2026-10-22: `contracts/http-errors/README.md` v0.2(401·403 추가, 보안 필터 오류도 같은 모양), `backend/AGENTS.md` 구조에 인증·관리자 경로 규칙 한 줄, `.env.example` 에 `ADMIN_EMAIL`·`ADMIN_PASSWORD`·`SESSION_COOKIE_SECURE`.
 - 2026-10-22: finish — `pnpm check:all`: harness·backend format·frontend lint·typecheck·test PASS, frontend e2e FAIL(환경). 처음엔 3100 포트를 다른 프로젝트 컨테이너(booktown-v2 loki)가 써서 서버가 못 떴고, `E2E_PORT=3110` 으로 다시 돌리자 Playwright Chromium 이 이 PC 에 설치돼 있지 않아 테스트가 시작되지 않음. 이 MR 은 frontend 를 바꾸지 않음. e2e 실패로 check:all 이 멈춰 `pnpm backend:build` 를 따로 실행 → 통과.
 
+- 2026-10-22: 사용자 승인으로 후속 정리·push·MR 진행. 기존 Jira S15P31C108-78 연결, 지시서의 기본 접근 거부 정책을 복구(anyRequest denyAll). 직접 /error 접근도 거부하고 ERROR 디스패치만 허용. 실제 필터 체인으로 관리자도 목록 밖 경로는 403, /v1 안의 없는 경로는 404임을 회귀 테스트 2개로 확인. SecurityConfig는 순환 의존 방지를 위해 auth/config 배치 유지.
+- 2026-10-22: Playwright Chromium 설치 명령 종료 0. 빈 포트 E2E_PORT=54451로 pnpm check:all 종료 0: harness 1.1s, backend format 1.4s, frontend lint 5.0s, typecheck 2.5s, test 3.0s(9개), e2e 15.6s(1개·프로덕션 빌드 포함), backend build 35.6s(구조 6·인증 12·기존 통합 1·오류 10=29개, 실패 0), engine lint 0.8s, engine test 3.0s(91개). git diff --check 통과. develop 3b55cc7까지 반영되어 있으나 V0002·V0003 선행 작업은 아직 미병합이므로 이번 V0004 MR은 병합 보류.
+
 ## 다음 할 일 / 범위 밖
 
-- 이 PC 에 Playwright Chromium 설치 후 `E2E_PORT=3110 pnpm check:all` 재확인 (`pnpm --filter frontend exec playwright install chromium`)
-- Jira 이슈 키를 머리와 MR 제목에 채우기
 
-- 커밋·push·MR 은 사람이 확인 후. MR 리뷰어: 조석원(P7-15 공동), 화면팀(정호성·정우현 — http-errors v0.2, CSRF·쿠키 사용법)
+- 사용자 승인으로 후속 보정 커밋·push·MR 생성. MR 리뷰어: 조석원(P7-15 공동), 화면팀(정호성·정우현 — http-errors v0.2, CSRF·쿠키 사용법). 리뷰·병합 전 Jira 진행 중 유지.
 - **머지 순서**: core-schema(V0002~) 먼저, 이 MR(V0004) 다음
 
 - 재시작 후 로그인 유지가 필요하면 Spring Session JDBC (세션 테이블은 Flyway 로)

@@ -1,5 +1,6 @@
 package com.c108.issueatlas.auth.config;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -43,7 +44,9 @@ public class SecurityConfig {
                         context -> context.securityContextRepository(securityContextRepository))
                 .authorizeHttpRequests(
                         auth ->
-                                auth.requestMatchers(HttpMethod.GET, "/v1/auth/csrf")
+                                auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/v1/auth/csrf")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/v1/auth/login")
                                         .permitAll()
@@ -56,11 +59,10 @@ public class SecurityConfig {
                                                 "/swagger-ui.html",
                                                 "/swagger-ui/**",
                                                 "/v3/api-docs/**",
-                                                "/actuator/health",
-                                                "/error")
+                                                "/actuator/health")
                                         .permitAll()
                                         .anyRequest()
-                                        .authenticated())
+                                        .denyAll())
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(
