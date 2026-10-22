@@ -1,17 +1,24 @@
-"""P1 C1 실데이터 샘플 (출처는 fixtures/p1/README.md). 고치기 전에 deepcopy 한다."""
+"""C1 계약 예시 레코드 (contracts/c1/examples, 장성우 · P1 실제 수집 값). 고치기 전에 deepcopy 한다."""
 
 import json
 from pathlib import Path
 
-FIXTURES = Path(__file__).parent / "fixtures" / "p1"
+EXAMPLES = Path(__file__).resolve().parents[2] / "contracts" / "c1" / "examples"
 HASH = "sha256:" + "0" * 64
 
 
 def load(name):
-    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+    return json.loads((EXAMPLES / f"{name}.json").read_text(encoding="utf-8"))
 
 
-KOSIS = load("kosis_net_migration.json")
-AIRKOREA = load("airkorea_final_pm25.json")
-P1_SAMPLES = KOSIS + AIRKOREA
+KOSIS = [load("kosis-net-migration")]
+# 서강동 PM2.5: 01시 정상 25 · 02시 빈칸 · 24시 표기(다음 날 00시)
+AIRKOREA = [
+    load("airkorea-measure"),
+    load("airkorea-measure-missing"),
+    load("airkorea-measure-hour24"),
+]
+# 측정소 좌표 메타 레코드 (indicator_id·value 없음)
+STATION = [load("airkorea-station")]
+P1_SAMPLES = KOSIS + AIRKOREA + STATION
 SAMPLE_IDS = [r["dedup_key"] for r in P1_SAMPLES]
