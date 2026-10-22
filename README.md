@@ -9,7 +9,7 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스)
 | --- | --- |
 | Frontend | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · FSD · MapLibre GL JS(예정) |
 | Backend | Java 21 · Spring Boot 4.1 · Spring Data JPA · Flyway · springdoc-openapi |
-| Engine | Python (예정) |
+| Engine | Python 3.13 · FastAPI · uv · ruff · pytest |
 | Data | PostgreSQL 17 + PostGIS 3.5 |
 | Tooling | pnpm 워크스페이스 · Gradle · Docker Compose |
 
@@ -18,7 +18,7 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스)
 S15P31C108/
 ├── frontend/      Next.js · FSD (src/app · pages · widgets · features · entities · shared)
 ├── backend/       Spring Boot
-├── engine/        Python 서비스 자리 (비어 있음)
+├── engine/        Python 서비스 (pipeline: 정제 배치 CLI · api: FastAPI HTTP 입구)
 ├── contracts/     레인 간 계약 C1 · C2 · C3
 ├── docs/          계획서 · 발표 자료 · 와이어프레임
 ├── scripts/       개발 편의 스크립트 (gradle.mjs: OS별 gradlew 실행)
