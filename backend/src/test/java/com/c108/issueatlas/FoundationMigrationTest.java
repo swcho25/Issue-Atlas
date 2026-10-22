@@ -48,12 +48,13 @@ class FoundationMigrationTest {
 
     @Test
     void emptyDatabaseMigratesAndSecondMigrationIsNoOp() {
-        assertThat(
-                        flyway.info()
-                                .current()
-                                .getVersion()
-                                .compareTo(MigrationVersion.fromVersion("2")))
-                .isZero();
+        // V0002 가 적용됐는지만 본다. 「가장 최근 버전 = 2」로 검사하면 뒤에 마이그레이션이 붙는 순간 깨진다
+        assertThat(flyway.info().applied())
+                .anySatisfy(
+                        migration ->
+                                assertThat(migration.getVersion())
+                                        .isEqualTo(MigrationVersion.fromVersion("2")));
+        assertThat(flyway.info().pending()).isEmpty();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(
                         jdbc.queryForObject(

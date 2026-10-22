@@ -25,6 +25,7 @@
 
 - 2026-10-22: 사용자 승인으로 후속 정리·push·MR 진행. 기존 Jira S15P31C108-78 연결, 지시서의 기본 접근 거부 정책을 복구(anyRequest denyAll). 직접 /error 접근도 거부하고 ERROR 디스패치만 허용. 실제 필터 체인으로 관리자도 목록 밖 경로는 403, /v1 안의 없는 경로는 404임을 회귀 테스트 2개로 확인. SecurityConfig는 순환 의존 방지를 위해 auth/config 배치 유지.
 - 2026-10-22: Playwright Chromium 설치 명령 종료 0. 빈 포트 E2E_PORT=54451로 pnpm check:all 종료 0: harness 1.1s, backend format 1.4s, frontend lint 5.0s, typecheck 2.5s, test 3.0s(9개), e2e 15.6s(1개·프로덕션 빌드 포함), backend build 35.6s(구조 6·인증 12·기존 통합 1·오류 10=29개, 실패 0), engine lint 0.8s, engine test 3.0s(91개). git diff --check 통과. develop 3b55cc7까지 반영되어 있으나 V0002·V0003 선행 작업은 아직 미병합이므로 이번 V0004 MR은 병합 보류.
+- 2026-10-22: core-flyway MR !18 머지(1f0dc96) 후 develop 반영(ab32459). `contracts/README.md` 충돌은 이 브랜치의 http-errors v0.2 줄과 develop 의 DB 기반 줄을 둘 다 남겨 해결. V0001→V0002→V0004 를 같이 돌리자 `FoundationMigrationTest` 1건 실패: 「현재 버전 = 2」를 검사해 V0004 가 붙으면 깨지는 테스트였음. 「V0002 가 적용됐고 대기 중인 마이그레이션이 없으며 재실행 0건」으로 바꿔 의도는 그대로 둠. `pnpm backend:build` 통과 — 구조 6·부팅 1·기반 마이그레이션 11·인증 12·오류 10 = 40개, 실패 0. engine lint 통과·test 91개. e2e 는 이 셸 환경에서 Chromium 을 찾지 못해 미실행(frontend 변경 없음).
 
 ## 다음 할 일 / 범위 밖
 
