@@ -4,9 +4,9 @@
 
 ## 완료 조건
 <!-- 검증 가능한 문장으로. 이 목록이 끝나면 작업이 끝난다. -->
-- [ ] 관측값 레코드에 `obs_key` 가 붙는다. 원천 위치(source_id · spec_id · locator)가 같으면 수정일이 달라도 같은 값
-- [ ] 같은 `obs_key` 중 보류가 아니고 published_at(없으면 collected_at)이 가장 늦은 레코드 하나만 `is_latest = true`. 이전 판은 지우지 않는다
-- [ ] 같은 dedup_key · 같은 내용이 다시 들어오면 한 번만 내보내고, 내용이 다르면 둘 다 held + `DEDUP_KEY_CONFLICT`
+- [x] 관측값 레코드에 `obs_key` 가 붙는다. 원천 위치(source_id · spec_id · locator)가 같으면 수정일이 달라도 같은 값
+- [x] 같은 `obs_key` 중 보류가 아니고 published_at(없으면 collected_at)이 가장 늦은 레코드 하나만 `is_latest = true`. 이전 판은 지우지 않는다
+- [x] 같은 dedup_key · 같은 내용이 다시 들어오면 한 번만 내보내고, 내용이 다르면 둘 다 held + `DEDUP_KEY_CONFLICT`
 - [x] 소수점 표현 오차(예: 0.0033000000000000004)를 유효숫자 15자리로 정리한다. 정수 · 보통 값은 그대로
 - [ ] P2 출력 스키마(`contracts/p2/refined-record.schema.json`)가 있고, 계약 예시를 정제한 결과가 모두 통과한다
 
@@ -16,6 +16,7 @@
 - 2026-10-22: 박준우 지시 "가능한 것만" — 숫자(관측값) 쪽만. 문서(뉴스·보도자료)·전재 묶기는 C1 에 문서 칸이 없어 범위 밖
 - 2026-10-22: `obs_key` 는 dedup_key 문자열을 쪼개지 않고 (source_id, spec_id, locator) 로 만든다. C1 v0.1 예시의 locator 에는 수정일이 없어서, 같은 원천 칸이면 판이 바뀌어도 같은 키가 된다
 - 2026-10-22: 소수점 정리(`normalize.py`) — 처음 정한 "유효숫자 12자리"는 13자리 이상인 진짜 값(예: 1234567890123.5)을 깎아서 15자리(double 이 보장하는 자리)로 바꿈. 정수는 건드리지 않음(25 → 25.0 이면 JSON 바이트가 바뀜), value 칸이 없으면 만들지 않음. 표현 오차만 지우는 것이라 사유·fixed 를 붙이지 않음. 변형 3가지(17자리 · 4자리 · 정수도 float) 모두 테스트가 잡음
+- 2026-10-22: 중복(`dedup.py`) + `refine_records`(묶음 단위, CLI 도 이걸 씀). obs_key = `obs:` + sha256(source_id·spec_id·locator 정렬 JSON). 최신본은 보류가 아닌 판 중 (published_at 없으면 collected_at, collected_at, dedup_key) 가 가장 큰 것 — 입력 순서와 상관없음. 측정소 메타(indicator_id 없음)는 obs_key · is_latest 둘 다 null. 같은 dedup_key·같은 내용은 처음 것만 내보내고, 내용이 다르면 남기되 둘 다 held + `DEDUP_KEY_CONFLICT`(최신본 후보에서도 빠짐). 결정: is_latest 는 다른 레코드를 봐야 알 수 있어 `refine_record`(1건) 는 붙이지 않고 `refine_records` 만 붙임. TDD: 새 테스트 9건이 빈 구현에서 실패 확인 뒤 구현. 변형 5가지 모두 테스트가 잡음
 
 ## 다음 할 일 / 범위 밖
 - 범위 밖: 문서 레코드(뉴스 제목·링크·발행 시각만, 보도자료 본문 공공누리 1유형만) · 전재 묶기 — C1 에 문서 칸이 생기면
