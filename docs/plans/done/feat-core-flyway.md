@@ -25,9 +25,11 @@
 - 2026-10-22: develop 에 Java 포맷 검사가 들어와 `FoundationMigrationTest` 포맷 실패 → `pnpm backend:format` 으로 포맷만 수정(로직 변경 없음).
 - 2026-10-22: `E2E_PORT=3110 pnpm check:all`(3100 은 다른 프로젝트 Loki 컨테이너가 사용) — harness·backend format·frontend lint·typecheck·test PASS, frontend e2e FAIL: 이 PC 에 Playwright 브라우저가 없음(ms-playwright 폴더 없음). 이 브랜치는 frontend 를 바꾸지 않음. e2e 에서 멈춰 나머지를 따로 실행: `pnpm backend:build` 통과(ArchitectureTest 6 · BackendApplicationTests 1 · FoundationMigrationTest 11 · ApiExceptionHandlerTest 10, 실패 0), `pnpm engine:lint` 통과, `pnpm engine:test` 91 passed.
 
+- 2026-10-22 finish 재검증: Chromium 설치 상태를 확인하고 `E2E_PORT=63811 pnpm check:all` 전체 통과. harness·Java 포맷·frontend lint/typecheck·단위 테스트 9개·프로덕션 빌드·Chromium E2E 1개·backend build·engine lint/test 91개 통과. backend build/test는 Gradle UP-TO-DATE로 기존 성공 결과를 재사용했다. 구현 커밋 7362eea는 이미 원격과 동일하며 MR은 아직 없다. MR 초안과 Jira 코멘트를 정리하고 push·MR 생성은 사람에게 남긴다.
+
 ## 다음 할 일 / 범위 밖
 
-- 이 PC 에 Playwright Chromium 설치 후 e2e 재확인 (`pnpm --filter frontend exec playwright install chromium`)
+- MR 생성 및 P1·P3 계약 리뷰 후 병합. 검증 결과 갱신 커밋은 사람이 push한다.
 - 머지 순서: 이 MR(V0002) → 로그인 MR !17(V0004) → !17 을 develop 최신으로 맞춰 재검증
 - P1·P3 리뷰: 실행 중 상태 표현, 전역 content_hash 중복과 재수집 이력, 미상 코드 유효 기간·겹침·지역 부모 순환 검증 책임.
 - 관측값·문서·카드·질문·분석 run·수정 제안·사용자 테이블은 후속 범위. C1 메타 보존과 복합 카드 버전 FK를 먼저 합의한다.
