@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "P2 정제 레코드 v0.1",
+  "description": "C1 레코드 칸 + P2 가 붙이는 칸. 이 스키마는 P2 칸만 본다. C1 칸은 contracts/c1/record.schema.json 으로 따로 검사한다(pass · fixed 레코드만 C1 을 그대로 통과한다).",
+  "type": "object",
+  "required": ["validation_status", "issues", "rule_version", "obs_key", "is_latest"],
+  "properties": {
+    "validation_status": { "enum": ["pass", "fixed", "held"] },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "field"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "MISSING_REQUIRED",
+              "INVALID_VALUE",
+              "UNKNOWN_FIELD",
+              "FORBIDDEN_SOURCE",
+              "SECRET_IN_URL",
+              "LICENSE_UNKNOWN",
+              "DEDUP_KEY_CONFLICT",
+              "SCOPE_DOWNGRADED",
+              "VALUE_STRIPPED_BY_SCOPE"
+            ]
+          },
+          "field": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "rule_version": { "type": "string", "pattern": "^p2-" },
+    "obs_key": { "type": ["string", "null"], "pattern": "^obs:[0-9a-f]{64}$" },
+    "is_latest": { "type": ["boolean", "null"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "validation_status": { "const": "pass" } }, "required": ["validation_status"] },
+      "then": { "properties": { "issues": { "maxItems": 0 } } }
+    },
+    {
+      "if": { "properties": { "validation_status": { "const": "fixed" } }, "required": ["validation_status"] },
+      "then": {
+        "properties": {
+          "issues": {
+            "minItems": 1,
+            "items": { "properties": { "code": { "enum": ["SCOPE_DOWNGRADED", "VALUE_STRIPPED_BY_SCOPE"] } } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "validation_status": { "const": "held" } }, "required": ["validation_status"] },
+      "then": {
+        "properties": {
+          "issues": {
+            "contains": {
+              "properties": { "code": { "not": { "enum": ["SCOPE_DOWNGRADED", "VALUE_STRIPPED_BY_SCOPE"] } } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "oneOf": [
+        { "properties": { "obs_key": { "type": "string" }, "is_latest": { "type": "boolean" } } },
+        { "properties": { "obs_key": { "type": "null" }, "is_latest": { "type": "null" } } }
+      ]
+    }
+  ]
+}
