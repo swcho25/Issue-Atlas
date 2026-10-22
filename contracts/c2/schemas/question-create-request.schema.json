@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/c2/question-create-request.schema.json",
+  "title": "POST /v1/questions 요청",
+  "type": "object",
+  "properties": {
+    "place_id": { "$ref": "common.schema.json#/$defs/id" },
+    "card_id": {
+      "description": "null 이면 신규 카드 후보로 저장 (FR-A3)",
+      "type": ["string", "null"]
+    },
+    "period_start": { "$ref": "common.schema.json#/$defs/date" },
+    "period_end": { "$ref": "common.schema.json#/$defs/date" },
+    "raw_text": {
+      "description": "사용자가 입력한 원래 문장. 목록에서 골랐으면 null",
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["place_id", "card_id", "period_start", "period_end", "raw_text"],
+  "additionalProperties": false
+}

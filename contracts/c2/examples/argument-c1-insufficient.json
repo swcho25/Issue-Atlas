@@ -1,0 +1,72 @@
+{
+  "schema_version": "c2-0.1",
+  "run_id": "run_c1_gwangju_donggu_2026",
+  "question": {
+    "question_id": "q_0002",
+    "place_id": "plc_gwangju_donggu",
+    "place_name": "광주 동구",
+    "card_id": "C1",
+    "card_name": "청년 유출·정착",
+    "period_start": "2026-01-01",
+    "period_end": "2027-01-01"
+  },
+  "card_version": 1,
+  "formula_version": "c1-net-migration-0.1",
+  "taxonomy_version": "tax-2026.10",
+  "run_status": "blocked",
+  "created_at": "2026-10-28T10:05:00+09:00",
+  "evidence_table": [
+    {
+      "kind": "statistics",
+      "required": true,
+      "status": "not_published",
+      "count": 0,
+      "review_pending_count": 0,
+      "reason": "2026년 연간 순이동은 아직 공표되지 않았습니다 (월 자료 2026-08까지)."
+    },
+    { "kind": "documents", "required": false, "status": "not_collected", "count": 0, "review_pending_count": 0, "reason": "광주 동구 누리집은 robots.txt 로 수집을 막고 있습니다." },
+    { "kind": "existing_responses", "required": false, "status": "not_collected", "count": 0, "review_pending_count": 0, "reason": "광주 구 단위 청년 계획은 아직 수집하지 않았습니다." },
+    { "kind": "denominators", "required": false, "status": "available", "count": 1, "review_pending_count": 0, "reason": null }
+  ],
+  "comparability": {
+    "same_indicator": { "passed": null, "note": "필수 근거가 없어 검사하지 않음" },
+    "same_period_length": { "passed": null, "note": "필수 근거가 없어 검사하지 않음" },
+    "same_boundary": { "passed": null, "note": "필수 근거가 없어 검사하지 않음" },
+    "same_method": { "passed": null, "note": "필수 근거가 없어 검사하지 않음" }
+  },
+  "claim": {
+    "value": "insufficient",
+    "level": "insufficient_evidence",
+    "text": "필수 근거(통계)가 없어 판단하지 않습니다.",
+    "provenance": "rule"
+  },
+  "data": {
+    "statistics": [],
+    "documents": [],
+    "existing_responses": [],
+    "denominators": [
+      {
+        "evidence_id": "ev_kosis_pop_gwangju_donggu",
+        "title": "연령별 주민등록인구",
+        "source_name": "행정안전부",
+        "source_grade": "A",
+        "period_start": "2026-08-01",
+        "period_end": "2026-09-01",
+        "storage_scope": "full"
+      }
+    ],
+    "provenance": "rule"
+  },
+  "warrant": { "text": null, "provenance": "card" },
+  "qualifier": {
+    "grade": "low",
+    "components": { "a_grade_sources": 0, "independent_evidence": 0, "latest_observed_at": null },
+    "formula_version": "qualifier-0.1",
+    "provenance": "rule"
+  },
+  "rebuttals": [],
+  "ceiling": {
+    "items": ["청년이 떠나는 원인", "읍면동 단위 순이동(미공표)", "정책 효과"],
+    "provenance": "card"
+  }
+}

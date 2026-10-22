@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/c2/place-cards.schema.json",
+  "title": "GET /v1/places/{place_id}/cards 응답 — 점수·순위 없음",
+  "type": "object",
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "place_id": { "$ref": "common.schema.json#/$defs/id" },
+    "period_start": { "$ref": "common.schema.json#/$defs/date" },
+    "period_end": { "$ref": "common.schema.json#/$defs/date" },
+    "taxonomy_version": { "type": "string" },
+    "cards": {
+      "description": "대분류 → 가나다 고정 정렬",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "card_id": { "type": "string" },
+          "name": { "type": "string" },
+          "domain": { "type": "string" },
+          "parent_question": { "type": "string" },
+          "card_version": { "type": "integer", "minimum": 0 },
+          "evidence": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": { "$ref": "common.schema.json#/$defs/evidence_kind" },
+                "status": { "$ref": "common.schema.json#/$defs/evidence_status" }
+              },
+              "required": ["kind", "status"],
+              "additionalProperties": false
+            }
+          },
+          "available_kinds": {
+            "description": "근거 4종 중 available 인 종류 수 (n/4). 근거의 품질·문제의 심각도가 아님",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "review_pending_count": { "type": "integer", "minimum": 0 }
+        },
+        "required": [
+          "card_id",
+          "name",
+          "domain",
+          "parent_question",
+          "card_version",
+          "evidence",
+          "available_kinds",
+          "review_pending_count"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["schema_version", "place_id", "period_start", "period_end", "taxonomy_version", "cards"],
+  "additionalProperties": false
+}

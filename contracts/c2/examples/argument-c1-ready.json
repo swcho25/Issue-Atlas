@@ -1,0 +1,108 @@
+{
+  "schema_version": "c2-0.1",
+  "run_id": "run_c1_yeosu_2023_2025",
+  "question": {
+    "question_id": "q_0001",
+    "place_id": "plc_yeosu",
+    "place_name": "여수시",
+    "card_id": "C1",
+    "card_name": "청년 유출·정착",
+    "period_start": "2023-01-01",
+    "period_end": "2026-01-01"
+  },
+  "card_version": 1,
+  "formula_version": "c1-net-migration-0.1",
+  "taxonomy_version": "tax-2026.10",
+  "run_status": "ready",
+  "created_at": "2026-10-28T10:00:00+09:00",
+  "evidence_table": [
+    { "kind": "statistics", "required": true, "status": "available", "count": 1, "review_pending_count": 0, "reason": null },
+    { "kind": "documents", "required": false, "status": "available", "count": 12, "review_pending_count": 2, "reason": null },
+    { "kind": "existing_responses", "required": false, "status": "available", "count": 2, "review_pending_count": 0, "reason": null },
+    { "kind": "denominators", "required": false, "status": "available", "count": 1, "review_pending_count": 0, "reason": null }
+  ],
+  "comparability": {
+    "same_indicator": { "passed": true, "note": "KOSIS DT_1B26001 순이동" },
+    "same_period_length": { "passed": true, "note": "연(1–12월 합)" },
+    "same_boundary": { "passed": true, "note": "같은 place_id (2026-07 개편 코드 연결)" },
+    "same_method": { "passed": true, "note": "전입−전출, 15–39세 밴드 고정" }
+  },
+  "claim": {
+    "value": "increasing",
+    "level": "calculated",
+    "text": "여수시에서 2023–2025 청년(15–39세) 순유출이 커졌습니다.",
+    "provenance": "rule"
+  },
+  "data": {
+    "statistics": [
+      {
+        "evidence_id": "ev_kosis_net_yeosu",
+        "title": "시군구/성/연령(5세)별 이동자수",
+        "source_name": "국가데이터처 KOSIS",
+        "source_grade": "A",
+        "period_start": "2023-01-01",
+        "period_end": "2026-01-01",
+        "storage_scope": "full"
+      }
+    ],
+    "documents": [
+      {
+        "evidence_id": "ev_doc_yeosu_press_0001",
+        "title": "[보도자료 제목] 청년 정착 지원 확대",
+        "source_name": "여수시",
+        "source_grade": "B",
+        "period_start": "2025-03-01",
+        "period_end": "2025-03-02",
+        "storage_scope": "full"
+      }
+    ],
+    "existing_responses": [
+      {
+        "evidence_id": "ev_policy_yeosu_youth_2025",
+        "title": "청년정책 시행계획",
+        "source_name": "여수시",
+        "source_grade": "A",
+        "period_start": "2025-01-01",
+        "period_end": "2026-01-01",
+        "storage_scope": "full"
+      }
+    ],
+    "denominators": [
+      {
+        "evidence_id": "ev_kosis_pop_yeosu",
+        "title": "연령별 주민등록인구",
+        "source_name": "행정안전부",
+        "source_grade": "A",
+        "period_start": "2025-12-01",
+        "period_end": "2026-01-01",
+        "storage_scope": "full"
+      }
+    ],
+    "provenance": "rule"
+  },
+  "warrant": {
+    "text": "청년 순유출이 여러 해 지속되면 그 지역의 청년 정착 기반이 약해지고 있다고 본다. 순이동은 정착 여부를 직접 재는 공식 지표다.",
+    "provenance": "card"
+  },
+  "qualifier": {
+    "grade": "high",
+    "components": { "a_grade_sources": 2, "independent_evidence": 3, "latest_observed_at": "2025-12-31T00:00:00+09:00" },
+    "formula_version": "qualifier-0.1",
+    "provenance": "rule"
+  },
+  "rebuttals": [
+    { "text": "대학 진학·군 입대 연령(19–24세)의 구조적 전출", "status": "needs_review", "provenance": "llm_judgment" },
+    { "text": "통계 기준 변경(2026-07 행정구역 개편, 주민등록 정비)", "status": "not_found", "provenance": "llm_judgment" },
+    { "text": "산단·대형 사업장 고용 변동에 따른 일시 전입·전출", "status": "not_found", "provenance": "llm_judgment" }
+  ],
+  "ceiling": {
+    "items": [
+      "청년이 떠나는 원인",
+      "청년 유출이 고령화의 원인이라는 것",
+      "읍면동 단위 순이동(미공표)",
+      "청년만의 이동 경로(전출지→전입지는 전연령 자료)",
+      "정책 효과"
+    ],
+    "provenance": "card"
+  }
+}
