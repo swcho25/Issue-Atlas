@@ -1,0 +1,42 @@
+{
+  "source_id": "TBD_S_airkorea_station",
+  "spec_id": "SP23",
+  "raw_url": "https://apis.data.go.kr/B552584/MsrstnInfoInqireSvc/getMsrstnList?serviceKey=<KEY>&returnType=json&numOfRows=100&pageNo=1&addr=여수",
+  "file_name": null,
+  "content_hash": null,
+  "collected_at": "2026-10-21T11:30:00+09:00",
+  "published_at": null,
+  "observed_at": null,
+  "observed_at_source": null,
+  "observed_period_type": "none",
+  "observed_period_start": null,
+  "observed_period_end": null,
+  "place_code_raw": "서강동",
+  "place_code_system": "airkorea_station_name",
+  "place_id": null,
+  "place_map_status": "unmapped",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      127.725967,
+      34.741301
+    ]
+  },
+  "location_precision": "exact",
+  "geometry_role": "station",
+  "indicator_id": null,
+  "value": null,
+  "unit": null,
+  "missing_reason": null,
+  "locator": {
+    "stationName": "서강동",
+    "mangName": "도시대기",
+    "year": "1991"
+  },
+  "dedup_key": "airkorea_station:서강동",
+  "license_type": "TBD",
+  "storage_scope": "full",
+  "run_id": "run_20261021_002",
+  "collector_version": "0.1.0",
+  "is_provisional": false
+}
