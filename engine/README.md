@@ -21,5 +21,5 @@ uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 | 폴더 | 담당 | 성격 |
 | --- | --- | --- |
 | `pipeline/refine/` | 박준우 | P2 정제 — 검증·정규화·저장 범위 게이트·중복 |
-| `pipeline/collect/` | 장성우 | P1 KOSIS 인구이동 수집·원천 저장·C1 출력 ([실행 안내](pipeline/collect/README.md)) |
+| `pipeline/collect/` | 장성우 | P1 KOSIS·에어코리아 수집·원천 저장·C1 출력 ([KOSIS](pipeline/collect/README.md), [에어코리아](pipeline/collect/AIRKOREA.md)) |
 | `api/` | (미정) | FastAPI HTTP 입구 — pipeline 함수를 부르기만 한다 |

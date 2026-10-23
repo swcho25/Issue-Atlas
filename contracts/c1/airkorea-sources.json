@@ -1,0 +1,22 @@
+{
+  "version": "0.1",
+  "date": "2026-10-23",
+  "sources": [
+    {
+      "source_id": "airkorea_station",
+      "name": "에어코리아 측정소정보",
+      "license_type": "KOGL-3",
+      "storage_scope": "full",
+      "reference": "https://www.data.go.kr/data/15073877/openapi.do",
+      "notes": "공식 상세페이지의 출처표시·변경금지 제3유형 확인. 원천 좌표를 보존하고 GeoJSON 순서만 [dmY, dmX]로 표현한다."
+    },
+    {
+      "source_id": "airkorea_final",
+      "name": "에어코리아 최종확정 측정자료",
+      "license_type": "KOGL-3",
+      "storage_scope": "full",
+      "reference": "https://www.airkorea.or.kr/web/detailViewDown?pMENU_NO=123",
+      "notes": "S15P31C108-86·C1 원천 계약의 KOGL-3. 최종확정 파일을 입력받으며 측정값을 보간·단위 환산하지 않는다. 원천 행과 열을 보존한다."
+    }
+  ]
+}
