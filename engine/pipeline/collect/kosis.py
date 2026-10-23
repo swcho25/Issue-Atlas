@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from typing import ClassVar
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, build_opener
@@ -24,6 +25,11 @@ class CollectionError(Exception):
 
 @dataclass(frozen=True)
 class Query:
+    source_name: ClassVar[str] = "KOSIS 인구이동"
+    source_org: ClassVar[str] = "KOSIS"
+    license_type: ClassVar[str] = LICENSE
+    collector_version: ClassVar[str] = VERSION
+    method: ClassVar[str] = "api"
     indicator_id: str = INDICATOR_ID
     start: int = 2023
     end: int = 2025

@@ -77,6 +77,11 @@ P2의 현재 필수값 검사만으로 C1 전체 스키마 검증을 대신할 �
 
 ## 예시
 
+에어코리아 수집기(#86)는 [airkorea-sources.json](airkorea-sources.json)의 두 source_id와
+[indicators.json](indicators.json)의 `air_pm10`·`air_pm25`·`air_o3`·`air_no2`·`air_co`·`air_so2`를 사용한다.
+기존 아래 예시의 TBD는 초기 원천 확인 기록으로 보존하며 신규 수집 출력에는 사용하지 않는다.
+현재 측정소 좌표는 과거 측정 시점의 좌표를 보장하지 않으므로 최종확정 자료에 자동 연결하지 않는다.
+
 `examples/*.json` 하나가 레코드 하나이며 `_note`·`_case` 같은 설명 필드는 없다.
 
 | 파일 | 내용 |

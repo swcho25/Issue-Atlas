@@ -19,6 +19,48 @@
       ],
       "collector_scope": "연간·성별 계(C2=0)·20–24세(C3=120). 지표 ID에 지역·연령·기간을 결합하지 않는다.",
       "decision": "2026-10-23, S15P31C108-85 구현 중 사용자 위임으로 프로젝트 지표 ID 지정. P2·P3 수신 측 리뷰 대상."
+    },
+    {
+      "indicator_id": "air_pm10",
+      "name": "미세먼지 PM10 농도",
+      "unit": "µg/m³",
+      "source_id": "airkorea_final",
+      "column": "미세먼지(PM10)"
+    },
+    {
+      "indicator_id": "air_pm25",
+      "name": "초미세먼지 PM2.5 농도",
+      "unit": "µg/m³",
+      "source_id": "airkorea_final",
+      "column": "초미세먼지(PM25)"
+    },
+    {
+      "indicator_id": "air_o3",
+      "name": "오존 농도",
+      "unit": "ppm",
+      "source_id": "airkorea_final",
+      "column": "오존(O3)"
+    },
+    {
+      "indicator_id": "air_no2",
+      "name": "이산화질소 농도",
+      "unit": "ppm",
+      "source_id": "airkorea_final",
+      "column": "이산화질소(NO2)"
+    },
+    {
+      "indicator_id": "air_co",
+      "name": "일산화탄소 농도",
+      "unit": "ppm",
+      "source_id": "airkorea_final",
+      "column": "일산화탄소(CO)"
+    },
+    {
+      "indicator_id": "air_so2",
+      "name": "아황산가스 농도",
+      "unit": "ppm",
+      "source_id": "airkorea_final",
+      "column": "아황산가스(SO2)"
     }
   ]
 }
