@@ -33,7 +33,7 @@ def refine_record(record: dict) -> dict:
 
 
 def refine_records(records: list[dict]) -> list[dict]:
-    """한 번에 받은 레코드 묶음. 입력 순서를 지키고, 같은 레코드가 반복되면 한 번만 낸다."""
+    """한 번에 받은 레코드 묶음. 입력 순서를 지키고, 반복(재수집 포함)은 한 번만 낸다."""
     kept, conflicts = split_repeats(records)
     refined = []
     for record in kept:

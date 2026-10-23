@@ -28,7 +28,7 @@
 | `FORBIDDEN_SOURCE` | held | 네이버 · 카카오 · 빅카인즈 주소 (PRD 7.5) |
 | `SECRET_IN_URL` | held | URL 쿼리에 실제 API 키. 출력 raw_url 은 `<KEY>` 로 가림 |
 | `LICENSE_UNKNOWN` | held | 이용허락 표(`engine/pipeline/refine/license_scopes.json`)에 없는 license_type |
-| `DEDUP_KEY_CONFLICT` | held | 같은 dedup_key 인데 내용이 다른 레코드가 함께 옴 (같은 내용 반복은 한 번만 내보냄) |
+| `DEDUP_KEY_CONFLICT` | held | 같은 dedup_key 인데 수집 실행 칸(`collected_at` · `run_id` · `collector_version`) 말고 다른 칸이 다른 레코드가 함께 옴. 수집 실행 칸만 다르면 재수집으로 보고, 마지막으로 확인한 것(`collected_at` 이 가장 늦은 것, 같으면 `run_id` 가 큰 것) 하나만 내보냄 |
 | `SCOPE_DOWNGRADED` | fixed | P1 의 storage_scope 가 이용허락보다 넓어 낮춤 |
 | `VALUE_STRIPPED_BY_SCOPE` | fixed | 저장 범위가 full 이 아닌 관측값이라 value 를 지우고 missing_reason 을 license_blocked 로 |
 
@@ -48,3 +48,4 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
 | v0.1 | 2026-10-22 | 초안: P2 칸 5개, 사유 코드 9개, 상태 규칙 (S15P31C108-79) |
+| v0.1.1 | 2026-10-23 | 재수집(수집 실행 칸만 다름)은 충돌이 아니라 반복으로 보고 마지막으로 확인한 것을 내보냄. 스키마는 그대로 (S15P31C108-88) |
