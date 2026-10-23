@@ -8,8 +8,12 @@ uv --directory engine sync   # 처음 한 번 (.venv 생성)
 pnpm engine:lint             # 루트에서
 pnpm engine:test
 
-# P2 정제: C1 레코드 JSON 배열 → 정제 레코드 JSONL (키 정렬, 같은 입력이면 같은 바이트)
-uv --directory engine run python -m pipeline.refine tests/fixtures/p1/kosis_net_migration.json
+# P2 정제: C1 레코드 JSON 배열 파일 → 정제 레코드 JSONL (키 정렬, 같은 입력이면 같은 바이트)
+# 검증은 contracts/c1/record.schema.json 을 직접 읽는다
+uv --directory engine run python -m pipeline.refine <C1 레코드 JSON 배열 파일>
+
+# HTTP 입구: backend 가 바로 응답을 기다리는 요청만 받는다 (지금은 GET /health)
+uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 ```
 
 새 폴더를 만들면 아래 표에 담당과 함께 적는다.
@@ -17,3 +21,4 @@ uv --directory engine run python -m pipeline.refine tests/fixtures/p1/kosis_net_
 | 폴더 | 담당 | 성격 |
 | --- | --- | --- |
 | `pipeline/refine/` | 박준우 | P2 정제 — 검증·정규화·저장 범위 게이트·중복 |
+| `api/` | (미정) | FastAPI HTTP 입구 — pipeline 함수를 부르기만 한다 |

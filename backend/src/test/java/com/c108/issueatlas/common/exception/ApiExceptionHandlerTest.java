@@ -2,6 +2,7 @@ package com.c108.issueatlas.common.exception;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -14,11 +15,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.*;
 
+// 오류 응답 모양만 본다. 보안 필터는 웹 슬라이스에 자동으로 붙으므로 로그인 사용자와 CSRF 토큰을 채워 둔다.
 @WebMvcTest(ApiExceptionHandlerTest.ProbeController.class)
 @Import({ApiExceptionHandler.class, ApiExceptionHandlerTest.ProbeController.class})
+@WithMockUser
 class ApiExceptionHandlerTest {
     private final MockMvc mvc;
 
@@ -30,6 +34,7 @@ class ApiExceptionHandlerTest {
     void invalidBodyHasFieldErrors() throws Exception {
         mvc.perform(
                         post("/__test/errors/body")
+                                .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"name\":\"\"}"))
                 .andExpect(status().isBadRequest())
@@ -49,6 +54,7 @@ class ApiExceptionHandlerTest {
     void malformedJsonIsBadRequest() throws Exception {
         mvc.perform(
                         post("/__test/errors/body")
+                                .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{secret-invalid-json"))
                 .andExpect(status().isBadRequest())
@@ -58,7 +64,10 @@ class ApiExceptionHandlerTest {
 
     @Test
     void missingBodyIsBadRequest() throws Exception {
-        mvc.perform(post("/__test/errors/body").contentType(MediaType.APPLICATION_JSON))
+        mvc.perform(
+                        post("/__test/errors/body")
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }

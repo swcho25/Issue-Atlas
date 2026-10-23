@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -52,6 +54,20 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         }
         problem.setProperty("errors", errors);
         return super.handleExceptionInternal(ex, problem, headers, status, request);
+    }
+
+    // 보안 필터가 막은 요청도 auth/config 가 이 처리기로 넘겨 같은 problem+json 을 쓴다.
+    // 로그인 실패 이유(없는 계정·비밀번호·비활성)는 응답에 드러내지 않는다.
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Object> handleUnauthenticated(
+            AuthenticationException ex, WebRequest request) {
+        return handleExceptionInternal(
+                ex, null, new HttpHeaders(), HttpStatus.UNAUTHORIZED, request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Object> handleForbidden(AccessDeniedException ex, WebRequest request) {
+        return handleExceptionInternal(ex, null, new HttpHeaders(), HttpStatus.FORBIDDEN, request);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

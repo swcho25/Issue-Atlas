@@ -17,9 +17,25 @@ spring:
           time_zone: UTC
   flyway:
     locations: classpath:db/migration
+  jackson:
+    # C2 계약과 같은 snake_case (place_id, is_active …)
+    property-naming-strategy: SNAKE_CASE
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        # 배포 환경(https)에서는 true. 로컬 http 에서는 false 여야 브라우저가 쿠키를 저장한다.
+        secure: ${SESSION_COOKIE_SECURE:false}
+
+issue-atlas:
+  admin:
+    # 첫 관리자. 둘 다 있고 같은 이메일이 없을 때만 한 번 만든다. 값은 환경 변수로만 준다.
+    email: ${ADMIN_EMAIL:}
+    password: ${DB_PASSWORD}
 
 management:
   endpoints:

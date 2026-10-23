@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from .run import refine_record
+from .run import refine_records
 from .serialize import dumps_record
 
 
@@ -15,8 +15,8 @@ def main(argv: list[str]) -> int:
     records = json.loads(Path(argv[0]).read_text(encoding="utf-8"))
     # Windows 에서도 줄바꿈이 \r\n 으로 바뀌지 않게 바이트로 쓴다
     out = sys.stdout.buffer
-    for record in records:
-        out.write(dumps_record(refine_record(record)).encode("utf-8") + b"\n")
+    for refined in refine_records(records):
+        out.write(dumps_record(refined).encode("utf-8") + b"\n")
     return 0
 
 

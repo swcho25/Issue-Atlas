@@ -25,6 +25,8 @@
 - 2026-10-21: 완료 조건 5. `python -m pipeline.refine <JSON 배열 파일>` → JSONL(stdout). 직렬화는 `serialize.dumps_record` 한 곳(키 정렬 · 공백 없음 · 한글 그대로), 줄바꿈은 Windows 에서도 LF. 실샘플 두 파일을 해시 시드가 다른 두 프로세스로 돌려 바이트 비교. 변형 확인: 출력에 `now()` 넣기 → 바이트 비교 실패, `print()` 로 쓰기 → LF 테스트 실패. pytest 71건, `pnpm check` PASS
 - 2026-10-21: origin/develop(0d3e42f, 새 커밋 6개) 위로 rebase (push 전이라 머지 커밋 없이). 충돌 2곳 — AGENTS.md 명령 표, check.mjs `--all` 목록 — 은 develop 쪽(harness · frontend test · e2e)에 engine 을 더해 합침. `pnpm check` PASS (harness · frontend lint·typecheck·test · engine lint·test)
 - 2026-10-21: 브랜치 push 뒤 origin/develop(00d011e, backend 기반 커밋 4개)을 merge 로 받음 (push 한 브랜치라 rebase 대신). 충돌 2곳 — AGENTS.md 명령 표, check.mjs `--all` 목록 — 은 develop 의 backend format 에 engine 을 더해 합침. `pnpm check` PASS
+- 2026-10-22: finish — `pnpm check:all` 은 개발 PC 환경 때문에 끝까지 못 돎: backend format·build 는 Java 없음 · Docker 꺼짐, frontend e2e 는 Playwright chromium 미설치. 이 브랜치는 backend/·frontend/ 를 바꾸지 않음. 나머지는 하나씩 돌려 PASS — harness · frontend lint·typecheck·test · engine lint·test(pytest 71건)
+- 2026-10-22: 후속 브랜치 두 개가 이 위에 쌓여 있음 — `feat/p2-refine-value-checks`(S15P31C108-74: C1 스키마 검사, 테스트 데이터를 계약 예시로 교체) → `feat/p2-refine-storage-scope`(S15P31C108-76). 아래 「다음 할 일」 중 C1 스키마 맞추기 · fixed 상태 · 장성우 질문(MR !11 리뷰)은 그쪽에서 처리함
 
 ## 다음 할 일 / 범위 밖
 - 금지 소스에 daum.net(카카오 포털 뉴스)을 넣을지 확인 — PRD 는 "네이버·카카오 API" 라고만 씀

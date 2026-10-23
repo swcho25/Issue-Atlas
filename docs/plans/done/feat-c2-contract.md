@@ -8,7 +8,7 @@
 - [x] `contracts/c2/examples/*.json` 9개가 각자의 스키마 검증을 통과한다 (정상·근거 부족·비교 불가 argument 포함)
 - [x] 어떤 스키마에도 점수·순위·수치 신뢰도 필드가 없고, argument 칸이 6개뿐이다 (`additionalProperties: false`)
 - [x] `contracts/c2/README.md` 와 `contracts/README.md` C2 행이 갱신됐다
-- [ ] 화면팀(정호성·정우현)에 MR 리뷰를 요청했다 — 필드 이름(snake_case) 확인 포함
+- [x] 화면팀(정호성·정우현)에 MR 리뷰를 요청했다 — 필드 이름(snake_case) 확인 포함(승인 여부와 별개)
 
 ## 진행
 
@@ -25,6 +25,11 @@
 - 2026-10-22: pnpm check:all 첫 실행은 E2E 포트 3100 사용 중(EADDRINUSE)으로 실패. 기존 E2E_PORT 설정을 실행 환경에서만 58849로 지정해 재실행하여 종료 0: harness 1.8s, backend format 1.9s, frontend lint 7.5s, typecheck 4.0s, test 3.5s(9개), e2e 14.9s(Chromium 1개·프로덕션 빌드 포함), backend build 41.5s(DB 테스트 포함). 코드·계약·검사 설정 변경 없음. 계획을 done으로 이동하고 MR 본문 초안 작성. push·MR 생성은 사람이 수행하며 Jira는 진행 중 유지.
 
 ## 다음 할 일 / 범위 밖
+
+- 2026-10-23: 사용자 요청으로 MR !14에 origin/develop(dbcd94c) 반영. contracts/README.md 한 파일 충돌은 P2 행과 C2 링크·담당 설명을 모두 보존해 해결. C2 스키마·예시는 수정하지 않음.
+- 재검증: E2E_PORT=63817 pnpm check:all 전체 PASS(harness, Java format, frontend lint/typecheck·9 tests·Chromium E2E 1건·production build, backend build, engine lint·131 tests). backend Gradle은 UP-TO-DATE 결과 재사용. jsonschema Draft202012+FormatChecker로 C2 예시 9개 모두 valid.
+- Redocly 1.34.21 검증은 API 유효 판정 뒤 시스템 Node 24.18.0 종료에서 libuv 오류가 났다. 저장소·의존성 변경 없이 번들 Node 24.22.1과 기존 dlx CMD wrapper로 재실행하여 lint 종료 0·경고 0 확인.
+- MR !14 리뷰 대상: 정호성(등록 리뷰어), 정우현(멘션 요청). 리뷰 요청 조건은 완료하며 승인·머지는 대기한다.
 
 - 커밋 후 push·MR 생성은 사람이 수행한다. MR 리뷰어: 정호성·정우현 (snake_case 확인 요청 포함)
 - 화면팀 리뷰 반영 후 10/30 v0.1 동결, 11/13 v1
