@@ -1,0 +1,24 @@
+{
+  "version": "0.1",
+  "indicators": [
+    {
+      "indicator_id": "population_net_migration",
+      "name": "순이동 인구",
+      "definition": "전입 인구에서 전출 인구를 뺀 값. 음수는 순유출, 양수는 순유입이다.",
+      "unit": "명",
+      "source_id": "S01",
+      "org_id": "101",
+      "table_id": "DT_1B26001",
+      "item_id": "T25",
+      "dimensions": [
+        "place_code_raw",
+        "observed_period_start",
+        "observed_period_end",
+        "locator.C2",
+        "locator.C3"
+      ],
+      "collector_scope": "연간·성별 계(C2=0)·20–24세(C3=120). 지표 ID에 지역·연령·기간을 결합하지 않는다.",
+      "decision": "2026-10-23, S15P31C108-85 구현 중 사용자 위임으로 프로젝트 지표 ID 지정. P2·P3 수신 측 리뷰 대상."
+    }
+  ]
+}
