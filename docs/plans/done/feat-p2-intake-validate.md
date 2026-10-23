@@ -17,6 +17,7 @@
 - 2026-10-23: TDD — `tests/test_refine_intake.py` 7건(입구 검사가 이용허락 모름·범위 좁아짐·dedup 충돌은 막지 않음 3건, 금지 소스·URL 키·C1 형식·해시 없음은 잡음 4건)을 먼저 씀. 지금 코드에서 7건 모두 실패 — `from pipeline.refine import validate` 가 함수가 아니라 **모듈**을 돌려줘서(`'module' object is not callable`). 수집기에서 이 이름으로 쓰려 해도 같은 오류가 났을 것
 - 2026-10-23: 고침 — `pipeline/refine/__init__.py` 에 `validate` 함수 공개, docstring 에 입구 검사 용도와 보지 않는 것. P2 계약 README 에 run_id·content_hash 기준 한 줄과 「수집기 입구 검사」 절, 변경 이력 v0.1.2(문구만, 스키마·정제 동작 그대로). `pipeline/collect/` 는 바꾸지 않음
 - 2026-10-23: 변형 3가지 모두 테스트가 잡음 — 공개 빼기 · 입구 검사에 저장 범위 판정 넣기 · 금지 소스 검사 빼기. `pnpm check` PASS — engine lint 0.4s · test 4.5s (pytest 220건)
+- 2026-10-23: finish — `pnpm check:all` 은 harness PASS 뒤 backend format 에서 멈춤 (개발 PC 에 Java 없음). 이 브랜치는 backend/·frontend/ 를 바꾸지 않음. 나머지는 하나씩 돌려 PASS — frontend lint 52s · typecheck 16s · test 25s(9건) · e2e 27s(1건), engine lint 1s · test 5s(220건). backend format·build 는 미실행. 커밋 baaf53e
 
 ## 다음 할 일 / 범위 밖
 - MR 리뷰어: 장성우(수집기 요청 대상) · 정우현(P3) · 최동준(P4) — P2 계약 문구가 바뀜
