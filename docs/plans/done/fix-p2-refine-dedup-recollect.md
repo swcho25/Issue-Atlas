@@ -18,6 +18,7 @@
 - 2026-10-23: TDD — `test_refine_batch.py` 에 재수집 · 입력 순서 · 수집 시각 같으면 run_id · 다른 칸 바뀜(value · content_hash · missing_reason) 테스트를 먼저 씀. 재수집 3건은 지금 코드에서 실패(둘 다 held), 다른 칸 바뀜 3건은 지금도 통과 — 이미 맞는 동작을 지키는 테스트라서
 - 2026-10-23: `dedup.py` — 수집 실행 칸 목록 `RUN_FIELDS` 를 한 곳에 두고, 그 칸을 뺀 dict 로 비교(== 그대로라 -747 과 -747.0 은 전처럼 같은 내용). 같은 내용끼리는 (collected_at, run_id, collector_version) 가 가장 큰 것 하나, 출력 위치는 그 레코드의 입력 자리. 결정: 검증 전에 고르므로 collected_at 을 못 읽거나 시간대가 없으면 읽을 수 있는 쪽이 이김(멈추지 않게, 테스트 3건 추가). 같은 객체가 두 번 와도 한 번만(전 코드와 같음, 테스트 1건 추가). `contracts/p2/README.md` DEDUP_KEY_CONFLICT 설명 · 변경 이력 v0.1.1(스키마 그대로)
 - 2026-10-23: 변형 7가지 모두 테스트가 잡음 — 칸 목록에 value 넣기 · 가장 이른 것 남기기 · run_id 로 안 가르기 · 먼저 온 것 남기기 · 같은 객체 두 번 · 시간대 검사 빼기 · 예외 처리 빼기. `pnpm check` PASS — engine lint 0.6s · test 5.4s (pytest 141건)
+- 2026-10-23: finish — `pnpm check:all` 은 harness PASS 뒤 backend format 에서 멈춤 (개발 PC 에 Java 없음). 이 브랜치는 backend/·frontend/ 를 바꾸지 않음. 나머지는 하나씩 돌려 PASS — frontend lint 71s · typecheck 23s · test 32s(9건) · e2e 36s(1건), engine lint 1s · test 6s(141건). backend format·build 는 미실행. 커밋 27ae5ed
 
 ## 다음 할 일 / 범위 밖
 - MR 에 받는 쪽 정우현(P3) · 최동준(P4) 리뷰 요청 — P2 계약(`contracts/p2/`) 동작이 바뀜(스키마는 그대로)
