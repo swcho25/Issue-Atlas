@@ -1,0 +1,53 @@
+{
+  "source_id": "bigkinds",
+  "spec_id": "bigkinds_news_yeosu_gwangju",
+  "raw_url": "https://www.bigkinds.or.kr/",
+  "file_name": null,
+  "content_hash": null,
+  "collected_at": "2026-10-26T00:00:00Z",
+  "published_at": "2026-10-25T09:00:00+09:00",
+  "observed_at": null,
+  "observed_at_source": null,
+  "observed_period_type": "none",
+  "observed_period_start": null,
+  "observed_period_end": null,
+  "place_code_raw": "여수",
+  "place_code_system": "source_text",
+  "place_id": null,
+  "place_map_status": "unmapped",
+  "geometry": null,
+  "location_precision": "none",
+  "geometry_role": null,
+  "indicator_id": null,
+  "value": null,
+  "unit": null,
+  "missing_reason": null,
+  "locator": {
+    "article_id": "synthetic-example-001"
+  },
+  "dedup_key": "bigkinds:synthetic-example-001",
+  "license_type": "TBD_ENTERPRISE_CONTRACT",
+  "storage_scope": "metadata",
+  "run_id": "example-bigkinds",
+  "collector_version": "example-only",
+  "is_provisional": false,
+  "document": {
+    "kind": "news",
+    "title": "[합성 예시] 여수 관련 뉴스",
+    "publisher": "가상 언론사",
+    "categories": [
+      "지역"
+    ],
+    "keywords": [
+      "여수"
+    ],
+    "entities": {
+      "locations": [
+        "여수"
+      ],
+      "persons": [],
+      "organizations": []
+    },
+    "excerpt": null
+  }
+}
