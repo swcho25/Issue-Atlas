@@ -13,6 +13,8 @@
 
 ## 진행
 
+- 2026-10-26: MR !28 첫 파이프라인 #241514의 frontend가 pnpm install 중 루트 prepare의 git config에서 실패(exit 127). Node slim 이미지에 git이 없어 발생한 CI 실행 환경 누락이다. frontend before_script에 git·ca-certificates 설치를 추가했다. 동일한 고정 Node 이미지·임시 Git 저장소에서 frozen-lockfile 설치와 prepare, frontend lint·typecheck·단위 테스트 9건 PASS. E2E와 실제 새 MR 파이프라인은 미검증. 기존 파이프라인 재시도만으로는 반영되지 않으며 수정 커밋 push 후 새 MR 파이프라인에서 확인한다.
+
 - 2026-10-26: 사용자 승인으로 배포 전용 Ed25519 키 생성·forced-command 등록 및 GitLab 배포 변수 4개 등록 완료(File 2개, Protected/shared-ec2). root 소유 배포 프로그램·설정·release overlay 설치, Compose 파일과 부모 경로 권한 보호. 실행 위치에 의존하지 않도록 명시적 --env-file 사용. 직접/CI 컨테이너 SSH 인증 및 임의 명령 차단, 설치본 Compose 합성·현재 이미지 조회·내외부 health 점검 PASS. 배포 단위 테스트 13건·lint/format·diff 검사 PASS. 서비스 이미지는 교체하지 않았으며 실제 Registry 업로드/pull·MR·CD 검증은 사용자 push 후 진행한다.
 
 - 2026-10-26: Docker Hub 변수 3개 등록 확인 후 Protected 적용, 토큰 Masked 유지, MR protected resources 접근 해제. 사용자 승인으로 프로젝트 Runner #2252 생성·EC2 등록 완료. 공식 Runner 19.5.1, 태그 issueatlas-docker, 프로젝트 잠금, 동시 실행 1. CI 전용 daemon/socket/저장소와 CPU 2개분·메모리 8GB 공통 slice 적용. 일반 작업 privileged=false, 지정한 dind 서비스만 privileged 허용. gitlab-runner verify 성공과 GitLab Online/Idle 확인. 기존 PostGIS·Spring·Tunnel healthy 및 HTTPS health UP 유지. 실제 MR/CD와 서버 재부팅 검증은 별도다.

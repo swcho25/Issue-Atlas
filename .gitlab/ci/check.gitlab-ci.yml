@@ -12,6 +12,9 @@ harness:
 frontend:
   stage: check
   image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
+  before_script:
+    # pnpm install의 루트 prepare가 git config를 실행한다.
+    - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
   rules:
     - changes: [frontend/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab-ci.yml, .gitlab/ci/**/*]
   cache:
