@@ -1,0 +1,75 @@
+{
+  "schema_version": "c2-0.1",
+  "run_id": "run_a3_yeosu_2023_2025",
+  "question": {
+    "question_id": "q_0003",
+    "place_id": "plc_yeosu",
+    "place_name": "여수시",
+    "card_id": "A3",
+    "card_name": "대기질",
+    "period_start": "2023-01-01",
+    "period_end": "2026-01-01"
+  },
+  "card_version": 1,
+  "formula_version": "a3-pm25-0.1",
+  "taxonomy_version": "tax-2026.10",
+  "run_status": "partial",
+  "created_at": "2026-10-28T10:10:00+09:00",
+  "evidence_table": [
+    { "kind": "statistics", "required": true, "status": "available", "count": 9, "review_pending_count": 0, "reason": "2025년은 잠정값(월보 통계)입니다." },
+    { "kind": "documents", "required": false, "status": "available", "count": 5, "review_pending_count": 0, "reason": null },
+    { "kind": "existing_responses", "required": false, "status": "available", "count": 1, "review_pending_count": 0, "reason": null },
+    { "kind": "denominators", "required": false, "status": "not_collected", "count": 0, "review_pending_count": 0, "reason": "기상(강수·풍향) 자료는 수집하지 않습니다." }
+  ],
+  "comparability": {
+    "same_indicator": { "passed": true, "note": "PM2.5 연평균 (µg/m³)" },
+    "same_period_length": { "passed": true, "note": "연, 유효 월 9개 이상" },
+    "same_boundary": {
+      "passed": false,
+      "note": "여천동(여수) 측정소 주소가 2024 확정자료와 현재 측정소 정보에서 다릅니다. 이전 여부를 확인하기 전까지 같은 측정 위치로 보지 않습니다."
+    },
+    "same_method": { "passed": true, "note": "환경부 확정 측정자료, 유효 시간 75% 이상인 달만" }
+  },
+  "claim": {
+    "value": "not_comparable",
+    "level": "observed_fact",
+    "text": "여수시 측정소 9곳의 2023–2025 PM2.5 관측값은 있지만, 측정 위치가 같은지 확인되지 않아 증가·감소를 말하지 않습니다.",
+    "provenance": "rule"
+  },
+  "data": {
+    "statistics": [
+      {
+        "evidence_id": "ev_air_final_yeosu",
+        "title": "에어코리아 최종확정 측정자료",
+        "source_name": "한국환경공단 에어코리아",
+        "source_grade": "A",
+        "period_start": "2023-01-01",
+        "period_end": "2026-01-01",
+        "storage_scope": "full"
+      }
+    ],
+    "documents": [],
+    "existing_responses": [],
+    "denominators": [],
+    "provenance": "rule"
+  },
+  "warrant": {
+    "text": "같은 측정소에서 PM2.5 연평균과 나쁨 일수가 늘면 그 지점 주변의 대기질이 나빠졌다고 본다. 측정소 값은 반경 수 km의 대표값이며 도시 전체를 대표하지 않는다.",
+    "provenance": "card"
+  },
+  "qualifier": {
+    "grade": "medium",
+    "components": { "a_grade_sources": 1, "independent_evidence": 2, "latest_observed_at": "2025-12-31T23:00:00+09:00" },
+    "formula_version": "qualifier-0.1",
+    "provenance": "rule"
+  },
+  "rebuttals": [
+    { "text": "기상 변동(강수일·풍향·정체)", "status": "needs_review", "provenance": "llm_judgment" },
+    { "text": "국외 유입(황사·장거리 이동)", "status": "needs_review", "provenance": "llm_judgment" },
+    { "text": "측정소 이전·장비 교체·결측 시간 편차", "status": "supported", "provenance": "rule" }
+  ],
+  "ceiling": {
+    "items": ["배출원(산단·차량·국외)", "오염의 이동 경로", "건강 영향", "저감 정책의 효과", "측정소가 없는 읍면동의 대기질"],
+    "provenance": "card"
+  }
+}

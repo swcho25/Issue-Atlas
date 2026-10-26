@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/c2/question-create-response.schema.json",
+  "title": "POST /v1/questions 응답",
+  "type": "object",
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "question_id": { "$ref": "common.schema.json#/$defs/id" },
+    "run_id": { "$ref": "common.schema.json#/$defs/id" },
+    "run_status": { "$ref": "common.schema.json#/$defs/run_status" },
+    "candidate": {
+      "description": "card_id 가 null 이라 신규 카드 후보로 저장됐으면 true (run_status 는 unsupported)",
+      "type": "boolean"
+    }
+  },
+  "required": ["schema_version", "question_id", "run_id", "run_status", "candidate"],
+  "additionalProperties": false,
+  "if": { "properties": { "candidate": { "const": true } } },
+  "then": { "properties": { "run_status": { "const": "unsupported" } } }
+}

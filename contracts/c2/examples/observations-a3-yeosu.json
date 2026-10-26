@@ -1,0 +1,71 @@
+{
+  "schema_version": "c2-0.1",
+  "type": "FeatureCollection",
+  "place_id": "plc_yeosu",
+  "card_id": "A3",
+  "period_start": "2024-06-01",
+  "period_end": "2024-07-01",
+  "legend_text": "측정소 값, 도시 평균 아님",
+  "summary": {
+    "station_count": 9,
+    "max_month": { "month": "2024-03", "place_id": "plc_stn_336124", "name": "월내동", "value": 31 },
+    "min_month": { "month": "2024-08", "place_id": "plc_stn_336903", "name": "여수항", "value": 9 },
+    "bad_days_total": 47
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [127.725967, 34.741301] },
+      "properties": {
+        "evidence_id": "ev_air_336121_202406",
+        "place_id": "plc_stn_336121",
+        "name": "서강동",
+        "station_type": "도시대기",
+        "observed_at": null,
+        "period_type": "M",
+        "period_start": "2024-06-01",
+        "value": 17,
+        "unit": "µg/m³",
+        "missing_reason": null,
+        "location_precision": "exact",
+        "geometry_role": "station"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [127.731933, 34.850083] },
+      "properties": {
+        "evidence_id": "ev_air_336124_202406",
+        "place_id": "plc_stn_336124",
+        "name": "월내동",
+        "station_type": "도시대기",
+        "observed_at": null,
+        "period_type": "M",
+        "period_start": "2024-06-01",
+        "value": null,
+        "unit": "µg/m³",
+        "missing_reason": "not_published",
+        "location_precision": "exact",
+        "geometry_role": "station"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [127.732612, 34.738486] },
+      "properties": {
+        "evidence_id": "ev_air_336903_202406",
+        "place_id": "plc_stn_336903",
+        "name": "여수항",
+        "station_type": "항만",
+        "observed_at": null,
+        "period_type": "M",
+        "period_start": "2024-06-01",
+        "value": 14,
+        "unit": "µg/m³",
+        "missing_reason": null,
+        "location_precision": "exact",
+        "geometry_role": "station"
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/c2/place-list.schema.json",
+  "title": "GET /v1/places 응답",
+  "type": "object",
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "places": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "place_id": { "$ref": "common.schema.json#/$defs/id" },
+          "name": { "type": "string" },
+          "level": { "$ref": "common.schema.json#/$defs/place_level" },
+          "parent_id": { "type": ["string", "null"] },
+          "codes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code_system": { "$ref": "common.schema.json#/$defs/code_system" },
+                "place_code": { "type": "string" },
+                "valid_from": { "type": ["string", "null"], "format": "date" },
+                "valid_to": { "type": ["string", "null"], "format": "date" }
+              },
+              "required": ["code_system", "place_code", "valid_from", "valid_to"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["place_id", "name", "level", "parent_id", "codes"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["schema_version", "places"],
+  "additionalProperties": false
+}
