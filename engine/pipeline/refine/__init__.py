@@ -5,5 +5,6 @@
 """
 
 from .run import RULE_VERSION, refine_record, refine_records
+from .validate import validate
 
-__all__ = ["RULE_VERSION", "refine_record", "refine_records"]
+__all__ = ["RULE_VERSION", "refine_record", "refine_records", "validate"]
