@@ -8,7 +8,9 @@ x-logging: &bounded-logging
 
 services:
   postgres:
-    image: postgis/postgis:17-3.5-alpine@sha256:894f570c0cf0664ed5576a8fd5d5bfb8fb1b19d592885b686c3a88c8bd90c41f
+    image: issueatlas-postgres:17-3.5-pgvector-0.8.7
+    build:
+      context: ../../database
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:?DB_NAME required}
