@@ -63,7 +63,7 @@ uv --directory engine run pytest tests_postgres
 
 DB 통합 테스트는 명시 실행한다. 기본 `engine:test`는 Docker가 필요 없는 테스트를 돌린다.
 통합 테스트가 만드는 컨테이너만 중지/제거하며, 기존 DB·볼륨에는 연결하지 않는다.
-테스트 PostgreSQL/PostGIS 이미지는 저장소 docker-compose와 같은 digest로 고정했다.
+이 테스트는 저장소 DB 이미지의 기반 PostGIS digest를 사용한다. Flyway·pgvector 설치 검증은 backend Testcontainers에서 한다.
 
 원천 계약 근거: [KOSIS 공식 개발가이드](https://kosis.kr/openapi/devGuide/devGuide_0201List.do),
 저장소 [C1](../../../contracts/c1/README.md), [DB V0002](../../../contracts/database/README.md).

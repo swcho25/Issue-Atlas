@@ -1,0 +1,26 @@
+# Registration creates config.toml with a secret token. Merge these non-secret settings there.
+concurrent = 1
+check_interval = 3
+
+[[runners]]
+  name = "IssueAtlas EC2 Runner"
+  url = "https://lab.ssafy.com/"
+  executor = "docker"
+  limit = 1
+  request_concurrency = 1
+  environment = ["FF_NETWORK_PER_BUILD=1"]
+  [runners.docker]
+    host = "unix:///var/run/docker.sock"
+    image = "python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530"
+    privileged = false
+    services_privileged = true
+    allowed_privileged_services = ["docker:29.9.2-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977", "docker.io/library/docker:29.9.2-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977"]
+    memory = "4g"
+    memory_swap = "4g"
+    cpus = "2"
+    service_memory = "3g"
+    service_memory_swap = "3g"
+    service_cpus = "2"
+    shm_size = 268435456
+    volumes = ["/cache"]
+    pull_policy = "always"

@@ -69,6 +69,15 @@ class FoundationMigrationTest {
     }
 
     @Test
+    void pgvectorExtensionIsEnabled() {
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT extversion FROM pg_extension WHERE extname = 'vector'",
+                                String.class))
+                .isEqualTo("0.8.7");
+    }
+
+    @Test
     void nullHashesAndMetadataOnlyPayloadCanBeStored() {
         jdbc.update("UPDATE source SET storage_scope='metadata' WHERE source_id='S-test'");
         insertRaw("SP-test", "first.xlsx", null);

@@ -1,0 +1,16 @@
+# MR: 검사만. 보호된 develop/main 병합: 검사 → 이미지 → 같은 EC2 배포.
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(develop|main)$/'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/'
+    - when: never
+
+stages: [check, image, deploy]
+
+default:
+  tags: [issueatlas-docker]
+  interruptible: true
+
+include:
+  - local: .gitlab/ci/check.gitlab-ci.yml
+  - local: .gitlab/ci/deploy.gitlab-ci.yml
