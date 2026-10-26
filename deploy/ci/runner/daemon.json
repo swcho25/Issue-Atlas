@@ -1,0 +1,12 @@
+{
+  "hosts": ["unix:///run/docker-ci.sock"],
+  "data-root": "/var/lib/docker-ci",
+  "exec-root": "/run/docker-ci",
+  "pidfile": "/run/docker-ci.pid",
+  "bridge": "docker-ci",
+  "default-address-pools": [{"base": "10.241.0.0/16", "size": 24}],
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "cgroup-parent": "issueatlas-ci.slice",
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "10m", "max-file": "3"}
+}

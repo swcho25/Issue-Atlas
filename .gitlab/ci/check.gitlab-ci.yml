@@ -1,24 +1,19 @@
 # MR 검사 — pnpm check:all 과 같은 내용을 영역별 잡으로 나눠 돈다.
 #
-# 아직 꺼져 있다. Runner 가 준비되면 루트에 .gitlab-ci.yml 을 만들고 아래 두 줄을 넣는다.
-#   include:
-#     - local: .gitlab/ci/check.gitlab-ci.yml
-#
-# Runner 조건: Docker executor, privileged = true (backend 테스트가 Testcontainers 로 PostGIS 를 띄운다)
+# Runner 조건: Docker executor, 고정한 dind 서비스만 privileged 허용 (Testcontainers용)
 # 이미지는 태그와 digest 를 함께 고정한다. 올릴 때는 둘 다 바꾼다.
 
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
-
-stages: [check]
+harness:
+  stage: check
+  image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
+  script:
+    - node scripts/check-harness.mjs
 
 frontend:
   stage: check
   image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
   rules:
-    - changes: [frontend/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab/ci/**/*]
+    - changes: [frontend/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab-ci.yml, .gitlab/ci/**/*]
   cache:
     key: { files: [pnpm-lock.yaml] }
     paths: [.pnpm-store]
@@ -36,22 +31,41 @@ backend:
   stage: check
   image: eclipse-temurin:21-jdk@sha256:23cc5734ff46e776f51ce66eb9ee08444fd47caabec0a95b7eb6e94be2d3696d
   services:
-    - name: docker:29-dind@sha256:3e5756e2b6dad6a5f1f5deacf0a19f9eaa2581b76ae092b2d4a118162e1d4d4e
+    - name: docker:29.9.2-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
       alias: docker
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
     TESTCONTAINERS_HOST_OVERRIDE: docker
     GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle-home
-  rules:
-    - changes: [backend/**/*, docker-compose.yml, .gitlab/ci/**/*]
+  # 이미지로 배포할 커밋은 변경 경로와 관계없이 backend 검사를 거친다.
   cache:
     key: { files: [backend/build.gradle, backend/gradle/wrapper/gradle-wrapper.properties] }
     paths: [.gradle-home/caches, .gradle-home/wrapper]
   script:
     - cd backend
+    - chmod +x gradlew
     - ./gradlew build --no-daemon
   artifacts:
     when: on_failure
     paths: [backend/build/reports/tests/]
     expire_in: 3 days
+
+infra:
+  stage: check
+  image: python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530
+  script:
+    - python -m unittest discover -s deploy/tests -v
+
+engine:
+  stage: check
+  image: python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530
+  variables:
+    UV_PYTHON_DOWNLOADS: never
+  rules:
+    - changes: [engine/**/*, contracts/**/*, .gitlab-ci.yml, .gitlab/ci/**/*]
+  script:
+    - pip install --disable-pip-version-check uv==0.11.28
+    - uv --directory engine run --locked ruff check .
+    - uv --directory engine run --locked ruff format --check .
+    - uv --directory engine run --locked pytest
