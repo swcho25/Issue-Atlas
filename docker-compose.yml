@@ -5,9 +5,8 @@
 #
 # 값은 .env 로 덮어쓸 수 있다. 아래는 로컬 전용 기본값이다.
 #
-# 이미지는 digest 로 고정한다. 태그는 위로 움직여서, 아무도 커밋하지 않았는데 다른 DB 엔진이 올라올 수 있다.
-# 올릴 때는 태그와 digest 를 함께 바꾸고 MR 에 버전 차이를 적는다.
-#   docker buildx imagetools inspect postgis/postgis:<tag>
+# DB 이미지는 digest 로 고정한 PostGIS 기반에 pgvector 를 빌드해 사용한다.
+# 기반 이미지를 올릴 때는 database/Dockerfile 의 태그와 digest 를 함께 바꾼다.
 
 x-logging: &bounded-logging
   driver: json-file
@@ -17,8 +16,10 @@ x-logging: &bounded-logging
 
 services:
   postgres:
-    # PostgreSQL 17 + PostGIS 3.5 (2026-10-21 고정). backend 테스트(Testcontainers)도 같은 태그를 쓴다.
-    image: postgis/postgis:17-3.5-alpine@sha256:894f570c0cf0664ed5576a8fd5d5bfb8fb1b19d592885b686c3a88c8bd90c41f
+    # PostgreSQL 17 + PostGIS 3.5 + pgvector 0.8.7. backend 테스트도 같은 Dockerfile 을 쓴다.
+    image: issueatlas-postgres:17-3.5-pgvector-0.8.7
+    build:
+      context: ./database
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     environment:

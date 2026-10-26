@@ -7,7 +7,7 @@
 ## 구성
 
 - EC2 배치 경로: `/opt/issueatlas-dev`
-- PostGIS: 저장소 로컬·테스트와 동일한 `17-3.5-alpine` 이미지/digest
+- DB: digest 고정 `17-3.5-alpine` PostGIS 기반에 pgvector 0.8.7을 추가한 `database/Dockerfile`을 로컬·테스트와 함께 사용
 - Spring: `backend/Dockerfile`에서 Java 21로 bootJar 빌드, UID 10001로 실행
 - cloudflared: `2026.10.3` 이미지/digest 고정, Cloudflare Tunnel 연결
 - 포트: EC2의 `127.0.0.1:5432`, `127.0.0.1:8080`에만 바인딩
@@ -104,4 +104,4 @@ python3 deploy/dev/verify.py --base-url https://backend.issue-atlas.kr --session
 
 ## 배포 소스 관리
 
-이번 최초 배치는 로컬의 backend 소스·Dockerfile·배포 구성만 묶어 전송했다. `.env`·키·빌드 캐시는 전송하지 않았다. Git 커밋·push·MR·CI/CD는 아직 수행하지 않았다. 다음 배포부터는 팀의 리뷰·이미지 버전 관리·자동 배포 절차에 연결한다.
+이번 최초 배치는 로컬의 backend 소스·Dockerfile·배포 구성만 묶어 전송했다. pgvector 적용 배포에는 `database/Dockerfile`도 포함해야 한다. `.env`·키·빌드 캐시는 전송하지 않았다. Git 커밋·push·MR·CI/CD는 아직 수행하지 않았다. 다음 배포부터는 팀의 리뷰·이미지 버전 관리·자동 배포 절차에 연결한다.

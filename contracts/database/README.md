@@ -32,6 +32,8 @@ job_run의 종료 상태는 ok/failed/aborted다. 진행 중 상태를 새 enum�
 
 FK 조회 인덱스, spec별 실행/수집 시각 인덱스, place geometry GiST 및 코드 고유 인덱스를 만든다. FK는 기본 NO ACTION이며 원본 이력을 연쇄 삭제하지 않는다. 운영 seed·실제 수집 데이터·API 키는 마이그레이션에 넣지 않는다. 기존 V0001은 수정하지 않는다.
 
+V0006은 `vector` 확장만 활성화한다. 벡터 칼럼과 벡터 인덱스는 이 DB 계약에 아직 없다.
+
 ## 검증
 
 새 Testcontainers PostGIS에 Flyway V0001→V0002 적용, 재실행의 migrationsExecuted=0, FK·UNIQUE·CHECK의 거절 및 null hash·서강동 실제 좌표·KOSIS 옛/새 코드 저장을 FoundationMigrationTest에서 확인한다.
@@ -44,3 +46,4 @@ FK 조회 인덱스, spec별 실행/수집 시각 인덱스, place geometry GiST
 
 - v0.1 (2026-10-21): 수집·지역 기반 6개 초안. P1·P3 리뷰 대기.
 - v0.1.1 (2026-10-26): raw_record에 장부 칸 `c1_record` 추가(V0005, S15P31C108-99). P1이 채운다.
+- v0.1.2 (2026-10-26): pgvector 확장 활성화(V0006, S15P31C108-104). 벡터 칼럼·인덱스는 후속 작업.
