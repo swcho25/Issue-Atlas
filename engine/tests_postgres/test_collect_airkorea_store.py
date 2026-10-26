@@ -1,5 +1,8 @@
 """KOSIS와 같은 V0002 저장 경로로 file/api 실행·원천·중복·롤백을 확인한다."""
 
+from dataclasses import replace
+from datetime import date
+
 import pytest
 
 from pipeline.collect.airkorea import AirSpec, measurement_pairs, station_record
@@ -22,8 +25,11 @@ def test_file_insert_repeat_raw_trace_and_p2_contract(store, tmp_path):
     assert store.conn.execute("SELECT count(*) FROM raw_record").fetchone() == (18,)
     assert store.conn.execute("SELECT method FROM source_spec").fetchone() == ("file",)
     assert store.conn.execute(
-        "SELECT count(*) FROM raw_record WHERE file_name IS NOT NULL AND raw_url IS NULL"
+        "SELECT count(*) FROM raw_record WHERE file_name IS NULL AND raw_url IS NOT NULL"
     ).fetchone() == (18,)
+    assert store.conn.execute("SELECT stats->>'file_name' FROM job_run LIMIT 1").fetchone() == (
+        FINAL.file_name,
+    )
     payload = store.conn.execute("SELECT payload FROM raw_record ORDER BY id LIMIT 1").fetchone()[0]
     assert payload["cells"] == ROWS[0] and payload["column"] == "아황산가스(SO2)"
 
@@ -67,3 +73,16 @@ def test_missing_api_key_is_failed_job(store, tmp_path):
     with pytest.raises(CollectionError, match="KEY_MISSING"):
         execute(AirSpec("stations"), store, tmp_path / "out", loader)
     assert store.conn.execute("SELECT status FROM job_run").fetchone() == ("failed",)
+
+
+def test_day_then_month_renamed_file_reuses_spec_and_keeps_run_params(store, tmp_path):
+    execute(FINAL, store, tmp_path / "day", source)
+    monthly = replace(FINAL, end=date(2024, 2, 1), file_name="monthly-renamed.xlsx")
+    result = execute(monthly, store, tmp_path / "month", source)
+    assert result["inserted"] == 0 and result["duplicates"] == 18
+    assert store.conn.execute("SELECT count(*) FROM source_spec").fetchone() == (1,)
+    assert store.conn.execute("SELECT count(*) FROM raw_record").fetchone() == (18,)
+    runs = store.conn.execute("SELECT stats FROM job_run ORDER BY started_at").fetchall()
+    assert runs[0][0]["end_date_exclusive"] == "2024-01-02"
+    assert runs[1][0]["end_date_exclusive"] == "2024-02-01"
+    assert runs[1][0]["file_name"] == "monthly-renamed.xlsx"

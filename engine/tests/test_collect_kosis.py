@@ -132,6 +132,16 @@ def test_six_regions_are_requested_and_validated_separately(tmp_path):
     assert result["received"] == 18 and result["inserted"] == 18
 
 
+class UnlistedLicense(Query):
+    license_type = "KOGL-unlisted"
+
+
+def test_records_take_license_from_query():
+    # source 표와 레코드의 이용 조건이 한 곳(Query)에서 나온다
+    records = to_records(ROWS, UnlistedLicense("net_migration_test", regions=("46130",)), "t", AT)
+    assert {r["license_type"] for r in records} == {"KOGL-unlisted"}
+
+
 def test_later_region_failure_does_not_persist_earlier_region(tmp_path):
     # 여수 응답이 정상이어도 광주 요청이 잘못되면 부분 적재하지 않는다.
     store = MemoryStore()

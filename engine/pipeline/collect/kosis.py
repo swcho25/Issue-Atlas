@@ -176,7 +176,7 @@ def to_records(rows: list[dict], query: Query, run_id: str, collected_at: str) -
                     "prd_de": row["PRD_DE"],
                 },
                 "dedup_key": f"kosis:DT_1B26001:{region}:0:120:T25:Y:{year}:{changed}",
-                "license_type": LICENSE,
+                "license_type": query.license_type,
                 "storage_scope": "full",
                 "run_id": run_id,
                 "collector_version": VERSION,

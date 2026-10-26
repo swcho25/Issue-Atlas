@@ -45,7 +45,8 @@ fixture와 함께 쓰는 export-only는 `.env`를 읽지 않으며 DB 쓰기를 
 - `source`·`source_spec`은 없을 때 등록하고 기존 이용 조건·저장 범위·사양이 다르면 실행 전에 거절한다. 인증키는 등록 사양에 들어가지 않는다.
 - API 호출 전 `job_run`(status/finished_at=null)을 커밋한다. 모든 지역·연도를 검증하고 C1/P2 pass를 확인한 후 raw 배치 전체를 한 트랜잭션으로 저장한다. 중간 DB 오류는 raw 전체를 롤백하고 별도 트랜잭션으로 failed를 기록한다.
 - 원천 JSON **행**의 키를 정렬한 UTF-8 canonical JSON SHA-256을 content_hash로 쓴다. 실행 시각·run_id·API 키는 해시에 넣지 않는다. payload에는 해당 원천 행을 저장한다. 응답 전체 바이트의 해시를 뜻하지 않는다.
-- 전역 UNIQUE(content_hash)에 `ON CONFLICT DO NOTHING`으로 재수집을 처리한다. 원천 값/갱신일이 바뀌면 새 raw 행을 저장한다. C1 출력은 해당 실행에서 받은 모든 행이며 중복 raw의 원래 job_run 소유권을 바꾸지 않는다. 실행별 received/inserted/duplicates 통계를 남긴다.
+- 원본과 같은 행의 `c1_record`(V0005)에 그 원본으로 만든 C1 레코드(장부)를 함께 저장한다. P2 정제는 이 칸만 읽는다.
+- 전역 UNIQUE(content_hash)로 재수집을 처리한다. 이미 있는 원본은 그대로 두고, 장부가 비어 있는(V0005 전에 저장된) 행만 장부를 채운다. 처음 저장한 장부는 덮지 않는다. 원천 값/갱신일이 바뀌면 새 raw 행을 저장한다. C1 출력은 해당 실행에서 받은 모든 행이며 중복 raw의 원래 job_run 소유권을 바꾸지 않는다. 실행별 received/inserted/duplicates 통계를 남긴다.
 - C1은 기존 계약을 바꾸지 않는다. 값은 정수(쉼표 구분 허용), 빈 문자열만 null + not_published다. `-`, `...`, 비공개 부호 등 의미가 불명확한 문자열은 실패시켜 0이나 결측으로 추측하지 않는다. 연 기간은 한국 시각 `[1/1, 다음해 1/1)`, 수집 시각은 UTC다.
 - LST_CHN_DE가 있으면 계약 예시처럼 해당 날짜 KST 00시를 published_at으로 쓴다. 실제 게시 시각 정밀도를 뜻하지 않는다. 없으면 null이다.
 - raw URL은 인증키 대신 `<KEY>`를 저장한다. API 예외/DB 예외/응답 msg를 출력하지 않고 고정 error_code를 남긴다. 응답이 실제 키를 포함하면 저장 전에 거절한다.

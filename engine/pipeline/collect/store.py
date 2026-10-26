@@ -39,21 +39,31 @@ class PostgresStore:
             if spec != (query.source_id, query.method, "statistics", query.identity()):
                 raise CollectionError("SPEC_CONTRACT_MISMATCH")
             self.conn.execute(
-                "INSERT INTO job_run (job_run_id, spec_id, collector_version, started_at) "
-                "VALUES (%s, %s, %s, %s)",
-                (run_id, query.spec_id, query.collector_version, started_at),
+                "INSERT INTO job_run (job_run_id, spec_id, collector_version, started_at, stats) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (
+                    run_id,
+                    query.spec_id,
+                    query.collector_version,
+                    started_at,
+                    Jsonb(query.run_params() if hasattr(query, "run_params") else {}),
+                ),
             )
 
     def save(self, rows, records):
+        # 장부(c1_record, V0005)는 원본과 같은 행에 둔다. P2 는 이 칸만 읽는다.
+        # 같은 원본을 다시 받으면 처음 장부를 그대로 두고, 장부가 비어 있던 옛 행만 채운다.
         inserted = 0
         with self.conn.transaction():
             for row, record in zip(rows, records, strict=True):
                 result = self.conn.execute(
                     "INSERT INTO raw_record "
                     "(job_run_id, spec_id, raw_url, file_name, "
-                    "content_hash, payload, collected_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s) "
-                    "ON CONFLICT (content_hash) DO NOTHING RETURNING id",
+                    "content_hash, payload, collected_at, c1_record) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (content_hash) DO UPDATE SET c1_record = EXCLUDED.c1_record "
+                    "WHERE raw_record.c1_record IS NULL "
+                    "RETURNING (xmax = 0)",
                     (
                         record["run_id"],
                         record["spec_id"],
@@ -62,9 +72,11 @@ class PostgresStore:
                         record["content_hash"],
                         Jsonb(row),
                         record["collected_at"],
+                        Jsonb(record),
                     ),
                 )
-                inserted += result.fetchone() is not None
+                saved = result.fetchone()
+                inserted += saved is not None and saved[0]
         return inserted
 
     def finish(self, run_id, status, stats):
