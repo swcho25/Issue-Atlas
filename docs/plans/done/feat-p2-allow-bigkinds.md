@@ -18,6 +18,7 @@
 - 2026-10-27: **결정** — `RULE_VERSION` 을 `p2-0.1.0` → `p2-0.2.0`. 같은 입력의 결과가 바뀌는 규칙 변경이라 「같은 입력 + 같은 판 = 같은 출력」 계약을 지키려면 판을 올려야 한다. 첫 정제 커밋부터 한 번도 안 올렸지만 이제 `normalized_record` 에 결과가 저장되므로 이번부터 올린다. 다음 정제 때 저장된 행은 모두 새 판으로 갱신(refined_at 도 바뀜). 계약 문서 변경 이력 v0.2.1 에 적음
 - 2026-10-27: 변형 확인 — 빅카인즈를 다시 금지(2건 실패) · 표에서 항목 빼기(3건 실패) · 최대 범위를 full 로(1건 실패). 되돌린 뒤 diff 로 원래와 같음 확인
 - 2026-10-27: 검사 — `pnpm check` PASS (engine lint 0.7s · engine test 10.5s, 235 passed). `tests_postgres` 는 오늘 Docker Desktop 이 꺼져 있어 컨테이너를 못 띄움(이번 변경은 DB 코드를 건드리지 않음)
+- 2026-10-27: finish — `pnpm check:all`(이번 명령에만 `JAVA_HOME` = Gradle JDK 21): harness 1.8s · backend format 17.5s · frontend lint 72.8s · typecheck 24.8s · test 35.1s(9) · e2e 36.8s(1) PASS, **backend build 는 Docker 가 꺼져 있어 FAIL 로 멈춤**(Testcontainers 필요, 이 MR 은 backend/ 를 바꾸지 않음). 그 뒤 단계는 따로 돌려 PASS — `pnpm engine:lint` · `pnpm engine:test`(235). 커밋 02b6771
 
 ## 다음 할 일 / 범위 밖
 - 장성우 님께: 수집기(-101)의 `license_type` 을 `BIGKINDS-이용약관` 으로 맞춰 주기
