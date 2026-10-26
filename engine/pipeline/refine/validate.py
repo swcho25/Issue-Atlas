@@ -21,6 +21,10 @@ REQUIRED_FIELDS = (
 
 
 def validate(record: dict) -> list[dict]:
+    """필수 칸 · 금지 소스 · URL 속 키 · C1 형식만 본다. 이용허락·저장 범위·중복은 보지 않는다.
+
+    수집기 입구 검사로도 쓴다 — 여기 걸리는 것은 원본으로도 남으면 안 되는 것이다.
+    """
     issues = [
         {"code": "MISSING_REQUIRED", "field": field}
         for field in REQUIRED_FIELDS

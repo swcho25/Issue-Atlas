@@ -40,3 +40,6 @@ Thumbs.db
 
 # 로그
 *.log
+
+# 수집 실행 산출물(원천·C1). 예시는 contracts/c1/examples/에서 관리한다.
+/outputs/collect/

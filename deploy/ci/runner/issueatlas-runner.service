@@ -1,0 +1,16 @@
+[Unit]
+Description=IssueAtlas GitLab Runner
+Requires=issueatlas-ci-docker.service
+After=issueatlas-ci-docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/docker -H unix:///run/docker-ci.sock run --rm --name issueatlas-runner --memory=512m --cpus=0.5 -v /etc/issueatlas/runner:/etc/gitlab-runner -v /run/docker-ci.sock:/var/run/docker.sock gitlab/gitlab-runner:alpine@sha256:86a371df46b076bb4c510bca1751d428177d2567bd88e4047613bc7fa92d1a0e run --user=root --working-directory=/home/gitlab-runner
+ExecStop=/usr/bin/docker -H unix:///run/docker-ci.sock stop --time=30 issueatlas-runner
+Restart=always
+RestartSec=10
+TimeoutStopSec=60
+Slice=issueatlas-ci.slice
+
+[Install]
+WantedBy=multi-user.target

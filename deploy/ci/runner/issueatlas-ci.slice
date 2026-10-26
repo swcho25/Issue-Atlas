@@ -1,0 +1,11 @@
+[Unit]
+Description=IssueAtlas CI resource budget
+
+[Slice]
+CPUAccounting=true
+CPUQuota=200%
+MemoryAccounting=true
+MemoryHigh=7G
+MemoryMax=8G
+MemorySwapMax=0
+TasksMax=4096
