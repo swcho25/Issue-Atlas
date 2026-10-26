@@ -36,6 +36,7 @@
 - 2026-10-26: 변형 확인 — 장부 해시 검사 제거 → 해시 테스트 실패 · 「장부 없으면 건너뛰기」 제거 → 건너뛰기 테스트 실패. 되돌린 뒤 diff 로 원래와 같음 확인. `pytest tests_postgres` 17 passed(정제 7 + 수집기 10), `pnpm engine:test` 213 passed, ruff 통과
 - 2026-10-26: **덤프 확인**(일회용 PostGIS 에 V0001·V0002·V0005 + 덤프) — ① 덤프 그대로: `{"raw": 3186, "skipped": {"S01": 18, "airkorea_final": 3168}, "inserted": 0, ...}` (장부 칸이 비어 모두 건너뜀) ② 저장소 밖 옛 rebuild 로 장부 3,186건을 채워 「P1 이 장부를 저장한 상황」을 흉내 낸 뒤: 1회차 inserted 3,186 (모두 pass), 2회차 unchanged 3,186, refined_at 종류 1개, normalized_ready 3,186, 여수 20–24세 2023 -747 · 2024 -719 · 2025 -930
 - 2026-10-26: 문서 — `contracts/p2/README.md` 「저장」 절을 장부 읽기로 고침(다시 만든 레코드 차이 절은 뺌), `contracts/database/README.md` raw_record 행·변경 이력 v0.1.1, `engine/README.md` 명령 설명
+- 2026-10-26: finish(다시) — `pnpm check:all` PASS (이번 명령에만 `JAVA_HOME` = Gradle JDK 21): harness 1.6s · backend format 1.6s · frontend lint 10.1s · typecheck 2.3s · test 2.6s(9) · e2e 10.1s(1) · backend build 36.9s(V0005 가 바뀌어 테스트까지 다시 돎) · engine lint 0.5s · engine test 5.9s(213). 커밋 0467b8b (10개 파일 +523 −7, 계획 파일 포함). 이전 커밋 e233e0c·eb4be1a 는 push 전에 풀어서 없음
 
 ## 다음 할 일 / 범위 밖
 - **장성우 님께 요청(필수, 이게 없으면 정제 저장이 아무 행도 안 만듦)**: 수집기가 원본을 저장할 때 장부(C1 레코드)를 `raw_record.c1_record` 에 같이 넣기. `PostgresStore.save(rows, records)` 가 이미 장부(records)를 받으므로 INSERT 칸 하나. 재수집(ON CONFLICT)일 때 장부를 마지막 실행으로 갱신할지도 정해 주기. 그 뒤 덤프 다시 만들기
