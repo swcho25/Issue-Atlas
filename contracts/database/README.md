@@ -16,11 +16,19 @@ P1 수집·P3 지역·P7 서버가 공유하는 DB 기반. 구현은 backend/src
 - C1 run_id는 DB의 job_run.job_run_id다. 분석 실행 run과 구분한다.
 - source_id는 source_spec을 통해 연결한다. raw_record의 spec_id는 job_run과 일치해야 한다.
 - content_hash는 수집기가 채우기 전 null을 허용한다. null hash 여러 행은 허용하고 같은 non-null hash는 전역 UNIQUE로 거절한다(ERD 기준). 재수집 이력·다른 소스의 동일 본문을 보존할 때의 연결 모델은 P1과 별도 확정한다.
+- **원본은 content_hash로 찾는다.** C1 run_id는 마지막 확인 실행이고, raw_record.job_run_id는 최초 저장 실행일 수 있다. 같은 hash 재수집으로 원본의 FK를 덮어쓰지 않으며 원본 조회에 run_id 일치 조건을 추가하지 않는다.
 - payload는 원천 JSON의 객체·배열을 모두 저장할 수 있다. metadata/link_only는 payload 없이 추적 정보만 저장할 수 있다. 이용 조건에 따른 payload 보관은 수집기에서 검사한다. DB는 다른 테이블의 storage_scope를 CHECK로 자동 판정하지 않는다.
 - 측정소 좌표는 place에 저장하고 GeoJSON 순서대로 [경도,위도]를 사용한다. geometry가 null이면 location_precision=none. 빈 Point·허용 범위 밖 좌표는 거절한다.
 - place_code_map은 kosis/airkorea_station/airkorea_station_name/bjd/sgis를 사용한다. ERD의 airkorea_name은 C1과 이름을 통일했다.
 
 ## 실행과 날짜
+
+에어코리아 XLSX의 신규 spec_id는 `airkorea_final_yeosu_gwangju`로 고정한다(S15P31C108-102).
+source_spec.params에는 지역·지표 같은 불변 수집 명세만 둔다. 매 실행의 file_name·start_date·end_date_exclusive·data_status는
+job_run.stats에 실행 시작 때부터 저장한다. 종료 시 건수·실패 원인과 함께 보존한다.
+raw_record는 공식 자료 목록 raw_url과 허용된 원천 관측 셀 payload를 보존하고 file_name은 null이다.
+따라서 파일명 변경·하루/월 재수집으로 C1 식별자가 달라지지 않는다. 원천 파일명은 실행 stats로 조회한다.
+기존 동적 spec_id 자료는 자동 이관·삭제하지 않는다. P2·P7 리뷰 후 과거 레코드와의 연결 절차를 정한다.
 
 job_run의 종료 상태는 ok/failed/aborted다. 진행 중 상태를 새 enum으로 만들지 않고 status=null, finished_at=null로 저장하는 초안이다. 종료 시 둘을 한 UPDATE에서 채운다. finished_at은 started_at보다 빠를 수 없다. 이 표현은 P1 리뷰가 필요하다.
 

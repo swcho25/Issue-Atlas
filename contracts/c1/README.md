@@ -59,6 +59,26 @@
 
 ## P2 연동 확인 (2026-10-22)
 
+### 수집기 입구 검사·원본 추적 (2026-10-26, S15P31C108-102)
+
+수집기는 원본 저장 전에 `pipeline.refine.validate.validate`로 필수 칸·금지 출처·URL 키·C1 형식만 검사한다.
+이용허락·저장 범위·중복과 최신본 판정은 원본 저장 후 P2가 수행한다. 수집기 성공을 P2 pass로 간주하지 않는다.
+
+**원본은 content_hash로 찾는다.** `run_id`는 마지막으로 확인한 수집 실행이며,
+동일 hash를 다시 받으면 기존 raw_record가 최초 실행에 연결된 채 남을 수 있다.
+run_id만으로 원본이 없다고 판단하거나 기존 행의 실행 FK를 덮어쓰지 않는다.
+
+에어코리아 XLSX의 신규 spec_id는 `airkorea_final_yeosu_gwangju`로 고정한다.
+파일명·조회 날짜·확정/잠정 상태는 job_run.stats에, C1에는 공식 자료 목록 raw_url을 남긴다.
+파일명을 바꾸거나 기간을 하루에서 한 달로 늘려도 C1 file_name은 null이고 같은 관측 칸의 식별자는 같다.
+원천 파일의 실제 이름은 해당 실행 stats.file_name으로 추적한다. 이 URL은 파일 자체의 다운로드 주소가 아니라 공식 자료 목록이다.
+locator는 시트·측정소·원천 시각·열이며 행 번호는 포함하지 않는다. `-999`는 null + not_published로 바꾸고 원천 payload에는 -999를 보존한다.
+
+2025년 이후 파일은 원천에서 확인한 `--data-status confirmed|provisional`을 명시해야 한다.
+파일명·연도만 보고 잠정 여부를 자동 판정하지 않는다. 과거 최종확정 2024 자료의 기본값은 confirmed다.
+잠정 레코드는 is_provisional=true, dedup_key에 :provisional을 붙여 확정본과 별도의 판으로 남긴다.
+obs_key의 관측 칸은 같으므로 P2가 최신본을 판정한다. 과거 동적 spec_id·행 번호 locator 레코드와의 키 전환은 P2와 별도 협의한다.
+
 `feat/p2-refine-skeleton`의 `65b24c9` 기준으로 이 계약의 예시 5개를 실제 `refine_record`에 전달했다. 모두 `content_hash=null`일 때 `held`와 `MISSING_REQUIRED(content_hash)`가 나오고, 검사 목적으로 해시 형식의 임시 값을 채우면 `pass`가 나온다. 임시 값은 호환성 확인용이며 실제 원문 해시를 대체하지 않는다.
 
 C1은 수집기가 해시를 채우기 전까지 null을 허용한다. P2 계획은 해시가 없는 레코드를 의도적으로 보류한다. 따라서 같은 레코드가 **C1 스키마 유효 / P2 보류**일 수 있다. P1에서 해시를 채운 뒤 P2로 넘길지, P2에서 보류 후 재처리할지 박준우(P2) 리뷰로 확정해야 한다. 이 MR에서는 수신 단계의 정책을 바꾸거나 예시의 null을 가짜 해시로 채우지 않는다.

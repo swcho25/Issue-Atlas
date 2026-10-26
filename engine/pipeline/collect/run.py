@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
-from pipeline.refine.run import refine_records
+from pipeline.refine.validate import validate
 
 from .kosis import CollectionError, Query, fetch_rows, to_records
 
@@ -50,8 +50,8 @@ def collect(query: Query, api_key: str, store, output: Path, fetch=fetch_rows):
             rows.extend(batch)
         stats["received"] = len(rows)
         records = to_records(rows, query, run_id, collected_at)
-        if any(r["validation_status"] != "pass" for r in refine_records(records)):
-            raise CollectionError("C1_P2_VALIDATION_FAILED")
+        if any(validate(record) for record in records):
+            raise CollectionError("C1_INTAKE_VALIDATION_FAILED")
         try:
             stats["inserted"] = store.save(rows, records)
         except Exception:

@@ -10,7 +10,7 @@ from uuid import uuid4
 import psycopg
 from dotenv import dotenv_values
 
-from pipeline.refine.run import refine_record
+from pipeline.refine.validate import validate
 
 from .__main__ import ROOT, ExportOnlyStore
 from .airkorea import AirSpec, area_of, station_pairs, workbook_pairs
@@ -25,20 +25,14 @@ def execute(spec, store, output, loader):
     run_id = "airkorea_" + uuid4().hex
     at = datetime.now(UTC).isoformat()
     store.start(spec, run_id, at)
-    stats = {"received": 0, "inserted": 0, "duplicates": 0}
+    stats = {"received": 0, "inserted": 0, "duplicates": 0, **spec.run_params()}
     try:
-        rows, records, seen = [], [], {}
+        rows, records = [], []
         for payload, record in loader(spec, run_id, at):
-            key = record["dedup_key"]
-            if key in seen:
-                if seen[key] == record["content_hash"]:
-                    continue
-                raise CollectionError("AIRKOREA_CONFLICTING_OBSERVATION")
-            seen[key] = record["content_hash"]
             if len(records) >= MAX_RECORDS:
                 raise CollectionError("AIRKOREA_BATCH_TOO_LARGE")
-            if refine_record(record)["validation_status"] != "pass":
-                raise CollectionError("C1_P2_VALIDATION_FAILED")
+            if validate(record):
+                raise CollectionError("C1_INTAKE_VALIDATION_FAILED")
             rows.append(payload)
             records.append(record)
         stats["received"] = len(records)
@@ -68,6 +62,7 @@ def main(argv=None):
     parser.add_argument("--xlsx", type=Path)
     parser.add_argument("--start-date", type=date.fromisoformat, default=date(2024, 1, 1))
     parser.add_argument("--end-date", type=date.fromisoformat, default=date(2024, 1, 2))
+    parser.add_argument("--data-status", choices=("confirmed", "provisional"))
     parser.add_argument("--fixture", type=Path, help="측정소 API 원천 배열, 네트워크 호출 없음")
     parser.add_argument(
         "--stations", type=Path, help="명시적으로 좌표를 연결할 C1 측정소 메타 파일"
@@ -81,9 +76,15 @@ def main(argv=None):
         parser.error("--fixture는 stations에서만 사용합니다")
     if args.mode == "stations" and (args.xlsx or args.stations):
         parser.error("stations에는 --xlsx/--stations를 사용하지 않습니다")
+    if args.mode == "stations" and args.data_status:
+        parser.error("--data-status는 final 파일 입력에서만 사용합니다")
     try:
         spec = AirSpec(
-            args.mode, args.start_date, args.end_date, args.xlsx.name if args.xlsx else None
+            args.mode,
+            args.start_date,
+            args.end_date,
+            args.xlsx.name if args.xlsx else None,
+            args.data_status,
         )
         output = args.output or ROOT / f"outputs/collect/airkorea-{args.mode}-c1.json"
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -112,8 +113,7 @@ def main(argv=None):
             if args.stations:
                 stations = json.loads(args.stations.read_text(encoding="utf-8"))
                 if not isinstance(stations, list) or any(
-                    not isinstance(s, dict) or refine_record(s)["validation_status"] != "pass"
-                    for s in stations
+                    not isinstance(s, dict) or validate(s) for s in stations
                 ):
                     raise CollectionError("AIRKOREA_INVALID_STATION_FILE")
 

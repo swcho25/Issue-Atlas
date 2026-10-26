@@ -167,7 +167,7 @@ def test_real_xlsx_read_path_and_region_filter(tmp_path):
     pairs = list(workbook_pairs(path, FINAL, "test", AT))
     assert len(pairs) == 18
     assert pairs[0][1]["locator"]["sheet"] == "2024년 1월 "
-    assert pairs[0][1]["locator"]["row"] == 2
+    assert "row" not in pairs[0][1]["locator"]
 
 
 def test_mismatched_header_and_missing_month_fail(tmp_path):

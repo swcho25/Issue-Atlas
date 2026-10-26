@@ -39,9 +39,15 @@ class PostgresStore:
             if spec != (query.source_id, query.method, "statistics", query.identity()):
                 raise CollectionError("SPEC_CONTRACT_MISMATCH")
             self.conn.execute(
-                "INSERT INTO job_run (job_run_id, spec_id, collector_version, started_at) "
-                "VALUES (%s, %s, %s, %s)",
-                (run_id, query.spec_id, query.collector_version, started_at),
+                "INSERT INTO job_run (job_run_id, spec_id, collector_version, started_at, stats) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (
+                    run_id,
+                    query.spec_id,
+                    query.collector_version,
+                    started_at,
+                    Jsonb(query.run_params() if hasattr(query, "run_params") else {}),
+                ),
             )
 
     def save(self, rows, records):

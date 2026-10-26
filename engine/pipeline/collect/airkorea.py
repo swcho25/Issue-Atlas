@@ -18,7 +18,8 @@ from .kosis import MAX_BYTES, CollectionError, NoRedirect, canonical
 
 STATION_URL = "https://apis.data.go.kr/B552584/MsrstnInfoInqireSvc/getMsrstnList"
 STATION_LICENSE_URL = "https://www.data.go.kr/data/15073877/openapi.do"
-VERSION = "airkorea-0.1.0"
+FINAL_URL = "https://www.airkorea.or.kr/web/detailViewDown?pMENU_NO=123"
+VERSION = "airkorea-0.2.0"
 KST = timezone(timedelta(hours=9))
 HEADERS = (
     "지역",
@@ -51,6 +52,7 @@ class AirSpec:
     start: date = date(2024, 1, 1)
     end: date = date(2024, 1, 2)  # 원천 일자의 끝 미포함
     file_name: str | None = None
+    data_status: str | None = None
     source_name: ClassVar[str] = "에어코리아"
     source_org: ClassVar[str] = "한국환경공단"
     license_type: ClassVar[str] = "KOGL-3"
@@ -63,6 +65,15 @@ class AirSpec:
             raise CollectionError("AIRKOREA_INVALID_DATE_RANGE")
         if self.mode == "final" and not self.file_name:
             raise CollectionError("AIRKOREA_FILE_REQUIRED")
+        if self.data_status not in (None, "confirmed", "provisional"):
+            raise CollectionError("AIRKOREA_INVALID_DATA_STATUS")
+        # 2025 잠정 자료를 연도만 보고 확정값으로 오인하지 않는다. 원천 상태를 명시한다.
+        if (
+            self.mode == "final"
+            and (self.end - timedelta(days=1)).year >= 2025
+            and self.data_status is None
+        ):
+            raise CollectionError("AIRKOREA_DATA_STATUS_REQUIRED")
 
     @property
     def source_id(self):
@@ -72,9 +83,7 @@ class AirSpec:
     def spec_id(self):
         if self.mode == "stations":
             return "airkorea_stations_yeosu_gwangju"
-        # 같은 이름이라도 다른 파일의 실행 명세를 잘못 재사용하지 않는다.
-        file_id = hashlib.sha256(self.file_name.encode("utf-8")).hexdigest()[:12]
-        return f"airkorea_final_{self.start:%Y%m%d}_{self.end:%Y%m%d}_{file_id}"
+        return "airkorea_final_yeosu_gwangju"
 
     @property
     def method(self):
@@ -84,11 +93,18 @@ class AirSpec:
         if self.mode == "stations":
             return {"endpoint": STATION_URL, "areas": ["여수", "광주"], "page_size": 100}
         return {
+            "region": "여수·광주 5개 구",
+            "indicators": [p[1] for p in POLLUTANTS],
+        }
+
+    def run_params(self):
+        if self.mode == "stations":
+            return {}
+        return {
             "file_name": self.file_name,
             "start_date": self.start.isoformat(),
             "end_date_exclusive": self.end.isoformat(),
-            "region": "여수·광주 5개 구",
-            "indicators": [p[1] for p in POLLUTANTS],
+            "data_status": self.data_status or "confirmed",
         }
 
 
@@ -148,8 +164,9 @@ def base_record(spec, run_id, at, payload, **fields):
     return {
         "source_id": spec.source_id,
         "spec_id": spec.spec_id,
-        "raw_url": None,
-        "file_name": spec.file_name,
+        # 파일명·기간은 job_run.stats에 있다. 재배포 파일명은 같은 관측 칸을 바꾸지 않는다.
+        "raw_url": FINAL_URL if spec.mode == "final" else None,
+        "file_name": None,
         "content_hash": "sha256:" + hashlib.sha256(canonical(payload).encode("utf-8")).hexdigest(),
         "collected_at": at,
         "published_at": None,
@@ -169,7 +186,7 @@ def base_record(spec, run_id, at, payload, **fields):
         "value": None,
         "unit": None,
         "missing_reason": None,
-        "is_provisional": False,
+        "is_provisional": spec.data_status == "provisional",
         "locator": {},
         "dedup_key": "",
         "license_type": spec.license_type,
@@ -292,6 +309,8 @@ def measurement_pairs(cells, sheet, row_number, spec, run_id, at, stations=()):
     for value in cells[5:11]:
         if isinstance(value, str) and not value.strip():
             value = None
+        if value in (-999, "-999"):
+            value = None
         if value is not None and (
             isinstance(value, bool)
             or not isinstance(value, (int, float))
@@ -302,7 +321,12 @@ def measurement_pairs(cells, sheet, row_number, spec, run_id, at, stations=()):
         values.append(value)
     for column, (pollutant, indicator, unit) in enumerate(POLLUTANTS, start=5):
         value = values[column - 5]
-        payload = {"sheet": sheet, "cells": list(cells), "column": HEADERS[column]}
+        payload = {
+            "sheet": sheet,
+            "cells": list(cells),
+            "column": HEADERS[column],
+            "data_status": spec.data_status or "confirmed",
+        }
         yield (
             payload,
             base_record(
@@ -325,13 +349,13 @@ def measurement_pairs(cells, sheet, row_number, spec, run_id, at, stations=()):
                 missing_reason="not_published" if value is None else None,
                 locator={
                     "sheet": sheet,
-                    "row": row_number,
                     "측정소코드": code,
                     "측정소명": name,
                     "측정일시": raw_time,
                     "column": HEADERS[column],
                 },
-                dedup_key=f"airkorea_final:{code}:{pollutant}:{raw_time}",
+                dedup_key=f"airkorea_final:{code}:{pollutant}:{raw_time}"
+                + (":provisional" if spec.data_status == "provisional" else ""),
             ),
         )
 
