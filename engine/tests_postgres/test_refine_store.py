@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 
 import pytest
-from psycopg.types.json import Jsonb
 
 from pipeline.collect.kosis import Query
 from pipeline.collect.run import collect
@@ -24,16 +23,14 @@ YEAR_2023 = "2023-01-01T00:00:00+09:00"
 
 
 def collect_rows(conn, tmp_path, rows, ledger=True):
-    """수집기를 돌린다. ledger 면 수집기가 내보낸 장부를 처음 저장된 원본의 c1_record 에 넣는다."""
+    """수집기를 돌린다. 수집기가 장부(c1_record)를 원본과 함께 저장한다.
+
+    ledger=False 는 장부 칸이 생기기 전에 저장된 원본을 흉내 내려고 장부를 비운다.
+    """
     output = tmp_path / "c1.json"
     collect(QUERY, "fixture", PostgresStore(conn), output, fetch=lambda *a: copy.deepcopy(rows))
-    if ledger:
-        for record in json.loads(output.read_text("utf-8")):
-            conn.execute(
-                "UPDATE raw_record SET c1_record = %s "
-                "WHERE content_hash = %s AND c1_record IS NULL",
-                (Jsonb(record), record["content_hash"]),
-            )
+    if not ledger:
+        conn.execute("UPDATE raw_record SET c1_record = NULL")
 
 
 def changed_2023(dt, published):

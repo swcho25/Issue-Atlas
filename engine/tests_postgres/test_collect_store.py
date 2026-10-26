@@ -15,6 +15,7 @@ from psycopg import sql
 from pipeline.collect.kosis import CollectionError, Query
 from pipeline.collect.run import collect
 from pipeline.collect.store import PostgresStore
+from pipeline.refine.store import refine_raw
 
 ROOT = Path(__file__).resolve().parents[2]
 ROWS = json.loads((ROOT / "contracts/c1/examples/raw/kosis-net-migration.json").read_text("utf-8"))
@@ -86,10 +87,9 @@ def store(database):
     schema = "test_" + uuid4().hex
     database.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
     database.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema)))
-    migration = (
-        ROOT / "backend/src/main/resources/db/migration/V0002__collection_place_foundation.sql"
-    )
-    database.execute(migration.read_text("utf-8"))
+    migrations = ROOT / "backend/src/main/resources/db/migration"
+    for name in ("V0002__collection_place_foundation.sql", "V0005__create_normalized_record.sql"):
+        database.execute((migrations / name).read_text("utf-8"))
     try:
         yield PostgresStore(database)
     finally:
@@ -124,6 +124,36 @@ def test_real_database_repeat_and_revision(store, tmp_path):
     assert store.conn.execute("SELECT count(*) FROM raw_record").fetchone() == (4,)
     assert store.conn.execute("SELECT count(*) FROM source").fetchone() == (1,)
     assert store.conn.execute("SELECT count(*) FROM source_spec").fetchone() == (1,)
+
+
+def test_raw_rows_carry_c1_ledger_that_p2_refines(store, tmp_path):
+    collect(QUERY, "fixture", store, tmp_path / "c1.json", fetch=fetch)
+    rows = store.conn.execute(
+        "SELECT c1_record->>'content_hash' = content_hash, c1_record->>'run_id' = job_run_id "
+        "FROM raw_record"
+    ).fetchall()
+    assert rows == [(True, True)] * 3
+    result = refine_raw(store.conn)
+    assert result["inserted"] == 3 and result["status"] == {"pass": 3} and not result["skipped"]
+
+
+def test_empty_ledger_is_backfilled_without_changing_owner(store, tmp_path):
+    # V0005 전에 저장된 원본(c1_record=null)은 다시 수집할 때 장부만 채운다. 처음 장부는 덮지 않는다
+    first = collect(QUERY, "fixture", store, tmp_path / "c1.json", fetch=fetch)
+    store.conn.execute("UPDATE raw_record SET c1_record = NULL WHERE payload->>'PRD_DE' = '2023'")
+    again = collect(QUERY, "fixture", store, tmp_path / "c1.json", fetch=fetch)
+    assert again["inserted"] == 0 and again["duplicates"] == 3
+    owners = store.conn.execute(
+        "SELECT DISTINCT job_run_id, c1_record->>'run_id' FROM raw_record"
+    ).fetchall()
+    filled = store.conn.execute(
+        "SELECT c1_record->>'run_id' FROM raw_record WHERE payload->>'PRD_DE' = '2023'"
+    ).fetchone()
+    assert {o[0] for o in owners} == {first["run_id"]}
+    assert filled == (again["run_id"],)
+    assert store.conn.execute(
+        "SELECT count(*) FROM raw_record WHERE c1_record->>'run_id' = %s", (first["run_id"],)
+    ).fetchone() == (2,)
 
 
 def test_mid_batch_database_error_rolls_back_raw_but_keeps_failed_job(store, tmp_path):
