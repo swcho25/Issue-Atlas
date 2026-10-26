@@ -7,7 +7,7 @@ P1 수집·P3 지역·P7 서버가 공유하는 DB 기반. 구현은 backend/src
 | source | source_id text | 이름·기관·이용 조건·storage_scope 필수. 신뢰 등급·robots 결과는 확인 전 null 허용 |
 | source_spec | spec_id text | source FK, method(api/file/board/rss), evidence_class 4종, params 객체 기본 {}. 수동 수집 schedule은 null |
 | job_run | job_run_id text | spec FK, collector_version·started_at 필수, stats 객체 기본 {}. 종료 전 status·finished_at 모두 null, 종료 시 둘 다 입력 |
-| raw_record | bigint identity | 실행과 spec이 일치하는 복합 FK. raw_url/file_name 중 하나 이상 필수. content_hash·payload null 허용 |
+| raw_record | bigint identity | 실행과 spec이 일치하는 복합 FK. raw_url/file_name 중 하나 이상 필수. content_hash·payload null 허용. `c1_record`(V0005): 수집기가 이 원본에서 만든 C1 레코드(장부), jsonb 객체 또는 null. P1이 채우고 P2 정제가 읽는다([P2 계약](../p2/README.md)) |
 | place | place_id text | 계층 sido/sigungu/emd/station, parent 자기 FK. geography(Point,4326), 한국 범위 경도 124~132·위도 33~39 |
 | place_code_map | bigint identity | place FK, C1 코드 체계 5종, 코드·유효 날짜 연결 |
 
@@ -43,3 +43,4 @@ FK 조회 인덱스, spec별 실행/수집 시각 인덱스, place geometry GiST
 ## 변경 이력
 
 - v0.1 (2026-10-21): 수집·지역 기반 6개 초안. P1·P3 리뷰 대기.
+- v0.1.1 (2026-10-26): raw_record에 장부 칸 `c1_record` 추가(V0005, S15P31C108-99). P1이 채운다.
