@@ -1,0 +1,13 @@
+**
+!engine
+!engine/pyproject.toml
+!engine/uv.lock
+!engine/pipeline
+!engine/pipeline/**
+!contracts
+!contracts/**
+**/.env*
+**/*.pem
+**/*.key
+**/__pycache__
+**/*.pyc

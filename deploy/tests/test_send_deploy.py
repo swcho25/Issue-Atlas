@@ -79,6 +79,23 @@ class SenderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.invoke(lambda *args, **kwargs: self.fail("Unexpected SSH"))
 
+    def test_collector_uses_its_own_artifact_and_repository(self):
+        self.env["DEPLOY_COMPONENT"] = "collector"
+        self.env["COLLECTOR_IMAGE_REPOSITORY"] = "test/collector"
+        (self.root / "collector-image.txt").write_text("test/collector@sha256:" + "c" * 64)
+
+        def execute(command, **kwargs):
+            payload = json.loads(kwargs["input"])
+            self.assertEqual(payload["component"], "collector")
+            self.assertEqual(payload["image"], "test/collector@sha256:" + "c" * 64)
+
+        self.invoke(execute)
+
+    def test_unknown_component_never_contacts_server(self):
+        self.env["DEPLOY_COMPONENT"] = "database"
+        with self.assertRaises(ValueError):
+            self.invoke(lambda *args, **kwargs: self.fail("Unexpected SSH"))
+
 
 if __name__ == "__main__":
     unittest.main()

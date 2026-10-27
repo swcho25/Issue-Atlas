@@ -1,6 +1,7 @@
 {
   "app_dir": "/opt/issueatlas-dev",
   "image_repository": "swcho25/issueatlas-backend",
+  "collector_image_repository": "swcho25/issueatlas-backend",
   "registry_host": "docker.io",
   "project_url": "https://lab.ssafy.com/s15-final/S15P31C108",
   "health_url": "https://backend.issue-atlas.kr/actuator/health"

@@ -66,7 +66,7 @@ engine:
   variables:
     UV_PYTHON_DOWNLOADS: never
   rules:
-    - changes: [engine/**/*, contracts/**/*, .gitlab-ci.yml, .gitlab/ci/**/*]
+    - changes: [engine/**/*, contracts/**/*, deploy/collector/**/*, .gitlab-ci.yml, .gitlab/ci/**/*]
   script:
     - pip install --disable-pip-version-check uv==0.11.28
     - uv --directory engine run --locked ruff check .

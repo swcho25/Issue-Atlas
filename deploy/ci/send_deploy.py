@@ -24,11 +24,15 @@ def main():
     host, user = required("DEPLOY_HOST"), required("DEPLOY_USER")
     if not re.fullmatch(r"[a-zA-Z0-9.-]+", host) or not re.fullmatch(r"[a-z_][a-z0-9_-]*", user):
         raise ValueError("Invalid SSH destination")
-    image = Path("backend-image.txt").read_text().strip()
-    repository = required("BACKEND_IMAGE_REPOSITORY")
+    component = os.environ.get("DEPLOY_COMPONENT", "backend")
+    if component not in {"backend", "collector"}:
+        raise ValueError("Unsupported deployment component")
+    image = Path(f"{component}-image.txt").read_text().strip()
+    repository = required(f"{component.upper()}_IMAGE_REPOSITORY")
     if not re.fullmatch(re.escape(repository) + r"@sha256:[0-9a-f]{64}", image):
         raise ValueError("Image artifact must contain this project's immutable digest")
     request = {
+        "component": component,
         "image": image,
         "revision": required("CI_COMMIT_SHA"),
         "branch": branch,

@@ -9,6 +9,7 @@ ExecStartPre=/bin/sh -ec '/usr/sbin/ip link show docker-ci >/dev/null 2>&1 || /u
 ExecStartPre=/usr/sbin/ip address replace 10.240.0.1/24 dev docker-ci
 ExecStartPre=/usr/sbin/ip link set docker-ci up
 ExecStart=/usr/bin/dockerd --config-file=/etc/docker-ci/daemon.json
+ExecStartPost=/usr/local/sbin/issueatlas-service-egress
 ExecReload=/bin/kill -s HUP $MAINPID
 Restart=always
 RestartSec=5

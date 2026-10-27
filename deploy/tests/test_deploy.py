@@ -133,6 +133,12 @@ class DeploymentTests(unittest.TestCase):
             self.release()
         self.assertEqual(self.deployment.applied, [])
 
+    def test_collector_image_cannot_replace_backend(self):
+        self.deployment.labels["org.opencontainers.image.component"] = "collector"
+        with self.assertRaisesRegex(RuntimeError, "component"):
+            self.release()
+        self.assertEqual(self.deployment.applied, [])
+
     def test_untrusted_release_inputs_are_rejected_before_commands(self):
         for overrides in (
             {"branch": "feature/x"},
