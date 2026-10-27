@@ -1,4 +1,4 @@
-"""기사 본문 수집 · 요약. 실제 기사 대신 직접 쓴 가상 기사 HTML 로, 네트워크 없이 확인한다."""
+"""기사 본문 수집. 실제 기사 대신 직접 쓴 가상 기사 HTML 로, 네트워크 없이 확인한다."""
 
 import json
 import ssl
@@ -7,7 +7,7 @@ from urllib.error import URLError
 import pytest
 import truststore
 
-from pipeline.article import LEAD3, fetch_articles
+from pipeline.article import FETCHER, fetch_articles
 from pipeline.article.__main__ import main
 from pipeline.article.fetch import normalize_url, tls_context
 
@@ -92,19 +92,24 @@ def run(docs, web, clock=None):
     )
 
 
-def test_article_body_and_summary():
+def test_article_body():
     [out] = run([doc()], Web())
 
-    assert out["status"] == "ok"
-    assert out["http_status"] == 200
-    assert out["url"] == URL
-    assert out["fetched_at"] == AT
+    # 요약은 P3 가 이 본문을 받아 한다. 결과 칸은 이것뿐이다
+    assert out == {
+        "news_id": "99999999.20240101000000001",
+        "provider": "가상일보",
+        "url": URL,
+        "fetcher": FETCHER,
+        "status": "ok",
+        "http_status": 200,
+        "fetched_at": AT,
+        "body": out["body"],
+    }
     assert all(line in out["body"] for line in LINES)
     # 메뉴 · 저작권 꼬리말은 본문이 아니다
     assert "메뉴 바로가기" not in out["body"]
     assert "무단 전재" not in out["body"]
-    assert out["summary"] == " ".join(LINES[:3])
-    assert out["summarizer"] == LEAD3.name
 
 
 def test_missing_link_is_not_requested():
@@ -243,7 +248,6 @@ def test_different_article_is_discarded():
 
     assert out["status"] == "CONTENT_MISMATCH"
     assert out["body"] is None
-    assert out["summary"] is None
 
 
 def test_matching_survives_missing_first_line():
@@ -259,40 +263,6 @@ def test_tls_uses_os_store_and_keeps_verification():
     assert isinstance(context, truststore.SSLContext)
     assert context.verify_mode == ssl.CERT_REQUIRED
     assert context.check_hostname is True
-
-
-def test_lead3_takes_first_three_sentences():
-    body = (
-        '사진=가상시 제공\n첫째 문장이다. 둘째 문장은 3.5% 늘었다.\n"셋째 문장이다." 넷째 문장이다.'
-    )
-
-    # 마침표로 끝나지 않는 줄(사진 설명 · 기자 이름)은 문장으로 세지 않는다
-    assert LEAD3.run(body) == '첫째 문장이다. 둘째 문장은 3.5% 늘었다. "셋째 문장이다."'
-
-
-@pytest.mark.parametrize(
-    ("body", "expected"), [("한 문장뿐이다.", "한 문장뿐이다."), ("제목만", None)]
-)
-def test_lead3_short_body(body, expected):
-    assert LEAD3.run(body) == expected
-
-
-@pytest.mark.parametrize(
-    ("body", "expected"),
-    [
-        ("[가상일보=홍길동 기자] 첫째 문장이다.", "첫째 문장이다."),
-        ("[가상일보(여수)=홍길동 기자] 첫째 문장이다.", "첫째 문장이다."),
-        ("(여수=가상통신) 홍길동 기자 = 첫째 문장이다.", "첫째 문장이다."),
-        # 마침표 없는 부제목 다음 줄에 머리말이 오기도 한다
-        ("인구 3만 선 무너져\n[가상일보=홍길동 기자] 첫째 문장이다.", "첫째 문장이다."),
-        # 기자 머리말이 아닌 말머리는 그대로 둔다
-        ("[단독] 첫째 문장이다.", "[단독] 첫째 문장이다."),
-    ],
-    ids=["bracket", "bracket-region", "paren-wire", "after-subtitle", "tag"],
-)
-def test_lead3_drops_reporter_dateline(body, expected):
-    # 헤럴드경제 6건이 첫 문장 앞에 [언론사(지역)=기자명 기자] 를 붙였다 (2026-10-27 확인)
-    assert LEAD3.run(body) == expected
 
 
 def response_file(tmp_path, documents):
@@ -312,7 +282,7 @@ def test_cli_writes_one_json_line_per_article(tmp_path, capsysbinary):
     lines = [json.loads(line) for line in out.decode("utf-8").splitlines()]
     assert code == 0
     assert [line["status"] for line in lines] == ["ok", "NO_LINK"]
-    assert lines[0]["summary"] == " ".join(LINES[:3])
+    assert LINES[0] in lines[0]["body"]
     assert b"\r\n" not in out
     assert json.loads(err.decode("utf-8")) == {"NO_LINK": 1, "ok": 1}
 

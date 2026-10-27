@@ -1,4 +1,4 @@
-"""빅카인즈 기사 목록 → 기사마다 본문 수집 · 요약 결과."""
+"""빅카인즈 기사 목록 → 기사마다 본문 수집 결과."""
 
 import time
 from collections.abc import Iterable, Iterator
@@ -7,7 +7,6 @@ from http.client import HTTPException
 
 from .body import extract_body, has_reference, same_article
 from .fetch import Pacer, Robots, http_getter, normalize_url
-from .summarize import LEAD3, Summarizer
 
 FETCHER = "article-0.1.0"
 
@@ -23,7 +22,6 @@ def fetch_articles(
     sleep=time.sleep,
     monotonic=time.monotonic,
     now=_utc_now,
-    summarizer: Summarizer = LEAD3,
     interval: float = 1.0,
 ) -> Iterator[dict]:
     """documents 는 빅카인즈 뉴스 검색 응답의 return_object.documents."""
@@ -36,10 +34,10 @@ def fetch_articles(
 
     robots = Robots(paced_get)
     for document in documents:
-        yield _fetch_one(document, paced_get, robots, now, summarizer)
+        yield _fetch_one(document, paced_get, robots, now)
 
 
-def _fetch_one(document, get, robots, now, summarizer) -> dict:
+def _fetch_one(document, get, robots, now) -> dict:
     url = normalize_url(document.get("provider_link_page"))
     out = {
         "news_id": document.get("news_id"),
@@ -50,8 +48,6 @@ def _fetch_one(document, get, robots, now, summarizer) -> dict:
         "http_status": None,
         "fetched_at": None,
         "body": None,
-        "summary": None,
-        "summarizer": None,
     }
     if url is None:
         return out | {"status": "NO_LINK"}
@@ -74,9 +70,4 @@ def _fetch_one(document, get, robots, now, summarizer) -> dict:
         return out | {"status": "NO_BODY"}
     if not same_article(body, document["content"]):
         return out | {"status": "CONTENT_MISMATCH"}
-    return out | {
-        "status": "ok",
-        "body": body,
-        "summary": summarizer.run(body),
-        "summarizer": summarizer.name,
-    }
+    return out | {"status": "ok", "body": body}

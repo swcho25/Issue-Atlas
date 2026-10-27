@@ -1,4 +1,4 @@
-"""기사 본문 수집 · 요약 실행.
+"""기사 본문 수집 실행.
 
 python -m pipeline.article <빅카인즈 뉴스 검색 응답 JSON 파일>
     → 기사마다 결과 JSONL (stdout), 상태별 건수 JSON (stderr)
