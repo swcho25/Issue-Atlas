@@ -1,9 +1,7 @@
 # self-hosted GitLab이므로 Cloudflare Git 연동 대신 기존 Runner에서 배포한다.
 frontend-worker:
   stage: image
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/'
-    - changes: [frontend/**/*, deploy/frontend/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab-ci.yml, .gitlab/ci/**/*]
+  rules: !reference [.frontend-scope, rules]
   image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
   before_script:
     - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
@@ -24,7 +22,7 @@ frontend-worker:
     expire_in: 1 day
 
 frontend-deploy:
-  extends: .release
+  rules: !reference [.frontend-release, rules]
   stage: deploy
   image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
   needs:
@@ -32,12 +30,16 @@ frontend-deploy:
       artifacts: true
     - job: backend-deploy
       artifacts: false
+      optional: true
   resource_group: issueatlas-workers
   environment:
     name: shared-workers
     url: https://issue-atlas.kr
   interruptible: false
   timeout: 15 minutes
+  cache:
+    key: { files: [pnpm-lock.yaml] }
+    paths: [.pnpm-store]
   before_script:
     - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
     - corepack enable

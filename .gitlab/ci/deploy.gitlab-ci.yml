@@ -1,10 +1,5 @@
-.release:
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/ && $CI_COMMIT_REF_PROTECTED == "true"'
-    - when: never
-
 backend-image:
-  extends: .release
+  rules: !reference [.backend-release, rules]
   stage: image
   image: docker:29.9.2-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb
   services:
@@ -25,7 +20,7 @@ backend-image:
     expire_in: 7 days
 
 backend-deploy:
-  extends: .release
+  rules: !reference [.backend-release, rules]
   variables:
     BACKEND_IMAGE_REPOSITORY: swcho25/issueatlas-backend
   stage: deploy
@@ -47,6 +42,7 @@ backend-deploy:
 
 collector-image:
   extends: backend-image
+  rules: !reference [.collector-release, rules]
   variables:
     COLLECTOR_IMAGE_REPOSITORY: swcho25/issueatlas-backend
   script:
@@ -62,6 +58,7 @@ collector-image:
 
 collector-deploy:
   extends: backend-deploy
+  rules: !reference [.collector-release, rules]
   variables:
     DEPLOY_COMPONENT: collector
     COLLECTOR_IMAGE_REPOSITORY: swcho25/issueatlas-backend
@@ -71,3 +68,4 @@ collector-deploy:
     # Backend startup applies Flyway before this collector version becomes selectable.
     - job: backend-deploy
       artifacts: false
+      optional: true

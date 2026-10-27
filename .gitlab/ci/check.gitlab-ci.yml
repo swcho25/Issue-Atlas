@@ -5,6 +5,8 @@
 
 harness:
   stage: check
+  rules:
+    - when: on_success
   image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
   script:
     - node scripts/check-harness.mjs
@@ -15,10 +17,7 @@ frontend:
   before_script:
     # pnpm install의 루트 prepare가 git config를 실행한다.
     - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
-  rules:
-    # 병합 커밋은 변경 경로와 관계없이 배포할 프론트를 검사한다.
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/'
-    - changes: [frontend/**/*, deploy/frontend/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab-ci.yml, .gitlab/ci/**/*]
+  rules: !reference [.frontend-scope, rules]
   cache:
     key: { files: [pnpm-lock.yaml] }
     paths: [.pnpm-store]
@@ -43,7 +42,7 @@ backend:
     DOCKER_TLS_CERTDIR: ""
     TESTCONTAINERS_HOST_OVERRIDE: docker
     GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle-home
-  # 이미지로 배포할 커밋은 변경 경로와 관계없이 backend 검사를 거친다.
+  rules: !reference [.backend-scope, rules]
   cache:
     key: { files: [backend/build.gradle, backend/gradle/wrapper/gradle-wrapper.properties] }
     paths: [.gradle-home/caches, .gradle-home/wrapper]
@@ -58,8 +57,11 @@ backend:
 
 infra:
   stage: check
+  rules:
+    - when: on_success
   image: python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530
   script:
+    - pip install --disable-pip-version-check PyYAML==6.0.3
     - python -m unittest discover -s deploy/tests -v
 
 engine:
@@ -67,8 +69,7 @@ engine:
   image: python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530
   variables:
     UV_PYTHON_DOWNLOADS: never
-  rules:
-    - changes: [engine/**/*, contracts/**/*, deploy/collector/**/*, .gitlab-ci.yml, .gitlab/ci/**/*]
+  rules: !reference [.engine-scope, rules]
   script:
     - pip install --disable-pip-version-check uv==0.11.28
     - uv --directory engine run --locked ruff check .

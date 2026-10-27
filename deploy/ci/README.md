@@ -6,11 +6,33 @@
 
 | 이벤트 | 동작 |
 | --- | --- |
-| develop/main 대상 MR 생성·갱신 | 검사만, 배포 작업 없음 |
-| 보호된 develop/main에 병합(push 파이프라인) | 검사 → 이미지 업로드 → 같은 EC2에 자동 배포 |
+| develop/main 대상 MR 생성·갱신 | 변경 영역 검사, FE 변경 시 Workers 빌드·검사 포함. 배포 없음 |
+| 보호된 develop/main에 병합(push 파이프라인) | 변경 영역 검사 → 해당 이미지/Workers 빌드 → 해당 서비스만 자동 배포 |
 | 다른 브랜치 push·태그·스케줄·웹 수동 파이프라인 | 실행 안 함 |
 
 두 브랜치는 하나의 `shared-ec2` 환경·`issueatlas-ec2` resource group을 사용한다. 서버에서도 파일 잠금과 공통 pipeline ID 상한으로 오래된 작업을 거부한다. 마지막으로 성공한 배포가 실행되며 main이 항상 우선하는 구조가 아니다. 수동 direct push도 기술적으로 push 이벤트이므로 **develop/main의 직접 push를 금지하고 MR로만 병합**하도록 보호해야 한다.
+
+### 변경 영역 선택 (S15P31C108-113)
+
+경로 목록은 `.gitlab/ci/changes.gitlab-ci.yml`에서 검사·빌드·배포가 공유한다. MR은 대상 브랜치와의 차이, 병합 후 push는 해당 브랜치의 이전 커밋과의 차이를 사용한다. 현재 workflow는 MR과 develop/main push만 허용하므로 스케줄에서 changes가 무조건 참이 되는 경우는 없다.
+
+| 변경 | 추가로 실행할 작업 (harness·infra는 항상 실행) |
+| --- | --- |
+| FE 소스·설정·E2E, pnpm 잠금/설정, FE 점검 스크립트 | FE 검사·Workers 빌드, 병합 후 FE 배포 |
+| BE 소스·Flyway·Gradle·Dockerfile, 개발 Compose | BE 검사·이미지, 병합 후 BE 배포 |
+| engine/pipeline·의존성·Dockerfile, 수집기 실행 설정 | engine 검사·수집기 이미지, 병합 후 수집기 버전 갱신 (수집 자동 실행 없음) |
+| engine/api·ai·tests·tests_postgres | engine 검사만 |
+| contracts, 공통 CI YAML | FE·BE·engine 모두 검사하고 병합 후 모두 배포 |
+| deploy/ci의 공통 Python·JSON | BE·수집기 검사·이미지·배포 |
+| docs, 루트/서비스 README | 가벼운 harness·infra 검사만 |
+
+여러 영역을 바꾸면 합집합으로 실행한다. scripts 변경은 FE 검사·빌드에도 반영한다. 이미지에 포함되는 pipeline 내부 문서/자료는 보수적으로 수집기 변경으로 취급한다. 새 소스 디렉터리·설정 형식을 도입하면 경로 목록과 선택 시나리오 테스트도 함께 갱신한다.
+
+FE·수집기 배포의 `backend-deploy` 의존성은 optional이다. BE 작업이 없으면 기존 BE/DB를 사용하고, 있으면 성공을 기다린다. 이미지 작업은 check 단계를 모두 통과해야 실행하며, 배포 이미지 artifact 의존성은 필수다. 공통 계약이나 Flyway를 함께 바꿀 때의 호환성 검토는 계속 필요하다.
+
+실패한 배포는 해당 파이프라인의 실패 job을 재시도한다. 이후 무관한 변경을 병합해도 누락된 서비스를 자동 재배포하지 않는다. 서비스마다 마지막 배포 SHA가 달라지는 것은 정상이며, FE는 `/healthz`, BE·수집기는 각 배포 기록으로 확인한다. 변경 없는 서비스를 포함한 강제 전체 배포 기능은 이번 범위에 없다.
+
+FE 배포도 빌드·검사와 같은 pnpm store 캐시를 재사용한다. Runner 동시 실행 수·기존 테스트·로컬 pre-push 규칙은 변경하지 않는다. 실제 시간 감소는 다음 GitLab 실행에서 확인한다.
 
 ## 최초 GitLab 설정 (Maintainer 필요)
 
@@ -91,8 +113,11 @@ restrict,command="sudo -n /usr/bin/python3 /usr/local/sbin/issueatlas-deploy.py"
 ## 검증과 현재 한계
 
 ```bash
+python -m pip install PyYAML==6.0.3
 python -m unittest discover -s deploy/tests -v
 pnpm check:all
 ```
 
-실제 Runner 실행, Registry push/pull, 전용 SSH 접속과 최초 자동 배포는 GitLab 설정·사용자의 브랜치 push 이후에 검증한다. 로컬 단위 검사 성공을 실제 파이프라인 성공으로 표시하지 않는다. setup 완료 전에는 현재 수동 배포 서버가 그대로 실행된다.
+`test_ci_selection.py`는 실제 YAML의 reference·상속을 해석해 변경별 job과 필수 의존성을 확인한다. GitLab 서버의 CI Lint와 실제 파이프라인 검증을 대체하지는 않는다.
+
+기존 BE·수집기·FE의 develop 자동 배포는 확인된 상태다. 113번의 변경 영역 선택은 로컬 배포 테스트 29건과 전체 pnpm 검사를 통과했으며, GitLab MR·병합 후 실행은 사용자 push 이후 확인한다. 로컬 선택 검사 성공을 실제 파이프라인 성공으로 표시하지 않는다.
