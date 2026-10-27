@@ -1,0 +1,49 @@
+# self-hosted GitLab이므로 Cloudflare Git 연동 대신 기존 Runner에서 배포한다.
+frontend-worker:
+  stage: image
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/'
+    - changes: [frontend/**/*, deploy/frontend/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab-ci.yml, .gitlab/ci/**/*]
+  image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
+    - corepack enable
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm --filter frontend worker:build
+    - pnpm --filter frontend exec wrangler deploy --dry-run
+    - node --check deploy/frontend/verify.mjs
+    - pnpm --filter frontend exec playwright install --with-deps chromium
+    - pnpm --filter frontend worker:test
+  cache:
+    key: { files: [pnpm-lock.yaml] }
+    paths: [.pnpm-store]
+  artifacts:
+    paths: [frontend/.open-next/]
+    expire_in: 1 day
+
+frontend-deploy:
+  extends: .release
+  stage: deploy
+  image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
+  needs:
+    - job: frontend-worker
+      artifacts: true
+    - job: backend-deploy
+      artifacts: false
+  resource_group: issueatlas-workers
+  environment:
+    name: shared-workers
+    url: https://issue-atlas.kr
+  interruptible: false
+  timeout: 15 minutes
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
+    - corepack enable
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+  script:
+    - test -n "$CLOUDFLARE_ACCOUNT_ID" && test -n "$CLOUDFLARE_API_TOKEN"
+    - pnpm --filter frontend worker:deploy --var "DEPLOYMENT_REVISION:$CI_COMMIT_SHA"
+    - node deploy/frontend/verify.mjs https://issue-atlas.kr "$CI_COMMIT_SHA"

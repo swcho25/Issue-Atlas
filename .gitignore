@@ -7,6 +7,9 @@ node_modules/
 frontend/.next/
 frontend/out/
 frontend/next-env.d.ts
+frontend/.open-next/
+frontend/.wrangler/
+frontend/.dev.vars*
 
 # Gradle
 backend/.gradle/

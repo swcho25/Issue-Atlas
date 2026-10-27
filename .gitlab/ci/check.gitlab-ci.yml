@@ -16,7 +16,9 @@ frontend:
     # pnpm install의 루트 prepare가 git config를 실행한다.
     - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
   rules:
-    - changes: [frontend/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab-ci.yml, .gitlab/ci/**/*]
+    # 병합 커밋은 변경 경로와 관계없이 배포할 프론트를 검사한다.
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/'
+    - changes: [frontend/**/*, deploy/frontend/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab-ci.yml, .gitlab/ci/**/*]
   cache:
     key: { files: [pnpm-lock.yaml] }
     paths: [.pnpm-store]
