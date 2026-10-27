@@ -83,6 +83,34 @@ def test_scope_narrower_than_license_is_kept(license_type, storage_scope):
     assert out["missing_reason"] == "license_blocked"
 
 
+def bigkinds(storage_scope):
+    # 빅카인즈 기사는 값이 없는 레코드라 값 없는 측정소 메타 모양을 빌린다 (문서 칸은 C1 v0.2 뒤)
+    record = copy.deepcopy(STATION[0])
+    return {
+        **record,
+        "content_hash": HASH,
+        "license_type": "BIGKINDS-이용약관",
+        "storage_scope": storage_scope,
+    }
+
+
+def test_bigkinds_full_scope_is_lowered_to_metadata():
+    # 빅카인즈는 본문을 저장하지 않는다: 제목·링크·메타데이터까지 (S15P31C108-101 · -106)
+    out = refine_record(bigkinds("full"))
+
+    assert out["validation_status"] == "fixed"
+    assert out["issues"] == [issue("SCOPE_DOWNGRADED", "storage_scope")]
+    assert out["storage_scope"] == "metadata"
+
+
+@pytest.mark.parametrize("storage_scope", ["metadata", "link_only"])
+def test_bigkinds_license_is_known(storage_scope):
+    out = refine_record(bigkinds(storage_scope))
+
+    assert out["validation_status"] == "pass"
+    assert out["storage_scope"] == storage_scope
+
+
 def test_missing_value_keeps_its_own_reason():
     # 02시 빈칸(not_published)은 지울 값이 없으니 결측 사유를 바꾸지 않는다
     record = {**copy.deepcopy(AIRKOREA[1]), "content_hash": HASH, "license_type": "KOGL-4"}

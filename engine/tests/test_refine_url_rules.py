@@ -13,7 +13,7 @@ def test_record_without_raw_url_or_file_name_is_held(passing_record, raw_url):
     assert out["issues"] == [{"code": "MISSING_REQUIRED", "field": "raw_url|file_name"}]
 
 
-# 네이버·카카오는 저장·LLM 금지, 빅카인즈는 기업 계약 전까지 금지 (PRD v4.1 7.5)
+# 네이버·카카오는 저장·LLM 금지 (PRD v4.1 7.5)
 @pytest.mark.parametrize(
     "raw_url",
     [
@@ -21,8 +21,6 @@ def test_record_without_raw_url_or_file_name_is_held(passing_record, raw_url):
         "https://n.news.naver.com/mnews/article/001/0012345678",
         "https://OpenAPI.Naver.com/v1/search/blog.json",
         "https://dapi.kakao.com/v2/search/web?query=여수",
-        "https://tools.kinds.or.kr/search/news",
-        "https://www.bigkinds.or.kr/v2/news/index.do",
     ],
 )
 def test_forbidden_source_is_held(passing_record, raw_url):
@@ -30,6 +28,20 @@ def test_forbidden_source_is_held(passing_record, raw_url):
 
     assert out["validation_status"] == "held"
     assert out["issues"] == [{"code": "FORBIDDEN_SOURCE", "field": "raw_url"}]
+
+
+# 빅카인즈는 언론 기사 수집원으로 쓰기로 함 (노션 결정 2026-10-26, S15P31C108-106)
+@pytest.mark.parametrize(
+    "raw_url",
+    [
+        "https://tools.kinds.or.kr/search/news",
+        "https://www.bigkinds.or.kr/v2/news/index.do",
+    ],
+)
+def test_bigkinds_is_not_forbidden(passing_record, raw_url):
+    out = refine_record({**passing_record, "raw_url": raw_url})
+
+    assert out["issues"] == []
 
 
 @pytest.mark.parametrize(

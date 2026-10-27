@@ -2,8 +2,10 @@
 
 from urllib.parse import unquote, urlsplit, urlunsplit
 
-# 네이버·카카오는 저장·LLM 금지, 빅카인즈(kinds.or.kr)는 기업 계약 전까지 금지 (PRD v4.1 7.5)
-FORBIDDEN_HOSTS = ("naver.com", "kakao.com", "kinds.or.kr", "bigkinds.or.kr")
+# 네이버·카카오는 저장·LLM 금지 (PRD v4.1 7.5).
+# 빅카인즈는 언론 기사 수집원으로 쓰기로 해 뺐다 (노션 결정 2026-10-26).
+# 빅카인즈 저장 범위는 이용허락 표(license_scopes.json)가 정한다
+FORBIDDEN_HOSTS = ("naver.com", "kakao.com")
 
 # 키를 담는 쿼리 이름. 대소문자와 _ · - 는 무시하고 비교한다
 SECRET_PARAMS = frozenset(
