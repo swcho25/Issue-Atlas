@@ -10,6 +10,8 @@ dependencies = [
     "psycopg[binary]>=3.2,<4",
     "python-dotenv>=1,<2",
     "rfc3339-validator>=0.1.4",
+    "trafilatura>=2.3.1",
+    "truststore>=0.10.5",
     "uvicorn>=0.54.0",
 ]
 
