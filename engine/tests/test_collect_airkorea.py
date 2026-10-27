@@ -2,7 +2,9 @@
 
 import copy
 import json
+import zipfile
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from urllib.error import HTTPError
@@ -85,6 +87,11 @@ def test_bad_station_is_rejected(field, value):
         ("광주광역시 남구 봉선로", "광주"),
         ("광주 북구", "광주"),
         ("전남광주통합특별시 광산구", "광주"),
+        # 2025 확정자료(잠정) 파일의 지역 표기
+        ("전남광주 북구", "광주"),
+        ("전남광주 광산구", "광주"),
+        ("전남광주 여수시", "여수"),
+        ("전남광주 순천시", None),
         ("경기 광주시 초월읍", None),
         ("전남 나주시 광주로", None),
         ("서울 강남구", None),
@@ -166,8 +173,68 @@ def test_real_xlsx_read_path_and_region_filter(tmp_path):
     create_book(path, [*ROWS, outside])
     pairs = list(workbook_pairs(path, FINAL, "test", AT))
     assert len(pairs) == 18
-    assert pairs[0][1]["locator"]["sheet"] == "2024년 1월 "
-    assert "row" not in pairs[0][1]["locator"]
+    # 시트·행은 파일 포장 정보라 관측 칸(locator)·원본 지문(payload)에 넣지 않는다
+    assert "sheet" not in pairs[0][1]["locator"] and "row" not in pairs[0][1]["locator"]
+    assert "sheet" not in pairs[0][0]
+
+
+SHORT = (
+    "지역",
+    "망",
+    "측정소코드",
+    "측정소명",
+    "측정일시",
+    "SO2",
+    "CO",
+    "O3",
+    "NO2",
+    "PM10",
+    "PM25",
+    "주소",
+)
+
+
+def create_monthly_zip(path, months):
+    """2023·2025 형식: zip 안에 월별 파일, 시트 이름 Data, 짧은 열 이름."""
+    with zipfile.ZipFile(path, "w") as z:
+        for name, rows in months.items():
+            book = Workbook()
+            sheet = book.active
+            sheet.title = "Data"
+            sheet.append(SHORT)
+            for row in rows:
+                sheet.append(row)
+            member = path.parent / name
+            book.save(member)
+            book.close()
+            z.write(member, f"2024/{name}")
+
+
+def test_monthly_zip_reads_same_observations_as_single_workbook(tmp_path):
+    single, monthly = tmp_path / "최종확정.xlsx", tmp_path / "2024.zip"
+    create_book(single)
+    create_monthly_zip(monthly, {"2024년 1월.xlsx": ROWS, "2024년 2월.xlsx": []})
+    from_single = [r for _, r in workbook_pairs(single, FINAL, "a", AT)]
+    zipped = replace(FINAL, file_name="2024.zip")
+    from_zip = [r for _, r in workbook_pairs(monthly, zipped, "b", AT)]
+    assert [r["value"] for r in from_zip] == [r["value"] for r in from_single]
+    assert [r["content_hash"] for r in from_zip] == [r["content_hash"] for r in from_single]
+    assert [r["locator"] for r in from_zip] == [r["locator"] for r in from_single]
+    out = refine_records(from_single + from_zip)
+    assert len(out) == 18 and {r["validation_status"] for r in out} == {"pass"}
+
+
+def test_monthly_zip_missing_month_or_bad_header_fails(tmp_path):
+    path = tmp_path / "2024.zip"
+    create_monthly_zip(path, {"2024년 2월.xlsx": ROWS})
+    with pytest.raises(CollectionError, match="INCOMPLETE_MONTHS"):
+        list(workbook_pairs(path, replace(FINAL, file_name="2024.zip"), "t", AT))
+    bad = tmp_path / "bad.zip"
+    create_monthly_zip(bad, {"2024년 1월.xlsx": []})
+    with zipfile.ZipFile(bad, "a") as z:
+        z.writestr("2024/readme.txt", "x")
+    with pytest.raises(CollectionError, match="UNRECOGNIZED_MEMBER"):
+        list(workbook_pairs(bad, replace(FINAL, file_name="bad.zip"), "t", AT))
 
 
 def test_mismatched_header_and_missing_month_fail(tmp_path):
