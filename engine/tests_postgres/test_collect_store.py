@@ -91,7 +91,8 @@ def store(database):
     for name in (
         "V0002__collection_place_foundation.sql",
         "V0005__create_normalized_record.sql",
-        "V0008__create_air_monthly.sql",  # P2 정제 저장이 월별 집계를 새로 고친다
+        "V0008__create_air_monthly.sql",  # P2 정제 저장이 월별 집계를 쓴다
+        "V0009__store_air_monthly_only.sql",
     ):
         database.execute((migrations / name).read_text("utf-8"))
     try:

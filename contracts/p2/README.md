@@ -1,6 +1,6 @@
-# P2 정제 레코드 v0.3
+# P2 정제 레코드 v0.4
 
-정제(P2) → 지역·시간(P3) · 분류(P4). 만드는 곳: `engine/pipeline/refine/` (`refine_records`). DB 에 저장한 결과는 아래 「저장」, 에어코리아 월별 집계는 「월별 집계」.
+정제(P2) → 지역·시간(P3) · 분류(P4). 만드는 곳: `engine/pipeline/refine/` (`refine_records`). DB 에 저장한 결과는 아래 「저장」, 에어코리아 확정 시간값은 「월별 집계」에만 저장한다.
 계약 변경은 받는 쪽 정우현(P3)·최동준(P4) 리뷰가 필요하다.
 
 ## 모양
@@ -54,7 +54,7 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
   - 같은 측정값의 판 · 재수집본은 시각 표기(시간대 포함)가 같아야 같은 묶음에 든다. 다르면 위 규칙으로 모은 묶음에 가서 결과는 같지만 그 묶음이 커진다
 - 장부가 없는 원본(`c1_record` 가 null — 이 칸이 생기기 전에 저장된 원본 포함)은 건너뛰고 실행 결과의 `skipped` 에 source_id 별로 센다
 - 장부의 `content_hash` 가 그 행의 원본과 다르면 `C1_HASH_MISMATCH` 로 멈춘다. 이 검사는 정제 전에 전체 장부에 한 번 해서, 어느 묶음도 저장하지 않고 멈춘다
-- **원본 한 행 = 정제 한 행.** `content_hash` 가 UNIQUE 이고 `raw_record.content_hash` 를 가리킨다. 같은 `dedup_key` 라도 원본이 다르면(충돌) 각자 held 로 남는다
+- **원본 한 행 = 정제 한 행.** `content_hash` 가 UNIQUE 이고 `raw_record.content_hash` 를 가리킨다. 같은 `dedup_key` 라도 원본이 다르면(충돌) 각자 held 로 남는다. **단, 에어코리아 확정 시간값은 정제 행으로 저장하지 않는다** — 아래 「월별 집계」
 - 저장된 행의 `run_id` · `collected_at` 은 장부 값을 따른다. 재수집 때 P1 이 장부를 갱신하지 않으면 원본을 처음 저장한 실행이다(위 「모양」의 「마지막으로 확인한 실행」은 장부가 그렇게 채워질 때만 맞다)
 - 같은 장부 · 같은 `rule_version` 으로 다시 돌리면 아무 행도 바뀌지 않는다. 결과가 바뀐 행(예: 새 판이 들어와 `is_latest` 가 false 가 된 이전 판)만 `refined_at` 이 새로 찍힌다
 
@@ -72,28 +72,30 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 
 ## 월별 집계 — `air_monthly`
 
-에어코리아 시간값을 측정소 × 지표 × 월(한국 시각)로 묶은 materialized view. Flyway [V0008](../../backend/src/main/resources/db/migration/V0008__create_air_monthly.sql).
-시간 자료(`normalized_record`)는 그대로 두고 그 위에 얹는다 — 원본 추적 · 결측 · 수정본 판정은 시간 단위로 하고, 카드 · 기사 · KOSIS(월 · 연)와는 월로 맞춘다.
+에어코리아 확정 시간값의 측정소 × 지표 × 월(한국 시각) 표. Flyway [V0008](../../backend/src/main/resources/db/migration/V0008__create_air_monthly.sql) · [V0009](../../backend/src/main/resources/db/migration/V0009__store_air_monthly_only.sql).
+**에어코리아 확정 시간값(`source_id = 'airkorea_final'`)은 `normalized_record` 에 저장하지 않고 이 표에만 저장한다**(v0.4). 시간 단위 정제 결과는 행당 약 2.4KB 라 3년 치(약 347만 행)면 약 8GB 인데, 카드 · P3 · P4 는 월 값을 쓴다. 원본(`raw_record`)은 시간 단위 그대로 남으므로 월평균의 근거는 원본으로 따라간다(측정소 코드 · 기간으로 `raw_record.c1_record` 를 찾는다).
 
-- 입력은 `normalized_ready` 의 `source_id = 'airkorea_final'`, `observed_period_type = 'H'` 행이다. 보류 · 이전 판은 빠지므로 확정 자료가 잠정 자료를 대신하면 확정 값만 센다
+- **검증은 시간마다 그대로 한다.** 하루 묶음으로 정제하면서 결측 · 충돌 · 잠정/확정 판을 시간마다 판정하고, 보류가 아닌 최신본만 월 합계에 더한다. 확정 자료가 잠정 자료를 대신하면 확정 값만 센다
 - **월은 한국 시각으로 자른다.** 원천 「1월 31일 24시」(31일 23–24시)는 1월이다
-- **`refine --db` 가 정제 저장 뒤 새로 고친다**(`REFRESH ... CONCURRENTLY`, 새로 고치는 동안에도 읽을 수 있다). 실행 결과의 `air_monthly` 가 집계 행 수다. 정제가 중간에 멈추면 새로 고치지 않으니 다시 돌린다. `refine --db` 는 V0008 이 적용된 DB 가 필요하다
-- 한 행 = (`station_code`, `indicator_id`, `unit`, `month_start`). 유일 인덱스 `uq_air_monthly`
+- **`refine --db` 가 모든 묶음을 정제한 뒤 이 표를 한 번에 다시 쓴다**(한 트랜잭션, 쓰는 동안 읽는 쪽은 이전 값을 본다). 정제가 중간에 멈추면 이전 값이 그대로 남으니 다시 돌린다. 실행 결과의 `air_monthly` 가 행 수, `air_unplaced` 가 측정소 · 지표 · 시간을 읽을 수 없어 어느 달에도 넣지 못한 레코드 수다. 같은 지표의 단위가 한 달 안에서 다르면 `AIR_UNIT_MISMATCH` 로 멈춘다
+- 한 행 = (`station_code`, `indicator_id`, `month_start`). 기본 키
 
 | 칸 | 뜻 |
 | --- | --- |
-| `station_code` · `station_name` | 측정소 코드(`place_code_raw`) · 이름(원천 locator 의 측정소명, 그 달에 바뀌었으면 사전순 뒤의 것) |
+| `station_code` · `station_name` | 측정소 코드(장부 `place_code_raw`) · 이름(원천 locator 의 측정소명, 그 달에 바뀌었으면 사전순 뒤의 것) |
 | `indicator_id` · `unit` | `air_pm10` · `air_pm25` · `air_o3` · `air_no2` · `air_co` · `air_so2`, 단위(µg/m³ · ppm) |
 | `month_start` · `month_end` | 한국 시각 [1일 0시, 다음 달 1일 0시). KOSIS 월 자료의 `observed_period_start` 와 같은 값이라 바로 잇는다 |
 | `month_hours` | 그 달 시간 수(날짜 수 × 24) |
 | `valid_hours` | 값이 있는 시간 수. 결측(−999 · 빈칸, `value` null)은 세지 않는다 |
+| `held_hours` | 쓸 수 있는 판 없이 보류(held)만 있는 시간 수. 보류 사유는 원본을 다시 정제해야 볼 수 있다 |
 | `value_mean` | 유효 시간값의 산술평균. **`valid_hours` 가 `month_hours` 의 75% 미만이면 null** |
 | `value_min` · `value_max` | 유효 시간값의 최솟값 · 최댓값 (75% 와 상관없이) |
-| `has_provisional` | 그 달에 잠정 자료(`is_provisional`)가 한 시간이라도 있으면 true |
+| `has_provisional` | 그 달에 잠정 자료(`is_provisional`)가 한 시간이라도 최신본이면 true |
 
 - 75% 는 대기 통계에서 흔히 쓰는 기준으로 우선 정했다. 공식 기준을 확인하면 고친다
 - 확인(2026-10-27): 2024-01 광주 서석동(324115) · 농성동(324121) 6항목의 일평균을 같은 방식(한국 시각 하루 유효 시간 평균)으로 내면 에어코리아 「측정소별 확정자료 조회」 일평균 372개와 모두 같다. 월평균(시간 평균)은 공개 일평균의 평균과 반올림 범위에서 같고, 결측 시간이 있는 날만큼 조금 다르다(예: 농성동 PM10 29.8 · 30.0)
 - 시군구 단위 평균은 없다. 측정소 ↔ 시군구 연결은 P3 몫
+- 일평균 · 최고 시간값 같은 다른 집계가 필요하면 원본에서 다시 정제해야 한다(시간 단위 정제 결과를 남기지 않으므로)
 
 ## 아직 없는 것
 
@@ -112,3 +114,4 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 | v0.2.1 | 2026-10-27 | 빅카인즈를 금지 소스에서 빼고 이용허락 표에 `BIGKINDS-이용약관` → 최대 `metadata` 추가. 결과가 달라지므로 `rule_version` 을 `p2-0.2.0` 으로 올림 — 저장된 행은 다음 정제 때 모두 새 판으로 갱신된다. 스키마는 그대로 (S15P31C108-106) |
 | v0.2.2 | 2026-10-27 | 저장: 장부를 관측 일 묶음으로 나눠 정제 · 묶음마다 커밋, 실행 결과에 `buckets`. 정제 결과는 한 번에 할 때와 같아 `rule_version` 그대로. 스키마는 그대로 (S15P31C108-111) |
 | v0.3 | 2026-10-27 | 월별 집계 `air_monthly`(V0008): 에어코리아 시간값의 측정소 × 지표 × 월 평균 · 유효 시간 · 최솟값 · 최댓값 · 잠정 포함. 75% 미만이면 평균 null. `refine --db` 가 저장 뒤 새로 고침, 실행 결과에 `air_monthly`. 정제 레코드 스키마 · 결과는 그대로 (S15P31C108-114) |
+| v0.4 | 2026-10-27 | 에어코리아 확정 시간값을 `normalized_record` 에 저장하지 않고 `air_monthly` 표(V0009, materialized view → 표)에만 저장. 정제가 시간마다 검증한 뒤 묶음마다 월 합계에 더해 마지막에 다시 씀. `held_hours` 추가, 실행 결과에 `air_unplaced`. V0009 가 기존 에어코리아 시간 정제 행을 지운다. 정제 규칙 · `rule_version` 은 그대로 (S15P31C108-115) |

@@ -1,7 +1,7 @@
 """명시 실행: uv --directory engine run pytest tests_postgres (Docker 필요).
 
-에어코리아 시간값을 정제한 뒤 측정소 × 지표 × 월 집계(air_monthly, V0008)를 확인한다.
-값은 직접 만든 가상 장부다.
+에어코리아 시간값은 normalized_record 에 넣지 않고 측정소 × 지표 × 월 표(air_monthly, V0009)에만
+저장한다. 값은 직접 만든 가상 장부다.
 """
 
 import copy
@@ -87,7 +87,7 @@ def monthly(conn):
     return conn.execute(
         "SELECT to_char(month_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI'), "
         "to_char(month_end AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI'), month_hours, "
-        "valid_hours, value_mean, value_min, value_max, has_provisional "
+        "valid_hours, held_hours, value_mean, value_min, value_max, has_provisional "
         "FROM air_monthly ORDER BY month_start"
     ).fetchall()
 
@@ -105,14 +105,18 @@ def test_monthly_mean_uses_valid_hours_of_each_korean_month(refine_db):
 
     stats = refine_raw(conn)
 
-    assert stats["air_monthly"] == 2
+    # 한 달이 하루 묶음 31개로 나뉘어 정제돼도 한 행으로 모인다
+    assert stats["air_monthly"] == 2 and stats["status"] == {"pass": 1440}
     # 한국 시각으로 자른다: UTC 로 자르면 2월 1일 0~8시가 1월로 가 1월 유효 시간이 653 이 된다
     assert monthly(conn) == [
-        ("2024-01-01 00:00", "2024-02-01 00:00", 744, 644, 20, 10, 30, False),
-        ("2024-02-01 00:00", "2024-03-01 00:00", 696, 521, None, 5, 5, False),
+        ("2024-01-01 00:00", "2024-02-01 00:00", 744, 644, 0, 20, 10, 30, False),
+        ("2024-02-01 00:00", "2024-03-01 00:00", 696, 521, 0, None, 5, 5, False),
     ]
     name, unit = conn.execute("SELECT station_name, unit FROM air_monthly LIMIT 1").fetchone()
     assert (name, unit) == ("서석동", "µg/m³")
+    # 시간값은 정제 행으로 저장하지 않는다
+    assert stats["inserted"] == 0
+    assert conn.execute("SELECT count(*) FROM normalized_record").fetchone() == (0,)
 
 
 def test_confirmed_data_replaces_provisional_hours(refine_db):
@@ -121,7 +125,9 @@ def test_confirmed_data_replaces_provisional_hours(refine_db):
     march = hours(2024, 3, 744)
     add(conn, [ledger(t, 10, provisional=True) for t in march])
     refine_raw(conn)
-    assert monthly(conn) == [("2024-03-01 00:00", "2024-04-01 00:00", 744, 744, 10, 10, 10, True)]
+    assert monthly(conn) == [
+        ("2024-03-01 00:00", "2024-04-01 00:00", 744, 744, 0, 10, 10, 10, True)
+    ]
 
     # 나중에 받은 확정 자료가 같은 시간의 최신본이 된다. 두 판을 같이 세지 않는다
     later = "2026-02-01T00:00:00+09:00"
@@ -129,4 +135,45 @@ def test_confirmed_data_replaces_provisional_hours(refine_db):
     stats = refine_raw(conn)
 
     assert stats["air_monthly"] == 1
-    assert monthly(conn) == [("2024-03-01 00:00", "2024-04-01 00:00", 744, 744, 20, 20, 20, False)]
+    assert monthly(conn) == [
+        ("2024-03-01 00:00", "2024-04-01 00:00", 744, 744, 0, 20, 20, 20, False)
+    ]
+
+
+def test_conflicting_hour_is_held_not_averaged(refine_db):
+    conn, _ = refine_db
+    setup_source(conn)
+    april = hours(2024, 4, 720)
+    # 첫 시간에 같은 dedup_key 로 값이 다른 원본이 하나 더 있다
+    # → 두 판 모두 보류, 그 시간은 평균에서 빠진다
+    add(conn, [ledger(t, 10) for t in april] + [ledger(april[0], 99)])
+
+    stats = refine_raw(conn)
+
+    assert stats["status"] == {"pass": 719, "held": 2}
+    assert monthly(conn) == [
+        ("2024-04-01 00:00", "2024-05-01 00:00", 720, 719, 1, 10, 10, 10, False)
+    ]
+
+
+def test_unreadable_time_is_counted_but_not_placed(refine_db):
+    conn, _ = refine_db
+    setup_source(conn)
+    add(conn, [ledger(hours(2024, 5, 1)[0], 10) | {"observed_period_start": "언제인지 모름"}])
+
+    stats = refine_raw(conn)
+
+    assert (stats["air_monthly"], stats["air_unplaced"]) == (0, 1)
+    assert monthly(conn) == []
+
+
+def test_running_again_gives_the_same_months(refine_db):
+    conn, _ = refine_db
+    setup_source(conn)
+    add(conn, [ledger(t, i % 7) for i, t in enumerate(hours(2024, 6, 720))])
+    refine_raw(conn)
+    before = monthly(conn)
+
+    refine_raw(conn)
+
+    assert monthly(conn) == before

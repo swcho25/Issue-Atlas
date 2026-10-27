@@ -6,10 +6,13 @@ raw 한 행 = 정제 행 하나(content_hash 로 연결).
 관측 시각을 가리키므로 장부를 관측 일 묶음으로 나눠 한 묶음씩 정제·저장한다(메모리에는 한 묶음만).
 키가 여러 묶음에 갈라진 레코드는 한 묶음으로 모아, 한 번에 정제한 결과와 같게 한다.
 같은 장부·같은 규칙 판이면 저장 결과가 바뀌지 않고, 바뀐 행만 refined_at 이 새로 찍힌다.
-저장이 끝나면 정제 결과 위에 얹은 월별 집계(air_monthly, V0008)를 새로 고친다.
+에어코리아 확정 시간값은 normalized_record 에 넣지 않고, 묶음마다 측정소 × 지표 × 월 합계에 더해
+두었다가 정제가 끝나면 월별 표(air_monthly, V0009)를 다시 쓴다.
 """
 
 from collections import Counter
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -86,6 +89,26 @@ WHERE normalized_record.record IS DISTINCT FROM EXCLUDED.record
 RETURNING (xmax = 0) AS inserted
 """
 
+# 시간값을 월별로만 저장하는 출처. 원본(raw_record)은 시간 단위 그대로다
+AIR_SOURCE = "airkorea_final"
+KST = timezone(timedelta(hours=9))
+AIR_COLUMNS = (
+    "station_code",
+    "station_name",
+    "indicator_id",
+    "unit",
+    "month_start",
+    "month_end",
+    "month_hours",
+    "valid_hours",
+    "held_hours",
+    "value_mean",
+    "value_min",
+    "value_max",
+    "has_provisional",
+)
+AIR_INSERT = f"INSERT INTO air_monthly ({', '.join(AIR_COLUMNS)}) VALUES ({', '.join(['%s'] * 13)})"
+
 
 class RefineStoreError(Exception):
     """장부·연결 상태가 저장 규칙과 맞지 않을 때의 고정 원인 코드."""
@@ -113,14 +136,13 @@ def refine_raw(conn) -> dict:
             if not has_ledger:
                 skipped[source_id] += n
         buckets = [row[0] for row in conn.execute(BUCKETS)]
-        totals, status = Counter(), Counter()
+        totals, status, air = Counter(), Counter(), AirMonthly()
         for bucket in buckets:
-            _refine_bucket(conn, bucket, totals, status)
+            _refine_bucket(conn, bucket, totals, status, air)
     finally:
         conn.execute("DROP TABLE IF EXISTS refine_part")
-    # 새로 고치는 동안에도 읽는 쪽을 막지 않는다 (유일 인덱스 uq_air_monthly 가 있어야 한다)
-    conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY air_monthly")
-    air_monthly = conn.execute("SELECT count(*) FROM air_monthly").fetchone()[0]
+    # 모든 묶음을 더한 뒤 한 번에 바꾼다. 쓰는 동안 읽는 쪽은 이전 월별 값을 본다
+    air_monthly = air.save(conn)
     return {
         "raw": raw,
         "skipped": dict(skipped),
@@ -130,6 +152,7 @@ def refine_raw(conn) -> dict:
         "unchanged": totals["unchanged"],
         "status": dict(status),
         "air_monthly": air_monthly,
+        "air_unplaced": air.unplaced,
     }
 
 
@@ -143,7 +166,7 @@ def _merge_split_keys(conn):
             return
 
 
-def _refine_bucket(conn, bucket, totals, status):
+def _refine_bucket(conn, bucket, totals, status, air):
     with conn.cursor(row_factory=dict_row) as cur:
         raws = cur.execute(LEDGERS, (bucket,)).fetchall()
     origin = {}
@@ -153,8 +176,13 @@ def _refine_bucket(conn, bucket, totals, status):
             raise RefineStoreError("C1_HASH_MISMATCH")
         origin[raw["content_hash"]] = raw
     refined = refine_records([raw["c1_record"] for raw in raws])
+    hourly = [r for r in refined if origin[r["content_hash"]]["source_id"] == AIR_SOURCE]
+    # 같은 관측 칸의 판은 모두 이 묶음에 있으므로 최신본 고르기가 끝난 값을 월 합계에 더한다
+    air.add(hourly)
     with conn.transaction():
         for r in refined:
+            if origin[r["content_hash"]]["source_id"] == AIR_SOURCE:
+                continue
             # 결과가 같으면 UPDATE 를 건너뛰어 행이 돌아오지 않는다
             row = conn.execute(UPSERT, _values(r, origin[r["content_hash"]])).fetchone()
             if row is None:
@@ -171,3 +199,103 @@ def _values(r, raw):
     keys = [raw["content_hash"], r.get("dedup_key"), raw["source_id"], raw["spec_id"]]
     p2 = [r[c] for c in P2_COLUMNS]
     return [*keys, *c1, *p2, Jsonb(r["issues"]), Jsonb(r)]
+
+
+class AirMonthly:
+    """에어코리아 시간값의 측정소 × 지표 × 월(한국 시각) 합계. 메모리에는 월 칸만 남는다."""
+
+    def __init__(self):
+        self.months = {}
+        self.unplaced = 0  # 측정소 · 지표 · 시간 칸을 읽을 수 없어 어느 달에도 넣지 못한 레코드
+
+    def add(self, refined):
+        by_obs = {}
+        for r in refined:
+            by_obs.setdefault(r.get("obs_key"), []).append(r)
+        for obs_key, versions in by_obs.items():
+            if obs_key is None:
+                self.unplaced += len(versions)
+                continue
+            # 한 시간 = 관측 칸 하나. 보류가 아닌 최신본이 있으면 그 값, 없으면 보류 시간
+            latest = [r for r in versions if r["is_latest"]]
+            r = latest[0] if latest else versions[0]
+            key = _month_key(r)
+            if key is None:
+                self.unplaced += 1
+                continue
+            month = self.months.setdefault(key, _Month())
+            month.add(r, held=not latest)
+
+    def save(self, conn) -> int:
+        rows = [m.row(*key) for key, m in sorted(self.months.items())]
+        with conn.transaction():
+            conn.execute("DELETE FROM air_monthly")
+            with conn.cursor() as cur:
+                cur.executemany(AIR_INSERT, rows)
+        return len(rows)
+
+
+class _Month:
+    def __init__(self):
+        self.names, self.units = set(), set()
+        self.valid = self.held = 0
+        self.total, self.low, self.high = Decimal(0), None, None
+        self.provisional = False
+
+    def add(self, r, held):
+        name = (r.get("locator") or {}).get("측정소명")
+        if name:
+            self.names.add(name)
+        if held:
+            self.held += 1
+            return
+        self.units.add(r.get("unit"))
+        self.provisional = self.provisional or bool(r.get("is_provisional"))
+        if r.get("value") is None:  # 결측(−999 · 빈칸)
+            return
+        value = Decimal(str(r["value"]))
+        self.valid += 1
+        self.total += value
+        self.low = value if self.low is None else min(self.low, value)
+        self.high = value if self.high is None else max(self.high, value)
+
+    def row(self, station, indicator, year, month):
+        if len(self.units) > 1:
+            raise RefineStoreError("AIR_UNIT_MISMATCH")
+        start = datetime(year, month, 1, tzinfo=KST)
+        end = datetime(year + month // 12, month % 12 + 1, 1, tzinfo=KST)
+        hours = int((end - start).total_seconds()) // 3600
+        # 유효 시간이 그 달 시간의 75% 미만이면 월평균을 내지 않는다
+        mean = self.total / self.valid if self.valid and self.valid * 4 >= hours * 3 else None
+        name = max(self.names) if self.names else None  # 그 달에 이름이 바뀌면 사전순 뒤의 것
+        unit = next(iter(self.units), None)
+        return [
+            station,
+            name,
+            indicator,
+            unit,
+            start,
+            end,
+            hours,
+            self.valid,
+            self.held,
+            mean,
+            self.low,
+            self.high,
+            self.provisional,
+        ]
+
+
+def _month_key(r):
+    """(측정소, 지표, 연, 월). 시간값이 아니거나 칸을 읽을 수 없으면 None."""
+    station, indicator = r.get("place_code_raw"), r.get("indicator_id")
+    if r.get("observed_period_type") != "H" or not station or not indicator:
+        return None
+    try:
+        start = datetime.fromisoformat(r["observed_period_start"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if start.tzinfo is None:
+        return None
+    local = start.astimezone(KST)
+    return station, indicator, local.year, local.month
