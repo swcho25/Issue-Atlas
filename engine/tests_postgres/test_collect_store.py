@@ -88,7 +88,11 @@ def store(database):
     database.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
     database.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema)))
     migrations = ROOT / "backend/src/main/resources/db/migration"
-    for name in ("V0002__collection_place_foundation.sql", "V0005__create_normalized_record.sql"):
+    for name in (
+        "V0002__collection_place_foundation.sql",
+        "V0005__create_normalized_record.sql",
+        "V0008__create_air_monthly.sql",  # P2 정제 저장이 월별 집계를 새로 고친다
+    ):
         database.execute((migrations / name).read_text("utf-8"))
     try:
         yield PostgresStore(database)

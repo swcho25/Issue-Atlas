@@ -14,7 +14,7 @@ pnpm engine:test
 # 검증은 contracts/c1/record.schema.json 을 직접 읽는다
 uv --directory engine run python -m pipeline.refine <C1 레코드 JSON 배열 파일>
 # P2 정제 저장: DB 의 장부(raw_record.c1_record)를 관측 일 묶음으로 나눠 정제해 normalized_record 에 저장
-# (루트 .env 의 DB 칸, 건수 JSON 출력. 묶음마다 커밋)
+# (루트 .env 의 DB 칸, 건수 JSON 출력. 묶음마다 커밋. 끝나면 에어코리아 월별 집계 air_monthly 를 새로 고침)
 uv --directory engine run python -m pipeline.refine --db
 # 기사 본문 수집: 빅카인즈 뉴스 검색 응답(fields 에 provider_link_page · content) → 기사마다 결과 JSONL
 # robots.txt 를 지키고 같은 사이트 요청 사이에 1초를 둔다. 출력에 기사 본문이 들어가므로 저장소 밖에 저장한다

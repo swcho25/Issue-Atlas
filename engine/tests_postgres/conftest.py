@@ -89,9 +89,14 @@ def fresh_schema(postgis, migrations):
 
 @pytest.fixture
 def refine_db(postgis):
-    """테스트마다 새 스키마에 V0002(수집·지역) · V0005(정제) 를 적용한다."""
+    """테스트마다 새 스키마에 V0002(수집·지역) · V0005(정제) · V0008(월별 집계) 를 적용한다."""
     yield from fresh_schema(
-        postgis, ("V0002__collection_place_foundation.sql", "V0005__create_normalized_record.sql")
+        postgis,
+        (
+            "V0002__collection_place_foundation.sql",
+            "V0005__create_normalized_record.sql",
+            "V0008__create_air_monthly.sql",
+        ),
     )
 
 
