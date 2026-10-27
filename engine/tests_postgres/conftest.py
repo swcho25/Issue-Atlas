@@ -67,12 +67,8 @@ def postgis():
         subprocess.run(["docker", "stop", name], capture_output=True, check=True)
 
 
-@pytest.fixture
-def refine_db(postgis):
-    """테스트마다 새 스키마에 V0002(수집·지역) · V0005(정제) 를 적용한다.
-
-    (연결, 같은 스키마로 새 연결을 여는 함수) 를 돌려준다.
-    """
+def fresh_schema(postgis, migrations):
+    """새 스키마에 마이그레이션을 적용하고 (연결, 같은 스키마로 새 연결을 여는 함수) 를 내준다."""
     schema = "test_" + uuid4().hex
     with postgis() as admin:
         admin.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
@@ -82,13 +78,24 @@ def refine_db(postgis):
 
     conn = connect()
     try:
-        for name in (
-            "V0002__collection_place_foundation.sql",
-            "V0005__create_normalized_record.sql",
-        ):
+        for name in migrations:
             conn.execute((MIGRATIONS / name).read_text("utf-8"))
         yield conn, connect
     finally:
         conn.close()
         with postgis() as admin:
             admin.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
+
+
+@pytest.fixture
+def refine_db(postgis):
+    """테스트마다 새 스키마에 V0002(수집·지역) · V0005(정제) 를 적용한다."""
+    yield from fresh_schema(
+        postgis, ("V0002__collection_place_foundation.sql", "V0005__create_normalized_record.sql")
+    )
+
+
+@pytest.fixture
+def article_db(postgis):
+    """테스트마다 새 스키마에 V0007(기사 본문) 을 적용한다."""
+    yield from fresh_schema(postgis, ("V0007__create_news_article.sql",))

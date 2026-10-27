@@ -10,6 +10,7 @@ import truststore
 from pipeline.article import FETCHER, fetch_articles
 from pipeline.article.__main__ import main
 from pipeline.article.fetch import normalize_url, tls_context
+from pipeline.article.store import ArticleStoreError
 
 AT = "2026-10-27T01:00:00Z"
 URL = "https://news.example.com/article/1"
@@ -295,6 +296,19 @@ def test_cli_rejects_file_without_documents(tmp_path, capsys):
     assert capsys.readouterr().err.strip() == "BIGKINDS_DOCUMENTS_MISSING"
 
 
-def test_cli_usage(capsys):
-    assert main([]) == 2
+@pytest.mark.parametrize("argv", [[], ["--db"], ["a.json", "b.json"]])
+def test_cli_usage(capsys, argv):
+    assert main(argv) == 2
     assert "사용법" in capsys.readouterr().err
+
+
+def test_cli_db_mode_reports_missing_db_settings_without_fetching(tmp_path, capsys):
+    def no_db():
+        raise ArticleStoreError("DB_PASSWORD_MISSING")
+
+    web = Web()
+    code = main(["--db", response_file(tmp_path, [doc()])], connect=no_db, get=web)
+
+    assert code == 1
+    assert capsys.readouterr().err.strip() == "DB_PASSWORD_MISSING"
+    assert web.requested == []
