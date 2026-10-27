@@ -146,6 +146,10 @@ class Deployment:
             raise RuntimeError("Image revision label mismatch")
         if labels.get("org.opencontainers.image.source") != self.config["project_url"]:
             raise RuntimeError("Image project label mismatch")
+        if labels.get("org.opencontainers.image.component", "backend") != request.get(
+            "component", "backend"
+        ):
+            raise RuntimeError("Image component label mismatch")
         try:
             self.apply(request["image"])
             self.healthy()
@@ -166,12 +170,65 @@ class Deployment:
             finally:
                 write_json(self.state / "last-result.json", result)
             raise RuntimeError(
-                "Deployment failed; inspect .deploy/last-result.json and backend logs"
+                f"Deployment failed; inspect {self.state / 'last-result.json'} and job logs"
             ) from None
+        prefix = "collector " if request.get("component") == "collector" else ""
         print(
-            f"Deployed {request['branch']} {request['revision']} "
+            f"Deployed {prefix}{request['branch']} {request['revision']} "
             f"(pipeline {request['pipeline_id']})"
         )
+
+
+class CollectorDeployment(Deployment):
+    """Publish an immutable collector reference; never run collection during deployment."""
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.state = self.state / "collector"
+        self.state.mkdir(mode=0o700, exist_ok=True)
+        self.candidate = None
+
+    def current_image(self):
+        current = self.state / "current.json"
+        reference = self.candidate
+        if reference is None and current.exists():
+            reference = json.loads(current.read_text())["image"]
+        return self.inspect(reference)["Id"] if reference else None
+
+    def apply(self, image):
+        if image is not None:
+            self.run(
+                "docker",
+                "run",
+                "--rm",
+                "--network",
+                "none",
+                "--read-only",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges:true",
+                "--memory",
+                "512m",
+                "--cpus",
+                "1",
+                "--pids-limit",
+                "128",
+                "--tmpfs",
+                "/tmp:rw,nosuid,nodev,size=64m,mode=1777",
+                "--entrypoint",
+                "python",
+                image,
+                "-m",
+                "pipeline.collect",
+                "--help",
+                timeout=60,
+            )
+        self.candidate = image
+
+    def healthy(self):
+        # apply() already validated imports with no network, credentials or host mounts.
+        pass
 
 
 def main():
@@ -181,12 +238,21 @@ def main():
     parser.add_argument("--config", default="/etc/issueatlas/cicd.json")
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text())
-    deployment = Deployment(config)
     raw = sys.stdin.read(16385)
     if len(raw) > 16384:
         raise ValueError("Release request too large")
     request = json.loads(raw)
-    with (deployment.state / "lock").open("a") as lock:
+    component = request.get("component", "backend")
+    if component == "collector":
+        deployment = CollectorDeployment(
+            {**config, "image_repository": config["collector_image_repository"]}
+        )
+    elif component == "backend":
+        deployment = Deployment(config)
+    else:
+        raise ValueError("Unsupported deployment component")
+    # Serialize both kinds of deployment; their release records/watermarks stay separate.
+    with (Path(config["app_dir"]) / ".deploy/lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         deployment.release(request)
 

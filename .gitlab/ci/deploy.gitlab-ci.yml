@@ -17,7 +17,7 @@ backend-image:
   script:
     - test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_PUSH_TOKEN"
     - echo "$DOCKERHUB_PUSH_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
-    - docker build --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$BACKEND_IMAGE_REPOSITORY:$CI_COMMIT_SHA" backend
+    - docker build --label "org.opencontainers.image.component=backend" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$BACKEND_IMAGE_REPOSITORY:$CI_COMMIT_SHA" backend
     - docker push "$BACKEND_IMAGE_REPOSITORY:$CI_COMMIT_SHA"
     - docker inspect --format '{{index .RepoDigests 0}}' "$BACKEND_IMAGE_REPOSITORY:$CI_COMMIT_SHA" > backend-image.txt
   artifacts:
@@ -44,3 +44,30 @@ backend-deploy:
     - apt-get update -qq && apt-get install -y --no-install-recommends openssh-client ca-certificates
   script:
     - python deploy/ci/send_deploy.py
+
+collector-image:
+  extends: backend-image
+  variables:
+    COLLECTOR_IMAGE_REPOSITORY: swcho25/issueatlas-backend
+  script:
+    - test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_PUSH_TOKEN"
+    - echo "$DOCKERHUB_PUSH_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
+    - docker build -f engine/Dockerfile --label "org.opencontainers.image.component=collector" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" .
+    - docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m,mode=1777 "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" --fixture /app/contracts/c1/examples/raw/kosis-net-migration.json --export-only --regions 46130 --indicator-id net_migration_test --output /tmp/c1.json
+    - docker push "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA"
+    - docker inspect --format '{{index .RepoDigests 0}}' "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" > collector-image.txt
+  artifacts:
+    paths: [collector-image.txt]
+    expire_in: 7 days
+
+collector-deploy:
+  extends: backend-deploy
+  variables:
+    DEPLOY_COMPONENT: collector
+    COLLECTOR_IMAGE_REPOSITORY: swcho25/issueatlas-backend
+  needs:
+    - job: collector-image
+      artifacts: true
+    # Backend startup applies Flyway before this collector version becomes selectable.
+    - job: backend-deploy
+      artifacts: false

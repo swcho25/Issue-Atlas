@@ -1,5 +1,7 @@
 # 백엔드 CI/CD — S15P31C108-103
 
+수집기 이미지 자동 갱신·수동 실행은 [수집기 배포](../collector/README.md)를 참고한다.
+
 ## 실행 조건
 
 | 이벤트 | 동작 |
@@ -40,6 +42,8 @@ Docker Hub 변수는 다음처럼 등록한다. 토큰은 Masked·Hidden(지원 
 - 비밀 없는 원본은 `runner/`에 있다. daemon.json은 `/etc/docker-ci/daemon.json`, slice와 service 파일은 `/etc/systemd/system/`에 설치한다. `config.template.toml`은 `/etc/issueatlas/runner/`에 설치한다. 등록은 root로 `register.sh`에 토큰을 stdin으로 전달하며 실제 config.toml은 같은 디렉터리에 600 권한으로 생성한다. 토큰과 실제 config.toml은 저장소·작업 컨테이너에 넣지 않는다.
 - Runner는 CI daemon에서 실행하며 **CI 전용 socket만** Runner 관리 컨테이너에 연결한다. 일반 작업 컨테이너에는 Docker socket이나 호스트 디렉터리를 연결하지 않는다.
 - 두 서비스는 자동 시작을 켰다. Runner 인증 검증·GitLab Online/Idle·CI 컨테이너 및 dind 내부 컨테이너의 GitLab HTTPS 통신을 확인했다. 테스트 컨테이너는 제거했다. 실제 서버 재부팅과 MR 파이프라인 실행은 아직 검증하지 않았다.
+
+두 Docker daemon의 공통 iptables 체인 처리로 서비스 bridge의 외부 통신 규칙이 누락될 수 있다. `runner/restore-service-egress.sh`를 `/usr/local/sbin/issueatlas-service-egress`에 root 소유로 설치하며, CI Docker unit의 ExecStartPost로 서비스 네트워크의 외부 접속과 응답을 유지한다. 2026-10-26 CI Docker/Runner 재시작 뒤 서비스 컨테이너의 외부 API 통신과 Runner 인증을 확인했다.
 
 ```bash
 sudo systemctl status issueatlas-ci-docker issueatlas-runner

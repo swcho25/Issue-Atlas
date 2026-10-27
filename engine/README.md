@@ -3,6 +3,8 @@
 수집·정제·지역·시간 매핑(pipeline)과 카드 분류·LLM 판정(ai)이 들어온다.
 Python 3.13 · uv · ruff · pytest. 규칙은 `AGENTS.md`.
 
+수집기 서버 실행·자동 버전 갱신: [EC2 수집기 배포](../deploy/collector/README.md).
+
 ```bash
 uv --directory engine sync   # 처음 한 번 (.venv 생성)
 pnpm engine:lint             # 루트에서

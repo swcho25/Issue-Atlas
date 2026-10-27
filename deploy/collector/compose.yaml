@@ -1,0 +1,38 @@
+name: issueatlas-collector
+
+services:
+  collector:
+    image: ${COLLECTOR_IMAGE:?Deploy a collector digest first}
+    profiles: [manual]
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=128m,mode=1777"]
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    volumes:
+      - type: bind
+        source: /etc/issueatlas/collector.env
+        target: /app/.env
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /var/lib/issueatlas/collector/input
+        target: /inputs
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /var/lib/issueatlas/collector/output
+        target: /app/outputs
+        bind: {create_host_path: false}
+    networks: [database]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+networks:
+  database:
+    external: true
+    name: issueatlas-dev_default
