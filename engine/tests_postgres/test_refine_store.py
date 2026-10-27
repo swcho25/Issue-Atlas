@@ -63,6 +63,7 @@ def test_yeosu_kosis_goes_from_ledger_to_ready(refine_db, tmp_path):
     stats = refine_raw(conn)
 
     assert stats["inserted"] == 3 and stats["status"] == {"pass": 3}
+    assert stats["air_monthly"] == 0  # 월별 집계는 에어코리아 시간값만 묶는다
     assert ready_2023(conn) == [(-747, "pass", True)]
     # 정제 행마다 원본 raw_record 를 content_hash 로 찾을 수 있다
     linked = conn.execute(

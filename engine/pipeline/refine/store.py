@@ -6,6 +6,7 @@ raw 한 행 = 정제 행 하나(content_hash 로 연결).
 관측 시각을 가리키므로 장부를 관측 일 묶음으로 나눠 한 묶음씩 정제·저장한다(메모리에는 한 묶음만).
 키가 여러 묶음에 갈라진 레코드는 한 묶음으로 모아, 한 번에 정제한 결과와 같게 한다.
 같은 장부·같은 규칙 판이면 저장 결과가 바뀌지 않고, 바뀐 행만 refined_at 이 새로 찍힌다.
+저장이 끝나면 정제 결과 위에 얹은 월별 집계(air_monthly, V0008)를 새로 고친다.
 """
 
 from collections import Counter
@@ -117,6 +118,9 @@ def refine_raw(conn) -> dict:
             _refine_bucket(conn, bucket, totals, status)
     finally:
         conn.execute("DROP TABLE IF EXISTS refine_part")
+    # 새로 고치는 동안에도 읽는 쪽을 막지 않는다 (유일 인덱스 uq_air_monthly 가 있어야 한다)
+    conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY air_monthly")
+    air_monthly = conn.execute("SELECT count(*) FROM air_monthly").fetchone()[0]
     return {
         "raw": raw,
         "skipped": dict(skipped),
@@ -125,6 +129,7 @@ def refine_raw(conn) -> dict:
         "updated": totals["updated"],
         "unchanged": totals["unchanged"],
         "status": dict(status),
+        "air_monthly": air_monthly,
     }
 
 
