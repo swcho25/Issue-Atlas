@@ -4,6 +4,9 @@ import hashlib
 import json
 import math
 import re
+import shutil
+import tempfile
+import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -35,6 +38,8 @@ HEADERS = (
     "초미세먼지(PM25)",
     "주소",
 )
+# 2023·2025 월별 파일 형식은 항목 열 이름이 짧다. 열 순서·값은 같다.
+SHORT_HEADERS = (*HEADERS[:5], "SO2", "CO", "O3", "NO2", "PM10", "PM25", HEADERS[-1])
 # 원천 열, 지표 ID, 단위. 수치는 변환·보간하지 않는다.
 POLLUTANTS = (
     ("SO2", "air_so2", "ppm"),
@@ -114,7 +119,8 @@ def in_target(text: str) -> bool:
         re.search(
             r"(?:^|\s)여수시(?:\s|$)|^전남 여수(?:\s|$)|"
             r"^광주광역시(?:\s|$)|^광주 (?:동구|서구|남구|북구|광산구)(?:\s|$)|"
-            r"^전남광주통합특별시 (?:광주 )?(?:동구|서구|남구|북구|광산구)(?:\s|$)",
+            # 2025 파일은 통합 시도명을 `전남광주`로 줄여 쓴다 (예: `전남광주 북구`)
+            r"^전남광주(?:통합특별시)? (?:광주 )?(?:동구|서구|남구|북구|광산구)(?:\s|$)",
             text,
         )
     )
@@ -321,8 +327,8 @@ def measurement_pairs(cells, sheet, row_number, spec, run_id, at, stations=()):
         values.append(value)
     for column, (pollutant, indicator, unit) in enumerate(POLLUTANTS, start=5):
         value = values[column - 5]
+        # 시트·파일은 포장 정보라 넣지 않는다. 형식이 달라도 같은 측정값은 같은 원본·같은 칸이다
         payload = {
-            "sheet": sheet,
             "cells": list(cells),
             "column": HEADERS[column],
             "data_status": spec.data_status or "confirmed",
@@ -348,7 +354,6 @@ def measurement_pairs(cells, sheet, row_number, spec, run_id, at, stations=()):
                 unit=unit,
                 missing_reason="not_published" if value is None else None,
                 locator={
-                    "sheet": sheet,
                     "측정소코드": code,
                     "측정소명": name,
                     "측정일시": raw_time,
@@ -360,41 +365,84 @@ def measurement_pairs(cells, sheet, row_number, spec, run_id, at, stations=()):
         )
 
 
+def _month_of(text):
+    """`2024년 1월 `(시트) · `2023년 1월.xlsx`(zip 안 파일) → 그 달 1일."""
+    month = re.fullmatch(r"([0-9]{4})년\s*([0-9]{1,2})월\s*(?:\.xlsx)?", text)
+    return date(int(month[1]), int(month[2]), 1) if month else None
+
+
+def _in_range(first, spec):
+    next_month = date(first.year + (first.month == 12), first.month % 12 + 1, 1)
+    return first < spec.end and next_month > spec.start
+
+
+def _sheet_pairs(sheet, label, spec, run_id, at, stations, progress):
+    rows = sheet.iter_rows(values_only=True)
+    if tuple(next(rows, ())) not in (HEADERS, SHORT_HEADERS):
+        raise CollectionError("AIRKOREA_HEADER_MISMATCH")
+    scanned = 1
+    for number, cells in enumerate(rows, start=2):
+        scanned = number
+        if progress and number % 100000 == 0:
+            progress(label, number)
+        if cells[0] is None and all(c is None for c in cells):
+            continue
+        # 먼저 지역을 검사해 대상 밖 전국 자료를 값 변환하지 않는다.
+        if not isinstance(cells[0], str) or not in_target(cells[0]):
+            continue
+        yield from measurement_pairs(cells, label, number, spec, run_id, at, stations)
+    if progress:
+        progress(label, scanned)
+
+
+def _monthly_zip_pairs(path, spec, run_id, at, stations, progress, selected):
+    """2023·2025 형식: zip 안 월별 파일마다 시트 하나(Data)."""
+    with zipfile.ZipFile(path) as archive, tempfile.TemporaryDirectory() as work:
+        for member in archive.infolist():
+            if member.is_dir():
+                continue
+            first = _month_of(Path(member.filename).name)
+            if first is None:
+                raise CollectionError("AIRKOREA_UNRECOGNIZED_MEMBER")
+            if not _in_range(first, spec):
+                continue
+            selected.add(first.strftime("%Y-%m"))
+            # openpyxl 이 앞뒤로 읽으므로 필요한 달만 임시 파일로 꺼낸다
+            local = Path(work) / f"{first:%Y%m}.xlsx"
+            with archive.open(member) as src, local.open("wb") as dst:
+                shutil.copyfileobj(src, dst)
+            book = load_workbook(local, read_only=True, data_only=False)
+            try:
+                if len(book.worksheets) != 1:
+                    raise CollectionError("AIRKOREA_UNRECOGNIZED_SHEET")
+                yield from _sheet_pairs(
+                    book.worksheets[0], member.filename, spec, run_id, at, stations, progress
+                )
+            finally:
+                book.close()
+
+
 def workbook_pairs(path: Path, spec, run_id, at, stations=(), progress=None):
-    book = load_workbook(path, read_only=True, data_only=False)
+    """2024 형식(엑셀 하나, 월별 시트)과 2023·2025 형식(월별 파일 zip)을 읽는다."""
     expected_months = {
         (spec.start + timedelta(days=i)).strftime("%Y-%m")
         for i in range((spec.end - spec.start).days)
     }
     selected_months = set()
-    try:
-        for sheet in book:
-            month = re.fullmatch(r"([0-9]{4})년\s*([0-9]{1,2})월\s*", sheet.title)
-            if not month:
-                raise CollectionError("AIRKOREA_UNRECOGNIZED_SHEET")
-            year, month_num = map(int, month.groups())
-            first = date(year, month_num, 1)
-            next_month = date(year + (month_num == 12), month_num % 12 + 1, 1)
-            if first >= spec.end or next_month <= spec.start:
-                continue
-            selected_months.add(first.strftime("%Y-%m"))
-            rows = sheet.iter_rows(values_only=True)
-            if tuple(next(rows, ())) != HEADERS:
-                raise CollectionError("AIRKOREA_HEADER_MISMATCH")
-            scanned = 1
-            for number, cells in enumerate(rows, start=2):
-                scanned = number
-                if progress and number % 100000 == 0:
-                    progress(sheet.title, number)
-                if cells[0] is None and all(c is None for c in cells):
+    if zipfile.is_zipfile(path) and Path(path).suffix.lower() == ".zip":
+        yield from _monthly_zip_pairs(path, spec, run_id, at, stations, progress, selected_months)
+    else:
+        book = load_workbook(path, read_only=True, data_only=False)
+        try:
+            for sheet in book:
+                first = _month_of(sheet.title)
+                if first is None:
+                    raise CollectionError("AIRKOREA_UNRECOGNIZED_SHEET")
+                if not _in_range(first, spec):
                     continue
-                # 먼저 지역을 검사해 대상 밖 전국 자료를 값 변환하지 않는다.
-                if not isinstance(cells[0], str) or not in_target(cells[0]):
-                    continue
-                yield from measurement_pairs(cells, sheet.title, number, spec, run_id, at, stations)
-            if progress:
-                progress(sheet.title, scanned)
-        if selected_months != expected_months:
-            raise CollectionError("AIRKOREA_INCOMPLETE_MONTHS")
-    finally:
-        book.close()
+                selected_months.add(first.strftime("%Y-%m"))
+                yield from _sheet_pairs(sheet, sheet.title, spec, run_id, at, stations, progress)
+        finally:
+            book.close()
+    if selected_months != expected_months:
+        raise CollectionError("AIRKOREA_INCOMPLETE_MONTHS")
