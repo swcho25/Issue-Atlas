@@ -1,5 +1,8 @@
 # 생성물
 .next/
+.open-next/
+.wrangler/
+.dev.vars*
 out/
 next-env.d.ts
 # 문서는 사람이 쓴 그대로 둔다 (AGENTS.md 의 Next 블록 포함)

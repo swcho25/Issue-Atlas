@@ -11,3 +11,10 @@ test("랜딩 화면에 질문 문구와 서버 상태가 보인다", async ({ pa
   ).toBeVisible();
   await expect(page.getByRole("status")).toHaveText("서버 정상");
 });
+
+test("배포 상태 응답은 캐시하지 않는다", async ({ request }) => {
+  const response = await request.get("/healthz");
+  expect(response.ok()).toBeTruthy();
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  expect(await response.json()).toMatchObject({ status: "UP", revision: "local" });
+});
