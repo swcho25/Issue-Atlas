@@ -13,7 +13,7 @@ Next.js는 Cloudflare Workers, Spring은 기존 EC2·Tunnel에서 실행한다. 
 ## CI/CD
 
 1. develop/main 대상 MR: 기존 프론트 검사·E2E와 `frontend-worker`의 Workers 빌드·Wrangler dry-run·Workers 브라우저 검사. 같은 E2E를 Node와 workerd에서 각각 실행한다. API 토큰 없이 실행하며 공개 버전을 바꾸지 않는다.
-2. 보호된 develop/main 병합: 전체 선행 검사 후 빌드한 `.open-next`를 artifact로 전달한다. `frontend-deploy`는 backend 배포 성공도 기다린다.
+2. 보호된 develop/main 병합: FE에 영향이 있는 변경일 때 선행 검사 후 빌드한 `.open-next`를 artifact로 전달한다. BE도 변경되었다면 `frontend-deploy`는 backend 배포 성공을 기다리고, 아니면 기존 BE를 사용한다. 경로별 실행 조건은 [CI 운영 문서](../ci/README.md#변경-영역-선택-s15p31c108-113)를 참고한다.
 3. `shared-workers` 환경과 `issueatlas-workers` resource group에서 같은 Worker로 배포한다. GitLab의 오래된 배포 방지 설정도 유지한다. Cloudflare token은 배포 job에만 사용한다.
 4. 배포 시 커밋 SHA를 `DEPLOYMENT_REVISION`으로 설정한다. `/healthz`의 SHA·루트 HTML·`/api/actuator/health`를 확인하고 불일치/오류면 job을 실패시킨다. 배포 후 점검 실패 시 자동 원복은 구현하지 않았으므로 GitLab/Workers 배포 이력을 확인한 뒤 이전 정상 버전을 복구한다.
 

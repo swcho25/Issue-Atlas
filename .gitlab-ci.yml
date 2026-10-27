@@ -12,6 +12,7 @@ default:
   interruptible: true
 
 include:
+  - local: .gitlab/ci/changes.gitlab-ci.yml
   - local: .gitlab/ci/check.gitlab-ci.yml
   - local: .gitlab/ci/deploy.gitlab-ci.yml
   - local: .gitlab/ci/frontend.gitlab-ci.yml
