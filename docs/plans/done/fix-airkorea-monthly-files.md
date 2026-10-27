@@ -1,6 +1,6 @@
 # fix/airkorea-monthly-files — 에어코리아 월별 파일(zip) 형식 읽기
 
-- Jira: (미생성 — 이 세션에 Atlassian 미연결) · PRD: v4.0 카드 A3 · SP23 · 묶음/단위: P1
+- Jira: S15P31C108-108 · PRD: v4.0 카드 A3 · SP23 · 묶음/단위: P1
 
 ## 완료 조건
 - [x] 2023·2025 형식(zip 안 월별 `YYYY년 M월.xlsx`, 시트 `Data`, 짧은 열 이름 `SO2`…)을 읽는다
