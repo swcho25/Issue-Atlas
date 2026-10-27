@@ -12,7 +12,7 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from pipeline.collect.kosis import CollectionError, Query
+from pipeline.collect.kosis import TABLES, CollectionError, Query
 from pipeline.collect.run import collect
 from pipeline.collect.store import PostgresStore
 from pipeline.refine.store import refine_raw
@@ -190,12 +190,17 @@ def test_existing_source_policy_is_never_overwritten(store, tmp_path):
     assert store.conn.execute("SELECT storage_scope FROM source").fetchone() == ("metadata",)
 
 
-def test_spec_cannot_be_reused_for_different_period(store, tmp_path):
+def test_spec_keeps_table_and_run_keeps_period(store, tmp_path):
     collect(QUERY, "fixture", store, tmp_path / "out.json", fetch=fetch)
-    other = Query("net_migration_test", start=2024, regions=("46130",))
+    # 같은 표의 다른 기간은 같은 사양으로 받고, 기간은 실행 이력에 남는다.
+    later = Query("net_migration_test", start=2024, regions=("46130",))
+    collect(later, "fixture", store, tmp_path / "out.json", fetch=lambda *a: ROWS[1:])
+    stats = [s for (s,) in store.conn.execute("SELECT stats FROM job_run ORDER BY started_at")]
+    assert [s["start"] for s in stats] == [2023, 2024] and stats[1]["regions"] == ["46130"]
+    other = Query("net_migration_test", regions=("46130",), table=TABLES["SP01"])
     with pytest.raises(CollectionError, match="SPEC_CONTRACT_MISMATCH"):
         collect(other, "fixture", store, tmp_path / "out.json", fetch=fetch)
-    assert store.conn.execute("SELECT count(*) FROM job_run").fetchone() == (1,)
+    assert store.conn.execute("SELECT count(*) FROM job_run").fetchone() == (2,)
 
 
 def test_export_failure_is_recorded_with_saved_count(store, tmp_path):

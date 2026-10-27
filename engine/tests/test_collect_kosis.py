@@ -1,6 +1,7 @@
 """실제 C1 원천 예시와 실패 응답으로 수집 경계를 확인한다. 네트워크·키 필요 없음."""
 
 import copy
+import itertools
 import json
 import subprocess
 import sys
@@ -12,7 +13,7 @@ import pytest
 
 from pipeline.collect import kosis
 from pipeline.collect.__main__ import main
-from pipeline.collect.kosis import CollectionError, Query, to_records
+from pipeline.collect.kosis import TABLES, CollectionError, Query, to_records
 from pipeline.collect.run import collect
 from pipeline.refine.run import refine_records
 
@@ -45,6 +46,19 @@ class MemoryStore:
 
 def source(query, region, api_key):
     return copy.deepcopy(ROWS)
+
+
+def synthetic(query, region, api_key=None):
+    """표 정의대로 모든 분류·기간 조합의 원천 행을 만든다(실제 응답 키 형식)."""
+    t = query.table
+    rows = []
+    for codes in itertools.product(*t.dims):
+        for prd in query.periods():
+            row = {"ORG_ID": "101", "TBL_ID": t.tbl_id, "ITM_ID": t.item_id, "UNIT_NM": "명"}
+            row |= {"C1": region, "PRD_DE": prd, "DT": "-12", "LST_CHN_DE": "2026-10-14"}
+            row |= {f"C{i}": c for i, c in enumerate(codes, 2)}
+            rows.append(row | {"PRD_SE": "A" if t.prd_se == "Y" else "M"})
+    return rows
 
 
 def test_actual_fixture_values_period_hash_and_p2():
@@ -209,22 +223,13 @@ def test_export_only_does_not_load_env_or_connect(tmp_path, monkeypatch, capsys)
     monkeypatch.setattr(cli, "dotenv_values", forbidden)
     monkeypatch.setattr(cli.psycopg, "connect", forbidden)
     output = tmp_path / "out.json"
-    assert (
-        main(
-            [
-                "--fixture",
-                str(FIXTURE),
-                "--export-only",
-                "--regions",
-                "46130",
-                "--output",
-                str(output),
-            ]
-        )
-        == 0
-    )
+    fixture = tmp_path / "sp01.json"
+    sp01 = Query(regions=("46130",), table=TABLES["SP01"])
+    fixture.write_text(json.dumps(synthetic(sp01, "46130")), encoding="utf-8")
+    argv = ["--fixture", str(fixture), "--export-only", "--regions", "46130"]
+    assert main([*argv, "--output", str(output)]) == 0
     assert json.loads(capsys.readouterr().out) == {"mode": "export_only", "db_written": False}
-    assert len(json.loads(output.read_text(encoding="utf-8"))) == 3
+    assert len(json.loads(output.read_text(encoding="utf-8"))) == 3 * 36
     records = json.loads(output.read_text(encoding="utf-8"))
     catalog = json.loads((ROOT / "contracts/c1/indicators.json").read_text(encoding="utf-8"))
     assert {r["indicator_id"] for r in records} == {catalog["indicators"][0]["indicator_id"]}
@@ -272,3 +277,60 @@ def test_http_error_masks_body_and_url(monkeypatch):
     monkeypatch.setattr(kosis, "build_opener", lambda *args: Opener())
     with pytest.raises(CollectionError, match="^KOSIS_HTTP_429$"):
         kosis.fetch_rows(QUERY, "46130", "secret")
+
+
+@pytest.mark.parametrize(
+    "spec,count,first,last",
+    [
+        ("SP01", 3 * 36, ("2023-01-01", "2023-02-01"), ("2025-12-01", "2026-01-01")),
+        ("SP02", 18 * 36, ("2023-01-01", "2023-02-01"), ("2025-12-01", "2026-01-01")),
+        ("SP10", 22 * 3, ("2023-01-01", "2024-01-01"), ("2025-01-01", "2026-01-01")),
+    ],
+)
+def test_card_c1_tables_cover_every_code_and_pass_p2(spec, count, first, last):
+    table = TABLES[spec]
+    query = Query(table.indicator_id, regions=("46130",), spec_id=spec, table=table)
+    records = to_records(synthetic(query, "46130"), query, "t", AT)
+    assert len(records) == count
+    bounds = [(r["observed_period_start"][:10], r["observed_period_end"][:10]) for r in records]
+    assert first in bounds and last in bounds
+    assert {r["observed_period_type"] for r in records} == {table.prd_se}
+    assert len({r["dedup_key"] for r in records}) == count
+    assert all(r["validation_status"] == "pass" for r in refine_records(records))
+    with pytest.raises(CollectionError, match="INCOMPLETE"):
+        to_records(synthetic(query, "46130")[1:], query, "t", AT)
+
+
+def test_flow_locator_keeps_destination_and_rejects_unrequested_codes():
+    query = Query("population_movers", regions=("46130",), spec_id="SP02", table=TABLES["SP02"])
+    rows = synthetic(query, "46130")
+    record = to_records(rows, query, "t", AT)[0]
+    assert record["place_code_raw"] == "46130"
+    assert record["locator"] == {
+        "tbl_id": "DT_1B26003_A02",
+        "C1": "46130",
+        "C2": "00",
+        "C3": "0",
+        "itm_id": "T70",
+        "prd_de": "202301",
+    }
+    for field, value in [("C2", "12"), ("C4", "0"), ("PRD_SE", "A"), ("PRD_DE", "202313")]:
+        bad = copy.deepcopy(rows)
+        bad[0][field] = value
+        with pytest.raises(CollectionError, match="KOSIS_INVALID_ROW"):
+            to_records(bad, query, "t", AT)
+
+
+def test_spec_identity_is_table_only_and_run_params_carry_period():
+    sp01 = TABLES["SP01"]
+    a = Query(regions=("46130",), table=sp01)
+    b = Query(start=2012, end=2024, table=sp01)
+    assert a.identity() == b.identity()
+    assert a.identity() != Query(table=TABLES["SP10"]).identity()
+    assert b.run_params() == {"start": 2012, "end": 2024, "regions": list(kosis.REGIONS)}
+    params = a.params("46130")
+    assert (params["objL3"], params["startPrdDe"], params["endPrdDe"]) == (
+        "000+901+905",
+        "202301",
+        "202512",
+    )

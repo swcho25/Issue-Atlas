@@ -1,4 +1,4 @@
-"""python -m pipeline.collect --indicator-id <확정 ID> [--fixture <원천 JSON> --export-only]."""
+"""python -m pipeline.collect --spec-id SP01|SP02|SP10 [--fixture <원천 JSON> --export-only]."""
 
 import argparse
 import json
@@ -8,7 +8,7 @@ from pathlib import Path
 import psycopg
 from dotenv import dotenv_values
 
-from .kosis import INDICATOR_ID, REGIONS, CollectionError, Query
+from .kosis import REGIONS, TABLES, CollectionError, Query
 from .run import collect
 from .store import PostgresStore
 
@@ -30,9 +30,9 @@ class ExportOnlyStore:
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--indicator-id", default=INDICATOR_ID)
+    p.add_argument("--indicator-id", help="기본값: 표의 지표 ID (C1 indicators.json)")
     p.add_argument("--source-id", default="S01")
-    p.add_argument("--spec-id", default="SP01")
+    p.add_argument("--spec-id", choices=TABLES, default="SP01")
     p.add_argument("--start-year", type=int, default=2023)
     p.add_argument("--end-year", type=int, default=2025)
     p.add_argument("--regions", nargs="+", choices=REGIONS, default=list(REGIONS))
@@ -47,13 +47,15 @@ def parser():
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
+        table = TABLES[args.spec_id]
         query = Query(
-            args.indicator_id,
+            args.indicator_id or table.indicator_id,
             args.start_year,
             args.end_year,
             tuple(args.regions),
             args.source_id,
             args.spec_id,
+            table,
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fetch_options = {}

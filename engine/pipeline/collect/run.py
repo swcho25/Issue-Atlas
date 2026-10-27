@@ -2,6 +2,7 @@
 
 import json
 import os
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -30,7 +31,7 @@ def collect(query: Query, api_key: str, store, output: Path, fetch=fetch_rows):
     run_id = "kosis_" + uuid4().hex
     collected_at = datetime.now(UTC).isoformat()
     store.start(query, run_id, collected_at)
-    stats = {"received": 0, "inserted": 0, "duplicates": 0}
+    stats = {"received": 0, "inserted": 0, "duplicates": 0, **query.run_params()}
     try:
         if not api_key:
             raise CollectionError("KOSIS_KEY_MISSING")
@@ -38,15 +39,7 @@ def collect(query: Query, api_key: str, store, output: Path, fetch=fetch_rows):
         for region in query.regions:
             batch = fetch(query, region, api_key)
             # 각 요청의 응답을 해당 지역·기간과 대조한다(지역 혼선/부분 성공 방지).
-            one_region = Query(
-                query.indicator_id,
-                query.start,
-                query.end,
-                (region,),
-                query.source_id,
-                query.spec_id,
-            )
-            to_records(batch, one_region, run_id, collected_at)
+            to_records(batch, replace(query, regions=(region,)), run_id, collected_at)
             rows.extend(batch)
         stats["received"] = len(rows)
         records = to_records(rows, query, run_id, collected_at)

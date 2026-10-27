@@ -1,4 +1,4 @@
-"""DT_1B26001 연간 순이동(계, 20–24세). 원천 코드를 그대로 보존한다."""
+"""KOSIS 표(카드 C1 SP01·SP02·SP10)를 지역별로 받아 C1로 바꾼다. 원천 코드를 그대로 보존한다."""
 
 import hashlib
 import json
@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from itertools import product
 from typing import ClassVar
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -13,7 +14,7 @@ from urllib.request import HTTPRedirectHandler, build_opener
 
 ENDPOINT = "https://kosis.kr/openapi/Param/statisticsParameterData.do"
 REGIONS = ("46130", "29110", "29140", "29155", "29170", "29200")
-VERSION = "kosis-0.1.0"
+VERSION = "kosis-0.2.0"
 LICENSE = "KOSIS-활용약관"
 INDICATOR_ID = "population_net_migration"
 MAX_BYTES = 10 * 1024 * 1024
@@ -21,6 +22,42 @@ MAX_BYTES = 10 * 1024 * 1024
 
 class CollectionError(Exception):
     """외부 응답·예외 문자열을 포함하지 않는 고정 원인 코드."""
+
+
+@dataclass(frozen=True)
+class Table:
+    """표 하나의 고정 정의. objL1 은 대상 지역, dims 는 objL2부터 받을 코드다."""
+
+    tbl_id: str
+    item_id: str
+    prd_se: str  # "Y" 연 · "M" 월
+    dims: tuple[tuple[str, ...], ...]
+    indicator_id: str
+
+    def definition(self):
+        return {
+            "tbl_id": self.tbl_id,
+            "item_id": self.item_id,
+            "prd_se": self.prd_se,
+            "dims": [list(codes) for codes in self.dims],
+        }
+
+
+# 전입 시도. 12(전남광주통합특별시)는 2026 이후 코드, 99(국외)는 2023–2025 가 모두 0 이라 뺐다.
+SIDO = tuple("00 11 26 27 28 29 30 31 36 41 51 43 44 52 46 47 48 50".split())
+# 1세별 연령 코드: 계, 19세(1005), 20–39세(1201…1605).
+AGES = ("000", "1005", *(f"{g}0{i}" for g in (12, 13, 15, 16) for i in range(1, 6)))
+TABLES = {
+    # 월별 순이동. 성별 계 · 연령 계, 청년 19–34세(901), 19–39세(905)
+    "SP01": Table("DT_1B26001", "T25", "M", (("0",), ("000", "901", "905")), INDICATOR_ID),
+    # 월별 전출지(대상 지역) → 전입지(시도) 이동자 수. 성별 계
+    "SP02": Table("DT_1B26003_A02", "T70", "M", (SIDO, ("0",)), "population_movers"),
+    # 연별(12월 말) 1세별 주민등록인구
+    "SP10": Table("DT_1B04006", "T2", "Y", (AGES,), "population_registered"),
+}
+# C1 예시·테스트 원천(contracts/c1/examples/raw)의 범위: 연 · 성별 계 · 20–24세.
+EXAMPLE_TABLE = Table("DT_1B26001", "T25", "Y", (("0",), ("120",)), INDICATOR_ID)
+PRD_SE = {"Y": ("A", "Y"), "M": ("M",)}
 
 
 @dataclass(frozen=True)
@@ -36,6 +73,7 @@ class Query:
     regions: tuple[str, ...] = REGIONS
     source_id: str = "S01"
     spec_id: str = "SP01"
+    table: Table = EXAMPLE_TABLE
 
     def __post_init__(self):
         if not 1900 <= self.start <= self.end <= 9998:
@@ -49,25 +87,35 @@ class Query:
         if self.indicator_id.upper().startswith("TBD"):
             raise CollectionError("UNCONFIRMED_INDICATOR")
 
+    def periods(self):
+        years = range(self.start, self.end + 1)
+        if self.table.prd_se == "Y":
+            return [f"{y:04d}" for y in years]
+        return [f"{y:04d}{m:02d}" for y in years for m in range(1, 13)]
+
     def params(self, region):
+        t, periods = self.table, self.periods()
         return {
             "method": "getList",
             "orgId": "101",
-            "tblId": "DT_1B26001",
+            "tblId": t.tbl_id,
             "objL1": region,
-            "objL2": "0",
-            "objL3": "120",
-            "itmId": "T25",
-            "prdSe": "Y",
-            "startPrdDe": str(self.start),
-            "endPrdDe": str(self.end),
+            **{f"objL{i}": "+".join(codes) for i, codes in enumerate(t.dims, 2)},
+            "itmId": t.item_id,
+            "prdSe": t.prd_se,
+            "startPrdDe": periods[0],
+            "endPrdDe": periods[-1],
             "format": "json",
             "jsonVD": "Y",
             "smblChk": "Y",
         }
 
     def identity(self):
-        return {"query": self.params("|".join(self.regions)), "indicator_id": self.indicator_id}
+        # 사양에는 표 정의만 둔다. 기간·지역은 실행마다 달라도 되므로 job_run.stats 에 남는다.
+        return self.table.definition() | {"indicator_id": self.indicator_id}
+
+    def run_params(self):
+        return {"start": self.start, "end": self.end, "regions": list(self.regions)}
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -108,27 +156,41 @@ def canonical(row: dict) -> str:
     )
 
 
+def period_bounds(prd_se: str, prd: str) -> tuple[str, str]:
+    """한국 시각 [시작, 다음 기간 시작)."""
+    year, month = int(prd[:4]), int(prd[4:] or 1)
+    if prd_se == "Y":
+        year_end, month_end = year + 1, 1
+    else:
+        year_end, month_end = year + month // 12, month % 12 + 1
+    return (
+        f"{year:04d}-{month:02d}-01T00:00:00+09:00",
+        f"{year_end:04d}-{month_end:02d}-01T00:00:00+09:00",
+    )
+
+
 def to_records(rows: list[dict], query: Query, run_id: str, collected_at: str) -> list[dict]:
+    t, periods = query.table, query.periods()
     records = []
     seen = set()
     for row in rows:
         try:
             if not isinstance(row, dict) or any(not isinstance(v, str) for v in row.values()):
                 raise ValueError
-            region, year = row["C1"], int(row["PRD_DE"])
-            if (row["ORG_ID"], row["TBL_ID"], row["C2"], row["C3"], row["ITM_ID"]) != (
-                "101",
-                "DT_1B26001",
-                "0",
-                "120",
-                "T25",
-            ) or row["PRD_SE"] not in ("A", "Y"):
+            codes = tuple(row[f"C{i}"] for i in range(1, len(t.dims) + 2))
+            region, prd = codes[0], row["PRD_DE"]
+            if (row["ORG_ID"], row["TBL_ID"], row["ITM_ID"]) != ("101", t.tbl_id, t.item_id):
                 raise ValueError
-            if region not in query.regions or not query.start <= year <= query.end:
+            # 요청하지 않은 분류 칸이 붙어 오면 다른 표로 보고 거절한다.
+            if row["PRD_SE"] not in PRD_SE[t.prd_se] or f"C{len(t.dims) + 2}" in row:
                 raise ValueError
-            if row["UNIT_NM"] != "명" or (region, year) in seen:
+            if any(c not in allowed for c, allowed in zip(codes[1:], t.dims, strict=True)):
                 raise ValueError
-            seen.add((region, year))
+            if region not in query.regions or prd not in periods:
+                raise ValueError
+            if row["UNIT_NM"] != "명" or (*codes, prd) in seen:
+                raise ValueError
+            seen.add((*codes, prd))
             # 빈칸만 결측 처리한다. 통계 부호의 의미를 추측해 0/결측으로 바꾸지 않는다.
             dt = row["DT"].strip()
             if dt and not re.fullmatch(r"[-+]?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\.0+)?", dt):
@@ -140,6 +202,7 @@ def to_records(rows: list[dict], query: Query, run_id: str, collected_at: str) -
             published = date.fromisoformat(changed).isoformat() if changed else None
         except (KeyError, ValueError, TypeError, InvalidOperation):
             raise CollectionError("KOSIS_INVALID_ROW") from None
+        start, end = period_bounds(t.prd_se, prd)
         content_hash = "sha256:" + hashlib.sha256(canonical(row).encode("utf-8")).hexdigest()
         records.append(
             {
@@ -152,9 +215,9 @@ def to_records(rows: list[dict], query: Query, run_id: str, collected_at: str) -
                 "published_at": published + "T00:00:00+09:00" if published else None,
                 "observed_at": None,
                 "observed_at_source": None,
-                "observed_period_type": "Y",
-                "observed_period_start": f"{year:04d}-01-01T00:00:00+09:00",
-                "observed_period_end": f"{year + 1:04d}-01-01T00:00:00+09:00",
+                "observed_period_type": t.prd_se,
+                "observed_period_start": start,
+                "observed_period_end": end,
                 "place_code_raw": region,
                 "place_code_system": "kosis",
                 "place_id": None,
@@ -168,21 +231,20 @@ def to_records(rows: list[dict], query: Query, run_id: str, collected_at: str) -
                 "missing_reason": "not_published" if value is None else None,
                 "is_provisional": False,
                 "locator": {
-                    "tbl_id": row["TBL_ID"],
-                    "C1": region,
-                    "C2": row["C2"],
-                    "C3": row["C3"],
-                    "itm_id": row["ITM_ID"],
-                    "prd_de": row["PRD_DE"],
+                    "tbl_id": t.tbl_id,
+                    **{f"C{i}": c for i, c in enumerate(codes, 1)},
+                    "itm_id": t.item_id,
+                    "prd_de": prd,
                 },
-                "dedup_key": f"kosis:DT_1B26001:{region}:0:120:T25:Y:{year}:{changed}",
+                "dedup_key": ":".join(
+                    ("kosis", t.tbl_id, *codes, t.item_id, t.prd_se, prd, changed)
+                ),
                 "license_type": query.license_type,
                 "storage_scope": "full",
                 "run_id": run_id,
                 "collector_version": VERSION,
             }
         )
-    expected = {(r, y) for r in query.regions for y in range(query.start, query.end + 1)}
-    if seen != expected:
+    if seen != set(product(query.regions, *t.dims, periods)):
         raise CollectionError("KOSIS_INCOMPLETE_RESPONSE")
     return records
