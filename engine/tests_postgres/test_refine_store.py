@@ -9,12 +9,16 @@ import json
 from pathlib import Path
 
 import pytest
+from psycopg.types.json import Jsonb
 
 from pipeline.collect.kosis import Query
 from pipeline.collect.run import collect
 from pipeline.collect.store import PostgresStore
+from pipeline.refine import store
 from pipeline.refine.__main__ import main
+from pipeline.refine.run import refine_records
 from pipeline.refine.store import RefineStoreError, refine_raw
+from tests.samples import STATION
 
 ROOT = Path(__file__).resolve().parents[2]
 ROWS = json.loads((ROOT / "contracts/c1/examples/raw/kosis-net-migration.json").read_text("utf-8"))
@@ -144,3 +148,131 @@ def test_cli_db_mode_refines_and_prints_counts(refine_db, tmp_path, capsys):
 
     printed = json.loads(capsys.readouterr().out)
     assert printed["raw"] == 3 and printed["inserted"] == 3 and printed["skipped"] == {}
+
+
+def add_raw(conn, ledger):
+    """수집기를 거치지 않고 원본 · 장부 한 행을 더한다 (첫 원본 행의 실행 · spec 을 빌린다)."""
+    conn.execute(
+        "INSERT INTO raw_record (job_run_id, spec_id, raw_url, file_name, content_hash, "
+        "payload, collected_at, c1_record) "
+        "SELECT job_run_id, spec_id, raw_url, file_name, %s, payload, collected_at, %s "
+        "FROM raw_record ORDER BY id LIMIT 1",
+        (ledger["content_hash"], Jsonb(ledger)),
+    )
+
+
+def ledger_of(conn, year):
+    return conn.execute(
+        "SELECT c1_record FROM raw_record WHERE c1_record -> 'locator' ->> 'prd_de' = %s "
+        "ORDER BY id LIMIT 1",
+        (year,),
+    ).fetchone()[0]
+
+
+def variant(base, n, **changes):
+    return {**copy.deepcopy(base), "content_hash": f"sha256:{n:064x}", **changes}
+
+
+def station():
+    return variant(STATION[0], 1)
+
+
+def day(record):
+    return (record.get("observed_period_start") or "")[:10]
+
+
+def spy_refine(monkeypatch, fail_after=None):
+    """정제 호출마다 받은 레코드의 관측 일을 남긴다. fail_after 번째 뒤 호출에서 멈춘다."""
+    calls = []
+
+    def spy(records):
+        if fail_after is not None and len(calls) >= fail_after:
+            raise RuntimeError("STOP")
+        calls.append(sorted({day(r) for r in records}))
+        return refine_records(records)
+
+    monkeypatch.setattr(store, "refine_records", spy)
+    return calls
+
+
+def test_each_observed_day_is_refined_separately(refine_db, tmp_path, monkeypatch):
+    # 메모리에는 한 번에 하루 치 장부만 올린다. 시각 없는 측정소 메타는 한 묶음
+    conn, _ = refine_db
+    collect_rows(conn, tmp_path, ROWS)
+    add_raw(conn, station())
+    calls = spy_refine(monkeypatch)
+
+    stats = refine_raw(conn)
+
+    assert calls == [[""], ["2023-01-01"], ["2024-01-01"], ["2025-01-01"]]
+    assert stats["buckets"] == 4 and stats["inserted"] == 4
+
+
+def test_refining_by_day_gives_the_same_rows_as_all_at_once(refine_db, tmp_path):
+    conn, _ = refine_db
+    collect_rows(conn, tmp_path, ROWS)
+    # 2023: 고친 판(최신본) · 같은 dedup_key 에 값만 다른 원본(충돌)
+    collect_rows(conn, tmp_path, changed_2023("-748", "2026-10-23"))
+    collect_rows(conn, tmp_path, changed_2023("-700", ROWS[0]["LST_CHN_DE"]))
+    # 2024 와 dedup_key 가 같은데 시각이 깨져 다른 묶음('')으로 갈 레코드 → 충돌을 놓치면 안 된다
+    y2024 = ledger_of(conn, "2024")
+    add_raw(conn, variant(y2024, 2, value=-1, observed_period_start="언제인지 모름"))
+    # 2025 와 관측 칸이 같은데 다른 날로 적힌 판 → 최신본이 둘이 되면 안 된다
+    y2025 = ledger_of(conn, "2025")
+    later = {
+        "dedup_key": y2025["dedup_key"] + ":2026-10-25",
+        "published_at": "2026-10-25T00:00:00+09:00",
+        "observed_period_start": "2025-02-01T00:00:00+09:00",
+        "value": -931,
+    }
+    add_raw(conn, variant(y2025, 3, **later))
+    add_raw(conn, station())
+    ledgers = [row[0] for row in conn.execute("SELECT c1_record FROM raw_record ORDER BY id")]
+
+    stats = refine_raw(conn)
+
+    expected = {r["content_hash"]: json.loads(json.dumps(r)) for r in refine_records(ledgers)}
+    stored = dict(conn.execute("SELECT content_hash, record FROM normalized_record").fetchall())
+    assert stored == expected
+    # '' (측정소) · 2023-01-01 · 모은 묶음. 2024 · 2025 는 키가 갈라져 모은 묶음으로 갔다
+    assert stats["buckets"] == 3
+    latest_2025 = conn.execute(
+        "SELECT count(*) FROM normalized_record WHERE obs_key = %s AND is_latest",
+        (expected[variant(y2025, 3)["content_hash"]]["obs_key"],),
+    ).fetchone()
+    assert latest_2025 == (1,)
+    conflict = conn.execute(
+        "SELECT count(*) FROM normalized_record "
+        "WHERE dedup_key = %s AND validation_status = 'held'",
+        (y2024["dedup_key"],),
+    ).fetchone()
+    assert conflict == (2,)
+
+
+def test_hash_mismatch_in_a_later_day_stops_before_any_day_is_saved(refine_db, tmp_path):
+    conn, _ = refine_db
+    collect_rows(conn, tmp_path, ROWS)
+    conn.execute(
+        'UPDATE raw_record SET c1_record = c1_record || \'{"content_hash": "sha256:other"}\' '
+        "WHERE c1_record -> 'locator' ->> 'prd_de' = '2025'"
+    )
+
+    with pytest.raises(RefineStoreError, match="C1_HASH_MISMATCH"):
+        refine_raw(conn)
+
+    assert conn.execute("SELECT count(*) FROM normalized_record").fetchone() == (0,)
+
+
+def test_days_are_committed_one_by_one(refine_db, tmp_path, monkeypatch):
+    conn, _ = refine_db
+    collect_rows(conn, tmp_path, ROWS)
+    spy_refine(monkeypatch, fail_after=1)
+
+    with pytest.raises(RuntimeError, match="STOP"):
+        refine_raw(conn)
+
+    # 앞 묶음(2023)은 저장됐다. 같은 연결로 다시 돌리면 나머지를 채운다
+    assert conn.execute("SELECT count(*) FROM normalized_record").fetchone() == (1,)
+    monkeypatch.undo()
+    stats = refine_raw(conn)
+    assert (stats["inserted"], stats["unchanged"]) == (2, 1)

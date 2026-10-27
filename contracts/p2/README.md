@@ -48,9 +48,12 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 
 만드는 곳: `python -m pipeline.refine --db` (`engine/pipeline/refine/store.py`). 테이블은 Flyway [V0005](../../backend/src/main/resources/db/migration/V0005__create_normalized_record.sql).
 
-- 입력은 **장부** `raw_record.c1_record` 다. 장부는 수집기(P1)가 원본에서 만든 C1 레코드로, P1 이 원본과 같은 행에 저장한다. **P2 는 장부를 만들지 않고 읽기만 한다.** 전체 장부를 한 번에 정제해 저장한다
+- 입력은 **장부** `raw_record.c1_record` 다. 장부는 수집기(P1)가 원본에서 만든 C1 레코드로, P1 이 원본과 같은 행에 저장한다. **P2 는 장부를 만들지 않고 읽기만 한다.**
+- **관측 일 묶음으로 나눠 정제한다.** 묶음은 장부의 `observed_period_start`(없으면 `observed_at`) 앞 10자(`YYYY-MM-DD`, 적힌 시간대 그대로의 날짜)이고, 시각이 없거나 그 모양이 아니면 `''` 한 묶음이다. 메모리에는 한 번에 한 묶음만 올리고, 저장은 묶음마다 커밋한다. 실행 결과의 `buckets` 가 묶음 수다
+  - 최신본은 같은 `obs_key` 끼리, 반복 · 충돌은 같은 `dedup_key` 끼리만 보므로 결과는 전체를 한 번에 정제한 것과 같다. 같은 `dedup_key` 나 같은 관측 칸(`obs_key` 재료: source_id · spec_id · locator)이 여러 묶음에 갈라지면(예: 시각이 깨진 장부) 그 레코드는 모두 한 묶음(`~`)으로 모아 함께 정제한다
+  - 같은 측정값의 판 · 재수집본은 시각 표기(시간대 포함)가 같아야 같은 묶음에 든다. 다르면 위 규칙으로 모은 묶음에 가서 결과는 같지만 그 묶음이 커진다
 - 장부가 없는 원본(`c1_record` 가 null — 이 칸이 생기기 전에 저장된 원본 포함)은 건너뛰고 실행 결과의 `skipped` 에 source_id 별로 센다
-- 장부의 `content_hash` 가 그 행의 원본과 다르면 `C1_HASH_MISMATCH` 로 멈추고 아무것도 저장하지 않는다
+- 장부의 `content_hash` 가 그 행의 원본과 다르면 `C1_HASH_MISMATCH` 로 멈춘다. 이 검사는 정제 전에 전체 장부에 한 번 해서, 어느 묶음도 저장하지 않고 멈춘다
 - **원본 한 행 = 정제 한 행.** `content_hash` 가 UNIQUE 이고 `raw_record.content_hash` 를 가리킨다. 같은 `dedup_key` 라도 원본이 다르면(충돌) 각자 held 로 남는다
 - 저장된 행의 `run_id` · `collected_at` 은 장부 값을 따른다. 재수집 때 P1 이 장부를 갱신하지 않으면 원본을 처음 저장한 실행이다(위 「모양」의 「마지막으로 확인한 실행」은 장부가 그렇게 채워질 때만 맞다)
 - 같은 장부 · 같은 `rule_version` 으로 다시 돌리면 아무 행도 바뀌지 않는다. 결과가 바뀐 행(예: 새 판이 들어와 `is_latest` 가 false 가 된 이전 판)만 `refined_at` 이 새로 찍힌다
@@ -82,3 +85,4 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 | v0.1.2 | 2026-10-23 | 문구: run_id 는 마지막 확인 실행이고 원본은 content_hash 로 찾음, 수집기 입구 검사는 `validate` 만. 스키마·정제 동작은 그대로 (S15P31C108-89) |
 | v0.2 | 2026-10-26 | 저장: `normalized_record`(V0005) · `normalized_ready` 뷰. 입력은 P1 이 채우는 장부 `raw_record.c1_record`. 정제 레코드 스키마는 그대로 (S15P31C108-99) |
 | v0.2.1 | 2026-10-27 | 빅카인즈를 금지 소스에서 빼고 이용허락 표에 `BIGKINDS-이용약관` → 최대 `metadata` 추가. 결과가 달라지므로 `rule_version` 을 `p2-0.2.0` 으로 올림 — 저장된 행은 다음 정제 때 모두 새 판으로 갱신된다. 스키마는 그대로 (S15P31C108-106) |
+| v0.2.2 | 2026-10-27 | 저장: 장부를 관측 일 묶음으로 나눠 정제 · 묶음마다 커밋, 실행 결과에 `buckets`. 정제 결과는 한 번에 할 때와 같아 `rule_version` 그대로. 스키마는 그대로 (S15P31C108-111) |

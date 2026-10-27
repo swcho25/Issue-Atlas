@@ -13,7 +13,8 @@ pnpm engine:test
 # P2 정제: C1 레코드 JSON 배열 파일 → 정제 레코드 JSONL (키 정렬, 같은 입력이면 같은 바이트)
 # 검증은 contracts/c1/record.schema.json 을 직접 읽는다
 uv --directory engine run python -m pipeline.refine <C1 레코드 JSON 배열 파일>
-# P2 정제 저장: DB 의 장부(raw_record.c1_record)를 정제해 normalized_record 에 저장 (루트 .env 의 DB 칸, 건수 JSON 출력)
+# P2 정제 저장: DB 의 장부(raw_record.c1_record)를 관측 일 묶음으로 나눠 정제해 normalized_record 에 저장
+# (루트 .env 의 DB 칸, 건수 JSON 출력. 묶음마다 커밋)
 uv --directory engine run python -m pipeline.refine --db
 # PostGIS 통합 테스트 (Docker 필요, pnpm engine:test 에는 안 들어감)
 uv --directory engine run pytest tests_postgres
