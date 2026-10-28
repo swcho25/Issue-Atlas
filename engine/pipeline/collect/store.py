@@ -14,29 +14,32 @@ class PostgresStore:
         self.conn = connection
 
     def start(self, query, run_id: str, started_at: str):
+        # 통계는 full · statistics. 빅카인즈 같은 문서 소스는 query 가 따로 정한다
+        scope = getattr(query, "source_scope", "full")
+        evidence = getattr(query, "evidence_class", "statistics")
         with self.conn.transaction():
             self.conn.execute(
                 "INSERT INTO source (source_id, name, org, license_type, storage_scope) "
-                "VALUES (%s, %s, %s, %s, 'full') ON CONFLICT DO NOTHING",
-                (query.source_id, query.source_name, query.source_org, query.license_type),
+                "VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                (query.source_id, query.source_name, query.source_org, query.license_type, scope),
             )
             source = self.conn.execute(
                 "SELECT license_type, storage_scope FROM source WHERE source_id=%s FOR SHARE",
                 (query.source_id,),
             ).fetchone()
-            if source != (query.license_type, "full"):
+            if source != (query.license_type, scope):
                 raise CollectionError("SOURCE_CONTRACT_MISMATCH")
             self.conn.execute(
                 "INSERT INTO source_spec (spec_id, source_id, method, evidence_class, params) "
-                "VALUES (%s, %s, %s, 'statistics', %s) ON CONFLICT DO NOTHING",
-                (query.spec_id, query.source_id, query.method, Jsonb(query.identity())),
+                "VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                (query.spec_id, query.source_id, query.method, evidence, Jsonb(query.identity())),
             )
             spec = self.conn.execute(
                 "SELECT source_id, method, evidence_class, params FROM source_spec "
                 "WHERE spec_id=%s FOR SHARE",
                 (query.spec_id,),
             ).fetchone()
-            if spec != (query.source_id, query.method, "statistics", query.identity()):
+            if spec != (query.source_id, query.method, evidence, query.identity()):
                 raise CollectionError("SPEC_CONTRACT_MISMATCH")
             self.conn.execute(
                 "INSERT INTO job_run (job_run_id, spec_id, collector_version, started_at, stats) "

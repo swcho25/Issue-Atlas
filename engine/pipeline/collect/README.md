@@ -73,3 +73,21 @@ DB 통합 테스트는 명시 실행한다. 기본 `engine:test`는 Docker가 �
 원천 계약 근거: [KOSIS 공식 개발가이드](https://kosis.kr/openapi/devGuide/devGuide_0201List.do),
 저장소 [C1](../../../contracts/c1/README.md), [DB V0002](../../../contracts/database/README.md).
 README에서 계약을 가리키는 상대 경로는 저장소 루트의 실제 파일을 참조한다.
+
+## 빅카인즈 뉴스
+
+빅카인즈 뉴스 검색(`여수 OR 광주`)을 한국 날짜 하루씩 받고, 기사마다 원문 페이지 본문을 받아(`pipeline.article`)
+기사 하나를 `raw_record` 한 행 + 장부(C1 기사 칸, [C1 README](../../../contracts/c1/README.md) 「문서 레코드」)로 저장한다.
+키는 루트 `.env`의 `BIGKINDS_API_KEY`. spec `bigkinds_news_yeosu_gwangju`, source `bigkinds`(이용허락 `BIGKINDS-이용약관`).
+
+```powershell
+# --until 날짜는 넣지 않는다(기본: 오늘). 최대 31일, 끝난 날짜만
+uv --directory engine run python -m pipeline.collect.bigkinds --start 2025-10-01 --until 2025-10-08
+```
+
+- 요청 fields: `news_id` · `title` · `published_at` · `provider` · `category` · `provider_link_page` · `content`. 원본(payload)은 `{"bigkinds": 요청한 칸, "article": 본문 수집 결과}`
+- 본문을 받으면(`ok`) `storage_scope=full`, 아니면 `metadata`. **본문 저장은 팀·멘토 확인 전이다**
+- 이미 본문을 받은 기사는 다시 요청하지 않는다. 실패한 기사는 다시 받는다. 같은 기사 · 같은 결과는 같은 원본(content_hash 에 요청 시각 없음). dedup_key 는 `bigkinds:<news_id>:<본문 수집 상태>`
+- 원문 페이지는 같은 사이트 1초 간격이라 기사 수만큼 오래 걸린다. 50건마다 저장해 멈춰도 앞 기사는 남는다
+- 실행마다 검색 호출 200번까지(`BIGKINDS_CALL_LIMIT`). 하루 할당량 합산은 할당량이 정해지면 붙인다
+- `place_code_raw`는 기사 지명이 아니라 수집 검색어다. 지역은 P3가 제목·본문으로 정한다
