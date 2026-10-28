@@ -73,3 +73,15 @@ DB 통합 테스트는 명시 실행한다. 기본 `engine:test`는 Docker가 �
 원천 계약 근거: [KOSIS 공식 개발가이드](https://kosis.kr/openapi/devGuide/devGuide_0201List.do),
 저장소 [C1](../../../contracts/c1/README.md), [DB V0002](../../../contracts/database/README.md).
 README에서 계약을 가리키는 상대 경로는 저장소 루트의 실제 파일을 참조한다.
+
+## 보도자료 목록
+
+여수시 · 광주광역시 보도자료 게시판의 목록(제목 · 분류 · 담당부서 · 등록일 · 링크)을 `press_release`(V0010)에 넣는다. 본문은 두지 않는다.
+규칙 · 칸 · 실패 코드: [보도자료 계약](../../../contracts/press/README.md).
+
+```powershell
+# 여수시는 Crawl-Delay 30초라 2023–2025 에 약 50분 걸린다
+uv --directory engine run python -m pipeline.collect.press --site yeosu --db
+uv --directory engine run python -m pipeline.collect.press --site gwangju --db
+# --db 없이 돌리면 DB 대신 JSONL 을 출력한다. 기간: --start 2023-01-01 --end 2025-12-31 (기본값)
+```
