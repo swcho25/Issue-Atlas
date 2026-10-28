@@ -29,7 +29,7 @@ v0.2는 **문서 1건 = 레코드 1개**도 지원한다. 선택 키 `document`�
 
 문서의 `storage_scope`는 본문이 있으면 `full`, 없으면 `metadata`(링크만이면 `link_only`)다. `full` ⇔ `body` 있음 ⇔ `fetch.status=ok` 를 스키마가 검사한다. `link_only`의 excerpt도 항상 null이다. **본문 저장(`full`)은 팀·멘토 확인 전이다**(빅카인즈 수집기 S15P31C108-101 의 「원문 본문은 저장하지 않는다」와 부딪친다). 본문은 내부 분석(요약·분류)에만 쓰고 화면·API 로 내보내지 않는다. 스키마 통과가 계약·저장 허락을 뜻하지는 않는다. 허용 메타데이터 항목·보관 기간·AI 투입 여부는 기업 계약과 P2 문서 저장 범위 규칙으로 별도 확인해야 한다. 문서용 P2 이용허락 표·정제 구현은 아직 없다.
 
-문서 원천의 지명이 코드가 아니면 `place_code_system=source_text`, `place_code_raw`에 원문 지명(미제공이면 빈 문자열)을 남기고 `place_map_status=unmapped`, `place_id=null`로 둔다. 수집 검색어를 실제 기사 지명·행정 코드로 만들지 않는다. `source_text`는 문서에서만 허용한다. 지역·시각 확정은 P3의 역할이다.
+문서 원천의 지명이 코드가 아니면 `place_code_system=source_text`, `place_code_raw`에 원문 지명을 남기고(원천이 지명을 주지 않으면 수집 검색어. 빅카인즈는 `여수 OR 광주`. 빈 문자열은 P2 입구에서 필수 칸 누락이다) `place_map_status=unmapped`, `place_id=null`로 둔다. 수집 검색어를 실제 기사 지명·행정 코드로 만들지 않는다. `source_text`는 문서에서만 허용한다. 지역·시각 확정은 P3의 역할이다.
 
 `locator`에는 원천 기사 ID(빅카인즈 `news_id`)를, `dedup_key`에는 출처와 기사 ID로 만든 안정적인 키(`bigkinds:<news_id>`)를 둔다. 실제 원문 링크를 제공하지 않은 응답에는 링크를 추측해 넣지 않는다.
 
