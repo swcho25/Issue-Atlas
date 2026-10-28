@@ -334,3 +334,16 @@ def test_spec_identity_is_table_only_and_run_params_carry_period():
         "202301",
         "202512",
     )
+
+
+def test_ci_smoke_fixture_matches_current_sp01(tmp_path, capsys):
+    # 수집기 이미지 CI 점검(.gitlab/ci/deploy.gitlab-ci.yml)과 같은 인자. 기본 표가 바뀌면 여기서 먼저 깨진다
+    fixture = ROOT / "contracts/c1/examples/raw/kosis-sp01-monthly.json"
+    ci = (ROOT / ".gitlab/ci/deploy.gitlab-ci.yml").read_text(encoding="utf-8")
+    argv = ["--export-only", "--regions", "46130", "--start-year", "2023", "--end-year", "2023"]
+    assert "kosis-sp01-monthly.json " + " ".join(argv) in ci
+    output = tmp_path / "c1.json"
+    assert main(["--fixture", str(fixture), *argv, "--output", str(output)]) == 0
+    records = json.loads(output.read_text(encoding="utf-8"))
+    assert len(records) == 36
+    assert all(r["validation_status"] == "pass" for r in refine_records(records))

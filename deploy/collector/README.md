@@ -47,7 +47,7 @@ sudo issueatlas-collect airkorea-stations
 sudo issueatlas-collect airkorea-final --xlsx /inputs/final.xlsx --start-date 2024-01-01 --end-date 2024-01-02
 
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
-sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-net-migration.json --export-only --regions 46130 --indicator-id net_migration_test
+sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023
 
 sudo cat /opt/issueatlas-dev/.deploy/collector/current.json
 sudo ls -lt /var/log/issueatlas/collector

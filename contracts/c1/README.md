@@ -143,7 +143,7 @@ P2의 현재 필수값 검사만으로 C1 전체 스키마 검증을 대신할 �
 | [airkorea-measure-missing.json](examples/airkorea-measure-missing.json) | 02시 빈 칸 → null + not_published |
 | [airkorea-measure-hour24.json](examples/airkorea-measure-hour24.json) | 24시 → 다음 날 00시, 원천 값은 결측 |
 
-`examples/raw/`의 3개 파일은 샘플에 담긴 KOSIS 응답 배열·여수 측정소 items·확정 파일 행 배열을 원래 값과 순서로 다시 저장한 원천 자료다. 응답 전체를 추정해 보충하지 않았다. 확정 파일의 열 순서는 지역, 망, 측정소코드, 측정소명, 측정일시, SO2, CO, O3, NO2, PM10, PM25, 주소다. raw 파일은 C1 스키마 검증 대상이 아니다. API 호출 URL의 키는 `<KEY>`로 가린다.
+`examples/raw/`의 3개 파일은 샘플에 담긴 KOSIS 응답 배열·여수 측정소 items·확정 파일 행 배열을 원래 값과 순서로 다시 저장한 원천 자료다. `kosis-sp01-monthly.json`(2026-10-28 추가)은 지금 SP01 범위(월별 · 성별 계 · 연령 계·19–34·19–39)의 실제 응답 행으로, 여수 2023년 36행이다. 수집기 이미지 CI 점검이 이 파일을 쓴다. 응답 전체를 추정해 보충하지 않았다. 확정 파일의 열 순서는 지역, 망, 측정소코드, 측정소명, 측정일시, SO2, CO, O3, NO2, PM10, PM25, 주소다. raw 파일은 C1 스키마 검증 대상이 아니다. API 호출 URL의 키는 `<KEY>`로 가린다.
 
 ## 검증 방법
 

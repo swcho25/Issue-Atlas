@@ -49,7 +49,7 @@ collector-image:
     - test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_PUSH_TOKEN"
     - echo "$DOCKERHUB_PUSH_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
     - docker build -f engine/Dockerfile --label "org.opencontainers.image.component=collector" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" .
-    - docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m,mode=1777 "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" --fixture /app/contracts/c1/examples/raw/kosis-net-migration.json --export-only --regions 46130 --indicator-id net_migration_test --output /tmp/c1.json
+    - docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m,mode=1777 "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023 --output /tmp/c1.json
     - docker push "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA"
     - docker inspect --format '{{index .RepoDigests 0}}' "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" > collector-image.txt
   artifacts:
