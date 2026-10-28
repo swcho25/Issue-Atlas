@@ -9,8 +9,11 @@ RUN_FIELDS = ("collected_at", "run_id", "collector_version")
 
 
 def obs_key(record: dict) -> str | None:
-    """원천의 같은 칸이면 판이 바뀌어도 같은 키. 관측값 레코드(indicator_id 있음)에만 붙인다."""
-    if record.get("indicator_id") is None:
+    """원천의 같은 칸이면 판이 바뀌어도 같은 키. 관측값(indicator_id) · 문서(document)에 붙인다.
+
+    문서는 원천 문서 하나(빅카인즈 news_id 등)가 한 칸이라, 같은 기사를 다시 받은 행이 한 키다.
+    """
+    if record.get("indicator_id") is None and not _is_document(record):
         return None
     where = {k: record.get(k) for k in ("source_id", "spec_id", "locator")}
     canon = json.dumps(where, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -49,7 +52,10 @@ def split_repeats(records: list[dict]) -> tuple[list[dict], set[str]]:
 
 
 def mark_latest(refined: list[dict]) -> None:
-    """같은 obs_key 중 보류가 아닌 가장 늦은 판 하나만 is_latest. 관측값이 아니면 None."""
+    """같은 obs_key 중 보류가 아닌 판 하나만 is_latest. obs_key 가 없으면 None.
+
+    관측값은 가장 늦게 공표된 판, 문서는 본문이 있는 판 중 가장 늦게 받은 판.
+    """
     groups: dict[str, list[dict]] = {}
     for r in refined:
         if r["obs_key"] is None:
@@ -82,7 +88,18 @@ def _parse_instant(value) -> tuple:
     return (1, parsed)
 
 
+def _is_document(record: dict) -> bool:
+    return isinstance(record.get("document"), dict)
+
+
 def _revision_order(r: dict) -> tuple:
+    if _is_document(r):
+        # 같은 기사를 실패 → 성공으로 다시 받았으면 본문 있는 판이 먼저, 같으면 늦게 받은 판
+        return (
+            r["document"].get("body") is not None,
+            datetime.fromisoformat(r["collected_at"]),
+            r["dedup_key"],
+        )
     # 공표 시각이 없으면(에어코리아 확정 파일) 수집 시각으로. 같으면 dedup_key 로 정해 늘 같은 결과
     published = r.get("published_at") or r["collected_at"]
     return (

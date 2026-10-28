@@ -1,6 +1,6 @@
 """저장 범위 게이트: 이용허락이 허락하는 만큼만 남긴다.
 
-이용허락별 최대 범위는 license_scopes.json 에만 둔다. 지금은 관측값 레코드만 다룬다.
+이용허락별 최대 범위는 license_scopes.json 에만 둔다. 관측값 · 문서 레코드에 같은 표를 쓴다.
 """
 
 import copy
@@ -16,7 +16,7 @@ SCOPE_ORDER = ("link_only", "metadata", "full")
 
 @cache
 def load_license_scopes() -> dict:
-    return json.loads(LICENSE_SCOPES_PATH.read_text(encoding="utf-8"))["observation"]
+    return json.loads(LICENSE_SCOPES_PATH.read_text(encoding="utf-8"))["limits"]
 
 
 def apply_storage_scope(record: dict, scopes: dict | None = None) -> tuple[dict, list[dict]]:
@@ -42,4 +42,23 @@ def apply_storage_scope(record: dict, scopes: dict | None = None) -> tuple[dict,
         out["value"] = None
         out["missing_reason"] = "license_blocked"
         issues.append({"code": "VALUE_STRIPPED_BY_SCOPE", "field": "value"})
+    # 문서는 본문이 내용이라 full 이 아니면 본문을 남기지 않는다 (C1 v0.2: full ⇔ 본문 있음)
+    document = out.get("document")
+    if (
+        out["storage_scope"] != "full"
+        and isinstance(document, dict)
+        and document.get("body") is not None
+    ):
+        document["body"] = None
+        issues.append({"code": "BODY_STRIPPED_BY_SCOPE", "field": "document"})
+    # 기사는 본문을 읽어 지역 · 시간 · 요약을 뽑는다. 이용허락이 본문을 허락하는데 본문이 없으면
+    # (원문 링크 없음 · robots 차단 등) 보류해 다음 단계로 넘기지 않는다.
+    # 다시 받아 본문이 생기면 그 판이 나간다
+    if (
+        limit == "full"
+        and isinstance(document, dict)
+        and document.get("kind") == "news"
+        and document.get("body") is None
+    ):
+        issues.append({"code": "BODY_MISSING", "field": "document"})
     return out, issues
