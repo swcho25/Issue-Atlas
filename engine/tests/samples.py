@@ -22,6 +22,8 @@ AIRKOREA = [
 STATION = [load("airkorea-station")]
 P1_SAMPLES = KOSIS + AIRKOREA + STATION
 SAMPLE_IDS = [r["dedup_key"] for r in P1_SAMPLES]
+# 합성 빅카인즈 기사 (본문 수집 ok · full). 계약 예시는 이용허락이 미정이라 정제 테스트가 바꿔 쓴다
+NEWS = [load("bigkinds-news")]
 # 이용허락이 정해진 관측값 레코드 (측정소정보는 license_type 이 아직 TBD)
 OBSERVATIONS = KOSIS + AIRKOREA
 OBSERVATION_IDS = [r["dedup_key"] for r in OBSERVATIONS]

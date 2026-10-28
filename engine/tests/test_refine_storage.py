@@ -84,7 +84,7 @@ def test_scope_narrower_than_license_is_kept(license_type, storage_scope):
 
 
 def bigkinds(storage_scope):
-    # 빅카인즈 기사는 값이 없는 레코드라 값 없는 측정소 메타 모양을 빌린다 (문서 칸은 C1 v0.2 뒤)
+    # 이용허락 표만 본다. 값 없는 측정소 메타 모양을 빌린다 (기사 모양은 test_refine_documents)
     record = copy.deepcopy(STATION[0])
     return {
         **record,
@@ -94,13 +94,12 @@ def bigkinds(storage_scope):
     }
 
 
-def test_bigkinds_full_scope_is_lowered_to_metadata():
-    # 빅카인즈는 본문을 저장하지 않는다: 제목·링크·메타데이터까지 (S15P31C108-101 · -106)
+def test_bigkinds_allows_full_scope():
+    # 기사 본문은 저장한다 (팀 결정 2026-10-28, S15P31C108-122)
     out = refine_record(bigkinds("full"))
 
-    assert out["validation_status"] == "fixed"
-    assert out["issues"] == [issue("SCOPE_DOWNGRADED", "storage_scope")]
-    assert out["storage_scope"] == "metadata"
+    assert out["validation_status"] == "pass"
+    assert out["storage_scope"] == "full"
 
 
 @pytest.mark.parametrize("storage_scope", ["metadata", "link_only"])

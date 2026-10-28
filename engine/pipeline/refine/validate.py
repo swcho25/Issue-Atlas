@@ -47,4 +47,7 @@ def validate(record: dict) -> list[dict]:
 
 
 def _missing(record: dict, field: str) -> bool:
+    if field == "place_code_raw" and record.get("place_code_system") == "source_text":
+        # 문서 원천이 지명을 주지 않으면 빈 문자열이다(C1 v0.2). 지역은 P3 가 정한다
+        return record.get(field) is None
     return record.get(field) in (None, "")

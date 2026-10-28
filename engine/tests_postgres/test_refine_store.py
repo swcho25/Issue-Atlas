@@ -18,7 +18,7 @@ from pipeline.refine import store
 from pipeline.refine.__main__ import main
 from pipeline.refine.run import refine_records
 from pipeline.refine.store import RefineStoreError, refine_raw
-from tests.samples import STATION
+from tests.samples import NEWS, STATION
 
 ROOT = Path(__file__).resolve().parents[2]
 ROWS = json.loads((ROOT / "contracts/c1/examples/raw/kosis-net-migration.json").read_text("utf-8"))
@@ -277,3 +277,29 @@ def test_days_are_committed_one_by_one(refine_db, tmp_path, monkeypatch):
     monkeypatch.undo()
     stats = refine_raw(conn)
     assert (stats["inserted"], stats["unchanged"]) == (2, 1)
+
+
+def test_article_fetched_twice_leaves_one_ready_row_with_its_body(refine_db, tmp_path):
+    # 같은 기사를 실패 → 성공으로 두 번 받았다. 원본 · 정제 행은 둘 다 남고 다음 단계는 1건만 본다
+    conn, _ = refine_db
+    collect_rows(conn, tmp_path, ROWS)
+    article = {**NEWS[0], "license_type": "BIGKINDS-이용약관", "place_code_raw": ""}
+    failed = variant(article, 11, storage_scope="metadata", dedup_key="bigkinds:a:NO_BODY")
+    failed["document"].update(body=None, fetch={**failed["document"]["fetch"], "status": "NO_BODY"})
+    ok = variant(article, 12, collected_at="2026-10-27T00:00:00Z", dedup_key="bigkinds:a:ok")
+    for ledger in (failed, ok):
+        add_raw(conn, ledger)
+
+    stats = refine_raw(conn)
+
+    assert stats["status"] == {"pass": 5}
+    stored = conn.execute(
+        "SELECT dedup_key, is_latest FROM normalized_record "
+        "WHERE dedup_key LIKE 'bigkinds:%' ORDER BY dedup_key"
+    ).fetchall()
+    assert stored == [("bigkinds:a:NO_BODY", False), ("bigkinds:a:ok", True)]
+    ready = conn.execute(
+        "SELECT storage_scope, place_code_raw, record -> 'document' ->> 'body' "
+        "FROM normalized_ready WHERE dedup_key LIKE 'bigkinds:%'"
+    ).fetchall()
+    assert ready == [("full", "", ok["document"]["body"])]

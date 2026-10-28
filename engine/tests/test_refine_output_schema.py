@@ -7,7 +7,7 @@ from jsonschema import Draft202012Validator
 
 from pipeline.refine import refine_records
 from pipeline.refine.schema import schema_issues
-from tests.samples import HASH, KOSIS, P1_SAMPLES
+from tests.samples import HASH, KOSIS, NEWS, P1_SAMPLES
 
 P2_SCHEMA = Path(__file__).resolve().parents[2] / "contracts" / "p2" / "refined-record.schema.json"
 
@@ -22,6 +22,10 @@ def kosis(**changes):
     return {**copy.deepcopy(KOSIS[0]), "content_hash": HASH, **changes}
 
 
+def news(**changes):
+    return {**copy.deepcopy(NEWS[0]), "content_hash": HASH, **changes}
+
+
 # 사유 코드마다 그 코드가 나오는 레코드 하나. 코드를 새로 만들면 여기와 출력 스키마에 같이 넣는다
 ONE_PER_CODE = {
     "MISSING_REQUIRED": kosis(content_hash=None),
@@ -32,6 +36,7 @@ ONE_PER_CODE = {
     "LICENSE_UNKNOWN": kosis(license_type="TBD"),
     "SCOPE_DOWNGRADED": kosis(license_type="KOGL-2"),
     "VALUE_STRIPPED_BY_SCOPE": kosis(license_type="KOGL-2"),
+    "BODY_STRIPPED_BY_SCOPE": news(license_type="KOGL-4"),
 }
 
 
@@ -63,11 +68,13 @@ def test_pass_and_fixed_records_keep_a_valid_c1_part():
     # C1 칸만 떼면 C1 스키마를 그대로 통과한다 (held 는 C1 을 어긴 채 보관될 수 있다)
     records = [{**copy.deepcopy(r), "content_hash": HASH} for r in P1_SAMPLES]
     records.append(kosis(license_type="KOGL-2", dedup_key="fixed-case"))
+    records.append(news(license_type="BIGKINDS-이용약관", dedup_key="news-full"))
+    records.append(news(license_type="KOGL-4", dedup_key="news-body-stripped"))
 
-    for refined in refine_records(records):
+    for record, refined in zip(records, refine_records(records), strict=True):
         if refined["validation_status"] == "held":
             continue
-        c1_part = {k: v for k, v in refined.items() if k in records[0]}
+        c1_part = {k: v for k, v in refined.items() if k in record}
         assert schema_issues(c1_part) == [], refined["dedup_key"]
 
 

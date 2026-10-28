@@ -23,7 +23,8 @@
               "LICENSE_UNKNOWN",
               "DEDUP_KEY_CONFLICT",
               "SCOPE_DOWNGRADED",
-              "VALUE_STRIPPED_BY_SCOPE"
+              "VALUE_STRIPPED_BY_SCOPE",
+              "BODY_STRIPPED_BY_SCOPE"
             ]
           },
           "field": { "type": "string", "minLength": 1 }
@@ -45,7 +46,7 @@
         "properties": {
           "issues": {
             "minItems": 1,
-            "items": { "properties": { "code": { "enum": ["SCOPE_DOWNGRADED", "VALUE_STRIPPED_BY_SCOPE"] } } }
+            "items": { "properties": { "code": { "enum": ["SCOPE_DOWNGRADED", "VALUE_STRIPPED_BY_SCOPE", "BODY_STRIPPED_BY_SCOPE"] } } }
           }
         }
       }
@@ -56,7 +57,7 @@
         "properties": {
           "issues": {
             "contains": {
-              "properties": { "code": { "not": { "enum": ["SCOPE_DOWNGRADED", "VALUE_STRIPPED_BY_SCOPE"] } } }
+              "properties": { "code": { "not": { "enum": ["SCOPE_DOWNGRADED", "VALUE_STRIPPED_BY_SCOPE", "BODY_STRIPPED_BY_SCOPE"] } } }
             }
           }
         }
