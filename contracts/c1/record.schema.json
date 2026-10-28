@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "C1 공통 메타 필드 계약 v0.1",
-  "description": "수집(P1) → 정제·지역·시간·분류(P2~P4). 값 1개 = 레코드 1개.",
+  "title": "C1 공통 메타 필드 계약 v0.2 초안",
+  "description": "수집(P1) → 정제·지역·시간·분류(P2~P4). 관측값 1개 또는 문서 1건 = 레코드 1개.",
   "type": "object",
   "properties": {
     "source_id": {
@@ -88,7 +88,8 @@
         "airkorea_station",
         "airkorea_station_name",
         "bjd",
-        "sgis"
+        "sgis",
+        "source_text"
       ]
     },
     "place_id": {
@@ -206,6 +207,160 @@
     },
     "collector_version": {
       "type": "string"
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "title",
+        "publisher",
+        "categories",
+        "keywords",
+        "entities",
+        "excerpt",
+        "link",
+        "fetch",
+        "body"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "news",
+            "press_release"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publisher": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "entities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "locations",
+            "persons",
+            "organizations"
+          ],
+          "properties": {
+            "locations": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "persons": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "organizations": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "excerpt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "link": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "fetch": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "http_status",
+            "fetched_at",
+            "fetcher"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "ok",
+                "NO_LINK",
+                "NO_REFERENCE",
+                "ROBOTS_DISALLOWED",
+                "NETWORK_ERROR",
+                "HTTP_ERROR",
+                "NO_BODY",
+                "CONTENT_MISMATCH"
+              ]
+            },
+            "http_status": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 100,
+              "maximum": 599
+            },
+            "fetched_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "fetcher": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "body": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
     }
   },
   "required": [
@@ -354,6 +509,137 @@
           ]
         }
       ]
+    },
+    {
+      "if": {
+        "required": [
+          "document"
+        ]
+      },
+      "then": {
+        "properties": {
+          "raw_url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https?://"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "indicator_id": {
+            "type": "null"
+          },
+          "value": {
+            "type": "null"
+          },
+          "unit": {
+            "type": "null"
+          },
+          "missing_reason": {
+            "type": "null"
+          },
+          "storage_scope": {
+            "enum": [
+              "link_only",
+              "metadata",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "raw_url"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "anyOf": [
+                {
+                  "properties": {
+                    "storage_scope": {
+                      "const": "link_only"
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "document": {
+                      "properties": {
+                        "kind": {
+                          "const": "news"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "then": {
+              "properties": {
+                "document": {
+                  "properties": {
+                    "excerpt": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "storage_scope": {
+                  "const": "full"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "document": {
+                  "properties": {
+                    "body": {
+                      "type": "string"
+                    },
+                    "fetch": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "const": "ok"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "document": {
+                  "properties": {
+                    "body": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "else": {
+        "properties": {
+          "place_code_system": {
+            "enum": [
+              "kosis",
+              "airkorea_station",
+              "airkorea_station_name",
+              "bjd",
+              "sgis"
+            ]
+          }
+        }
+      }
     }
   ]
 }
