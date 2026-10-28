@@ -23,7 +23,6 @@ def test_existing_observations_and_synthetic_news_pass():
 @pytest.mark.parametrize(
     "changes",
     [
-        {"storage_scope": "full"},
         {"published_at": None},
         {"raw_url": None, "file_name": "news.json"},
         {"raw_url": "file:///local/news"},
@@ -35,7 +34,7 @@ def test_news_cannot_be_observation_or_lose_provenance(changes):
     assert not validator().is_valid(load("bigkinds-news") | changes)
 
 
-@pytest.mark.parametrize("field", ["title", "entities", "excerpt"])
+@pytest.mark.parametrize("field", ["title", "entities", "excerpt", "link", "fetch", "body"])
 def test_document_fields_are_required(field):
     record = load("bigkinds-news")
     del record["document"][field]
@@ -60,4 +59,44 @@ def test_press_release_excerpt_requires_metadata_scope():
 def test_source_text_is_not_an_observation_code_system():
     record = copy.deepcopy(P1_SAMPLES[0])
     record["place_code_system"] = "source_text"
+    assert not validator().is_valid(record)
+
+
+def metadata_only(record, status="NO_LINK"):
+    record["storage_scope"] = "metadata"
+    record["document"].update(body=None, link=None)
+    record["document"]["fetch"].update(status=status, http_status=None, fetched_at=None)
+    return record
+
+
+def test_body_only_with_ok_fetch_and_full_scope():
+    validator().validate(metadata_only(load("bigkinds-news")))
+    no_fetch = metadata_only(load("bigkinds-news"))
+    no_fetch["document"]["fetch"] = None  # 본문 수집을 시도하지 않은 문서(보도자료 목록 등)
+    validator().validate(no_fetch)
+    body_without_full = load("bigkinds-news") | {"storage_scope": "metadata"}
+    assert not validator().is_valid(body_without_full)
+    full_without_body = metadata_only(load("bigkinds-news")) | {"storage_scope": "full"}
+    assert not validator().is_valid(full_without_body)
+    failed_but_full = load("bigkinds-news")
+    failed_but_full["document"]["fetch"]["status"] = "CONTENT_MISMATCH"
+    assert not validator().is_valid(failed_but_full)
+
+
+@pytest.mark.parametrize(
+    "path,value",
+    [
+        (("link",), "news.example.com/article/1"),
+        (("fetch", "status"), "TIMEOUT"),
+        (("fetch", "http_status"), 99),
+        (("fetch", "fetched_at"), "yesterday"),
+        (("fetch", "extra"), 1),
+    ],
+)
+def test_fetch_result_shape(path, value):
+    record = load("bigkinds-news")
+    target = record["document"]
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = value
     assert not validator().is_valid(record)

@@ -8,7 +8,7 @@ v0.2는 **문서 1건 = 레코드 1개**도 지원한다. 선택 키 `document`�
 
 ## 문서 레코드
 
-공통 `published_at`에 발행 시각(오프셋 포함), `raw_url`에 원문 HTTP(S) 링크를 넣는다. 둘 다 필수이며 발행 시각을 모르면 수집 시각으로 대체하지 않는다. `indicator_id`·`value`·`unit`·`missing_reason`은 모두 null이다. 기사 발행 시각을 사건 발생 시각으로 단정하지 않고, 사건 시각이 없으면 `observed_at=null`, 기간은 `none`으로 둔다.
+공통 `published_at`에 발행 시각(오프셋 포함), `raw_url`에 문서를 받아 온 곳(빅카인즈는 검색 API 주소, 보도자료는 게시판 주소)을 넣는다. 둘 다 필수이며 발행 시각을 모르면 수집 시각으로 대체하지 않는다. 언론사 원문 주소는 `document.link`다. `indicator_id`·`value`·`unit`·`missing_reason`은 모두 null이다. 기사 발행 시각을 사건 발생 시각으로 단정하지 않고, 사건 시각이 없으면 `observed_at=null`, 기간은 `none`으로 둔다.
 
 | document 내부 필드 | 타입 | 의미 |
 | --- | --- | --- |
@@ -19,16 +19,21 @@ v0.2는 **문서 1건 = 레코드 1개**도 지원한다. 선택 키 `document`�
 | keywords | string 배열 | 원천 키워드. 미제공이면 빈 배열 |
 | entities | object | locations·persons·organizations 각각 string 배열. 미제공이면 빈 배열 |
 | excerpt | string 또는 null | 이용 조건이 명시적으로 허락한 보도자료 앞부분만. 뉴스는 항상 null |
+| link | http(s) 주소 또는 null | 원문 페이지 주소(빅카인즈 `provider_link_page`, `http://` 가 빠졌으면 붙인 값). 쓸 수 없으면 null |
+| fetch | object 또는 null | 원문 본문 수집 결과. 본문 수집을 시도하지 않은 문서는 null |
+| fetch.status | enum | `ok` / `NO_LINK` / `NO_REFERENCE` / `ROBOTS_DISALLOWED` / `NETWORK_ERROR` / `HTTP_ERROR` / `NO_BODY` / `CONTENT_MISMATCH` — 뜻은 [기사 계약](../article/README.md) |
+| fetch.http_status · fetch.fetched_at · fetch.fetcher | int·null · UTC 시각·null · string | 원문 페이지 응답 코드 · 요청 시각(요청 전에 멈췄으면 둘 다 null) · 본문 수집기 판(`article-0.1.0`) |
+| body | string 또는 null | 원문 페이지에서 뽑은 본문. `fetch.status=ok` 이고 `storage_scope=full` 일 때만 있다 |
 
-내부 키는 모두 필수이며 추가 키는 허용하지 않는다. 분류·키워드·개체명은 원천이 제공한 것만 보존하며 수집기가 임의 추론하지 않는다. 배열 중복은 허용하지 않는다. 뉴스 본문·하이라이트·이미지·첨부는 이 계약에 넣지 않는다.
+내부 키는 모두 필수이며 추가 키는 허용하지 않는다. 분류·키워드·개체명은 원천이 제공한 것만 보존하며 수집기가 임의 추론하지 않는다. 배열 중복은 허용하지 않는다. 하이라이트·이미지·첨부는 이 계약에 넣지 않는다.
 
-문서의 `storage_scope`는 `link_only` 또는 `metadata`이며 `full`은 금지한다. `link_only`의 excerpt도 항상 null이다. 스키마 통과가 계약·저장 허락을 뜻하지는 않는다. 허용 메타데이터 항목·보관 기간·AI 투입 여부는 기업 계약과 P2 문서 저장 범위 규칙으로 별도 확인해야 한다. 문서용 P2 이용허락 표·정제 구현은 아직 없다.
+문서의 `storage_scope`는 본문이 있으면 `full`, 없으면 `metadata`(링크만이면 `link_only`)다. `full` ⇔ `body` 있음 ⇔ `fetch.status=ok` 를 스키마가 검사한다. `link_only`의 excerpt도 항상 null이다. **본문 저장(`full`)은 팀·멘토 확인 전이다**(빅카인즈 수집기 S15P31C108-101 의 「원문 본문은 저장하지 않는다」와 부딪친다). 본문은 내부 분석(요약·분류)에만 쓰고 화면·API 로 내보내지 않는다. 스키마 통과가 계약·저장 허락을 뜻하지는 않는다. 허용 메타데이터 항목·보관 기간·AI 투입 여부는 기업 계약과 P2 문서 저장 범위 규칙으로 별도 확인해야 한다. 문서용 P2 이용허락 표·정제 구현은 아직 없다.
 
 문서 원천의 지명이 코드가 아니면 `place_code_system=source_text`, `place_code_raw`에 원문 지명(미제공이면 빈 문자열)을 남기고 `place_map_status=unmapped`, `place_id=null`로 둔다. 수집 검색어를 실제 기사 지명·행정 코드로 만들지 않는다. `source_text`는 문서에서만 허용한다. 지역·시각 확정은 P3의 역할이다.
 
-`locator`에는 원천 기사 ID를, `dedup_key`에는 출처와 기사 ID로 만든 안정적인 키를 둔다. 실제 원문 링크를 제공하지 않은 응답에는 링크를 추측해 넣지 않는다.
+`locator`에는 원천 기사 ID(빅카인즈 `news_id`)를, `dedup_key`에는 출처와 기사 ID로 만든 안정적인 키(`bigkinds:<news_id>`)를 둔다. 실제 원문 링크를 제공하지 않은 응답에는 링크를 추측해 넣지 않는다.
 
-[bigkinds-news.json](examples/bigkinds-news.json)은 API 실호출 없이 만든 **합성 계약 예시**다. 사이트 홈 주소·가상 기사 ID·제목·언론사를 사용하며 실제 뉴스·유효한 기사 링크가 아니다. 계약 미확정 license_type 때문에 운영 적재에 사용하지 않는다. C1 스키마만 검증하며 빅카인즈 금지 출처 해제를 뜻하지 않는다.
+[bigkinds-news.json](examples/bigkinds-news.json)은 API 실호출 없이 만든 **합성 계약 예시**다(본문 수집 `ok` · `full`). 가상 기사 ID·제목·언론사·본문·링크를 사용하며 실제 뉴스·유효한 기사 링크가 아니다. 계약 미확정 license_type 때문에 운영 적재에 사용하지 않는다. C1 스키마만 검증하며 빅카인즈 금지 출처 해제를 뜻하지 않는다.
 
 기준: PRD v4.1 §7.1·7.2·5.4 및 2026-10-21 C1 작업 지시서. [record.schema.json](record.schema.json)은 JSON Schema 2020-12를 사용한다. 최상위 필드는 `additionalProperties: false`로 제한하며, 원문 위치를 담는 `locator`의 키-값은 자유 형식이다. 계약 변경은 받는 쪽 박준우(P2)·정우현(P3)의 리뷰가 필요하다. 10/23 동결 전까지 v0.1 초안이다.
 
@@ -187,5 +192,6 @@ try {
 
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
+| v0.2 초안 | 2026-10-28 | document 에 link · fetch(본문 수집 결과) · body 추가, 본문이 있으면 `full` 허용(박준우 요청, 본문 저장은 팀·멘토 확인 전). raw_url 은 받아 온 곳, locator 는 `news_id` |
 | v0.2 초안 | 2026-10-26 | document 칸·문서 조건·source_text, 합성 빅카인즈 예시. P2·P3·P4 리뷰 대기 |
 | v0.1 | 2026-10-21 | 초안: 공통 메타 필드·enum·조건 규칙, 실제 예시 5개와 원천 자료 3개, 결측·좌표·기간 변환 규칙 |

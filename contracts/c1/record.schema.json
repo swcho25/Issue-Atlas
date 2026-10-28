@@ -218,7 +218,10 @@
         "categories",
         "keywords",
         "entities",
-        "excerpt"
+        "excerpt",
+        "link",
+        "fetch",
+        "body"
       ],
       "properties": {
         "kind": {
@@ -290,6 +293,67 @@
           }
         },
         "excerpt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "link": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "fetch": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "http_status",
+            "fetched_at",
+            "fetcher"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "ok",
+                "NO_LINK",
+                "NO_REFERENCE",
+                "ROBOTS_DISALLOWED",
+                "NETWORK_ERROR",
+                "HTTP_ERROR",
+                "NO_BODY",
+                "CONTENT_MISMATCH"
+              ]
+            },
+            "http_status": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 100,
+              "maximum": 599
+            },
+            "fetched_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "fetcher": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "body": {
           "type": [
             "string",
             "null"
@@ -478,7 +542,8 @@
           "storage_scope": {
             "enum": [
               "link_only",
-              "metadata"
+              "metadata",
+              "full"
             ]
           }
         },
@@ -514,6 +579,45 @@
                 "document": {
                   "properties": {
                     "excerpt": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "storage_scope": {
+                  "const": "full"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "document": {
+                  "properties": {
+                    "body": {
+                      "type": "string"
+                    },
+                    "fetch": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "const": "ok"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "document": {
+                  "properties": {
+                    "body": {
                       "type": "null"
                     }
                   }
