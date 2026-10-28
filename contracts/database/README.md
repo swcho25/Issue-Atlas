@@ -59,3 +59,4 @@ V0006은 `vector` 확장만 활성화한다. 벡터 칼럼과 벡터 인덱스�
 - v0.1.4 (2026-10-27): 기사 본문 표 `news_article` · `news_article_ready` 뷰 추가(V0007, S15P31C108-112). 기반 6개 테이블과 FK 없이 따로 두고 칸·규칙은 [기사 계약](../article/README.md)에 둔다.
 - v0.1.5 (2026-10-27): 에어코리아 월별 집계 materialized view `air_monthly` 추가(V0008, S15P31C108-114). `normalized_ready` 위의 파생이며 칸·규칙은 [P2 계약](../p2/README.md) 「월별 집계」에 둔다.
 - v0.1.6 (2026-10-27): `air_monthly` 를 materialized view 에서 표로 바꾸고 `normalized_record` 의 에어코리아 확정 시간 행을 지운다(V0009, S15P31C108-115). 이후 P2 정제가 이 표만 채운다.
+- v0.1.7 (2026-10-28): 보도자료 목록 표 `press_release` 추가(V0010). 기반 6개 테이블과 FK 없이 따로 두고 칸·규칙은 [보도자료 계약](../press/README.md)에 둔다. 본문 칸은 없다(`storage_scope = metadata` CHECK).
