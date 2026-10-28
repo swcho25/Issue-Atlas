@@ -123,15 +123,33 @@ def test_later_success_replaces_an_earlier_failure():
     ]
 
 
-def test_among_failures_the_latest_attempt_is_ready():
+def test_article_without_body_is_held():
+    # 본문을 허락하는 기사인데 본문을 못 받았다(원문 링크 없음 · robots 차단 등)
+    out = refine_record(failed())
+
+    assert out["validation_status"] == "held"
+    assert out["issues"] == [issue("BODY_MISSING", "document")]
+
+
+def test_article_that_never_got_a_body_is_not_ready():
     out = refine_records(
         [failed(1, "NO_BODY"), failed(2, "HTTP_ERROR", collected_at="2026-10-27T00:00:00Z")]
     )
 
-    assert [(r["document"]["fetch"]["status"], r["is_latest"]) for r in out] == [
-        ("NO_BODY", False),
-        ("HTTP_ERROR", True),
+    assert [(r["validation_status"], r["is_latest"]) for r in out] == [
+        ("held", False),
+        ("held", False),
     ]
+
+
+def test_press_release_without_body_is_not_held():
+    # 본문 필수는 기사(news)만. 보도자료는 목록 정보만으로도 넘긴다
+    record = failed(license_type="KOGL-1")
+    record["document"]["kind"] = "press_release"
+
+    out = refine_record(record)
+
+    assert out["validation_status"] == "pass"
 
 
 def test_source_text_document_may_have_an_empty_place():

@@ -51,4 +51,14 @@ def apply_storage_scope(record: dict, scopes: dict | None = None) -> tuple[dict,
     ):
         document["body"] = None
         issues.append({"code": "BODY_STRIPPED_BY_SCOPE", "field": "document"})
+    # 기사는 본문을 읽어 지역 · 시간 · 요약을 뽑는다. 이용허락이 본문을 허락하는데 본문이 없으면
+    # (원문 링크 없음 · robots 차단 등) 보류해 다음 단계로 넘기지 않는다.
+    # 다시 받아 본문이 생기면 그 판이 나간다
+    if (
+        limit == "full"
+        and isinstance(document, dict)
+        and document.get("kind") == "news"
+        and document.get("body") is None
+    ):
+        issues.append({"code": "BODY_MISSING", "field": "document"})
     return out, issues

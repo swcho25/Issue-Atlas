@@ -16,6 +16,8 @@
 
 - 2026-10-28: finish. `pnpm check:all` 통과(harness · backend format · frontend lint · typecheck · test · e2e · backend build · engine lint · engine test 324건). 로컬 P3 전달 DB 에 기사 2,996건을 이 규칙으로 정제해 넣음(pass 2,996 · full 2,204)
 
+- 2026-10-28: 본문 없는 기사 보류(사람 결정). 이용허락이 full 을 허락하는 기사(`kind = news`)인데 `document.body` 가 없으면 `BODY_MISSING`(held) — P3 가 본문을 읽으므로 다음 단계로 넘기지 않는다. 보도자료는 그대로
+
 ## 다음 할 일 / 범위 밖
 - `news_article` 표 · `news_article_ready` 뷰(V0007, S15P31C108-112) 정리 — 기사가 raw_record 로 들어가므로 새 마이그레이션으로 지운다. DB 변경이라 따로
 - 전재 묶음(syndication) 칸 — P2 계약 「아직 없는 것」

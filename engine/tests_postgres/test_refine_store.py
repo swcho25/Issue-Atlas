@@ -280,7 +280,8 @@ def test_days_are_committed_one_by_one(refine_db, tmp_path, monkeypatch):
 
 
 def test_article_fetched_twice_leaves_one_ready_row_with_its_body(refine_db, tmp_path):
-    # 같은 기사를 실패 → 성공으로 두 번 받았다. 원본 · 정제 행은 둘 다 남고 다음 단계는 1건만 본다
+    # 같은 기사를 실패 → 성공으로 두 번 받았다. 원본 · 정제 행은 둘 다 남고
+    # 다음 단계는 본문 있는 1건만 본다
     conn, _ = refine_db
     collect_rows(conn, tmp_path, ROWS)
     article = {**NEWS[0], "license_type": "BIGKINDS-이용약관", "place_code_raw": ""}
@@ -292,7 +293,7 @@ def test_article_fetched_twice_leaves_one_ready_row_with_its_body(refine_db, tmp
 
     stats = refine_raw(conn)
 
-    assert stats["status"] == {"pass": 5}
+    assert stats["status"] == {"pass": 4, "held": 1}  # 본문 못 받은 판은 보류
     stored = conn.execute(
         "SELECT dedup_key, is_latest FROM normalized_record "
         "WHERE dedup_key LIKE 'bigkinds:%' ORDER BY dedup_key"

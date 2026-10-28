@@ -38,6 +38,7 @@
 | `SCOPE_DOWNGRADED` | fixed | P1 의 storage_scope 가 이용허락보다 넓어 낮춤 |
 | `VALUE_STRIPPED_BY_SCOPE` | fixed | 저장 범위가 full 이 아닌 관측값이라 value 를 지우고 missing_reason 을 license_blocked 로 |
 | `BODY_STRIPPED_BY_SCOPE` | fixed | 저장 범위가 full 이 아닌 문서라 `document.body` 를 null 로 (C1 v0.2: full ⇔ 본문 있음). field 는 `document` |
+| `BODY_MISSING` | held | 기사(`document.kind = news`)인데 이용허락이 본문(`full`)을 허락하는데도 `document.body` 가 없음(원문 링크 없음 · robots 차단 · 본문 못 찾음 등). P3 가 본문을 읽어 지역 · 시간 · 요약을 뽑으므로 다음 단계로 넘기지 않는다. 같은 기사를 다시 받아 본문이 생기면 그 판이 나간다. field 는 `document` |
 
 `fixed` 사유만 있으면 `fixed`, 그 밖의 사유가 하나라도 있으면 `held`.
 
@@ -69,7 +70,7 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 | `record` | 정제 레코드 전체(C1 칸 + P2 칸, jsonb). 위 칸은 모두 여기서 꺼낸 값이다 |
 | `refined_at` | 이 행의 결과가 마지막으로 바뀐 시각 |
 
-**다음 단계가 읽는 곳은 `normalized_ready` 뷰다.** `validation_status` 가 pass·fixed 이고 `is_latest` 가 false 가 아닌 행 — 관측값은 최신본만, 문서는 원천 문서 하나에 1건(본문 있는 판 먼저), `is_latest` 가 null 인 메타 레코드는 모두. 이 조건을 각자 다시 쓰지 않는다.
+**다음 단계가 읽는 곳은 `normalized_ready` 뷰다.** `validation_status` 가 pass·fixed 이고 `is_latest` 가 false 가 아닌 행 — 관측값은 최신본만, 기사는 본문이 있는 것만 원천 문서 하나에 1건, `is_latest` 가 null 인 메타 레코드는 모두. 이 조건을 각자 다시 쓰지 않는다.
 
 ## 월별 집계 — `air_monthly`
 
@@ -116,4 +117,4 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 | v0.2.2 | 2026-10-27 | 저장: 장부를 관측 일 묶음으로 나눠 정제 · 묶음마다 커밋, 실행 결과에 `buckets`. 정제 결과는 한 번에 할 때와 같아 `rule_version` 그대로. 스키마는 그대로 (S15P31C108-111) |
 | v0.3 | 2026-10-27 | 월별 집계 `air_monthly`(V0008): 에어코리아 시간값의 측정소 × 지표 × 월 평균 · 유효 시간 · 최솟값 · 최댓값 · 잠정 포함. 75% 미만이면 평균 null. `refine --db` 가 저장 뒤 새로 고침, 실행 결과에 `air_monthly`. 정제 레코드 스키마 · 결과는 그대로 (S15P31C108-114) |
 | v0.4 | 2026-10-27 | 에어코리아 확정 시간값을 `normalized_record` 에 저장하지 않고 `air_monthly` 표(V0009, materialized view → 표)에만 저장. 정제가 시간마다 검증한 뒤 묶음마다 월 합계에 더해 마지막에 다시 씀. `held_hours` 추가, 실행 결과에 `air_unplaced`. V0009 가 기존 에어코리아 시간 정제 행을 지운다. 정제 규칙 · `rule_version` 은 그대로 (S15P31C108-115) |
-| v0.5 | 2026-10-28 | 문서(C1 v0.2 기사 칸) 정제: 이용허락 표 `BIGKINDS-이용약관` → `full`(기사 본문 저장, 팀 결정), 저장 범위가 full 이 아닌 문서는 본문을 지우고 `BODY_STRIPPED_BY_SCOPE`(fixed). 문서에도 `obs_key` · `is_latest` — 같은 기사의 여러 판 중 본문 있는 판, 같으면 늦게 받은 판 하나만 `normalized_ready`. `source_text` 문서는 `place_code_raw = ""` 허용. 결과가 달라지므로 `rule_version` `p2-0.3.0` — 저장된 행은 다음 정제 때 새 판으로 갱신된다. DB 변경 없음 (S15P31C108-122) |
+| v0.5 | 2026-10-28 | 문서(C1 v0.2 기사 칸) 정제: 이용허락 표 `BIGKINDS-이용약관` → `full`(기사 본문 저장, 팀 결정), 저장 범위가 full 이 아닌 문서는 본문을 지우고 `BODY_STRIPPED_BY_SCOPE`(fixed). 문서에도 `obs_key` · `is_latest` — 같은 기사의 여러 판 중 본문 있는 판, 같으면 늦게 받은 판 하나만 `normalized_ready`. `source_text` 문서는 `place_code_raw = ""` 허용. 본문을 허락하는데 본문이 없는 기사는 `BODY_MISSING`(held). 결과가 달라지므로 `rule_version` `p2-0.3.0` — 저장된 행은 다음 정제 때 새 판으로 갱신된다. DB 변경 없음 (S15P31C108-122) |

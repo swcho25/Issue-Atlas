@@ -24,7 +24,8 @@
               "DEDUP_KEY_CONFLICT",
               "SCOPE_DOWNGRADED",
               "VALUE_STRIPPED_BY_SCOPE",
-              "BODY_STRIPPED_BY_SCOPE"
+              "BODY_STRIPPED_BY_SCOPE",
+              "BODY_MISSING"
             ]
           },
           "field": { "type": "string", "minLength": 1 }

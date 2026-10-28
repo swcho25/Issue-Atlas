@@ -37,6 +37,11 @@ ONE_PER_CODE = {
     "SCOPE_DOWNGRADED": kosis(license_type="KOGL-2"),
     "VALUE_STRIPPED_BY_SCOPE": kosis(license_type="KOGL-2"),
     "BODY_STRIPPED_BY_SCOPE": news(license_type="KOGL-4"),
+    "BODY_MISSING": news(
+        license_type="BIGKINDS-이용약관",
+        storage_scope="metadata",
+        document={**NEWS[0]["document"], "body": None},
+    ),
 }
 
 
