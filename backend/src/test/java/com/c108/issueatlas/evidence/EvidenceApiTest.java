@@ -17,11 +17,15 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
-/** 근거는 판정(S15P31C108-133)이 만든다. 여기서는 C2 예시와 같은 값을 직접 넣어 확인한다. */
+/**
+ * 근거는 판정(S15P31C108-133)이 만든다. 여기서는 C2 예시와 같은 값을 직접 넣어 확인한다. 같은 DB 를 쓰는 다른 테스트에 남지 않게 테스트마다 되돌린다.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
+@Transactional
 class EvidenceApiTest {
     private static final String KOSIS_URL =
             "https://kosis.kr/statHtml/statHtml.do?orgId=101&tblId=DT_1B26001";
@@ -31,8 +35,6 @@ class EvidenceApiTest {
 
     @BeforeEach
     void seed() {
-        jdbc.update("DELETE FROM evidence WHERE evidence_id LIKE 'ev_test_%'");
-        jdbc.update("DELETE FROM source WHERE source_id LIKE 'S-ev-%'");
         jdbc.update(
                 "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade) VALUES"
                         + " ('S-ev-kosis','국가데이터처 KOSIS','국가데이터처','KOSIS-활용약관','full','A'),"
