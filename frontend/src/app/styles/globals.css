@@ -21,6 +21,42 @@
   --foreground: #171717;
 }
 
+/* 로고 색(docs/design/logo.md). 잉크는 밝은 바탕, 종이는 어두운 바탕용. 클레이는 위→아래 그라데이션 세 점 */
+:root {
+  --logo-ink: #252624;
+  --logo-paper: #f2efe7;
+  --logo-clay-0: #55584f;
+  --logo-clay-1: #343731;
+  --logo-clay-2: #22241f;
+  --logo-clay-paper-0: #fffdf5;
+  --logo-clay-paper-1: #e6e0d3;
+  --logo-clay-paper-2: #bdb8ac;
+  --logo-gold-0: #ffe489;
+  --logo-gold-1: #f4c44d;
+  --logo-gold-2: #dca82d;
+  --logo-shadow: #15180f;
+  --logo-highlight: #ffffff;
+}
+
+/* 랜딩 색(Figma v4 보드 02 확정 랜딩). 밝은 화면 전용 디자인이라 어두운 모드 값을 두지 않는다 */
+:root {
+  --landing-bg-0: #fefefe;
+  --landing-bg-1: #fcfdfe;
+  --landing-bg-2: #f7f8fc;
+  --landing-bg-3: #f6f8fd;
+  --landing-bg-4: #f6f8fb;
+  --landing-ink: #111318;
+  --landing-word: #1e2530;
+  --landing-rule: rgb(16 20 27 / 0.35);
+  --landing-line: #d2d6db;
+  --landing-button: #222222;
+  --landing-surface: #ffffff;
+  /* 바닥 그림자 색(캔버스에서 투명도와 함께 쓰는 r, g, b) */
+  --landing-shadow: 24, 32, 54;
+  --cta: #5a41fd;
+  --cta-foreground: #ffffff;
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --background: #0a0a0a;
@@ -37,7 +73,21 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  --color-logo-ink: var(--logo-ink);
+  --color-logo-paper: var(--logo-paper);
+  --color-landing-ink: var(--landing-ink);
+  --color-landing-word: var(--landing-word);
+  --color-landing-rule: var(--landing-rule);
+  --color-landing-line: var(--landing-line);
+  --color-landing-button: var(--landing-button);
+  --color-landing-surface: var(--landing-surface);
+  --color-cta: var(--cta);
+  --color-cta-foreground: var(--cta-foreground);
+  /* 글꼴 변수는 src/app/styles/fonts.ts(next/font)가 <html> 에 건다. 못 받으면 뒤의 시스템 글꼴로 */
+  --font-sans:
+    var(--font-gothic-a1), system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  --font-serif: var(--font-source-serif-4), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, Consolas, monospace;
 }
 
 body {
