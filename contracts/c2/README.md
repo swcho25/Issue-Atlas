@@ -21,6 +21,14 @@
 | ⑤ | `GET /v1/observations?place_id&card_id&period_start&period_end` | 지도 점 | `observations` | `observations-a3-yeosu.json` |
 | 보조 | `GET /v1/admin/jobs?status&source_id&spec_id&page&size` · `GET /v1/admin/jobs/{job_run_id}` | 관리자 수집 이력 (FR-F5) | `job-list` · `job` | `job-list.json` · `job-failed.json` |
 
+## 카드 목록 구현 (S15P31C108-132)
+
+`GET /v1/places/{place_id}/cards`는 로그인한 사용자가 조회한다. `period_start`, `period_end`는 필수 ISO 날짜이며 시작 < 끝, `[start,end)`다. 잘못된 기간은 공통 오류 `400 INVALID_REQUEST`, 없는 지역은 `404 RESOURCE_NOT_FOUND`다.
+
+현재 카드 seed는 C1·A3 두 개다. 카드 목록은 대분류 → 한국어 가나다 → 카드 ID로 고정 정렬하며 확보 수와 무관하다. 네 종류는 statistics·documents·existing_responses·denominators 순서로 각각 한 번씩 반환한다.
+
+상태는 [DB 계약](../database/README.md)의 `card_evidence_status`에서 정확히 같은 지역·조회 기간·카드 버전만 읽는다. 미등록 종류는 `not_collected`다. `available_kinds`는 available 종류 수, `review_pending_count`는 종류별 보류 항목 수의 합이다. 예시 JSON의 가상 확보 상태를 실서비스 seed에 복사하지 않는다. P3/P4의 근거 연결·상태 작성은 후속 작업이며, 연결 전 0/4 응답은 자료가 없다는 판정이 아니라 확보 상태가 등록되지 않았다는 뜻이다.
+
 ## 공통 규칙
 
 - 필드 이름은 **snake_case**. PRD 8장·C1과 같은 이름을 쓴다. (화면팀 리뷰에서 camelCase 를 원하면 v0.1 동결 전에 바꾼다)

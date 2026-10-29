@@ -99,9 +99,3 @@ def refine_db(postgis):
             "V0009__store_air_monthly_only.sql",
         ),
     )
-
-
-@pytest.fixture
-def article_db(postgis):
-    """테스트마다 새 스키마에 V0007(기사 본문) 을 적용한다."""
-    yield from fresh_schema(postgis, ("V0007__create_news_article.sql",))
