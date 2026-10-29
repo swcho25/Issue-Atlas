@@ -191,6 +191,17 @@ def test_cli_prints_jsonl_without_db(capsysbinary, monkeypatch):
     assert json.loads(err) == {"records": 1}
 
 
+def test_cli_output_file_replaces_stdout(capsysbinary, monkeypatch, tmp_path):
+    monkeypatch.setattr(press, "PAGE_SIZE", 2)
+    web = Web({1: (200, yeosu_page(rows_yeosu(3, ["2025-05-01"])))})
+    path = tmp_path / "c1.json"
+    assert main(["--site", "yeosu", "--output", str(path)], **web.options()) == 0
+    out, err = capsysbinary.readouterr()
+    assert out == b"" and json.loads(err) == {"records": 1}
+    [line] = path.read_bytes().splitlines()
+    assert json.loads(line)["press_id"] == "yeosu:3"
+
+
 def test_transient_failure_is_retried_with_same_interval(monkeypatch):
     monkeypatch.setattr(press, "PAGE_SIZE", 2)
     web = Web({1: (200, yeosu_page(rows_yeosu(3, ["2025-05-01"])))})

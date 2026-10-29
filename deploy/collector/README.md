@@ -45,6 +45,9 @@ sudo issueatlas-collect airkorea-stations
 
 # 담당자가 확인한 최종확정 XLSX를 input에 넣고 컨테이너 경로로 지정한다.
 sudo issueatlas-collect airkorea-final --xlsx /inputs/final.xlsx --start-date 2024-01-01 --end-date 2024-01-02
+# 여수시 · 광주광역시 보도자료 목록 → press_release. 키 없음. robots.txt 간격(여수 30초)을 지켜 여수 약 33분, 광주 약 3분
+sudo issueatlas-collect press --site yeosu --db
+sudo issueatlas-collect press --site gwangju --db
 
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
 sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023
