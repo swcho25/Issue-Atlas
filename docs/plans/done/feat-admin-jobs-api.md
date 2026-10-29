@@ -12,6 +12,7 @@
 - 2026-10-29: 조석원 요청으로 시작. 팀 규칙(관리자 API 는 /v1/admin/**, 권한 판정은 필터 체인 한 곳)에 맞춰 경로를 GET /v1/admin/jobs · /{job_run_id} 로 둔다
 - 2026-10-29: 새 표 없이 job_run · source_spec · source 를 읽는다. 건수(received · inserted · duplicates)와 실패 코드(error_code)는 stats 에서 꺼내고, stats 전체는 details 로 그대로 준다(수집기마다 칸이 다름). 끝나지 않은 실행은 status running
 - 2026-10-29: AdminJobApiTest 5건 PASS. 실제 응답 3개를 ajv 로 C2 job-list · job 스키마 검증 → valid. redocly lint valid
+- 2026-10-29: develop(!51 등 머지)과 !54 테스트 수정을 받고, AdminJobApiTest 도 테스트마다 되돌리게(@Transactional). 전체 backend 58건 PASS
 
 ## 다음 할 일 / 범위 밖
 - 재실행(요청 범위 밖)

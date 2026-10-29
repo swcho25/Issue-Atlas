@@ -16,20 +16,19 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
-/** 가상 수집 실행 4건: a 소스 성공 · 실패, b 소스 실행 중 · 건수 없는 성공. 다른 테스트 데이터와 섞이지 않게 소스로 거른다. */
+/** 가상 수집 실행 4건: a 소스 성공 · 실패, b 소스 실행 중 · 건수 없는 성공. 다른 테스트 데이터와 섞이지 않게 소스로 거르고, 테스트마다 되돌린다. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
+@Transactional
 class AdminJobApiTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
     void seed() {
-        jdbc.update("DELETE FROM job_run WHERE spec_id LIKE 'SP-job-%'");
-        jdbc.update("DELETE FROM source_spec WHERE spec_id LIKE 'SP-job-%'");
-        jdbc.update("DELETE FROM source WHERE source_id LIKE 'S-job-%'");
         jdbc.update(
                 "INSERT INTO source(source_id,name,org,license_type,storage_scope) VALUES"
                         + " ('S-job-a','가상 통계','기관','KOGL-1','full'),"
