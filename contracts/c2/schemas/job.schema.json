@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/c2/job.schema.json",
+  "title": "GET /v1/admin/jobs/{job_run_id} 응답 — 수집 실행 1건 (관리자 전용, FR-F5)",
+  "type": "object",
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "job": { "$ref": "#/$defs/job" }
+  },
+  "required": ["schema_version", "job"],
+  "additionalProperties": false,
+  "$defs": {
+    "count": { "type": ["integer", "null"], "minimum": 0 },
+    "job": {
+      "type": "object",
+      "properties": {
+        "job_run_id": { "$ref": "common.schema.json#/$defs/id" },
+        "source_id": { "type": "string" },
+        "source_name": { "type": "string" },
+        "spec_id": { "type": "string" },
+        "method": { "enum": ["api", "file", "board", "rss"] },
+        "collector_version": { "type": "string" },
+        "status": {
+          "description": "running 은 아직 끝나지 않은 실행",
+          "enum": ["running", "ok", "failed", "aborted"]
+        },
+        "started_at": { "$ref": "common.schema.json#/$defs/date_time" },
+        "finished_at": { "$ref": "common.schema.json#/$defs/nullable_date_time" },
+        "received": { "$ref": "#/$defs/count" },
+        "inserted": { "$ref": "#/$defs/count" },
+        "duplicates": { "$ref": "#/$defs/count" },
+        "error_code": {
+          "description": "실패 사유. 고정 원인 코드만 담고 외부 응답 · 예외 문구는 담지 않는다",
+          "type": ["string", "null"]
+        },
+        "details": {
+          "description": "수집기가 남긴 실행 기록 그대로(기간 · 지역 · 파일명 · 소스별 건수 등). 수집기마다 칸이 다르다",
+          "type": "object"
+        }
+      },
+      "required": [
+        "job_run_id",
+        "source_id",
+        "source_name",
+        "spec_id",
+        "method",
+        "collector_version",
+        "status",
+        "started_at",
+        "finished_at",
+        "received",
+        "inserted",
+        "duplicates",
+        "error_code",
+        "details"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "running" } } },
+          "then": { "properties": { "finished_at": { "type": "null" } } },
+          "else": { "properties": { "finished_at": { "type": "string" } } }
+        }
+      ]
+    }
+  }
+}
