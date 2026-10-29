@@ -1,3 +1,5 @@
+> 137번 환경 분리 적용 시 아래 기존 개발 경로·볼륨은 그대로 유지한다. `compose.routing.yaml`과 배포 digest override도 함께 사용하며 운영은 별도 `/opt/issueatlas-prod`에서 실행한다. 최신 전환 순서·포트·도메인은 [CI 운영 안내](../ci/README.md#환경-분리-전환--s15p31c108-137)를 우선한다.
+
 # EC2 개발 서버 운영: PostGIS·Spring·Cloudflare Tunnel
 
 현재 EC2의 `/opt/issueatlas-dev`에서 PostGIS·Spring·cloudflared를 실행한다. 실행·갱신·종료에는 **`compose.yaml`과 `compose.tunnel.yaml`을 항상 함께 사용한다.** 기본 파일만 적용하면 HTTPS 쿠키·프록시 설정이 빠질 수 있다.
@@ -66,7 +68,7 @@ DB 도구에는 호스트 `localhost`, 포트 `15432`와 별도로 전달받은 
 ## Cloudflare Tunnel / HTTPS (2026-10-23 연결)
 
 - Tunnel: `issueatlas-backend` (`685285ca-301a-478c-b6bd-59eccbf41ad7`), cloudflared 2026.10.3 tag/digest 고정
-- 공개 주소: `https://backend.issue-atlas.kr` → 같은 Compose 네트워크의 `http://backend:8080`
+- 공개 주소: `https://dev-backend.issue-atlas.kr` → 같은 Compose 네트워크의 `http://backend:8080`
 - Cloudflare가 생성한 proxied CNAME으로 연결한다. EC2 공인 IP를 향하는 A 레코드는 사용하지 않는다.
 - Cloudflare의 `Always Use HTTPS`는 **issue-atlas.kr 영역 전체**에 적용됐다. HTTP 요청은 HTTPS로 301 전환된다.
 - 외부 HTTPS → Cloudflare와 EC2 사이 암호화 Tunnel → EC2 내부 Compose HTTP 구간이다.
@@ -74,9 +76,9 @@ DB 도구에는 호스트 `localhost`, 포트 `15432`와 별도로 전달받은 
 - 토큰은 EC2의 `/etc/issueatlas/cloudflared-token` 파일에만 보존한다. 파일 소유자 65532:65532, 권한 0400, 부모 디렉터리 root 0700. 컨테이너에 읽기 전용 마운트한다. 토큰을 명령줄·환경변수·저장소·로그에 넣지 않는다.
 - 백엔드와 DB의 호스트 포트는 계속 127.0.0.1에만 바인딩한다. cloudflared 포트는 호스트에 공개하지 않는다.
 
-- 상태 확인: `https://backend.issue-atlas.kr/actuator/health`
-- Swagger: `https://backend.issue-atlas.kr/swagger-ui/index.html`
-- API: `https://backend.issue-atlas.kr/v1/...`
+- 상태 확인: `https://dev-backend.issue-atlas.kr/actuator/health`
+- Swagger: `https://dev-backend.issue-atlas.kr/swagger-ui/index.html`
+- API: `https://dev-backend.issue-atlas.kr/v1/...`
 
 Swagger 문서는 현재 공개 상태지만 API의 인증·ADMIN·CSRF 정책은 유지한다. 인증된 쓰기 API를 실행하려면 CSRF 전달 설정을 별도로 확인해야 한다. 운영 단계의 문서 공개 범위는 팀과 협의한다.
 
@@ -93,9 +95,9 @@ EC2에서 다음을 실행한다.
 ```bash
 cd /opt/issueatlas-dev
 # 상태·미인증 접근 차단만 확인
-python3 deploy/dev/verify.py --base-url https://backend.issue-atlas.kr
+python3 deploy/dev/verify.py --base-url https://dev-backend.issue-atlas.kr
 # 기존 ADMIN으로 로그인·세션·CSRF·쿠키·캐시 방지·로그아웃까지 확인
-python3 deploy/dev/verify.py --base-url https://backend.issue-atlas.kr --session-auth
+python3 deploy/dev/verify.py --base-url https://dev-backend.issue-atlas.kr --session-auth
 ```
 
 `--session-auth`는 테스트 계정을 만들지 않고 자격 증명을 출력하지 않는다. 기존 `--auth`는 HTTP 초기 구축용으로 VIEWER 계정을 생성·비활성화하는 모드이며, 현재 HTTPS 운영 점검에는 사용하지 않는다. Secure 세션 쿠키는 일반 HTTP SSH 터널에서 전송되지 않는다.

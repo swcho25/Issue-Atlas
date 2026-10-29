@@ -44,7 +44,7 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 - API·DB 를 바꿨으면 `contracts/`·Flyway 마이그레이션도 같은 MR 에서 바꿨다
 
 ## 브랜치 · 커밋 · MR · Jira
-- 기본 브랜치 `develop`. 팀 합의(2026-10-26): `develop`·`main`은 MR로만 병합하고, 병합 후 CI 성공 시 같은 개발 EC2에 자동 배포한다. force push 금지
+- 기본 브랜치 `develop`. 137번 환경 분리: MR 병합 후 CI 성공 시 `develop`은 개발, `main`은 운영 환경에 배포한다. EC2 한 대에서 서비스·DB·배포 기록을 분리한다. force push 금지
 - 브랜치 `<type>/<kebab-case>` — Jira 키는 넣지 않는다. Jira 의 「브랜치 만들기」 버튼은 키가 든 이름을 만들므로 쓰지 않는다
 - type: `feat` `fix` `refactor` `test` `docs` `infra` `chore` `perf` `security`
 - 커밋 `<type>: <명사형 요약>` (예: `feat: 근거 수요표 API 추가`) — `.githooks/commit-msg` 가 검사. 깃모지·Jira 키는 제목에 넣지 않는다(키는 본문·MR 제목)

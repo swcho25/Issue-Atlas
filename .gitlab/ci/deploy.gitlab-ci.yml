@@ -28,11 +28,10 @@ backend-deploy:
   needs:
     - job: backend-image
       artifacts: true
-  # main과 develop을 반드시 같은 그룹/환경으로 묶는다.
-  resource_group: issueatlas-ec2
+  resource_group: issueatlas-ec2-$CI_COMMIT_BRANCH
   environment:
-    name: shared-ec2
-    url: https://backend.issue-atlas.kr
+    name: ${WORKER_ENV}-ec2
+    url: $FRONTEND_URL
   interruptible: false
   timeout: 25 minutes
   before_script:

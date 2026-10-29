@@ -9,7 +9,7 @@
 - 이미지의 project·revision·component=collector를 확인한다. backend 이미지를 collector로, collector 이미지를 backend로 배포할 수 없다.
 - CD는 네트워크·설정 파일·DB 연결 없이 도움말 실행으로 이미지 로딩을 검사하고 `/opt/issueatlas-dev/.deploy/collector/current.json`을 원자적으로 갱신한다. API를 호출하거나 데이터를 수집하지 않는다.
 - 실패하면 이전 사용 버전을 유지한다. 실제 수집 중 CD가 실행돼도 이미 시작한 작업은 원래 digest로 끝나며 다음 실행부터 새 버전을 사용한다.
-- 기존 SSH 전용 키·보호 변수·shared-ec2 환경을 재사용한다. 서버 처리기는 backend/collector만 허용한다. Collector의 배포 이력·watermark는 backend와 별도로 보관하고 배포 잠금/resource group은 공유한다.
+- SSH 전용 키는 유지하되 브랜치별 development/production 보호 변수 범위를 사용한다. 서버 처리기는 backend/collector만 허용한다. Collector의 배포 이력·watermark는 backend와 별도로 보관하고 배포 잠금/resource group은 같은 환경 안에서만 공유한다.
 
 CI 전용 Docker를 같이 운영하는 EC2에서는 서비스 bridge의 외부 통신 규칙도 유지해야 한다. `deploy/ci/runner/restore-service-egress.sh`를 root:root 755로 `/usr/local/sbin/issueatlas-service-egress`에 설치한다. CI Docker unit의 ExecStartPost가 서비스 subnet의 외부 접속과 해당 응답만 DOCKER-USER에 복원한다. 기본 방화벽 정책·외부 공개 포트를 바꾸지 않으며 반복 실행해도 규칙을 중복 추가하지 않는다.
 
@@ -31,6 +31,10 @@ CI 전용 Docker를 같이 운영하는 EC2에서는 서비스 bridge의 외부 
 `POSTGRES_HOST=postgres`, 포트 5432로 기존 DB에 연결한다. collector.env에는 관리자 로그인 비밀번호나 Tunnel 토큰을 넣지 않는다. API 키를 로그·명령 인자·GitLab 이미지 빌드 변수에 넣지 않는다.
 
 수집기는 UID 10001, 읽기 전용 파일 시스템, CPU 1개분·메모리 1GB·PID 128 한도로 실행된다. 수집 잠금은 세 모드에 공통이며 다른 수집이 실행 중이면 두 번째 실행은 거절한다. 실패 로그와 결과 파일은 삭제하지 않는다. 로그/결과 보관 기간과 디스크 정리는 운영자가 관리한다.
+
+## 환경 선택 (137번)
+
+기본 실행은 기존 개발 환경이다. 운영은 **mode 앞에** `--environment main`을 지정한다: `sudo issueatlas-collect --environment main kosis ...`. 개발은 `--environment develop`이며 생략 가능하다. 서버 JSON에서 해당 환경의 배포 기록·DB 네트워크·비밀 파일·input/output/log 경로를 선택한다. 운영 DB 접속 정보는 별도 `/etc/issueatlas/production/collector.env`로 준비하고 개발 설정을 복사해 연결하지 않는다. 입력 파일은 환경별 input 경로에 서버 관리자가 배치한다.
 
 ## 수동 실행
 
