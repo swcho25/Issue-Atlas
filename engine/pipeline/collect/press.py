@@ -4,6 +4,8 @@ python -m pipeline.collect.press --site yeosu|gwangju [--start 2023-01-01 --end 
     → 보도자료마다 JSONL (stdout), 건수 JSON (stderr)
 python -m pipeline.collect.press --site yeosu|gwangju --db
     → press_release 에 쪽마다 저장, 건수 JSON (stdout)
+--output <파일>: JSONL 을 그 파일에 쓴다 (--db 와 함께면 저장한 목록의 사본).
+    서버 실행기(deploy/collector)가 실행마다 지정한다
 
 여수시 보도자료는 공공누리 4유형(변경금지·상업적 이용금지), 광주광역시는 공공누리 표시가 없다.
 P2 이용허락 표(KOGL-4 → metadata)에 맞춰 목록에 보이는 제목·분류·담당부서·등록일·링크만 둔다.
@@ -14,6 +16,7 @@ import json
 import re
 import sys
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -252,6 +255,15 @@ def store_pages(conn, pages) -> dict:
     return stats
 
 
+def _written(pages, out):
+    """쪽마다 JSONL 로 쓰고 그대로 넘긴다. 중간에 멈춰도 앞 쪽은 파일에 남는다."""
+    for records in pages:
+        for record in records:
+            out.write(json.dumps(record, ensure_ascii=False).encode("utf-8") + b"\n")
+        out.flush()
+        yield records
+
+
 def connect_from_env():
     """수집기 · 정제와 같은 루트 .env 의 DB 칸을 쓴다. 값은 출력하지 않는다."""
     config = dotenv_values(ROOT / ".env", interpolate=False)
@@ -274,25 +286,24 @@ def main(argv=None, connect=connect_from_env, **options) -> int:
     p.add_argument("--start", type=date.fromisoformat, default=date(2023, 1, 1))
     p.add_argument("--end", type=date.fromisoformat, default=date(2025, 12, 31))
     p.add_argument("--db", action="store_true")
+    p.add_argument("--output", type=Path)
     args = p.parse_args(argv)
     if args.start > args.end:
         print("PRESS_INVALID_PERIOD", file=sys.stderr)
         return 2
     pages = collect_pages(args.site, args.start, args.end, **options)
     try:
-        if args.db:
-            with connect() as conn:
-                print(json.dumps(store_pages(conn, pages), ensure_ascii=False))
+        # Windows 에서도 \n 만 쓰게 바이트로
+        stdout = None if args.db else sys.stdout.buffer
+        with args.output.open("wb") if args.output else nullcontext(stdout) as out:
+            if out is not None:
+                pages = _written(pages, out)
+            if args.db:
+                with connect() as conn:
+                    print(json.dumps(store_pages(conn, pages), ensure_ascii=False))
+                return 0
+            print(json.dumps({"records": sum(map(len, pages))}), file=sys.stderr)
             return 0
-        count = 0
-        out = sys.stdout.buffer  # Windows 에서도 \n 만 쓰게 바이트로
-        for records in pages:
-            for record in records:
-                out.write(json.dumps(record, ensure_ascii=False).encode("utf-8") + b"\n")
-                count += 1
-            out.flush()
-        print(json.dumps({"records": count}), file=sys.stderr)
-        return 0
     except PressError as exc:
         print(str(exc), file=sys.stderr)
     except psycopg.Error:
