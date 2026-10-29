@@ -103,3 +103,18 @@ uv --directory engine run python -m pipeline.collect.bigkinds --start 2025-10-01
 - 원문 페이지는 같은 사이트 1초 간격이라 기사 수만큼 오래 걸린다. 50건마다 저장해 멈춰도 앞 기사는 남는다
 - 실행마다 검색 호출 200번까지(`BIGKINDS_CALL_LIMIT`). 하루 할당량 합산은 할당량이 정해지면 붙인다
 - `place_code_raw`는 기사 지명이 아니라 수집 검색어다. 지역은 P3가 제목·본문으로 정한다
+
+## 지방재정365 세부사업별 세출
+
+카드 근거 ③ 「기존 대응」(세출)용. 지방재정365 통합자료실의 「N 회계연도 세부사업별 세출 현황」 XLSX(파일 하나 = 한 해)에서
+광주 본청 · 5구 · 여수시 행만 골라 `local_expenditure`(V0015)에 넣는다. 칸 · 규칙은 [지방 세출 계약](../../../contracts/expenditure/README.md).
+
+```powershell
+# DB 없이 JSONL 로 확인 (건수는 stderr)
+uv --directory engine run python -m pipeline.collect.lofin --xlsx "C:\경로\2025_세부사업별세출현황.xlsx"
+# 저장. 같은 파일을 다시 넣으면 duplicates 로 센다
+uv --directory engine run python -m pipeline.collect.lofin --xlsx "C:\경로\2025_세부사업별세출현황.xlsx" --db
+```
+
+- 파일 하나 읽는 데 약 30초(전국 약 48만 행을 훑는다)
+- 2023–2025 실제 파일: 13,279 · 12,820 · 12,750 행
