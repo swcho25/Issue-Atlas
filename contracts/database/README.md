@@ -11,6 +11,15 @@ P1 수집·P3 지역·P7 서버가 공유하는 DB 기반. 구현은 backend/src
 | place | place_id text | 계층 sido/sigungu/emd/station, parent 자기 FK. geography(Point,4326), 한국 범위 경도 124~132·위도 33~39 |
 | place_code_map | bigint identity | place FK, C1 코드 체계 5종, 코드·유효 날짜 연결 |
 
+## 카드 목록 조회 (S15P31C108-132, V0013)
+
+- `card`: 카드 ID·이름·대분류·상위 질문·카드 버전·분류 버전. C2 예시의 C1(청년 유출·정착)·A3(대기질) 메타만 seed한다. 논증 판정 규칙이나 카드 승인 기능은 포함하지 않는다.
+- `card_evidence_status`: `(place_id, card_id, card_version, period_start, period_end, kind)`별 확정 상태. 종류는 C2 근거 4종, 상태는 C2의 5가지다. 기간은 날짜 `[start,end)`이며 정확히 같은 기간·카드 버전만 조회에 사용한다. 다른 기간과 겹친다는 이유로 확보 상태를 재사용하지 않는다.
+- P3/P4의 근거 연결 결과를 기록할 조회 경계다. 현재 상태 작성기·자동 분류기는 없으며, API는 미등록을 `not_collected`, 보류 수를 0으로 응답한다. raw_record나 normalized_ready가 있다는 이유만으로 카드·지역 관련성을 추측하지 않는다.
+- `review_pending_count`는 근거 종류별 보류 항목 수의 합이며 확보 종류 수와 다르다. `review_pending` 상태이면 양수여야 한다. `available` 종류에도 아직 검토 중인 다른 항목이 있을 수 있다.
+- `available_kinds`는 상태가 `available`인 종류 수(0~4)만 센다. 행 수·품질·심각도·순위가 아니다.
+- 한 목록의 카드들은 같은 `taxonomy_version`을 사용한다. 서로 다른 분류 버전을 섞어 등록하지 않는다.
+
 ## C1과의 관계
 
 - C1 run_id는 DB의 job_run.job_run_id다. 분석 실행 run과 구분한다.
