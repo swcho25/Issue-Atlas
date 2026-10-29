@@ -59,7 +59,7 @@
   },
   "qualifier": {
     "grade": "medium",
-    "components": { "a_grade_sources": 1, "independent_evidence": 2, "latest_observed_at": "2025-12-31T23:00:00+09:00" },
+    "components": { "a_grade_sources": 1, "ab_grade_sources": 1, "independent_evidence": 2, "latest_observed_at": "2025-12-31T23:00:00+09:00", "latest_within_one_year": true },
     "formula_version": "qualifier-0.1",
     "provenance": "rule"
   },

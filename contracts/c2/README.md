@@ -20,6 +20,14 @@
 | ④ | `GET /v1/evidence/{evidence_id}` | 원문 탭 · 각주 복사 | `evidence` | `evidence-kosis.json` |
 | ⑤ | `GET /v1/observations?place_id&card_id&period_start&period_end` | 지도 점 | `observations` | `observations-a3-yeosu.json` |
 
+## 카드 목록 구현 (S15P31C108-132)
+
+`GET /v1/places/{place_id}/cards`는 로그인한 사용자가 조회한다. `period_start`, `period_end`는 필수 ISO 날짜이며 시작 < 끝, `[start,end)`다. 잘못된 기간은 공통 오류 `400 INVALID_REQUEST`, 없는 지역은 `404 RESOURCE_NOT_FOUND`다.
+
+현재 카드 seed는 C1·A3 두 개다. 카드 목록은 대분류 → 한국어 가나다 → 카드 ID로 고정 정렬하며 확보 수와 무관하다. 네 종류는 statistics·documents·existing_responses·denominators 순서로 각각 한 번씩 반환한다.
+
+상태는 [DB 계약](../database/README.md)의 `card_evidence_status`에서 정확히 같은 지역·조회 기간·카드 버전만 읽는다. 미등록 종류는 `not_collected`다. `available_kinds`는 available 종류 수, `review_pending_count`는 종류별 보류 항목 수의 합이다. 예시 JSON의 가상 확보 상태를 실서비스 seed에 복사하지 않는다. P3/P4의 근거 연결·상태 작성은 후속 작업이며, 연결 전 0/4 응답은 자료가 없다는 판정이 아니라 확보 상태가 등록되지 않았다는 뜻이다.
+
 ## 공통 규칙
 
 - 필드 이름은 **snake_case**. PRD 8장·C1과 같은 이름을 쓴다. (화면팀 리뷰에서 camelCase 를 원하면 v0.1 동결 전에 바꾼다)
@@ -52,6 +60,38 @@
 | 지도 점의 `value` 가 `null` 이면 `missing_reason` 필수, 값이 있으면 `null` | PRD 금지 사항 |
 | `storage_scope` 가 `link_only` 면 `evidence.display` 는 `null` | FR-E3 |
 | `candidate: true` 면 `run_status` 는 `unsupported` | FR-A3 |
+| `qualifier.grade` 는 아래 규칙표와 `components` 가 맞아야 한다 | PRD 7.3 |
+
+## 근거 충실도 규칙표 (`qualifier-0.1`)
+
+한정어(④)의 상·중·하는 가중치 합산이 아니라 이 표로만 정한다(PRD 7.3). 구성 값은 `qualifier.components` 에 모두 담고, 표를 바꾸면 `qualifier.formula_version` 을 올린다. 카드 판정 규칙의 버전(최상위 `formula_version`, 예: `a3-pm25-0.1`)과는 다른 값이다.
+
+| 등급 | 조건 (위에서부터 처음 맞는 것) |
+| --- | --- |
+| `high` 상 | `a_grade_sources` ≥ 2 그리고 `independent_evidence` ≥ 3 그리고 `latest_within_one_year` = true |
+| `medium` 중 | `ab_grade_sources` ≥ 1 그리고 `independent_evidence` ≥ 2 |
+| `low` 하 | 그 밖 |
+
+| 구성 값 | 뜻 |
+| --- | --- |
+| `a_grade_sources` | 근거의 출처 중 출처 등급 A 의 수 |
+| `ab_grade_sources` | 근거의 출처 중 출처 등급 A 또는 B 의 수 |
+| `independent_evidence` | 독립 근거 수 |
+| `latest_observed_at` | 가장 최근 근거의 시점. 근거가 없으면 `null` |
+| `latest_within_one_year` | 최신 근거가 분석 기간 말 기준 1년 이내인가. `latest_observed_at` 이 `null` 이면 `false` |
+
+같은 `components` 는 언제나 같은 등급이다. 스키마가 이를 검사한다(등급만 바꾼 응답은 검증 실패). 예시 셋이 한 등급씩이다: `argument-c1-ready` 상 · `argument-a3-not-comparable` 중 · `argument-c1-insufficient` 하.
+
+### 정하지 않은 것 (구성 값을 세는 방법)
+
+PRD 7.3 은 등급 조건만 정했다. 아래는 정해지기 전까지 예시 값이 임시로 따른 방식이며, 실제 계산을 넣기 전에 결정한다.
+
+| # | 결정할 것 | 예시가 임시로 따른 방식 |
+| --- | --- | --- |
+| 1 | 「독립 근거」를 세는 단위 — 근거 1건 · 출처 1곳 · 같은 원천을 인용한 보도의 처리 | 근거 그룹마다 1건 |
+| 2 | 셈에 넣는 근거 그룹 — `denominators[]`(분모·맥락)를 넣는가. 카드 양식 C4 는 「맥락은 판단에 안 쓰고 표시만」 | 넣지 않는다 |
+| 3 | 「출처」의 단위 — `source_id` 인가 기관인가 | `source_id` |
+| 4 | 「1년 이내」의 경계 — 분석 기간 말(`period_end`, 미포함)에서 365일인가 · 기간 자료는 `observed_period_end` 를 쓰는가 | `period_end` 전 1년 |
 
 ## enum
 
@@ -94,8 +134,9 @@ pnpm --package=ajv-cli@5 --package=ajv-formats@3 dlx ajv validate --spec=draft20
 pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 ```
 
-실패해야 하는 경우(저장소 밖 임시 파일로 확인): argument 에 `score` 추가, `qualifier.confidence` 추가, 비교 조건 하나가 `false` 인데 `increasing`, `blocked` 인데 `increasing`, 지도 점 `value: null` + `missing_reason: null`.
+실패해야 하는 경우(저장소 밖 임시 파일로 확인): argument 에 `score` 추가, `qualifier.confidence` 추가, 비교 조건 하나가 `false` 인데 `increasing`, `blocked` 인데 `increasing`, 지도 점 `value: null` + `missing_reason: null`, 구성 값은 그대로 두고 `qualifier.grade` 만 바꾼 argument.
 
 ## 변경 이력
 
 - v0.1 (2026-10-22): 초안. API 5종(엔드포인트 6개) 성공 응답, 예시 9개. 화면팀 리뷰 대기, 10/30 동결 목표.
+- v0.1 (2026-10-29): 근거 충실도 규칙표 `qualifier-0.1` 추가(S15P31C108-131). `components` 에 `ab_grade_sources` · `latest_within_one_year` 를 더하고, 스키마가 등급과 구성 값이 맞는지 검사한다. 구성 값을 세는 방법 4가지는 미결. 동결 전.

@@ -65,6 +65,19 @@ def test_failure_keeps_earlier_pages(press_db, monkeypatch, capsys):
     assert conn.execute("SELECT count(*) FROM press_release").fetchone() == (2,)
 
 
+def test_db_run_also_writes_output_copy(press_db, monkeypatch, capsys, tmp_path):
+    # 서버 실행기(deploy/collector/run_collector.py)는 언제나 --output 을 붙인다
+    conn, connect = press_db
+    monkeypatch.setattr(press, "PAGE_SIZE", 2)
+    web = Web({1: (200, yeosu_page(rows_yeosu(3, ["2025-03-01", "2025-02-01"])))})
+    path = tmp_path / "c1.json"
+    argv = ["--site", "yeosu", "--db", "--output", str(path)]
+    assert main(argv, connect=connect, **web.options()) == 0
+    assert '"inserted": 2' in capsys.readouterr().out
+    assert len(path.read_bytes().splitlines()) == 2
+    assert conn.execute("SELECT count(*) FROM press_release").fetchone() == (2,)
+
+
 def test_table_rejects_body_storage_scope(press_db):
     conn, _ = press_db
     with pytest.raises(psycopg.errors.CheckViolation):
