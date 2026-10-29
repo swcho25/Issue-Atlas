@@ -89,7 +89,7 @@
       "additionalProperties": false
     },
     "qualifier": {
-      "description": "근거 충실도. 수치 신뢰도(예: 0.82)는 출력하지 않는다 (FR-C5)",
+      "description": "근거 충실도. 수치 신뢰도(예: 0.82)는 출력하지 않는다 (FR-C5). 등급은 README 「근거 충실도 규칙표」로만 정한다",
       "type": "object",
       "properties": {
         "grade": { "$ref": "common.schema.json#/$defs/qualifier_grade" },
@@ -97,17 +97,46 @@
           "type": "object",
           "properties": {
             "a_grade_sources": { "type": "integer", "minimum": 0 },
+            "ab_grade_sources": { "type": "integer", "minimum": 0 },
             "independent_evidence": { "type": "integer", "minimum": 0 },
-            "latest_observed_at": { "$ref": "common.schema.json#/$defs/nullable_date_time" }
+            "latest_observed_at": { "$ref": "common.schema.json#/$defs/nullable_date_time" },
+            "latest_within_one_year": { "type": "boolean" }
           },
-          "required": ["a_grade_sources", "independent_evidence", "latest_observed_at"],
+          "required": [
+            "a_grade_sources",
+            "ab_grade_sources",
+            "independent_evidence",
+            "latest_observed_at",
+            "latest_within_one_year"
+          ],
           "additionalProperties": false
         },
-        "formula_version": { "type": "string" },
+        "formula_version": { "const": "qualifier-0.1" },
         "provenance": { "$ref": "common.schema.json#/$defs/rule_provenance" }
       },
       "required": ["grade", "components", "formula_version", "provenance"],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "grade": { "const": "high" } } },
+          "then": { "properties": { "components": { "$ref": "#/$defs/qualifier_high" } } }
+        },
+        {
+          "if": { "properties": { "grade": { "const": "medium" } } },
+          "then": {
+            "properties": {
+              "components": {
+                "$ref": "#/$defs/qualifier_medium",
+                "not": { "$ref": "#/$defs/qualifier_high" }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "grade": { "const": "low" } } },
+          "then": { "properties": { "components": { "not": { "$ref": "#/$defs/qualifier_medium" } } } }
+        }
+      ]
     },
     "rebuttals": {
       "type": "array",
@@ -185,6 +214,21 @@
       "additionalProperties": false
     },
     "passed": { "properties": { "passed": { "const": true } } },
-    "refs": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/evidence_ref" } }
+    "refs": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/evidence_ref" } },
+    "qualifier_high": {
+      "description": "qualifier-0.1 상: A등급 출처 2 이상 + 독립 근거 3 이상 + 최신 근거 1년 이내 (PRD 7.3)",
+      "properties": {
+        "a_grade_sources": { "minimum": 2 },
+        "independent_evidence": { "minimum": 3 },
+        "latest_within_one_year": { "const": true }
+      }
+    },
+    "qualifier_medium": {
+      "description": "qualifier-0.1 중 이상: A 또는 B등급 출처 1 이상 + 독립 근거 2 이상 (PRD 7.3)",
+      "properties": {
+        "ab_grade_sources": { "minimum": 1 },
+        "independent_evidence": { "minimum": 2 }
+      }
+    }
   }
 }
