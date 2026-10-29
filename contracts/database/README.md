@@ -61,3 +61,4 @@ V0006은 `vector` 확장만 활성화한다. 벡터 칼럼과 벡터 인덱스�
 - v0.1.6 (2026-10-27): `air_monthly` 를 materialized view 에서 표로 바꾸고 `normalized_record` 의 에어코리아 확정 시간 행을 지운다(V0009, S15P31C108-115). 이후 P2 정제가 이 표만 채운다.
 - v0.1.7 (2026-10-28): 보도자료 목록 표 `press_release` 추가(V0010). 기반 6개 테이블과 FK 없이 따로 두고 칸·규칙은 [보도자료 계약](../press/README.md)에 둔다. 본문 칸은 없다(`storage_scope = metadata` CHECK).
 - v0.1.8 (2026-10-28): 지역 6곳(광주 5구 · 여수시)과 KOSIS 옛 · 새 코드를 `place` · `place_code_map` 에 넣는다(V0011). place_id 는 [C2 예시](../c2/examples/place-list.json)와 같다. `GET /v1/places` 가 이 표를 읽는다.
+- v0.1.9 (2026-10-29): 기사 본문 표 `news_article` · `news_article_ready` 뷰를 지운다(V0012, S15P31C108-128). 기사는 C1 기사 칸으로 `raw_record` → `normalized_record` 에 저장한다. V0007 은 이미 적용돼 있어 그대로 둔다. 개발 서버 표에 있던 행도 함께 지워진다.

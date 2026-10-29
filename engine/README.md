@@ -19,8 +19,7 @@ uv --directory engine run python -m pipeline.refine --db
 # 기사 본문 수집: 빅카인즈 뉴스 검색 응답(fields 에 provider_link_page · content) → 기사마다 결과 JSONL
 # robots.txt 를 지키고 같은 사이트 요청 사이에 1초를 둔다. 출력에 기사 본문이 들어가므로 저장소 밖에 저장한다
 uv --directory engine run python -m pipeline.article <빅카인즈 응답 JSON 파일> > <저장소 밖 경로>.jsonl
-# 같은 수집을 DB news_article 에 저장 (루트 .env 의 DB 칸, 건수 JSON 출력. 이미 받은 본문은 다시 요청하지 않음)
-uv --directory engine run python -m pipeline.article --db <빅카인즈 응답 JSON 파일>
+# DB 저장은 빅카인즈 수집기(pipeline.collect.bigkinds)가 raw_record 에 한다 (pipeline/collect/README.md 「빅카인즈 뉴스」)
 # PostGIS 통합 테스트 (Docker 필요, pnpm engine:test 에는 안 들어감)
 uv --directory engine run pytest tests_postgres
 
@@ -33,6 +32,6 @@ uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 | 폴더 | 담당 | 성격 |
 | --- | --- | --- |
 | `pipeline/refine/` | 박준우 | P2 정제 — 검증·정규화·저장 범위 게이트·중복 |
-| `pipeline/article/` | 박준우 | 기사 본문 수집 — 빅카인즈 원문 링크 → 본문(같은 기사 확인). 요약은 P3. 저장 `news_article` ([계약](../contracts/article/)) |
+| `pipeline/article/` | 박준우 | 기사 본문 수집 — 빅카인즈 원문 링크 → 본문(같은 기사 확인). 요약은 P3. 빅카인즈 수집기가 불러 `raw_record` 에 저장 ([계약](../contracts/article/)) |
 | `pipeline/collect/` | 장성우 | P1 KOSIS·에어코리아 수집·원천 저장·C1 출력 ([KOSIS](pipeline/collect/README.md), [에어코리아](pipeline/collect/AIRKOREA.md)) |
 | `api/` | (미정) | FastAPI HTTP 입구 — pipeline 함수를 부르기만 한다 |
