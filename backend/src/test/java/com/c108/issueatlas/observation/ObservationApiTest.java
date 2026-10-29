@@ -17,25 +17,25 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 가상 지역 · 측정소 · 월 값으로 확인한다. 실제 측정소 좌표 적재는 담당 확인 뒤(S15P31C108-135).
  *
  * <p>측정소 b 는 2024-02 부터 코드가 바뀐다(T002 → T003). 측정소 d 는 좌표가 없고, x 는 다른 지역이다.
+ *
+ * <p>같은 DB 를 쓰는 PlaceApiTest 가 지역 6곳만 보도록 테스트마다 되돌린다(@Transactional).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
+@Transactional
 class ObservationApiTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
     void seed() {
-        jdbc.update("DELETE FROM air_monthly WHERE station_code LIKE 'T0%'");
-        jdbc.update("DELETE FROM place_code_map WHERE place_id LIKE 'obs_%'");
-        jdbc.update("DELETE FROM place WHERE place_id LIKE 'obs_stn_%'");
-        jdbc.update("DELETE FROM place WHERE place_id LIKE 'obs_%'");
         jdbc.update(
                 "INSERT INTO place(place_id,name,level) VALUES ('obs_city','가상시','sigungu'),"
                         + " ('obs_other','다른시','sigungu')");
