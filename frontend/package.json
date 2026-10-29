@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "worker:build": "node scripts/build-worker.mjs",
-    "worker:preview": "opennextjs-cloudflare preview --port 8787",
+    "worker:preview": "opennextjs-cloudflare preview --env development --port 8787",
     "worker:test": "playwright test --config playwright.worker.config.ts",
     "worker:deploy": "opennextjs-cloudflare deploy",
     "start": "next start",

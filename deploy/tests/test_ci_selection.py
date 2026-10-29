@@ -55,7 +55,7 @@ def configuration():
         result.update(value)
         return result
 
-    return {name: job(name) for name in config if name not in {"workflow", "stages", "default", "include"} and not name.startswith(".")}
+    return {name: job(name) for name in config if name not in {"workflow", "stages", "default", "include", "variables"} and not name.startswith(".")}
 
 
 def matches(path, pattern):
@@ -167,6 +167,23 @@ class SelectionTests(unittest.TestCase):
         selected = self.selected(["backend/src/Old.java", "frontend/src/New.ts"])
         self.assertIn("backend-deploy", selected)
         self.assertIn("frontend-deploy", selected)
+
+    def test_environment_selection_and_worker_targets(self):
+        config = yaml.load((ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8"), Loader=Loader)
+        self.assertEqual(config["variables"]["WORKER_ENV"], "development")
+        for source, target in (("push", "main"), ("merge_request_event", "main")):
+            rules = config["workflow"]["rules"]
+            key = "CI_COMMIT_BRANCH" if source == "push" else "CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+            rule = next(r for r in rules if f'${key} == "{target}"' in r.get("if", "") and source in r["if"])
+            self.assertEqual(rule["variables"]["WORKER_ENV"], "production")
+        workers = __import__("json").loads((ROOT / "frontend/wrangler.json").read_text())
+        for environment, domain in (("development", "dev.issue-atlas.kr"), ("production", "issue-atlas.kr")):
+            worker = workers["env"][environment]
+            self.assertEqual(worker["routes"][0]["pattern"], domain)
+            self.assertEqual(worker["services"][0]["service"], worker["name"])
+        for job in ("backend-deploy", "collector-deploy", "frontend-deploy"):
+            self.assertEqual(self.jobs[job]["environment"]["name"], "${WORKER_ENV}-" + ("workers" if job == "frontend-deploy" else "ec2"))
+            self.assertIn("$CI_COMMIT_BRANCH", self.jobs[job]["resource_group"])
 
 
 if __name__ == "__main__":

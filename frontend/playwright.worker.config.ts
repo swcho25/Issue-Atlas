@@ -7,7 +7,7 @@ export default defineConfig({
   ...base,
   use: { ...base.use, baseURL: "http://127.0.0.1:8787" },
   webServer: {
-    command: "pnpm worker:preview",
+    command: `pnpm exec opennextjs-cloudflare preview --env ${process.env.WORKER_ENV ?? "development"} --port 8787`,
     url: "http://127.0.0.1:8787/healthz",
     reuseExistingServer: false,
     timeout: 90_000,
