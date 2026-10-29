@@ -1,6 +1,6 @@
 # feat/place-list-api — 지역 선택 화면이 쓰는 지역 목록 API
 
-- Jira: (생성 대기) · PRD: 8장 API ① · 묶음/단위: P7
+- Jira: S15P31C108-129 · PRD: 8장 API ① · 묶음/단위: P7
 
 ## 완료 조건
 - [x] Flyway V0011이 광주 5구·여수시 6곳과 KOSIS 옛·새 지역 코드를 place·place_code_map에 넣는다
