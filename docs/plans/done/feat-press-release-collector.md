@@ -1,6 +1,6 @@
 # feat/press-release-collector — 여수시·광주광역시 보도자료 목록 수집
 
-- Jira: (미생성 — 사람이 만든 뒤 키 기입) · PRD: v4.0 카드 C1 · SP04 · 묶음/단위: P1
+- Jira: S15P31C108-121 · PRD: v4.0 카드 C1 · SP04 · 묶음/단위: P1
 - 기준: origin/develop a413a05, 2026-10-28
 
 ## 완료 조건
