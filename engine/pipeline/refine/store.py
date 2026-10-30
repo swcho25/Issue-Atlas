@@ -32,7 +32,7 @@ SELECT r.id, s.source_id, r.c1_record IS NOT NULL AS has_ledger,
         coalesce(to_jsonb(r.content_hash), 'null') AS mismatch,
     CASE WHEN jsonb_typeof(r.c1_record -> 'dedup_key') = 'string'
         THEN r.c1_record ->> 'dedup_key' END AS dedup,
-    CASE WHEN r.c1_record ->> 'indicator_id' IS NOT NULL THEN jsonb_build_array(
+    CASE WHEN r.c1_record IS NOT NULL THEN jsonb_build_array(
         r.c1_record -> 'source_id', r.c1_record -> 'spec_id', r.c1_record -> 'locator'
     ) END AS obs,
     coalesce(substring(

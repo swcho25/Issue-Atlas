@@ -25,10 +25,16 @@ from tests.test_collect_bigkinds import Search, news, options
 from tests.test_collect_youth_policy import Api, policy
 from tests_postgres.test_refine_store import ROWS as KOSIS_ROWS
 
+STATION_ITEMS = (STATIONS[1], gwangju_station())
 
-def stations(spec, run, at):
-    for item in (STATIONS[1], gwangju_station()):
-        yield item, station_record(item, spec, run, at, "https://apis.data.go.kr/?serviceKey=<KEY>")
+
+def stations(items=STATION_ITEMS):
+    def loader(spec, run, at):
+        for item in items:
+            url = "https://apis.data.go.kr/?serviceKey=<KEY>"
+            yield item, station_record(item, spec, run, at, url)
+
+    return loader
 
 
 def measurements(spec, run, at):
@@ -46,7 +52,7 @@ def collect_all(conn, tmp_path) -> dict:
         tmp_path / "kosis.json",
         fetch=lambda *a: copy.deepcopy(KOSIS_ROWS),
     )
-    station = execute(AirSpec("stations"), store, tmp_path / "stations.json", stations)
+    station = execute(AirSpec("stations"), store, tmp_path / "stations.json", stations())
     final = execute(FINAL, store, tmp_path / "final.json", measurements)
     # 기사 a 는 본문을 받고, b 는 원문 링크가 없어 본문이 없다
     articles = collect_news(
@@ -117,3 +123,40 @@ def test_every_collector_refines_together_and_rerun_changes_nothing(refine_db, t
     assert restats["air_monthly"] == stats["air_monthly"]
     after = conn.execute("SELECT * FROM normalized_record ORDER BY content_hash").fetchall()
     assert after == before
+
+
+def test_recollection_with_only_unledgered_fields_changed_stays_ready(refine_db, tmp_path):
+    # 원천의 장부 밖 칸만 바뀐 재수집(KOSIS 지역 이름표 · 측정소 측정 항목). 원본은 새로 생기지만
+    # 장부 내용이 같아 같은 판의 사본이다. 충돌로 보류하지 않고 늦게 받은 사본이 최신이 된다
+    conn, _ = refine_db
+    collect_all(conn, tmp_path)
+    refine_raw(conn)
+    store = PostgresStore(conn)
+    renamed = copy.deepcopy(KOSIS_ROWS)
+    renamed[0]["C1_NM"] += " (통합)"
+    kosis = collect_kosis(
+        Query(regions=("46130",)),
+        "fixture",
+        store,
+        tmp_path / "kosis-renamed.json",
+        fetch=lambda *a: copy.deepcopy(renamed),
+    )
+    measured = [item | {"item": "SO2, CO, O3, NO2, PM10, PM2.5, VOC"} for item in STATION_ITEMS]
+    station = execute(AirSpec("stations"), store, tmp_path / "s2.json", stations(measured))
+    assert (kosis["inserted"], station["inserted"]) == (1, 2)
+
+    stats = refine_raw(conn)
+
+    assert stats["status"] == {"pass": 30, "held": 1}
+    assert ready_by_source(conn) == {
+        "S01": 3,
+        "airkorea_station": 2,
+        "bigkinds": 1,
+        "youthcenter": 3,
+    }
+    newest = conn.execute(
+        "SELECT n.source_id, count(*) FROM normalized_ready n JOIN raw_record r USING"
+        " (content_hash) WHERE r.payload->>'C1_NM' LIKE '%(통합)'"
+        " OR r.payload->>'item' LIKE '%VOC' GROUP BY 1"
+    ).fetchall()
+    assert dict(newest) == {"S01": 1, "airkorea_station": 2}
