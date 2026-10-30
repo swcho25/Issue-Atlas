@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { contour, LOGO_PATHS, rightAt, stepSpring } from "./contour";
+import { contour, liftAt, LOGO_PATHS, OPEN, rightAt, stepSpring } from "./contour";
 import { LOGO_GEOMETRY } from "./geometry";
 
 const commands = (d: string) => d.replace(/[^MLCZ]/g, "");
@@ -35,6 +35,18 @@ describe("rightAt", () => {
         expect(open[i][1]).toBeGreaterThanOrEqual(q[1]);
       }
     });
+  });
+
+  it("다 펼치면 윗날개 오른쪽 끝이 휨 깊이만큼 내려간다", () => {
+    const i = LOGO_GEOMETRY.lipStart;
+    expect(rightAt(1)[i][1] - LOGO_GEOMETRY.right[i][1]).toBeCloseTo(OPEN.bend);
+  });
+});
+
+describe("liftAt", () => {
+  it("다 펼치면 심벌이 떠오르고 격자 가운데를 중심으로 반시계로 기운다", () => {
+    expect(liftAt(1)).toBe("translate(0 -46) rotate(-3 283 265)");
+    expect(liftAt(0)).toBe("translate(0 0) rotate(0 283 265)");
   });
 });
 

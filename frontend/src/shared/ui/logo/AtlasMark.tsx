@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { contour, LOGO_PATHS, rightAt, stepSpring, type SpringState } from "./contour";
+import { contour, liftAt, LOGO_PATHS, rightAt, stepSpring, type SpringState } from "./contour";
 
 type AtlasMarkProps = {
   /** true 면 오른쪽 면 윗날개가 스프링으로 펼쳐지며 안쪽 금색 면이 보인다 */
@@ -76,7 +76,13 @@ export function AtlasMark({
   const fill = clay ? `url(#${id}-ink)` : ink.fill;
 
   return (
-    <svg viewBox="0 0 566 530" fill="none" aria-hidden="true" className={className}>
+    <svg
+      viewBox="0 0 566 530"
+      fill="none"
+      overflow="visible"
+      aria-hidden="true"
+      className={className}
+    >
       <defs>
         <linearGradient id={`${id}-ink`} x1="0" y1="0" x2=".85" y2="1">
           <stop style={{ stopColor: `var(${ink.stops[0]})` }} />
@@ -104,7 +110,10 @@ export function AtlasMark({
           <path d={front} />
         </clipPath>
       </defs>
-      <g filter={clay ? `url(#${id}-shadow)` : undefined}>
+      <g
+        filter={clay ? `url(#${id}-shadow)` : undefined}
+        transform={progress === 0 ? undefined : liftAt(progress)}
+      >
         {progress > 0.00001 && !small && <path d={rest} fill={`url(#${id}-gold)`} />}
         <path d={front} style={{ fill }} />
         <path d={left} style={{ fill }} />

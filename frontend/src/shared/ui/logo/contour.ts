@@ -79,6 +79,12 @@ export function contour(points: readonly Point[], offset: Point = G.offset): str
 }
 
 /**
+ * 다 펼쳤을 때(격자 단위): 윗날개가 휘는 깊이, 심벌 전체가 떠오르는 높이, 기우는 각도(음수 = 반시계)와 그 중심.
+ * 내비 크기(심벌 약 23 px)에서도 눈에 띄도록 정했다 — 떠오름 46 은 거기서 약 2 px
+ */
+export const OPEN = { bend: 120, lift: 46, tilt: -3, pivot: [283, 265] } as const;
+
+/**
  * 펼침 정도(0 정지 ~ 1 펼침, 스프링이 살짝 넘는 1.04까지)에 맞춘 오른쪽 면 꼭짓점.
  * 위쪽 날개만 아래로 휘고, 얼굴 · 아래쪽 면 · 뒤 접힘은 움직이지 않는다.
  */
@@ -87,8 +93,14 @@ export function rightAt(progress: number): Point[] {
   return G.right.map((q, i) => {
     if (i < G.lipStart || i > G.lipEnd) return q;
     const weight = clamp((q[0] - 201) / 296, 0, 1);
-    return [q[0], q[1] + 40 * p * weight] as const;
+    return [q[0], q[1] + OPEN.bend * p * weight] as const;
   });
+}
+
+/** 펼침 정도에 맞춘 심벌 전체의 떠오름 · 기울기(SVG transform) */
+export function liftAt(progress: number): string {
+  const p = clamp(progress, 0, 1.04);
+  return `translate(0 ${num(-OPEN.lift * p)}) rotate(${num(OPEN.tilt * p)} ${OPEN.pivot.join(" ")})`;
 }
 
 export type SpringState = { value: number; velocity: number; settled?: boolean };
