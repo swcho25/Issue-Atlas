@@ -1,0 +1,11 @@
+{
+  "schema_version": "ai-status-0.1",
+  "fixture": true,
+  "task": "write_argument",
+  "input_ref": "run_c1_yeosu_2023_2025",
+  "status": "failed",
+  "reason_code": "OUTPUT_REJECTED",
+  "retryable": false,
+  "updated_at": "2026-10-30T15:00:00+09:00",
+  "output": null
+}

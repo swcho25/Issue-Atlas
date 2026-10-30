@@ -1,0 +1,11 @@
+{
+  "schema_version": "ai-status-0.1",
+  "fixture": true,
+  "task": "classify_document",
+  "input_ref": "bigkinds:fixture-news-0001",
+  "status": "done",
+  "reason_code": null,
+  "retryable": false,
+  "updated_at": "2026-10-30T15:00:00+09:00",
+  "output": {}
+}
