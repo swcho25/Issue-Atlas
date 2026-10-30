@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/ai/judgment-input.schema.json",
+  "title": "AI 모듈 판정 입력 v0.1 초안 — 실행 1건의 통계 · 규칙 판정 결과",
+  "description": "규칙 엔진이 끝낸 값. AI 는 이 값을 바꾸지 않고 문장 · 반박 근거 확인만 한다. 칸 모양은 C2 argument 를 그대로 쓴다",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": "ai-judgment-input-0.1" },
+    "fixture": { "description": "가상 자료면 true. 운영 입력은 false", "type": "boolean" },
+    "run_id": { "$ref": "../c2/common.schema.json#/$defs/id" },
+    "question": { "$ref": "../c2/argument.schema.json#/properties/question" },
+    "card_version": { "$ref": "../c2/argument.schema.json#/properties/card_version" },
+    "formula_version": { "type": "string", "minLength": 1 },
+    "taxonomy_version": { "type": "string", "minLength": 1 },
+    "run_status": { "$ref": "../c2/common.schema.json#/$defs/run_status" },
+    "evidence_table": { "$ref": "../c2/argument.schema.json#/properties/evidence_table" },
+    "comparability": { "$ref": "../c2/argument.schema.json#/properties/comparability" },
+    "claim": { "$ref": "../c2/argument.schema.json#/properties/claim" },
+    "qualifier": { "$ref": "../c2/argument.schema.json#/properties/qualifier" },
+    "data": { "$ref": "../c2/argument.schema.json#/properties/data" },
+    "warrant": { "$ref": "../c2/argument.schema.json#/properties/warrant" },
+    "ceiling": { "$ref": "../c2/argument.schema.json#/properties/ceiling" },
+    "statistics_points": {
+      "description": "판단에 쓴 통계 값. AI 가 문장에 쓰는 숫자는 여기 있는 값만이다",
+      "type": "array",
+      "items": { "$ref": "#/$defs/point" }
+    },
+    "excluded_provisional": {
+      "description": "판단에서 뺀 잠정값의 dedup_key (상한선에 적는다)",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "rebuttal_candidates": {
+      "description": "카드가 정한 경쟁 설명. decided_by_rule 이 null 인 것만 AI 가 문서로 근거 유무를 본다",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string", "minLength": 1 },
+          "decided_by_rule": {
+            "oneOf": [{ "type": "null" }, { "$ref": "../c2/common.schema.json#/$defs/rebuttal_status" }]
+          }
+        },
+        "required": ["text", "decided_by_rule"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "fixture",
+    "run_id",
+    "question",
+    "card_version",
+    "formula_version",
+    "taxonomy_version",
+    "run_status",
+    "evidence_table",
+    "comparability",
+    "claim",
+    "qualifier",
+    "data",
+    "warrant",
+    "ceiling",
+    "statistics_points",
+    "excluded_provisional",
+    "rebuttal_candidates"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "description": "C2 와 같다: blocked · unsupported 면 판단은 insufficient",
+      "if": { "properties": { "run_status": { "enum": ["blocked", "unsupported"] } } },
+      "then": { "properties": { "claim": { "properties": { "value": { "const": "insufficient" } } } } }
+    },
+    {
+      "description": "C2 와 같다: increasing · decreasing 이면 비교 조건 4가지가 모두 통과",
+      "if": {
+        "properties": { "claim": { "properties": { "value": { "enum": ["increasing", "decreasing"] } } } }
+      },
+      "then": {
+        "properties": {
+          "comparability": {
+            "properties": {
+              "same_indicator": { "$ref": "../c2/argument.schema.json#/$defs/passed" },
+              "same_period_length": { "$ref": "../c2/argument.schema.json#/$defs/passed" },
+              "same_boundary": { "$ref": "../c2/argument.schema.json#/$defs/passed" },
+              "same_method": { "$ref": "../c2/argument.schema.json#/$defs/passed" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "point": {
+      "type": "object",
+      "properties": {
+        "evidence_id": { "$ref": "../c2/common.schema.json#/$defs/id" },
+        "indicator_id": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "place_id": { "$ref": "../c2/common.schema.json#/$defs/id" },
+        "period_start": { "$ref": "../c2/common.schema.json#/$defs/date" },
+        "period_end": { "$ref": "../c2/common.schema.json#/$defs/date" },
+        "value": { "type": ["number", "null"] },
+        "missing_reason": { "$ref": "../c2/common.schema.json#/$defs/missing_reason" },
+        "is_provisional": { "type": "boolean" }
+      },
+      "required": [
+        "evidence_id",
+        "indicator_id",
+        "unit",
+        "place_id",
+        "period_start",
+        "period_end",
+        "value",
+        "missing_reason",
+        "is_provisional"
+      ],
+      "additionalProperties": false,
+      "description": "결측은 값 null + 사유. 0 으로 채우지 않는다",
+      "if": { "properties": { "value": { "type": "null" } } },
+      "then": { "properties": { "missing_reason": { "type": "string" } } },
+      "else": { "properties": { "missing_reason": { "type": "null" } } }
+    }
+  }
+}

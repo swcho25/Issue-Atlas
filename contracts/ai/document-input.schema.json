@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/ai/document-input.schema.json",
+  "title": "AI 모듈 문서 입력 v0.1 초안 — 문서 1건 (카드 분류 · 근거 연결용)",
+  "description": "정제(P2) · 지역 · 시간(P3) 결과를 문서 1건으로 모은 모양. 빈 칸의 뜻은 README 「빈 칸의 뜻」",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": "ai-doc-input-0.1" },
+    "fixture": { "description": "가상 자료면 true. 운영 입력은 false", "type": "boolean" },
+    "doc_id": {
+      "description": "판이 바뀌어도 같은 문서 ID. 기사 bigkinds:<news_id>(C1 dedup_key), 보도자료 press:<press_id>",
+      "type": "string",
+      "pattern": "^(bigkinds|press):\\S+$"
+    },
+    "version": {
+      "type": "object",
+      "properties": {
+        "content_hash": { "description": "원본 판(raw_record.content_hash)", "type": ["string", "null"], "minLength": 1 },
+        "refine_rule_version": { "description": "P2 rule_version", "type": ["string", "null"], "pattern": "^p2-" },
+        "extraction_version": { "description": "P3 지역 · 시간 규칙 판", "type": ["string", "null"], "minLength": 1 }
+      },
+      "required": ["content_hash", "refine_rule_version", "extraction_version"],
+      "additionalProperties": false
+    },
+    "content": {
+      "type": "object",
+      "properties": {
+        "kind": { "enum": ["news", "press_release"] },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "description": "P3 한두 문장 요약", "type": ["string", "null"], "minLength": 1 },
+        "body": { "description": "내부 분석에만 쓴다. 출력에 옮기지 않는다", "type": ["string", "null"], "minLength": 1 },
+        "excerpt": { "type": ["string", "null"], "minLength": 1 },
+        "categories": { "$ref": "#/$defs/strings" },
+        "keywords": { "$ref": "#/$defs/strings" },
+        "entities": {
+          "type": "object",
+          "properties": {
+            "locations": { "$ref": "#/$defs/strings" },
+            "persons": { "$ref": "#/$defs/strings" },
+            "organizations": { "$ref": "#/$defs/strings" }
+          },
+          "required": ["locations", "persons", "organizations"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["kind", "title", "summary", "body", "excerpt", "categories", "keywords", "entities"],
+      "additionalProperties": false
+    },
+    "extraction_status": {
+      "description": "P3 지역 · 시간 추출을 마쳤는가. pending 이면 지역은 원천 힌트뿐이고 사건 기간 · 요약은 비어 있다",
+      "enum": ["done", "pending"]
+    },
+    "regions": { "type": "array", "items": { "$ref": "#/$defs/region" } },
+    "event_period": {
+      "description": "사건 · 관측 기간 [start, end). 한 시각이면 end null",
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/event_period" }]
+    },
+    "published_at": { "type": "string", "format": "date-time" },
+    "published_precision": { "description": "time 시각까지 · day 날짜만(그날 0시로 적음)", "enum": ["time", "day"] },
+    "source": {
+      "type": "object",
+      "properties": {
+        "source_id": { "description": "C1 source_id", "type": ["string", "null"], "minLength": 1 },
+        "publisher": { "type": ["string", "null"], "minLength": 1 },
+        "link": { "description": "원문 페이지", "type": ["string", "null"], "format": "uri", "pattern": "^https?://" },
+        "raw_url": { "description": "받아 온 곳", "type": "string", "format": "uri", "pattern": "^https?://" },
+        "locator": { "description": "원문 위치(기사 news_id · 보도자료 press_id)", "type": "object", "minProperties": 1 }
+      },
+      "required": ["source_id", "publisher", "link", "raw_url", "locator"],
+      "additionalProperties": false
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "license_type": { "type": "string", "minLength": 1 },
+        "storage_scope": { "enum": ["full", "metadata", "link_only"] }
+      },
+      "required": ["license_type", "storage_scope"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "fixture",
+    "doc_id",
+    "version",
+    "content",
+    "extraction_status",
+    "regions",
+    "event_period",
+    "published_at",
+    "published_precision",
+    "source",
+    "usage"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "description": "본문은 storage_scope=full 일 때만 있다 (C1 v0.2)",
+      "if": { "properties": { "usage": { "properties": { "storage_scope": { "const": "full" } } } } },
+      "then": { "properties": { "content": { "properties": { "body": { "type": "string" } } } } },
+      "else": { "properties": { "content": { "properties": { "body": { "type": "null" } } } } }
+    },
+    {
+      "description": "앞부분(excerpt)은 이용 조건이 허락한 보도자료만, link_only 는 없음 (C1 v0.2)",
+      "if": {
+        "anyOf": [
+          { "properties": { "content": { "properties": { "kind": { "const": "news" } } } } },
+          { "properties": { "usage": { "properties": { "storage_scope": { "const": "link_only" } } } } }
+        ]
+      },
+      "then": { "properties": { "content": { "properties": { "excerpt": { "type": "null" } } } } }
+    },
+    {
+      "description": "추출 전이면 요약 · 사건 기간 · 추출 판이 없고, 지역은 원천 힌트만",
+      "if": { "properties": { "extraction_status": { "const": "pending" } } },
+      "then": {
+        "properties": {
+          "content": { "properties": { "summary": { "type": "null" } } },
+          "event_period": { "type": "null" },
+          "version": { "properties": { "extraction_version": { "type": "null" } } },
+          "regions": { "items": { "properties": { "source": { "not": { "const": "extraction" } } } } }
+        }
+      },
+      "else": {
+        "properties": {
+          "regions": { "contains": { "properties": { "source": { "const": "extraction" } } }, "maxContains": 1 }
+        }
+      }
+    },
+    {
+      "description": "가상 자료는 제목만 봐도 알 수 있게 [fixture] 로 시작한다",
+      "if": { "properties": { "fixture": { "const": true } } },
+      "then": { "properties": { "content": { "properties": { "title": { "pattern": "^\\[fixture\\]" } } } } }
+    }
+  ],
+  "$defs": {
+    "strings": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "region": {
+      "type": "object",
+      "properties": {
+        "sido": { "description": "P3 news_event.sido 와 같은 값", "type": ["string", "null"], "minLength": 1 },
+        "sigun": { "type": ["string", "null"], "minLength": 1 },
+        "gu": { "type": ["string", "null"], "minLength": 1 },
+        "place_id": { "type": ["string", "null"], "minLength": 1 },
+        "raw": { "description": "원천이 준 지명 · 코드 그대로", "type": ["string", "null"], "minLength": 1 },
+        "source": {
+          "description": "extraction P3 추출 · publisher 발행 기관의 지역 · source_meta 원천 개체명",
+          "enum": ["extraction", "publisher", "source_meta"]
+        },
+        "status": { "description": "confirmed 는 P3 가 정한 지역만", "enum": ["confirmed", "candidate"] }
+      },
+      "required": ["sido", "sigun", "gu", "place_id", "raw", "source", "status"],
+      "additionalProperties": false,
+      "if": { "properties": { "source": { "const": "extraction" } } },
+      "then": { "properties": { "sido": { "type": "string" }, "raw": { "type": "null" } } },
+      "else": { "properties": { "raw": { "type": "string" }, "status": { "const": "candidate" } } }
+    },
+    "event_period": {
+      "type": "object",
+      "properties": {
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": ["string", "null"], "format": "date-time" },
+        "precision": { "description": "P3 time_precision 중 minute · day · month", "enum": ["minute", "day", "month"] }
+      },
+      "required": ["start", "end", "precision"],
+      "additionalProperties": false
+    }
+  }
+}

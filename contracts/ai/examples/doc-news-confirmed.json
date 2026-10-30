@@ -1,0 +1,47 @@
+{
+  "schema_version": "ai-doc-input-0.1",
+  "fixture": true,
+  "doc_id": "bigkinds:fixture-news-0001",
+  "version": {
+    "content_hash": "fixture-hash-news-0001",
+    "refine_rule_version": "p2-0.5.0",
+    "extraction_version": "fixture-p3"
+  },
+  "content": {
+    "kind": "news",
+    "title": "[fixture] 여수시 청년 정착 지원 설명회 열려",
+    "summary": "[fixture] 여수시가 3월 14일 청년 정착 지원 사업 설명회를 열었다는 가상 기사 요약.",
+    "body": "[fixture] 가상 기사 본문. 실제 기사가 아니다.",
+    "excerpt": null,
+    "categories": ["지역"],
+    "keywords": ["여수", "청년"],
+    "entities": { "locations": ["여수"], "persons": [], "organizations": ["여수시"] }
+  },
+  "extraction_status": "done",
+  "regions": [
+    {
+      "sido": "전남광주통합특별시",
+      "sigun": "여수시",
+      "gu": null,
+      "place_id": "plc_yeosu",
+      "raw": null,
+      "source": "extraction",
+      "status": "confirmed"
+    }
+  ],
+  "event_period": {
+    "start": "2025-03-14T00:00:00+09:00",
+    "end": "2025-03-15T00:00:00+09:00",
+    "precision": "day"
+  },
+  "published_at": "2025-03-15T09:00:00+09:00",
+  "published_precision": "time",
+  "source": {
+    "source_id": "bigkinds",
+    "publisher": "가상 언론사",
+    "link": "https://news.example.com/article/fixture-news-0001",
+    "raw_url": "https://tools.kinds.or.kr/search/news",
+    "locator": { "news_id": "fixture-news-0001" }
+  },
+  "usage": { "license_type": "BIGKINDS-이용약관", "storage_scope": "full" }
+}
