@@ -12,7 +12,7 @@ v0.2는 **문서 1건 = 레코드 1개**도 지원한다. 선택 키 `document`�
 
 | document 내부 필드 | 타입 | 의미 |
 | --- | --- | --- |
-| kind | news / press_release | 뉴스 / 보도자료 |
+| kind | news / press_release / policy | 뉴스 / 보도자료 / 정책(온통청년 청년정책 등, 근거 ③ 기존 대응) |
 | title | 비어 있지 않은 string | 제목 |
 | publisher | string 또는 null | 언론사·발행 기관. 미제공이면 null |
 | categories | string 배열 | 원천 분류. 미제공이면 빈 배열 |
@@ -192,6 +192,7 @@ try {
 
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
+| v0.2 초안 | 2026-10-29 | document.kind 에 `policy` 추가(온통청년 청년정책 수집). 정책 한 건 × 대상 지역 한 곳이 레코드 하나, `place_code_raw` 는 법정 시군구 코드(`bjd`), 원천 행 전체는 payload. 링크를 주지 않는 원천이라 `link` 는 null |
 | v0.2 초안 | 2026-10-28 | 문구: 기사 본문은 저장(팀 결정), 문서 P2 정제는 P2 계약 v0.5 로 연결. 스키마는 그대로 (S15P31C108-122) |
 | v0.2 초안 | 2026-10-28 | document 에 link · fetch(본문 수집 결과) · body 추가, 본문이 있으면 `full` 허용(박준우 요청, 본문 저장은 팀·멘토 확인 전). raw_url 은 받아 온 곳, locator 는 `news_id` |
 | v0.2 초안 | 2026-10-26 | document 칸·문서 조건·source_text, 합성 빅카인즈 예시. P2·P3·P4 리뷰 대기 |
