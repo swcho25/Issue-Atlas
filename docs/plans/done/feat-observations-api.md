@@ -6,7 +6,7 @@
 - [x] GET /v1/observations 가 A3 측정소 점과 월평균을 C2 GeoJSON 으로 돌려준다 (격리된 테스트 데이터로 확인)
 - [x] 값이 없으면 value null + missing_reason 을 준다
 - [x] 좌표 없는 카드(C1)는 features 빈 배열로 준다
-- [ ] 실제 측정소 22곳이 place(level station) · place_code_map(airkorea_station)에 들어간 DB 에서 확인한다 — 적재 담당 · 기준 확인 대기(정우현, 116·117)
+- [x] 실제 측정소 22곳이 place(level station) · place_code_map(airkorea_station)에 들어간 DB 에서 확인한다 — V0017(!63, 박준우)이 시드하고 ObservationApiTest 「시드된_여수_측정소」가 확인
 
 ## 진행
 - 2026-10-29: 시작. 새 표 없이 place · place_code_map · air_monthly 를 읽는다. 측정소는 지역의 자식(parent_id), 코드는 airkorea_station 의 유효 기간 안에서만 잇는다. 이름으로 잇지 않는다
@@ -21,3 +21,4 @@
 - 134(근거 상세)가 생기면 evidence_id 를 근거 표의 ID 로 바꾼다. 지금은 C2 예시 규칙 ev_air_<측정소코드>_<YYYYMM>
 - station_type(도시대기 · 항만 …)은 저장 위치가 정해지지 않아 null
 - 나쁨 일수(bad_days_total)는 일 단위 값이 없어 null
+- 2026-10-30: !63(V0017)이 측정소 22곳을 place · place_code_map 에 넣었다. 리뷰에서 air_monthly 22곳과 코드 · 이름 22/22, 측정소 API 좌표와 차이 0 을 확인. 개발 서버에 배포(82712ae)
