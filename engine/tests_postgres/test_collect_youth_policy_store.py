@@ -51,7 +51,7 @@ def test_policies_are_raw_rows_with_ledger_and_rerun_adds_nothing(policy_db):
     second = collect(QUERY, "key", store, fetch=api, sleep=lambda _: None)
     assert (second["inserted"], second["duplicates"]) == (0, 3)
 
-    # 이용허락 표에 아직 없는 라이선스라 P2 는 보류(held)한다. 장부는 읽힌다
+    # 이용허락 표가 full 이고 레코드는 metadata 라 min 규칙으로 metadata 그대로 통과한다
     result = refine_raw(conn)
     assert result["raw"] == 3 and not result["skipped"]
-    assert result["status"] == {"held": 3}
+    assert result["status"] == {"pass": 3}

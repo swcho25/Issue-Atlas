@@ -121,4 +121,4 @@ uv --directory engine run python -m pipeline.collect.youth_policy --regions 4613
 - 같은 정책 · 같은 지역 · 같은 내용은 같은 원본(조회수 `inqCnt` 는 지문에서 뺀다). 내용이 바뀌면 새 원본, dedup_key `youthcenter:<plcyNo>:<zipCd>` 는 같다
 - 발행 시각은 최초 등록, 없으면 최종 수정 시각. 둘 다 모르면 넣지 않고 `no_published_at` 으로 센다(C1 문서는 발행 시각 필수)
 - 요청 사이 1초, 지역마다 50쪽까지(`YOUTHCENTER_TOO_MANY_PAGES`)
-- 이용허락 `공공데이터-이용허락범위제한없음` 은 P2 이용허락 표에 아직 없어 정제에서 `LICENSE_UNKNOWN` 보류된다
+- 이용허락 `공공데이터-이용허락범위제한없음` 은 P2 이용허락 표에서 `full`(최대치). 이 수집기는 `metadata` 로 보내 실제 저장 범위는 `metadata`
