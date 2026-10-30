@@ -112,7 +112,7 @@ def test_record_is_valid_c1_policy_with_raw_row_in_payload():
     assert document["kind"] == "policy"
     assert document["publisher"] == "가상시"
     assert document["categories"] == ["주거", "주거비 지원"]
-    assert document["keywords"] == ["주거지원", "월세"]
+    assert document["keywords"] == ["월세", "주거지원"]
     assert document["excerpt"] == "청년 월세를 지원합니다"
     assert (document["link"], document["fetch"], document["body"]) == (None, None, None)
 
@@ -120,9 +120,12 @@ def test_record_is_valid_c1_policy_with_raw_row_in_payload():
 def test_same_policy_is_same_raw_but_edited_policy_is_new_version():
     first = to_record(policy("A"), "12130", "r1", AT)[1]
     viewed = to_record(policy("A", inqCnt=99), "12130", "r2", AT)[1]
+    reordered = to_record(policy("A", plcyKywdNm="월세,주거지원"), "12130", "r4", AT)[1]
     edited = to_record(policy("A", lastMdfcnDt="2025-04-01 09:00:00"), "12130", "r3", AT)[1]
     other_region = to_record(policy("A"), "12210", "r1", AT)[1]
     assert first["content_hash"] == viewed["content_hash"]
+    # 키워드 순서만 바뀐 응답도 같은 원본(실호출에서 부를 때마다 순서가 바뀌었다)
+    assert first["content_hash"] == reordered["content_hash"]
     assert first["content_hash"] != edited["content_hash"]
     assert first["dedup_key"] == edited["dedup_key"]
     assert first["content_hash"] != other_region["content_hash"]

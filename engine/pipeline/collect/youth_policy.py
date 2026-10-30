@@ -38,10 +38,11 @@ ENDPOINT = "https://www.youthcenter.go.kr/go/ythip/getPlcy"
 PAGE_SIZE = 100
 MAX_PAGES = 50  # 지역 하나에 5,000건. 넘으면 끝을 못 찾은 것으로 보고 멈춘다
 INTERVAL = 1.0  # 잇달아 부르면 403 이 난다는 보고가 있어 요청 사이에 둔다
-# 403(잇단 호출 제한) · 5xx · 끊김은 RETRY_WAIT × 시도 횟수만큼 기다려 ATTEMPTS 번까지 다시 부른다
+# 잇단 호출 때 400 · 403 이 섞여 온다(2026-10-30 실호출). 400 · 403 · 5xx · 끊김은
+# RETRY_WAIT × 시도 횟수만큼 기다려 ATTEMPTS 번까지 다시 부른다
 ATTEMPTS = 3
 RETRY_WAIT = 10.0
-RETRYABLE = re.compile(r"YOUTHCENTER_(HTTP_(403|5\d\d)|NETWORK_ERROR)")
+RETRYABLE = re.compile(r"YOUTHCENTER_(HTTP_(400|403|5\d\d)|NETWORK_ERROR)")
 # 조회수처럼 받을 때마다 바뀌는 칸은 같은 정책인지 볼 때 뺀다
 VOLATILE = ("inqCnt",)
 # 온통청년은 2026-07-01 행정통합 뒤 새 법정 시군구 코드만 받는다(옛 46130 · 29110 은 0건,
@@ -161,10 +162,12 @@ def _texts(*values) -> list[str]:
 def to_record(row: dict, region: str, run_id: str, at: str) -> tuple[dict, dict]:
     """온통청년 정책 한 건 × 지역 → (원본 payload, C1 정책 레코드)."""
     payload = {"youthcenter": row, "zipCd": region}
-    stable = {k: v for k, v in row.items() if k not in VOLATILE}
+    keywords = row.get("plcyKywdNm")
+    # 키워드는 부를 때마다 순서가 바뀐다(2026-10-30 실호출). 순서 없이 비교한다
+    words = sorted(_texts(*keywords.split(","))) if isinstance(keywords, str) else []
+    stable = {k: v for k, v in row.items() if k not in VOLATILE} | {"plcyKywdNm": words}
     # 같은 정책 · 같은 지역 · 같은 내용이면 같은 원본. 내용이 바뀌면 새 원본, 같은 dedup_key
     fingerprint = {"source_id": PolicyQuery.source_id, "zipCd": region, "policy": stable}
-    keywords = row.get("plcyKywdNm")
     excerpt = row.get("plcyExplnCn")
     record = {
         "source_id": PolicyQuery.source_id,
@@ -204,7 +207,7 @@ def to_record(row: dict, region: str, run_id: str, at: str) -> tuple[dict, dict]
             "title": row["plcyNm"].strip(),
             "publisher": next(iter(_texts(row.get("sprvsnInstCdNm"))), None),
             "categories": _texts(row.get("lclsfNm"), row.get("mclsfNm")),
-            "keywords": _texts(*keywords.split(",")) if isinstance(keywords, str) else [],
+            "keywords": words,
             "entities": {"locations": [], "persons": [], "organizations": []},
             "excerpt": excerpt.strip() if isinstance(excerpt, str) and excerpt.strip() else None,
             # 원천이 상세 주소를 주지 않는다. 추측해 만들지 않는다
