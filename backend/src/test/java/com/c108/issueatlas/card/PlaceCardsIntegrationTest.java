@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.c108.issueatlas.C2Contract;
 import com.c108.issueatlas.TestcontainersConfiguration;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,6 +45,7 @@ class PlaceCardsIntegrationTest {
         String response =
                 mvc.perform(request("cards-test", "2023-01-01", "2026-01-01"))
                         .andExpect(status().isOk())
+                        .andExpect(C2Contract.matches("place-cards"))
                         .andExpect(jsonPath("$.schema_version").value("c2-0.1"))
                         .andExpect(jsonPath("$.place_id").value("cards-test"))
                         .andExpect(jsonPath("$.period_end").value("2026-01-01"))
@@ -84,6 +86,7 @@ class PlaceCardsIntegrationTest {
         put("cards-test", "A3", 0, "2023-01-01", "2026-01-01", "documents", "available", 0);
         mvc.perform(request("cards-test", "2023-01-01", "2026-01-01"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("place-cards"))
                 .andExpect(jsonPath("$.cards[0].available_kinds").value(0))
                 .andExpect(jsonPath("$.cards[1].available_kinds").value(1))
                 .andExpect(jsonPath("$.cards[1].review_pending_count").value(3))
@@ -101,6 +104,7 @@ class PlaceCardsIntegrationTest {
         }
         mvc.perform(request("cards-test", "2023-01-01", "2026-01-01"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("place-cards"))
                 .andExpect(jsonPath("$.cards[1].card_id").value("C9"))
                 .andExpect(jsonPath("$.cards[2].card_id").value("C1"))
                 .andExpect(jsonPath("$.cards[2].available_kinds").value(4));

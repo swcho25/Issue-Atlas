@@ -118,3 +118,24 @@ uv --directory engine run python -m pipeline.collect.lofin --xlsx "C:\경로\202
 
 - 파일 하나 읽는 데 약 30초(전국 약 48만 행을 훑는다)
 - 2023–2025 실제 파일: 13,279 · 12,820 · 12,750 행
+
+## 온통청년 청년정책
+
+카드 근거 ③ 「기존 대응」용. 온통청년 청년정책 OpenAPI(한국고용정보원, 공공데이터포털 「이용허락범위 제한 없음」)를
+지역(법정 시군구 코드 `zipCd`)마다 받아, **정책 한 건 × 지역 한 곳**을 `raw_record` 한 행 + 장부(C1 문서, `kind: policy`)로 저장한다.
+키는 루트 `.env`의 `YOUTHCENTER_API_KEY`. spec `youthcenter_policy_yeosu_gwangju`, source `youthcenter`, evidence_class `existing_responses`.
+
+```powershell
+uv --directory engine run python -m pipeline.collect.youth_policy            # 광주 5구 · 여수시
+uv --directory engine run python -m pipeline.collect.youth_policy --regions 12130
+```
+
+- 요청 규격(2025 신규): `/go/ythip/getPlcy?apiKeyNm&pageNum&pageSize=100&rtnType=json&zipCd`. 응답 `result.youthPolicyList` · `result.pagging.totCount`. 2026-10-30 실호출로 응답 구조 확인
+- 원본(payload)은 `{"youthcenter": 정책 행 전체, "zipCd": 지역}`. 장부에는 정책명 · 주관기관(`publisher`) · 분류 · 키워드 · 설명(`excerpt`)만, 사업 기간 · 지원 대상 · 지원 내용은 payload 에서 꺼낸다(S15P31C108-136)
+- `storage_scope=metadata`, 본문 · 링크 없음(원천이 상세 주소를 주지 않아 만들지 않는다). `place_code_system=bjd`
+- **지역 코드는 2026-07-01 행정통합 뒤 새 코드**(여수 `12130`, 광주 동구 `12210` · 서구 `12240` · 남구 `12270` · 북구 `12300` · 광산구 `12330`). 옛 코드로 물으면 0건이다(2026-10-30 실호출)
+- 지역 조회에는 대상 지역에 여수 · 광주가 들어간 **다른 지자체 · 중앙 정책도 함께 나온다**(2026-10-30 여수 867건 · 광주 동구 946건). 고르기는 P4 · 카드에서
+- 같은 정책 · 같은 지역 · 같은 내용은 같은 원본(조회수 `inqCnt` 는 지문에서 뺀다). 내용이 바뀌면 새 원본, dedup_key `youthcenter:<plcyNo>:<zipCd>` 는 같다
+- 발행 시각은 최초 등록, 없으면 최종 수정 시각. 둘 다 모르면 넣지 않고 `no_published_at` 으로 센다(C1 문서는 발행 시각 필수)
+- 요청 사이 1초, 지역마다 50쪽까지(`YOUTHCENTER_TOO_MANY_PAGES`)
+- 이용허락 `공공데이터-이용허락범위제한없음` 은 P2 이용허락 표에서 `full`(최대치). 이 수집기는 `metadata` 로 보내 실제 저장 범위는 `metadata`

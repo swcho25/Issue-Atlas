@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.c108.issueatlas.C2Contract;
 import com.c108.issueatlas.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,7 @@ class AdminJobApiTest {
     void 수집_대상으로_거르고_최근_시작_순() throws Exception {
         mvc.perform(get("/v1/admin/jobs").param("source_id", "S-job-a"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("job-list"))
                 .andExpect(jsonPath("$.schema_version").value("c2-0.1"))
                 .andExpect(jsonPath("$.total").value(2))
                 .andExpect(jsonPath("$.page").value(1))
@@ -99,6 +101,7 @@ class AdminJobApiTest {
     void 실행_한_건과_잘못된_요청() throws Exception {
         mvc.perform(get("/v1/admin/jobs/job-r2"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("job"))
                 .andExpect(jsonPath("$.job.spec_id").value("SP-job-a"))
                 .andExpect(jsonPath("$.job.error_code").value("KOSIS_HTTP_ERROR"));
         mvc.perform(get("/v1/admin/jobs/job-none")).andExpect(status().isNotFound());
