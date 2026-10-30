@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.c108.issueatlas.C2Contract;
 import com.c108.issueatlas.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,7 @@ class SourceApiTest {
     void 출처마다_등급_이용조건과_명세별_마지막_성공() throws Exception {
         mvc.perform(get("/v1/sources"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("source-list"))
                 .andExpect(jsonPath("$.schema_version").value("c2-0.1"))
                 .andExpect(jsonPath(A + ".source_grade").value(contains("A")))
                 .andExpect(jsonPath(A + ".license_type").value(contains("KOGL-1")))
