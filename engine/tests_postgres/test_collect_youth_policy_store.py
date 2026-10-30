@@ -11,7 +11,7 @@ from pipeline.refine.store import refine_raw
 from tests.test_collect_youth_policy import Api, policy
 from tests_postgres.conftest import fresh_schema
 
-QUERY = PolicyQuery(("46130", "29110"))
+QUERY = PolicyQuery(("12130", "12210"))
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def policy_db(postgis):
 def test_policies_are_raw_rows_with_ledger_and_rerun_adds_nothing(policy_db):
     conn, _ = policy_db
     store = PostgresStore(conn)
-    api = Api({"46130": [policy("A"), policy("B")], "29110": [policy("A")]})
+    api = Api({"12130": [policy("A"), policy("B")], "12210": [policy("A")]})
     first = collect(QUERY, "key", store, fetch=api, sleep=lambda _: None)
     assert (first["inserted"], first["duplicates"]) == (3, 0)
     rows = conn.execute(
@@ -39,9 +39,9 @@ def test_policies_are_raw_rows_with_ledger_and_rerun_adds_nothing(policy_db):
         " FROM raw_record ORDER BY 3, 1"
     ).fetchall()
     assert rows == [
-        ("29110", "policy", "A", True),
-        ("46130", "policy", "A", True),
-        ("46130", "policy", "B", True),
+        ("12130", "policy", "A", True),
+        ("12210", "policy", "A", True),
+        ("12130", "policy", "B", True),
     ]
     assert conn.execute("SELECT storage_scope FROM source").fetchone() == ("metadata",)
     assert conn.execute("SELECT evidence_class FROM source_spec").fetchone() == (

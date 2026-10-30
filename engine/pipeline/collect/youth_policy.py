@@ -1,6 +1,6 @@
 """온통청년 청년정책(광주 5구 · 여수시) → 정책 × 지역마다 raw_record 한 행 + 장부(C1 문서, policy).
 
-python -m pipeline.collect.youth_policy [--regions 46130 29110 …]
+python -m pipeline.collect.youth_policy [--regions 12130 12210 …]
     → raw_record 저장, 건수 JSON (stdout). 키는 루트 .env 의 YOUTHCENTER_API_KEY
 
 카드 근거 ③ 「기존 대응」의 원천이다(PRD FR-H1 · C3). 정책명 · 주관기관 · 분류 · 설명만 장부에 두고,
@@ -30,7 +30,7 @@ from dotenv import dotenv_values
 
 from pipeline.refine.validate import validate
 
-from .kosis import MAX_BYTES, REGIONS, CollectionError, NoRedirect, canonical
+from .kosis import MAX_BYTES, CollectionError, NoRedirect, canonical
 from .store import PostgresStore
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -38,8 +38,16 @@ ENDPOINT = "https://www.youthcenter.go.kr/go/ythip/getPlcy"
 PAGE_SIZE = 100
 MAX_PAGES = 50  # 지역 하나에 5,000건. 넘으면 끝을 못 찾은 것으로 보고 멈춘다
 INTERVAL = 1.0  # 잇달아 부르면 403 이 난다는 보고가 있어 요청 사이에 둔다
+# 403(잇단 호출 제한) · 5xx · 끊김은 RETRY_WAIT × 시도 횟수만큼 기다려 ATTEMPTS 번까지 다시 부른다
+ATTEMPTS = 3
+RETRY_WAIT = 10.0
+RETRYABLE = re.compile(r"YOUTHCENTER_(HTTP_(403|5\d\d)|NETWORK_ERROR)")
 # 조회수처럼 받을 때마다 바뀌는 칸은 같은 정책인지 볼 때 뺀다
 VOLATILE = ("inqCnt",)
+# 온통청년은 2026-07-01 행정통합 뒤 새 법정 시군구 코드만 받는다(옛 46130 · 29110 은 0건,
+# 2026-10-30 실호출). 여수시 12130, 광주 동구 12210 · 서구 12240 · 남구 12270 · 북구 12300 ·
+# 광산구 12330 (place_code_map 의 새 코드)
+REGIONS = ("12130", "12210", "12240", "12270", "12300", "12330")
 DATETIME = re.compile(r"(\d{4})-?(\d{2})-?(\d{2})(?:[ T]?(\d{2}):?(\d{2}):?(\d{2}))?")
 
 
@@ -109,10 +117,17 @@ def search(query: PolicyQuery, api_key: str, fetch=fetch_page, sleep=time.sleep)
     found, calls = {}, 0
     for region in query.regions:
         for page in range(1, MAX_PAGES + 1):
-            if calls:
-                sleep(INTERVAL)
-            calls += 1
-            rows, total = fetch(region, page, api_key)
+            for attempt in range(1, ATTEMPTS + 1):
+                if calls:
+                    sleep(INTERVAL)
+                calls += 1
+                try:
+                    rows, total = fetch(region, page, api_key)
+                    break
+                except CollectionError as exc:
+                    if attempt == ATTEMPTS or not RETRYABLE.fullmatch(str(exc)):
+                        raise
+                    sleep(RETRY_WAIT * attempt)
             for row in rows:
                 if not isinstance(row.get("plcyNo"), str) or not row["plcyNo"]:
                     raise CollectionError("YOUTHCENTER_INVALID_POLICY")
