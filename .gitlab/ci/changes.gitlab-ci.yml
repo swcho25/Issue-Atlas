@@ -1,5 +1,5 @@
-# 같은 경로 목록을 검사·빌드·배포에서 공유한다. MR은 대상 브랜치, push는 이전 커밋과 비교한다.
-.frontend-scope:
+# MR은 대상 브랜치, push는 이전 커밋과 비교한다. 설명 MD는 배포 대상이 아니다.
+.frontend-build-scope:
   rules:
     - changes: &frontend-paths
         - frontend/src/**/*
@@ -15,16 +15,21 @@
         - pnpm-lock.yaml
         - pnpm-workspace.yaml
         - scripts/**/*
-        - contracts/**/*
         - .gitlab-ci.yml
         - .gitlab/ci/**/*
+.frontend-scope:
+  rules:
+    - !reference [.frontend-build-scope, rules]
+    # 계약 변경은 수신 측 검사를 유지하되 FE 실행 산출물은 바꾸지 않는다.
+    - changes: &contract-paths
+        - contracts/**/*.{json,yaml,yml}
 .frontend-release:
   rules:
     - if: &release-condition '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/ && $CI_COMMIT_REF_PROTECTED == "true"'
       changes: *frontend-paths
     - when: never
 
-.backend-scope:
+.backend-build-scope:
   rules:
     - changes: &backend-paths
         - backend/src/**/*
@@ -34,12 +39,15 @@
         - backend/gradlew.bat
         - backend/Dockerfile
         - backend/.dockerignore
-        - contracts/**/*
         - docker-compose.yml
         - deploy/dev/*.{yaml,yml,py}
         - deploy/ci/*.{py,json}
         - .gitlab-ci.yml
         - .gitlab/ci/**/*
+.backend-scope:
+  rules:
+    - !reference [.backend-build-scope, rules]
+    - changes: *contract-paths
 .backend-release:
   rules:
     - if: *release-condition
@@ -49,12 +57,13 @@
 .collector-scope:
   rules:
     - changes: &collector-paths
-        - engine/pipeline/**/*
+        - engine/pipeline/**/*.{py,json,yaml,yml,toml,sql,txt,csv}
         - engine/pyproject.toml
         - engine/uv.lock
         - engine/Dockerfile
         - engine/Dockerfile.dockerignore
-        - contracts/**/*
+        # C1은 실행 중 읽는 스키마와 이미지 smoke test의 fixture를 포함한다.
+        - contracts/c1/**/*.json
         - deploy/collector/*.{py,yaml,yml}
         - deploy/ci/*.{py,json}
         - .gitlab-ci.yml
@@ -69,6 +78,7 @@
   rules:
     - !reference [.collector-scope, rules]
     - changes:
+        - contracts/**/*.{json,yaml,yml}
         - engine/api/**/*
         - engine/ai/**/*
         - engine/tests/**/*
