@@ -146,6 +146,20 @@ paths:
                 $ref: ./schemas/observations.schema.json
         "400":
           $ref: "#/components/responses/Problem"
+  /v1/sources:
+    get:
+      tags: [evidence]
+      operationId: listSources
+      summary: 출처 목록 — 출처 등급 · 이용 조건 · 저장 범위와 수집 명세별 마지막 성공 수집 시각
+      responses:
+        "200":
+          description: 출처 목록
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/source-list.schema.json
+        "4XX":
+          $ref: "#/components/responses/Problem"
   /v1/admin/jobs:
     get:
       tags: [admin]
