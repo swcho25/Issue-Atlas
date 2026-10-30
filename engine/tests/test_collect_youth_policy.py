@@ -5,6 +5,7 @@ import pytest
 from pipeline.collect import youth_policy
 from pipeline.collect.kosis import CollectionError
 from pipeline.collect.youth_policy import PolicyQuery, collect, parse_page, search, to_record
+from pipeline.refine import refine_records
 from pipeline.refine.validate import validate
 from tests.test_c1_document import validator
 
@@ -106,7 +107,8 @@ def test_record_is_valid_c1_policy_with_raw_row_in_payload():
     assert payload == {"youthcenter": policy("A"), "zipCd": "12130"}
     assert (record["place_code_raw"], record["place_code_system"]) == ("12130", "bjd")
     assert record["published_at"] == "2025-03-04T10:00:00+09:00"
-    assert record["dedup_key"] == "youthcenter:A:12130"
+    assert record["dedup_key"] == "youthcenter:A:12130:" + record["content_hash"][7:19]
+    assert record["locator"] == {"plcyNo": "A", "zipCd": "12130"}
     assert record["storage_scope"] == "metadata"
     document = record["document"]
     assert document["kind"] == "policy"
@@ -126,9 +128,25 @@ def test_same_policy_is_same_raw_but_edited_policy_is_new_version():
     assert first["content_hash"] == viewed["content_hash"]
     # 키워드 순서만 바뀐 응답도 같은 원본(실호출에서 부를 때마다 순서가 바뀌었다)
     assert first["content_hash"] == reordered["content_hash"]
+    assert first["dedup_key"] == viewed["dedup_key"] == reordered["dedup_key"]
+    # 수정본은 새 판: dedup_key 는 다르고 원천 칸(locator)은 같다
     assert first["content_hash"] != edited["content_hash"]
-    assert first["dedup_key"] == edited["dedup_key"]
+    assert first["dedup_key"] != edited["dedup_key"]
+    assert first["locator"] == edited["locator"]
     assert first["content_hash"] != other_region["content_hash"]
+
+
+def test_edited_policy_passes_refine_as_newer_version():
+    # 정책 내용이 바뀌어 다시 받으면 같은 정책 칸(obs_key)의 새 판. 둘 다 정제를 통과하고 새 판만 최신
+    first = to_record(policy("A"), "12130", "r1", AT)[1]
+    edited = policy("A", plcyExplnCn="월세 지원 대상을 넓혔습니다")
+    later = to_record(edited, "12130", "r2", "2026-10-30T00:00:00+00:00")[1]
+
+    out = refine_records([later, first])
+
+    assert [(r["validation_status"], r["issues"]) for r in out] == [("pass", []), ("pass", [])]
+    assert out[0]["obs_key"] == out[1]["obs_key"]
+    assert [r["is_latest"] for r in out] == [True, False]
 
 
 def test_missing_optional_fields_stay_empty_and_date_falls_back_to_last_edit():

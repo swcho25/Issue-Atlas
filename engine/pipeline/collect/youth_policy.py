@@ -63,7 +63,7 @@ class PolicyQuery:
     source_scope: ClassVar[str] = "metadata"
     evidence_class: ClassVar[str] = "existing_responses"
     method: ClassVar[str] = "api"
-    collector_version: ClassVar[str] = "youthcenter-0.1.0"
+    collector_version: ClassVar[str] = "youthcenter-0.2.0"
     regions: tuple[str, ...] = REGIONS
 
     def identity(self):
@@ -166,15 +166,16 @@ def to_record(row: dict, region: str, run_id: str, at: str) -> tuple[dict, dict]
     # 키워드는 부를 때마다 순서가 바뀐다(2026-10-30 실호출). 순서 없이 비교한다
     words = sorted(_texts(*keywords.split(","))) if isinstance(keywords, str) else []
     stable = {k: v for k, v in row.items() if k not in VOLATILE} | {"plcyKywdNm": words}
-    # 같은 정책 · 같은 지역 · 같은 내용이면 같은 원본. 내용이 바뀌면 새 원본, 같은 dedup_key
+    # 같은 정책 · 같은 지역 · 같은 내용이면 같은 원본. 내용이 바뀌면 새 원본이자 새 판
     fingerprint = {"source_id": PolicyQuery.source_id, "zipCd": region, "policy": stable}
+    digest = hashlib.sha256(canonical(fingerprint).encode()).hexdigest()
     excerpt = row.get("plcyExplnCn")
     record = {
         "source_id": PolicyQuery.source_id,
         "spec_id": PolicyQuery.spec_id,
         "raw_url": ENDPOINT + "?" + urlencode({"zipCd": region}),
         "file_name": None,
-        "content_hash": "sha256:" + hashlib.sha256(canonical(fingerprint).encode()).hexdigest(),
+        "content_hash": "sha256:" + digest,
         "collected_at": at,
         # 최초 등록 시각, 없으면 최종 수정 시각. 둘 다 모르면 None(collect 가 건너뛴다)
         "published_at": _kst(row.get("frstRegDt")) or _kst(row.get("lastMdfcnDt")),
@@ -197,7 +198,9 @@ def to_record(row: dict, region: str, run_id: str, at: str) -> tuple[dict, dict]
         "missing_reason": None,
         "is_provisional": False,
         "locator": {"plcyNo": row["plcyNo"], "zipCd": region},
-        "dedup_key": f"youthcenter:{row['plcyNo']}:{region}",
+        # 판마다 다른 키(내용 지문 앞 12자리). locator 가 같아 P2 가 같은 정책 칸(obs_key)의
+        # 판으로 묶고 늦게 받은 판을 최신으로 고른다. 지문이 없으면 수정본과 충돌해 둘 다 보류된다
+        "dedup_key": f"youthcenter:{row['plcyNo']}:{region}:{digest[:12]}",
         "license_type": PolicyQuery.license_type,
         "storage_scope": "metadata",
         "run_id": run_id,

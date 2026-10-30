@@ -55,3 +55,19 @@ def test_policies_are_raw_rows_with_ledger_and_rerun_adds_nothing(policy_db):
     result = refine_raw(conn)
     assert result["raw"] == 3 and not result["skipped"]
     assert result["status"] == {"pass": 3}
+
+
+def test_edited_policy_is_next_version_and_only_it_is_ready(policy_db):
+    # 정책 내용이 바뀌어 다시 받으면 새 원본 · 새 판. 둘 다 pass, 다음 단계에는 수정본만
+    conn, _ = policy_db
+    store = PostgresStore(conn)
+    query = PolicyQuery(("12130",))
+    collect(query, "key", store, fetch=Api({"12130": [policy("A")]}), sleep=lambda _: None)
+    edited = policy("A", plcyExplnCn="월세 지원 대상을 넓혔습니다", lastMdfcnDt="2026-10-30")
+    second = collect(query, "key", store, fetch=Api({"12130": [edited]}), sleep=lambda _: None)
+    assert (second["inserted"], second["duplicates"]) == (1, 0)
+
+    result = refine_raw(conn)
+    assert result["status"] == {"pass": 2}
+    ready = conn.execute("SELECT record->'document'->>'excerpt' FROM normalized_ready").fetchall()
+    assert ready == [("월세 지원 대상을 넓혔습니다",)]
