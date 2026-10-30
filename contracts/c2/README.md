@@ -19,6 +19,7 @@
 | ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 3개 |
 | ④ | `GET /v1/evidence/{evidence_id}` | 원문 탭 · 각주 복사 | `evidence` | `evidence-kosis.json` |
 | ⑤ | `GET /v1/observations?place_id&card_id&period_start&period_end` | 지도 점 | `observations` | `observations-a3-yeosu.json` |
+| 보조 | `GET /v1/sources` | 근거 출처 · 이용 조건 · 마지막 수집 (8장 보조) | `source-list` | `source-list.json` |
 | 보조 | `GET /v1/admin/jobs?status&source_id&spec_id&page&size` · `GET /v1/admin/jobs/{job_run_id}` | 관리자 수집 이력 (FR-F5) | `job-list` · `job` | `job-list.json` · `job-failed.json` |
 
 ## 카드 목록 구현 (S15P31C108-132)
@@ -142,3 +143,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-10-22): 초안. API 5종(엔드포인트 6개) 성공 응답, 예시 9개. 화면팀 리뷰 대기, 10/30 동결 목표.
 - v0.1 (2026-10-29): 근거 충실도 규칙표 `qualifier-0.1` 추가(S15P31C108-131). `components` 에 `ab_grade_sources` · `latest_within_one_year` 를 더하고, 스키마가 등급과 구성 값이 맞는지 검사한다. 구성 값을 세는 방법 4가지는 미결. 동결 전.
 - v0.1 (2026-10-29): 관리자 수집 이력 `GET /v1/admin/jobs` · `/{job_run_id}` 추가(FR-F5). 상태 · 수집 대상(`source_id` · `spec_id`) 필터, 페이지네이션(`page` 1부터, `size` 최대 100). 관리자 전용이라 `/v1/admin/**` 아래에 둔다. 오류 코드 목록에 `UNAUTHORIZED` · `FORBIDDEN` 을 더했다.
+- v0.1 (2026-10-30): 출처 목록 `GET /v1/sources` 추가(8장 보조 API). 출처마다 등급 · 이용허락 · 저장 범위와 수집 명세별 마지막 성공 수집 시각. 등급을 아직 정하지 않은 출처는 `source_grade: null`.
