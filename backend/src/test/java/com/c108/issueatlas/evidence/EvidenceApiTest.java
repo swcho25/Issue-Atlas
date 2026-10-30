@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.c108.issueatlas.C2Contract;
 import com.c108.issueatlas.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,6 +86,7 @@ class EvidenceApiTest {
     void 근거_상세와_각주() throws Exception {
         mvc.perform(get("/v1/evidence/ev_test_kosis"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("evidence"))
                 .andExpect(jsonPath("$.schema_version").value("c2-0.1"))
                 .andExpect(jsonPath("$.kind").value("statistics"))
                 .andExpect(jsonPath("$.source_name").value("국가데이터처 KOSIS"))
@@ -104,12 +106,14 @@ class EvidenceApiTest {
                                                 + " · 조회일 2026-10-21"));
         // 월 기간, URL 없음 → URL 칸을 빼고 「2024-06」
         mvc.perform(get("/v1/evidence/ev_test_month"))
+                .andExpect(C2Contract.matches("evidence"))
                 .andExpect(
                         jsonPath("$.footnote")
                                 .value(
                                         "국가데이터처 KOSIS · 월별 순이동 · 2024-06 · 출처 등급 A · 조회일 2026-10-21"));
         // 링크만 저장한 근거는 내용을 보여 주지 않는다. 시점은 한국 날짜(UTC 16시 → 다음 날)
         mvc.perform(get("/v1/evidence/ev_test_news"))
+                .andExpect(C2Contract.matches("evidence"))
                 .andExpect(jsonPath("$.storage_scope").value("link_only"))
                 .andExpect(jsonPath("$.display").value(nullValue()))
                 .andExpect(

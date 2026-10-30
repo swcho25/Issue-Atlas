@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.c108.issueatlas.C2Contract;
 import com.c108.issueatlas.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,6 +68,7 @@ class ObservationApiTest {
     void A3_는_지역_측정소의_달마다_점_하나() throws Exception {
         mvc.perform(observations("obs_city", "A3", "2024-01-01", "2024-03-01"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("observations"))
                 .andExpect(jsonPath("$.schema_version").value("c2-0.1"))
                 .andExpect(jsonPath("$.type").value("FeatureCollection"))
                 .andExpect(jsonPath("$.legend_text").value("측정소 값, 도시 평균 아님"))
@@ -108,6 +110,7 @@ class ObservationApiTest {
     void 좌표_없는_카드_C1_은_빈_점() throws Exception {
         mvc.perform(observations("obs_city", "C1", "2023-01-01", "2026-01-01"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("observations"))
                 .andExpect(jsonPath("$.summary").value(nullValue()))
                 .andExpect(jsonPath("$.features").isEmpty());
     }
