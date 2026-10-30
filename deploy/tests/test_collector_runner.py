@@ -48,5 +48,24 @@ class CollectorRunnerTests(unittest.TestCase):
             runner.command(self.app, "lofin", ["--xlsx", "/inputs/2025.xlsx", "--db"])[-5:],
             ["-m", "pipeline.collect.lofin", "--xlsx", "/inputs/2025.xlsx", "--db"],
         )
+        self.assertEqual(
+            runner.command(self.app, "youth-policy", [])[-2:],
+            ["-m", "pipeline.collect.youth_policy"],
+        )
+        self.assertEqual(
+            runner.command(self.app, "bigkinds", ["--start", "2025-10-01"])[-4:],
+            ["-m", "pipeline.collect.bigkinds", "--start", "2025-10-01"],
+        )
+        self.assertEqual(
+            runner.command(self.app, "refine", [])[-3:], ["-m", "pipeline.refine", "--db"]
+        )
         self.assertIn("--rm", command)
         self.assertIn("never", command)
+
+    def test_refine_gets_no_output_path_but_collectors_do(self):
+        # pipeline.refine 은 --db 하나만 받는다. --output 을 붙이면 사용법 오류(종료 코드 2)
+        self.assertEqual(runner.run_arguments("refine", [], "T"), [])
+        self.assertEqual(
+            runner.run_arguments("youth-policy", ["--regions", "12130"], "T"),
+            ["--regions", "12130", "--output", "/app/outputs/T/c1.json"],
+        )

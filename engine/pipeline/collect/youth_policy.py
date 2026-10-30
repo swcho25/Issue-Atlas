@@ -222,7 +222,10 @@ def to_record(row: dict, region: str, run_id: str, at: str) -> tuple[dict, dict]
     return payload, record
 
 
-def collect(query: PolicyQuery, api_key: str, store, *, fetch=fetch_page, sleep=time.sleep):
+def collect(
+    query: PolicyQuery, api_key: str, store, *, fetch=fetch_page, sleep=time.sleep, output=None
+):
+    """output(Path)을 주면 저장할 C1 레코드를 JSONL 로도 남긴다(서버 실행기가 붙인다)."""
     run_id = "youthcenter_" + uuid4().hex
     at = datetime.now(UTC).isoformat()
     store.start(query, run_id, at)
@@ -244,6 +247,8 @@ def collect(query: PolicyQuery, api_key: str, store, *, fetch=fetch_page, sleep=
                 raise CollectionError("C1_INTAKE_VALIDATION_FAILED")
             rows.append(payload)
             records.append(record)
+        if output:
+            write_jsonl(output, records)
         try:
             saved = store.save(rows, records)
         except Exception:
@@ -258,9 +263,17 @@ def collect(query: PolicyQuery, api_key: str, store, *, fetch=fetch_page, sleep=
     return {"run_id": run_id, **stats}
 
 
+def write_jsonl(path: Path, records: list[dict]) -> None:
+    with path.open("ab") as out:  # Windows 에서도 \n 만 쓰게 바이트로
+        for record in records:
+            out.write(json.dumps(record, ensure_ascii=False).encode("utf-8") + b"\n")
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--regions", nargs="+", choices=REGIONS, default=list(REGIONS))
+    # 서버 실행기(deploy/collector)가 실행마다 붙인다. 저장할 C1 레코드의 JSONL 사본
+    p.add_argument("--output", type=Path)
     args = p.parse_args(argv)
     try:
         config = dotenv_values(ROOT / ".env", interpolate=False)
@@ -277,7 +290,7 @@ def main(argv=None) -> int:
         ) as conn:
             query = PolicyQuery(tuple(args.regions))
             key = config.get("YOUTHCENTER_API_KEY") or ""
-            result = collect(query, key, PostgresStore(conn))
+            result = collect(query, key, PostgresStore(conn), output=args.output)
         print(json.dumps(result, ensure_ascii=False))
         return 0
     except CollectionError as exc:

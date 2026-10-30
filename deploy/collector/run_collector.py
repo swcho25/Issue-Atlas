@@ -15,7 +15,13 @@ MODES = {
     "airkorea-final": ("pipeline.collect.airkorea_cli", "final"),
     "press": ("pipeline.collect.press",),
     "lofin": ("pipeline.collect.lofin",),
+    "youth-policy": ("pipeline.collect.youth_policy",),
+    "bigkinds": ("pipeline.collect.bigkinds",),
+    # P2 정제: 장부(raw_record.c1_record) → normalized_record. 키 없음, DB 칸만 쓴다
+    "refine": ("pipeline.refine", "--db"),
 }
+# 결과 파일이 없는 모드. --output 을 붙이면 사용법 오류로 끝난다
+NO_OUTPUT = {"refine"}
 
 
 def published_image(config):
@@ -27,6 +33,13 @@ def published_image(config):
     ):
         raise ValueError("Collector release must use the configured repository digest")
     return record
+
+
+def run_arguments(mode, arguments, stamp):
+    """사람이 준 인자 + 실행마다 정하는 결과 파일. 결과 파일이 없는 모드에는 붙이지 않는다."""
+    if mode in NO_OUTPUT:
+        return list(arguments)
+    return [*arguments, "--output", f"/app/outputs/{stamp}/c1.json"]
 
 
 def command(app, mode, arguments):
@@ -98,7 +111,7 @@ def main(argv=None):
                 command(
                     config["app_dir"],
                     args.mode,
-                    [*args.arguments, "--output", f"/app/outputs/{stamp}/c1.json"],
+                    run_arguments(args.mode, args.arguments, stamp),
                 ),
                 stdout=stream,
                 stderr=subprocess.STDOUT,
