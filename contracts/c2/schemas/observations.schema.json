@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/c2/observations.schema.json",
+  "title": "GET /v1/observations 응답 — 지도 점 (GeoJSON FeatureCollection)",
+  "type": "object",
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "type": { "const": "FeatureCollection" },
+    "place_id": { "$ref": "common.schema.json#/$defs/id" },
+    "card_id": { "type": "string" },
+    "period_start": { "$ref": "common.schema.json#/$defs/date" },
+    "period_end": { "$ref": "common.schema.json#/$defs/date" },
+    "legend_text": {
+      "description": "카드 E2 범례 고정 문구. 화면에서 바꾸지 않는다",
+      "type": "string"
+    },
+    "summary": {
+      "description": "지도 상단 요약 (FR-D4 변화형). 좌표 없는 카드(C1)는 null",
+      "type": ["object", "null"],
+      "properties": {
+        "station_count": { "type": "integer", "minimum": 0 },
+        "max_month": { "$ref": "#/$defs/month_point" },
+        "min_month": { "$ref": "#/$defs/month_point" },
+        "bad_days_total": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "required": ["station_count", "max_month", "min_month", "bad_days_total"],
+      "additionalProperties": false
+    },
+    "features": {
+      "description": "좌표가 없는 통계 카드(C1)는 빈 배열 (FR-D7)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "Feature" },
+          "geometry": { "$ref": "common.schema.json#/$defs/point" },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "evidence_id": { "$ref": "common.schema.json#/$defs/id" },
+              "place_id": { "$ref": "common.schema.json#/$defs/id" },
+              "name": { "type": "string" },
+              "station_type": { "type": ["string", "null"] },
+              "observed_at": { "$ref": "common.schema.json#/$defs/nullable_date_time" },
+              "period_type": { "enum": ["H", "D", "M", "Q", "Y", "instant", "none"] },
+              "period_start": { "type": ["string", "null"], "format": "date" },
+              "value": { "type": ["number", "null"] },
+              "unit": { "type": ["string", "null"] },
+              "missing_reason": { "$ref": "common.schema.json#/$defs/missing_reason" },
+              "location_precision": { "$ref": "common.schema.json#/$defs/location_precision" },
+              "geometry_role": { "enum": ["event", "affected_area", "office", "station"] }
+            },
+            "required": [
+              "evidence_id",
+              "place_id",
+              "name",
+              "station_type",
+              "observed_at",
+              "period_type",
+              "period_start",
+              "value",
+              "unit",
+              "missing_reason",
+              "location_precision",
+              "geometry_role"
+            ],
+            "additionalProperties": false,
+            "if": { "properties": { "value": { "type": "null" } } },
+            "then": { "properties": { "missing_reason": { "type": "string" } } },
+            "else": { "properties": { "missing_reason": { "type": "null" } } }
+          }
+        },
+        "required": ["type", "geometry", "properties"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "type",
+    "place_id",
+    "card_id",
+    "period_start",
+    "period_end",
+    "legend_text",
+    "summary",
+    "features"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "month_point": {
+      "type": ["object", "null"],
+      "properties": {
+        "month": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" },
+        "place_id": { "$ref": "common.schema.json#/$defs/id" },
+        "name": { "type": "string" },
+        "value": { "type": "number" }
+      },
+      "required": ["month", "place_id", "name", "value"],
+      "additionalProperties": false
+    }
+  }
+}

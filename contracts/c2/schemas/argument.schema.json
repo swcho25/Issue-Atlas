@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/c2/argument.schema.json",
+  "title": "GET /v1/arguments/{run_id} 응답 — 근거 수요표 + 논증 카드 6칸",
+  "type": "object",
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "run_id": { "$ref": "common.schema.json#/$defs/id" },
+    "question": {
+      "type": "object",
+      "properties": {
+        "question_id": { "$ref": "common.schema.json#/$defs/id" },
+        "place_id": { "$ref": "common.schema.json#/$defs/id" },
+        "place_name": { "type": "string" },
+        "card_id": { "type": "string" },
+        "card_name": { "type": "string" },
+        "period_start": { "$ref": "common.schema.json#/$defs/date" },
+        "period_end": { "$ref": "common.schema.json#/$defs/date" }
+      },
+      "required": ["question_id", "place_id", "place_name", "card_id", "card_name", "period_start", "period_end"],
+      "additionalProperties": false
+    },
+    "card_version": { "type": "integer", "minimum": 0 },
+    "formula_version": { "type": "string" },
+    "taxonomy_version": { "type": "string" },
+    "run_status": { "$ref": "common.schema.json#/$defs/run_status" },
+    "created_at": { "$ref": "common.schema.json#/$defs/date_time" },
+    "evidence_table": {
+      "description": "근거 수요표. 판단보다 먼저 보여준다 (FR-B2)",
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "$ref": "common.schema.json#/$defs/evidence_kind" },
+          "required": { "type": "boolean" },
+          "status": { "$ref": "common.schema.json#/$defs/evidence_status" },
+          "count": { "type": "integer", "minimum": 0 },
+          "review_pending_count": { "type": "integer", "minimum": 0 },
+          "reason": { "$ref": "common.schema.json#/$defs/text_or_null" }
+        },
+        "required": ["kind", "required", "status", "count", "review_pending_count", "reason"],
+        "additionalProperties": false
+      }
+    },
+    "comparability": {
+      "description": "비교 조건 4가지. 하나라도 false 면 increasing/decreasing 을 낼 수 없다 (FR-C4)",
+      "type": "object",
+      "properties": {
+        "same_indicator": { "$ref": "#/$defs/condition" },
+        "same_period_length": { "$ref": "#/$defs/condition" },
+        "same_boundary": { "$ref": "#/$defs/condition" },
+        "same_method": { "$ref": "#/$defs/condition" }
+      },
+      "required": ["same_indicator", "same_period_length", "same_boundary", "same_method"],
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "properties": {
+        "value": { "$ref": "common.schema.json#/$defs/claim" },
+        "level": { "$ref": "common.schema.json#/$defs/claim_level" },
+        "text": { "$ref": "common.schema.json#/$defs/text_or_null" },
+        "provenance": { "$ref": "common.schema.json#/$defs/rule_provenance" }
+      },
+      "required": ["value", "level", "text", "provenance"],
+      "additionalProperties": false
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "statistics": { "$ref": "#/$defs/refs" },
+        "documents": { "$ref": "#/$defs/refs" },
+        "existing_responses": { "$ref": "#/$defs/refs" },
+        "denominators": { "$ref": "#/$defs/refs" },
+        "provenance": { "$ref": "common.schema.json#/$defs/provenance" }
+      },
+      "required": ["statistics", "documents", "existing_responses", "denominators", "provenance"],
+      "additionalProperties": false
+    },
+    "warrant": {
+      "type": "object",
+      "properties": {
+        "text": { "$ref": "common.schema.json#/$defs/text_or_null" },
+        "provenance": { "$ref": "common.schema.json#/$defs/provenance" }
+      },
+      "required": ["text", "provenance"],
+      "additionalProperties": false
+    },
+    "qualifier": {
+      "description": "근거 충실도. 수치 신뢰도(예: 0.82)는 출력하지 않는다 (FR-C5). 등급은 README 「근거 충실도 규칙표」로만 정한다",
+      "type": "object",
+      "properties": {
+        "grade": { "$ref": "common.schema.json#/$defs/qualifier_grade" },
+        "components": {
+          "type": "object",
+          "properties": {
+            "a_grade_sources": { "type": "integer", "minimum": 0 },
+            "ab_grade_sources": { "type": "integer", "minimum": 0 },
+            "independent_evidence": { "type": "integer", "minimum": 0 },
+            "latest_observed_at": { "$ref": "common.schema.json#/$defs/nullable_date_time" },
+            "latest_within_one_year": { "type": "boolean" }
+          },
+          "required": [
+            "a_grade_sources",
+            "ab_grade_sources",
+            "independent_evidence",
+            "latest_observed_at",
+            "latest_within_one_year"
+          ],
+          "additionalProperties": false
+        },
+        "formula_version": { "const": "qualifier-0.1" },
+        "provenance": { "$ref": "common.schema.json#/$defs/rule_provenance" }
+      },
+      "required": ["grade", "components", "formula_version", "provenance"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "grade": { "const": "high" } } },
+          "then": { "properties": { "components": { "$ref": "#/$defs/qualifier_high" } } }
+        },
+        {
+          "if": { "properties": { "grade": { "const": "medium" } } },
+          "then": {
+            "properties": {
+              "components": {
+                "$ref": "#/$defs/qualifier_medium",
+                "not": { "$ref": "#/$defs/qualifier_high" }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "grade": { "const": "low" } } },
+          "then": { "properties": { "components": { "not": { "$ref": "#/$defs/qualifier_medium" } } } }
+        }
+      ]
+    },
+    "rebuttals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "status": { "$ref": "common.schema.json#/$defs/rebuttal_status" },
+          "provenance": { "$ref": "common.schema.json#/$defs/provenance" }
+        },
+        "required": ["text", "status", "provenance"],
+        "additionalProperties": false
+      }
+    },
+    "ceiling": {
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "type": "string" } },
+        "provenance": { "$ref": "common.schema.json#/$defs/rule_provenance" }
+      },
+      "required": ["items", "provenance"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "question",
+    "card_version",
+    "formula_version",
+    "taxonomy_version",
+    "run_status",
+    "created_at",
+    "evidence_table",
+    "comparability",
+    "claim",
+    "data",
+    "warrant",
+    "qualifier",
+    "rebuttals",
+    "ceiling"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "run_status": { "enum": ["blocked", "unsupported"] } } },
+      "then": { "properties": { "claim": { "properties": { "value": { "const": "insufficient" } } } } }
+    },
+    {
+      "if": {
+        "properties": { "claim": { "properties": { "value": { "enum": ["increasing", "decreasing"] } } } }
+      },
+      "then": {
+        "properties": {
+          "comparability": {
+            "properties": {
+              "same_indicator": { "$ref": "#/$defs/passed" },
+              "same_period_length": { "$ref": "#/$defs/passed" },
+              "same_boundary": { "$ref": "#/$defs/passed" },
+              "same_method": { "$ref": "#/$defs/passed" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "condition": {
+      "type": "object",
+      "properties": {
+        "passed": { "type": ["boolean", "null"] },
+        "note": { "$ref": "common.schema.json#/$defs/text_or_null" }
+      },
+      "required": ["passed", "note"],
+      "additionalProperties": false
+    },
+    "passed": { "properties": { "passed": { "const": true } } },
+    "refs": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/evidence_ref" } },
+    "qualifier_high": {
+      "description": "qualifier-0.1 상: A등급 출처 2 이상 + 독립 근거 3 이상 + 최신 근거 1년 이내 (PRD 7.3)",
+      "properties": {
+        "a_grade_sources": { "minimum": 2 },
+        "independent_evidence": { "minimum": 3 },
+        "latest_within_one_year": { "const": true }
+      }
+    },
+    "qualifier_medium": {
+      "description": "qualifier-0.1 중 이상: A 또는 B등급 출처 1 이상 + 독립 근거 2 이상 (PRD 7.3)",
+      "properties": {
+        "ab_grade_sources": { "minimum": 1 },
+        "independent_evidence": { "minimum": 2 }
+      }
+    }
+  }
+}

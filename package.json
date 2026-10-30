@@ -19,9 +19,13 @@
     "backend:dev": "node scripts/gradle.mjs bootRun",
     "backend:test": "node scripts/gradle.mjs test",
     "backend:build": "node scripts/gradle.mjs build",
+    "engine:lint": "uv --directory engine run --locked ruff check . && uv --directory engine run --locked ruff format --check .",
+    "engine:test": "uv --directory engine run --locked pytest",
     "check": "node scripts/check.mjs",
     "check:all": "node scripts/check.mjs --all",
     "lint": "pnpm frontend:lint",
-    "build": "pnpm frontend:build && pnpm backend:build"
+    "build": "pnpm frontend:build && pnpm backend:build",
+    "backend:format:check": "node scripts/gradle.mjs spotlessCheck",
+    "backend:format": "node scripts/gradle.mjs spotlessApply"
   }
 }

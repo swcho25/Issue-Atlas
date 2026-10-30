@@ -1,0 +1,69 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "issueatlas-frontend-dev",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-23",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "issueatlas-frontend-dev"
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "dev.issue-atlas.kr",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "API_BASE_URL": "https://dev-backend.issue-atlas.kr",
+    "DEPLOYMENT_REVISION": "local"
+  },
+  "env": {
+    "development": {
+      "name": "issueatlas-frontend-dev",
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "issueatlas-frontend-dev"
+        }
+      ],
+      "routes": [
+        {
+          "pattern": "dev.issue-atlas.kr",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "API_BASE_URL": "https://dev-backend.issue-atlas.kr",
+        "DEPLOYMENT_REVISION": "local"
+      }
+    },
+    "production": {
+      "name": "issueatlas-frontend",
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "issueatlas-frontend"
+        }
+      ],
+      "routes": [
+        {
+          "pattern": "issue-atlas.kr",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "API_BASE_URL": "https://backend.issue-atlas.kr",
+        "DEPLOYMENT_REVISION": "local"
+      }
+    }
+  }
+}

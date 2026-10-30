@@ -10,7 +10,7 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 | --- | --- | --- |
 | `frontend/` | Next.js 16 · TypeScript · Tailwind 4 · FSD | `frontend/AGENTS.md` |
 | `backend/` | Spring Boot 4.1 · Java 21 · Gradle · Flyway · PostGIS | `backend/AGENTS.md` |
-| `engine/` | Python 서비스 자리 (빈 틀) | `engine/AGENTS.md` |
+| `engine/` | Python 3.13 · uv · ruff · pytest | `engine/AGENTS.md` |
 | `contracts/` | 레인 간 계약 C1 · C2 · C3 (바꾸면 받는 쪽 리뷰 필수) | `contracts/README.md` |
 | `.agents/skills/` | 스킬 원본 start · check · test · finish · review · handoff (`.claude/skills/` 는 연결 파일) | 각 `SKILL.md` |
 | `docs/plans/` | 작업별 실행 계획 (`active/` 진행 중, `done/` 끝남) | `docs/plans/TEMPLATE.md` |
@@ -22,8 +22,9 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 | `pnpm install` | 의존성 + git 훅 연결 |
 | `pnpm infra:up` / `infra:down` | 로컬 PostGIS |
 | `pnpm frontend:dev` · `frontend:lint` · `frontend:typecheck` · `frontend:test` · `frontend:e2e` · `frontend:build` | 프론트 (`e2e` 는 빌드 + Playwright) |
-| `pnpm backend:dev` · `backend:test` · `backend:build` | 백엔드 (`test` 는 Docker 필요) |
-| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck·test / backend: test / scripts·.githooks: 하네스 자체 검사). push 전 훅도 이것을 돌린다 |
+| `pnpm backend:dev` · `backend:format:check` · `backend:format` · `backend:test` · `backend:build` | 백엔드 (`test` 는 Docker 필요) |
+| `pnpm engine:lint` · `engine:test` | engine (uv 필요) |
+| `pnpm check` | 바뀐 영역만 검사 (frontend: lint·typecheck·test / backend: 포맷·test / engine: lint·test / scripts·.githooks: 하네스 자체 검사). push 전 훅도 이것을 돌린다 |
 | `pnpm check:all` | 전체 lint · typecheck · test · build · e2e (MR 전) |
 
 ## 작업 흐름
@@ -43,11 +44,13 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 - API·DB 를 바꿨으면 `contracts/`·Flyway 마이그레이션도 같은 MR 에서 바꿨다
 
 ## 브랜치 · 커밋 · MR · Jira
-- 기본 브랜치 `develop`, 배포 기준 `main`(MR 로만 병합). force push 금지
-- 브랜치 `<type>/<kebab-case>` — Jira 키는 넣지 않는다
+- 기본 브랜치 `develop`. 137번 환경 분리: MR 병합 후 CI 성공 시 `develop`은 개발, `main`은 운영 환경에 배포한다. EC2 한 대에서 서비스·DB·배포 기록을 분리한다. force push 금지
+- 브랜치 `<type>/<kebab-case>` — Jira 키는 넣지 않는다. Jira 의 「브랜치 만들기」 버튼은 키가 든 이름을 만들므로 쓰지 않는다
 - type: `feat` `fix` `refactor` `test` `docs` `infra` `chore` `perf` `security`
-- 커밋 `<type>: <명사형 요약>` (예: `feat: 근거 수요표 API 추가`) — `.githooks/commit-msg` 가 검사
-- MR 제목 `<type>: <명사형 요약> (S15P31C108-XX)`. 목적 하나, 300줄 이하 권장
+- 커밋 `<type>: <명사형 요약>` (예: `feat: 근거 수요표 API 추가`) — `.githooks/commit-msg` 가 검사. 깃모지·Jira 키는 제목에 넣지 않는다(키는 본문·MR 제목)
+- 커밋 하나 = 되돌릴 수 있는 논리 변경 하나. `WIP`·중간 저장 커밋은 MR 전에 정리한다
+- MR 제목 `<type>: <명사형 요약> (S15P31C108-XX)`. 목적 하나, 300줄 이하 권장. `develop → main` 은 `chore: develop → main 반영 (YYYY-MM-DD)`
+- 병합은 Merge commit(스쿼시 X), 머지 커밋 메시지는 `.gitlab/merge-commit-template.md`. 기능 브랜치는 머지 때 삭제
 - Jira 프로젝트 `S15P31C108`. 이슈 생성·전이는 `start`·`finish` 스킬이 Atlassian MCP 로 한다. 이슈 요약은 `[에픽 접두어] 명사형 요약`(예: `[S2] 근거 상세 패널 추가`), 필드 ID·전이 ID 는 매번 조회한다
 
 ## 하지 않는 것

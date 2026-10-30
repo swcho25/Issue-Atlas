@@ -1,0 +1,20 @@
+{
+  "schema_version": "c2-0.1",
+  "evidence_id": "ev_kosis_net_yeosu",
+  "kind": "statistics",
+  "title": "시군구/성/연령(5세)별 이동자수",
+  "source_name": "국가데이터처 KOSIS",
+  "source_grade": "A",
+  "license_type": "KOSIS-활용약관",
+  "storage_scope": "full",
+  "observed_at": null,
+  "period_start": "2023-01-01",
+  "period_end": "2026-01-01",
+  "published_at": "2026-10-14T00:00:00+09:00",
+  "collected_at": "2026-10-21T11:00:00+09:00",
+  "location_precision": "none",
+  "locator": { "tbl_id": "DT_1B26001", "C1": "46130", "C2": "0", "C3": "120", "itm_id": "T25", "prd_de": ["2023", "2024", "2025"] },
+  "display": "여수시 · 계 · 20–24세 · 순이동(명): 2023 −747 · 2024 −719 · 2025 −930",
+  "url": "https://kosis.kr/statHtml/statHtml.do?orgId=101&tblId=DT_1B26001",
+  "footnote": "국가데이터처 KOSIS · 시군구/성/연령(5세)별 이동자수(DT_1B26001) · 2023–2025 · 출처 등급 A · https://kosis.kr/statHtml/statHtml.do?orgId=101&tblId=DT_1B26001 · 조회일 2026-10-21"
+}

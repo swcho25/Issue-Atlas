@@ -1,0 +1,4 @@
+# CI가 검증한 digest를 사용한다. 기본 Compose/Tunnel 설정과 함께 적용.
+services:
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE digest required}

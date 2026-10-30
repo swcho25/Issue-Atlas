@@ -1,0 +1,39 @@
+[project]
+name = "issue-atlas-engine"
+version = "0.1.0"
+description = "Issue Atlas 수집·정제·지역·시간 매핑(pipeline)과 카드 분류·LLM 판정(ai)"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.159.1",
+    "jsonschema>=4.26.0",
+    "openpyxl>=3.1,<4",
+    "psycopg[binary]>=3.2,<4",
+    "python-dotenv>=1,<2",
+    "rfc3339-validator>=0.1.4",
+    "trafilatura>=2.3.1",
+    "truststore>=0.10.5",
+    "uvicorn>=0.54.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# 실데이터 URL 은 한 줄로 둔다
+"tests/**" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]

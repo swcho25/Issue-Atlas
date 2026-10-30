@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/c2/common.schema.json",
+  "title": "C2 공통 정의 v0.1",
+  "$defs": {
+    "schema_version": { "const": "c2-0.1" },
+    "id": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "format": "date" },
+    "date_time": { "type": "string", "format": "date-time" },
+    "nullable_date_time": { "type": ["string", "null"], "format": "date-time" },
+    "text_or_null": { "type": ["string", "null"] },
+    "place_level": { "enum": ["sido", "sigungu", "emd", "station"] },
+    "code_system": { "enum": ["kosis", "airkorea_station", "airkorea_station_name", "bjd", "sgis"] },
+    "evidence_status": {
+      "enum": ["available", "not_published", "not_collected", "license_blocked", "review_pending"]
+    },
+    "run_status": { "enum": ["ready", "partial", "blocked", "unsupported"] },
+    "evidence_kind": {
+      "enum": ["statistics", "documents", "existing_responses", "denominators"]
+    },
+    "claim": {
+      "enum": ["observed", "increasing", "decreasing", "unclear", "insufficient", "not_comparable"]
+    },
+    "claim_level": {
+      "enum": ["observed_fact", "calculated", "associated", "insufficient_evidence"]
+    },
+    "provenance": { "enum": ["rule", "card", "llm_phrasing", "llm_judgment", "human"] },
+    "rule_provenance": { "enum": ["rule", "card"] },
+    "qualifier_grade": { "enum": ["high", "medium", "low"] },
+    "rebuttal_status": { "enum": ["supported", "not_found", "needs_review"] },
+    "source_grade": { "enum": ["A", "B", "C"] },
+    "storage_scope": { "enum": ["full", "metadata", "link_only"] },
+    "location_precision": { "enum": ["exact", "address", "admin_centroid", "none"] },
+    "missing_reason": { "enum": ["not_published", "not_collected", "license_blocked", null] },
+    "period": {
+      "type": "object",
+      "properties": {
+        "period_start": { "$ref": "#/$defs/date" },
+        "period_end": { "$ref": "#/$defs/date" }
+      },
+      "required": ["period_start", "period_end"],
+      "additionalProperties": false
+    },
+    "point": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "Point" },
+        "coordinates": {
+          "type": "array",
+          "prefixItems": [
+            { "type": "number", "minimum": 124, "maximum": 132 },
+            { "type": "number", "minimum": 33, "maximum": 39 }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": ["type", "coordinates"],
+      "additionalProperties": false
+    },
+    "evidence_ref": {
+      "type": "object",
+      "properties": {
+        "evidence_id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string" },
+        "source_name": { "type": "string" },
+        "source_grade": { "$ref": "#/$defs/source_grade" },
+        "period_start": { "type": ["string", "null"], "format": "date" },
+        "period_end": { "type": ["string", "null"], "format": "date" },
+        "storage_scope": { "$ref": "#/$defs/storage_scope" }
+      },
+      "required": [
+        "evidence_id",
+        "title",
+        "source_name",
+        "source_grade",
+        "period_start",
+        "period_end",
+        "storage_scope"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

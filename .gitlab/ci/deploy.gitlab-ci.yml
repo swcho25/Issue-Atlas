@@ -1,0 +1,70 @@
+backend-image:
+  rules: !reference [.backend-release, rules]
+  stage: image
+  image: docker:29.9.2-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb
+  services:
+    - name: docker:29.9.2-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
+      alias: docker
+  variables:
+    BACKEND_IMAGE_REPOSITORY: swcho25/issueatlas-backend
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_PUSH_TOKEN"
+    - echo "$DOCKERHUB_PUSH_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
+    - docker build --label "org.opencontainers.image.component=backend" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$BACKEND_IMAGE_REPOSITORY:$CI_COMMIT_SHA" backend
+    - docker push "$BACKEND_IMAGE_REPOSITORY:$CI_COMMIT_SHA"
+    - docker inspect --format '{{index .RepoDigests 0}}' "$BACKEND_IMAGE_REPOSITORY:$CI_COMMIT_SHA" > backend-image.txt
+  artifacts:
+    paths: [backend-image.txt]
+    expire_in: 7 days
+
+backend-deploy:
+  rules: !reference [.backend-release, rules]
+  variables:
+    BACKEND_IMAGE_REPOSITORY: swcho25/issueatlas-backend
+  stage: deploy
+  image: python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530
+  needs:
+    - job: backend-image
+      artifacts: true
+  resource_group: issueatlas-ec2-$CI_COMMIT_BRANCH
+  environment:
+    name: ${WORKER_ENV}-ec2
+    url: $FRONTEND_URL
+  interruptible: false
+  timeout: 25 minutes
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends openssh-client ca-certificates
+  script:
+    - python deploy/ci/send_deploy.py
+
+collector-image:
+  extends: backend-image
+  rules: !reference [.collector-release, rules]
+  variables:
+    COLLECTOR_IMAGE_REPOSITORY: swcho25/issueatlas-backend
+  script:
+    - test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_PUSH_TOKEN"
+    - echo "$DOCKERHUB_PUSH_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
+    - docker build -f engine/Dockerfile --label "org.opencontainers.image.component=collector" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" .
+    - docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m,mode=1777 "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023 --output /tmp/c1.json
+    - docker push "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA"
+    - docker inspect --format '{{index .RepoDigests 0}}' "$COLLECTOR_IMAGE_REPOSITORY:collector-$CI_COMMIT_SHA" > collector-image.txt
+  artifacts:
+    paths: [collector-image.txt]
+    expire_in: 7 days
+
+collector-deploy:
+  extends: backend-deploy
+  rules: !reference [.collector-release, rules]
+  variables:
+    DEPLOY_COMPONENT: collector
+    COLLECTOR_IMAGE_REPOSITORY: swcho25/issueatlas-backend
+  needs:
+    - job: collector-image
+      artifacts: true
+    # Backend startup applies Flyway before this collector version becomes selectable.
+    - job: backend-deploy
+      artifacts: false
+      optional: true

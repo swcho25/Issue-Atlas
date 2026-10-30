@@ -1,0 +1,75 @@
+# 같은 경로 목록을 검사·빌드·배포에서 공유한다. MR은 대상 브랜치, push는 이전 커밋과 비교한다.
+.frontend-scope:
+  rules:
+    - changes: &frontend-paths
+        - frontend/src/**/*
+        - frontend/app/**/*
+        - frontend/public/**/*
+        - frontend/e2e/**/*
+        - frontend/scripts/**/*
+        - deploy/frontend/*.mjs
+        - frontend/*.{ts,js,mjs,cjs,json,css,yaml,yml,toml}
+        - frontend/.prettierignore
+        - frontend/.npmrc
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - scripts/**/*
+        - contracts/**/*
+        - .gitlab-ci.yml
+        - .gitlab/ci/**/*
+.frontend-release:
+  rules:
+    - if: &release-condition '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+      changes: *frontend-paths
+    - when: never
+
+.backend-scope:
+  rules:
+    - changes: &backend-paths
+        - backend/src/**/*
+        - backend/gradle/**/*
+        - backend/*.{gradle,properties,kts}
+        - backend/gradlew
+        - backend/gradlew.bat
+        - backend/Dockerfile
+        - backend/.dockerignore
+        - contracts/**/*
+        - docker-compose.yml
+        - deploy/dev/*.{yaml,yml,py}
+        - deploy/ci/*.{py,json}
+        - .gitlab-ci.yml
+        - .gitlab/ci/**/*
+.backend-release:
+  rules:
+    - if: *release-condition
+      changes: *backend-paths
+    - when: never
+
+.collector-scope:
+  rules:
+    - changes: &collector-paths
+        - engine/pipeline/**/*
+        - engine/pyproject.toml
+        - engine/uv.lock
+        - engine/Dockerfile
+        - engine/Dockerfile.dockerignore
+        - contracts/**/*
+        - deploy/collector/*.{py,yaml,yml}
+        - deploy/ci/*.{py,json}
+        - .gitlab-ci.yml
+        - .gitlab/ci/**/*
+.collector-release:
+  rules:
+    - if: *release-condition
+      changes: *collector-paths
+    - when: never
+
+.engine-scope:
+  rules:
+    - !reference [.collector-scope, rules]
+    - changes:
+        - engine/api/**/*
+        - engine/ai/**/*
+        - engine/tests/**/*
+        - engine/tests_postgres/**/*

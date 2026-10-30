@@ -1,0 +1,26 @@
+[Unit]
+Description=IssueAtlas CI dedicated Docker daemon
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStartPre=/bin/sh -ec '/usr/sbin/ip link show docker-ci >/dev/null 2>&1 || /usr/sbin/ip link add docker-ci type bridge'
+ExecStartPre=/usr/sbin/ip address replace 10.240.0.1/24 dev docker-ci
+ExecStartPre=/usr/sbin/ip link set docker-ci up
+ExecStart=/usr/bin/dockerd --config-file=/etc/docker-ci/daemon.json
+ExecStartPost=/usr/local/sbin/issueatlas-service-egress
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=120
+Delegate=yes
+KillMode=process
+LimitNOFILE=infinity
+LimitNPROC=infinity
+TasksMax=infinity
+Slice=issueatlas-ci.slice
+
+[Install]
+WantedBy=multi-user.target

@@ -4,6 +4,13 @@ PRD v4.1 의 계약을 여기에 둔다. 계약을 바꾸는 MR 은 양쪽 담�
 
 | 계약 | 내용 | 주는 쪽 → 받는 쪽 | 기한 |
 | --- | --- | --- | --- |
-| C1 | 공통 메타 필드(PRD 7.1) — JSON Schema | 수집 → 분석 | 10/23 동결 |
-| C2 | API 응답(논증 카드 6칸 · 근거 · 관측점) — OpenAPI | backend → frontend | 10/30 v0.1 · 11/13 v1 |
+| [C1](c1/) | 공통 메타 필드(PRD 7.1) — JSON Schema · v0.2 기사 칸 초안(수신 측 리뷰 대기) | 수집(P1) → 정제·지역·시간·분류(P2~P4) | 10/23 v0.1 동결 · v0.2 리뷰 중 |
+| [P2](p2/) | 정제 레코드(C1 + P2 칸) — JSON Schema, 저장 테이블 `normalized_record` · `normalized_ready` 뷰, 에어코리아 월별 표 `air_monthly`, 문서(기사) 정제 — v0.5 초안 | 정제(P2) → 지역·시간·분류(P3·P4) | — |
+| [기사](article/) | 기사 본문 수집 결과(C1 `fetch.status` 의 뜻) · 본문 이용 규칙. 저장은 C1 기사 칸 → `raw_record` → `normalized_record` — v0.2 초안 | 본문 수집(P2) → 요약·분류(P3·P4) | — |
+| [보도자료](press/) | 여수시 · 광주광역시 보도자료 목록(제목 · 등록일 · 링크, 본문 없음) — 저장 테이블 `press_release` — v0.1 초안 | 수집(P1) → 정제·지역·분류(P2~P4) | — |
+| [C2](c2/) | API 응답(논증 카드 6칸 · 근거 · 관측점) — OpenAPI · v0.1 초안 | backend(P7) → frontend(S1·S2·S4) | 10/30 v0.1 · 11/13 v1 |
 | C3 | card_revision(수정 제안·승인) | 검수 화면 ↔ 되쓰기 | W3 |
+
+공통 HTTP 오류 응답: [v0.2 초안](http-errors/) — C2 통합 전 frontend 리뷰 필요.
+
+수집·지역 DB 기반: [v0.1 초안](database/) — 기반 6개 테이블, P1·P3 리뷰 필요.

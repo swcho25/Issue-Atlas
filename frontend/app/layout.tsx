@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { QueryProvider } from "@/app/query-client";
+import { fontVariables } from "@/app/styles/fonts";
 import "@/app/styles/globals.css";
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 // 루트 app/ 은 Next 라우팅만 맡는다. 화면 구성은 src/pages 에서 가져온다(FSD).
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko">
+    <html lang="ko" className={fontVariables}>
       <body>
         <QueryProvider>{children}</QueryProvider>
       </body>

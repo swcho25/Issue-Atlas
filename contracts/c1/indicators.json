@@ -1,0 +1,103 @@
+{
+  "version": "0.1",
+  "indicators": [
+    {
+      "indicator_id": "population_net_migration",
+      "name": "순이동 인구",
+      "definition": "전입 인구에서 전출 인구를 뺀 값. 음수는 순유출, 양수는 순유입이다.",
+      "unit": "명",
+      "source_id": "S01",
+      "org_id": "101",
+      "table_id": "DT_1B26001",
+      "item_id": "T25",
+      "dimensions": [
+        "place_code_raw",
+        "observed_period_start",
+        "observed_period_end",
+        "locator.C2",
+        "locator.C3"
+      ],
+      "collector_scope": "SP01: 월별·성별 계(C2=0)·연령 계(C3=000)·19–34세(901)·19–39세(905). C1 예시는 초기 범위(연·20–24세, C3=120)다. 지표 ID에 지역·연령·기간을 결합하지 않는다.",
+      "decision": "2026-10-23, S15P31C108-85 구현 중 사용자 위임으로 프로젝트 지표 ID 지정. P2·P3 수신 측 리뷰 대상."
+    },
+    {
+      "indicator_id": "population_movers",
+      "name": "전출지→전입지 이동자 수",
+      "definition": "전출지(place_code_raw)에서 전입지(locator.C2)로 옮긴 사람 수. 전입지는 시도 코드, 00은 전국 합계다.",
+      "unit": "명",
+      "source_id": "S01",
+      "org_id": "101",
+      "table_id": "DT_1B26003_A02",
+      "item_id": "T70",
+      "dimensions": [
+        "place_code_raw",
+        "observed_period_start",
+        "observed_period_end",
+        "locator.C2",
+        "locator.C3"
+      ],
+      "collector_scope": "SP02: 월별·성별 계(C3=0)·전입 시도 18개(00 전국 포함). 12(전남광주통합특별시)는 2026 이후 코드, 99(국외 및 기타)는 2023–2025 값이 모두 0이라 제외.",
+      "decision": "2026-10-27, S15P31C108-110. P2·P3 수신 측 리뷰 대상."
+    },
+    {
+      "indicator_id": "population_registered",
+      "name": "주민등록인구",
+      "definition": "기준 연도 12월 말 주민등록 인구. 연령은 locator.C2(1세별 코드, 000은 계)다.",
+      "unit": "명",
+      "source_id": "S01",
+      "org_id": "101",
+      "table_id": "DT_1B04006",
+      "item_id": "T2",
+      "dimensions": [
+        "place_code_raw",
+        "observed_period_start",
+        "observed_period_end",
+        "locator.C2"
+      ],
+      "collector_scope": "SP10: 연별·연령 계(000)·19–39세 1세별(1005, 1201–1605). 청년 비율의 분모.",
+      "decision": "2026-10-27, S15P31C108-110. P2·P3 수신 측 리뷰 대상."
+    },
+    {
+      "indicator_id": "air_pm10",
+      "name": "미세먼지 PM10 농도",
+      "unit": "µg/m³",
+      "source_id": "airkorea_final",
+      "column": "미세먼지(PM10)"
+    },
+    {
+      "indicator_id": "air_pm25",
+      "name": "초미세먼지 PM2.5 농도",
+      "unit": "µg/m³",
+      "source_id": "airkorea_final",
+      "column": "초미세먼지(PM25)"
+    },
+    {
+      "indicator_id": "air_o3",
+      "name": "오존 농도",
+      "unit": "ppm",
+      "source_id": "airkorea_final",
+      "column": "오존(O3)"
+    },
+    {
+      "indicator_id": "air_no2",
+      "name": "이산화질소 농도",
+      "unit": "ppm",
+      "source_id": "airkorea_final",
+      "column": "이산화질소(NO2)"
+    },
+    {
+      "indicator_id": "air_co",
+      "name": "일산화탄소 농도",
+      "unit": "ppm",
+      "source_id": "airkorea_final",
+      "column": "일산화탄소(CO)"
+    },
+    {
+      "indicator_id": "air_so2",
+      "name": "아황산가스 농도",
+      "unit": "ppm",
+      "source_id": "airkorea_final",
+      "column": "아황산가스(SO2)"
+    }
+  ]
+}

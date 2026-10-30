@@ -1,0 +1,249 @@
+openapi: 3.1.0
+info:
+  title: Issue Atlas API (C2)
+  version: 0.1.0
+  description: |
+    C2 API 응답 계약 v0.1 초안. backend(P7) → frontend.
+    성공 응답만 정한다. 오류는 contracts/http-errors (application/problem+json).
+    응답 본문의 스키마 원본은 schemas/*.schema.json, 예시는 examples/*.json.
+  license:
+    name: Internal
+    identifier: LicenseRef-Internal
+servers:
+  - url: /
+    description: 같은 출처. 브라우저는 /api/* → Next rewrites → Spring
+security: []
+tags:
+  - name: places
+    description: 지역과 지역별 카드 목록
+  - name: questions
+    description: 질문 저장과 논증 카드
+  - name: evidence
+    description: 근거 상세와 지도 점
+  - name: admin
+    description: 관리자 전용 (/v1/admin/**, 조회자는 403)
+paths:
+  /v1/places:
+    get:
+      tags: [places]
+      operationId: listPlaces
+      summary: 지역 목록 (광주 5구·여수)
+      responses:
+        "200":
+          description: 지역 목록
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/place-list.schema.json
+        "4XX":
+          $ref: "#/components/responses/Problem"
+  /v1/places/{place_id}/cards:
+    get:
+      tags: [places]
+      operationId: listPlaceCards
+      summary: 지역의 이슈 카드 목록과 근거 확보 상태 (점수·순위 없음)
+      parameters:
+        - $ref: "#/components/parameters/PlaceId"
+        - $ref: "#/components/parameters/PeriodStart"
+        - $ref: "#/components/parameters/PeriodEnd"
+      responses:
+        "200":
+          description: 카드 목록
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/place-cards.schema.json
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/questions:
+    post:
+      tags: [questions]
+      operationId: createQuestion
+      summary: 질문(지역 × 카드 × 기간) 저장 후 실행. card_id 가 null 이면 신규 카드 후보
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/question-create-request.schema.json
+      responses:
+        "201":
+          description: 저장된 질문과 실행 ID
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/question-create-response.schema.json
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/arguments/{run_id}:
+    get:
+      tags: [questions]
+      operationId: getArgument
+      summary: 근거 수요표 + 논증 카드 6칸
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 논증 결과
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/argument.schema.json
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/evidence/{evidence_id}:
+    get:
+      tags: [evidence]
+      operationId: getEvidence
+      summary: 근거 상세 (출처 등급·시점·이용 조건·원문·각주)
+      parameters:
+        - name: evidence_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 근거 상세
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/evidence.schema.json
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/observations:
+    get:
+      tags: [evidence]
+      operationId: listObservations
+      summary: 지도 점 (GeoJSON). 좌표 없는 통계 카드는 features 빈 배열
+      parameters:
+        - name: place_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: card_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/PeriodStart"
+        - $ref: "#/components/parameters/PeriodEnd"
+      responses:
+        "200":
+          description: 관측점
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/observations.schema.json
+        "400":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/jobs:
+    get:
+      tags: [admin]
+      operationId: listJobs
+      summary: 수집 이력 목록 (관리자 전용, FR-F5). 최근 시작 순, 재실행 없음
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { enum: [running, ok, failed, aborted] }
+        - name: source_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: spec_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: 수집 이력
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/job-list.schema.json
+        "4XX":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/jobs/{job_run_id}:
+    get:
+      tags: [admin]
+      operationId: getJob
+      summary: 수집 실행 1건 (관리자 전용)
+      parameters:
+        - name: job_run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 수집 실행
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/job.schema.json
+        "4XX":
+          $ref: "#/components/responses/Problem"
+components:
+  parameters:
+    PlaceId:
+      name: place_id
+      in: path
+      required: true
+      schema:
+        type: string
+    PeriodStart:
+      name: period_start
+      in: query
+      required: true
+      description: 기간 시작 (포함)
+      schema:
+        type: string
+        format: date
+    PeriodEnd:
+      name: period_end
+      in: query
+      required: true
+      description: 기간 끝 (미포함, [start, end))
+      schema:
+        type: string
+        format: date
+  responses:
+    Problem:
+      description: 공통 오류 (contracts/http-errors)
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            properties:
+              type: { type: string }
+              title: { type: string }
+              status: { type: integer }
+              detail: { type: string }
+              instance: { type: string }
+              code: { enum: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, RESOURCE_NOT_FOUND, INTERNAL_ERROR, HTTP_ERROR] }
+              errors:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    field: { type: string }
+                    message: { type: string }
+                  required: [field, message]
+            required: [type, title, status, detail, instance, code, errors]

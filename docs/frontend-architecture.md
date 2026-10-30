@@ -75,17 +75,19 @@
 
 ## 4. 예시 코드 (구조 확인용)
 
-랜딩 화면의 서버 상태 배지가 위 구조를 모두 거친다.
+랜딩 화면과 로고가 레이어를 나눠 쓰는 모습이다. API 를 부르는 예시(서버 상태 배지: `model/schema.ts` → `api/*Query.ts` → `useQuery`)는 확정 랜딩으로 바꾸며 뺐다(S15P31C108-142). 첫 API 화면이 들어오면 그 슬라이스가 예시를 이어받는다.
 
 ```
+shared/ui/logo/               로고(심벌 · 로크업). 여러 화면이 쓰는 브랜드 요소라 shared
+├── geometry.ts · contour.ts  꼭짓점과 윤곽 · 펼침 · 스프링 계산 (+ contour.test.ts 단위 테스트)
+└── AtlasMark.tsx · Lockup.tsx  호버로 펼쳐지는 클라이언트 컴포넌트 (+ Lockup.test.tsx 컴포넌트 테스트)
 pages/landing/
-├── model/schema.ts           Zod 스키마 (+ schema.test.ts 단위 테스트)
-├── api/serverStatusQuery.ts  queryOptions + browserGet
-└── ui/ServerStatusBadge.tsx  useQuery 로 상태 표시 (+ .test.tsx 컴포넌트 테스트, MSW)
-e2e/landing.spec.ts           페이지 테스트 (page.route 로 API 응답)
+├── lib/globe.ts · statue.ts  지구(three) · 석상 · 바닥 그림자 그리기. globe 는 필요할 때 따로 불러온다
+└── ui/LandingPage.tsx        서버 컴포넌트. 캔버스만 클라이언트(AtlasScene.tsx)
+e2e/landing.spec.ts           페이지 테스트
 ```
 
-한 페이지에서만 쓰여 `entities` 가 아니라 `pages/landing` 안에 둔다(steiger `insignificant-slice`). 두 곳 이상에서 쓰이면 `entities` 로 옮긴다.
+한 페이지에서만 쓰는 코드는 `pages/landing` 안에 둔다(steiger `insignificant-slice`). 두 곳 이상에서 쓰이면 `entities` 로 옮긴다. 로고 명세는 `docs/design/logo.md`.
 
 ## 5. 환경
 

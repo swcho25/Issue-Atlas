@@ -1,0 +1,24 @@
+{
+  "schema_version": "c2-0.1",
+  "job": {
+    "job_run_id": "airkorea_3f1c0d9a2b7e4c6f8a1d2e3f4a5b6c7d",
+    "source_id": "airkorea_station",
+    "source_name": "에어코리아",
+    "spec_id": "airkorea_stations_yeosu_gwangju",
+    "method": "api",
+    "collector_version": "airkorea-0.2.0",
+    "status": "failed",
+    "started_at": "2026-10-26T05:02:00Z",
+    "finished_at": "2026-10-26T05:02:01Z",
+    "received": 0,
+    "inserted": 0,
+    "duplicates": 0,
+    "error_code": "AIRKOREA_KEY_MISSING",
+    "details": {
+      "received": 0,
+      "inserted": 0,
+      "duplicates": 0,
+      "error_code": "AIRKOREA_KEY_MISSING"
+    }
+  }
+}

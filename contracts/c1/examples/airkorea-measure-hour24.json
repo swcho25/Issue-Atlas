@@ -1,0 +1,43 @@
+{
+  "source_id": "TBD_S_airkorea_final",
+  "spec_id": "SP23",
+  "raw_url": null,
+  "file_name": "한국환경공단_에어코리아_최종확정 측정자료_20241231.xlsx",
+  "content_hash": null,
+  "collected_at": "2026-10-21T11:45:00+09:00",
+  "published_at": null,
+  "observed_at": "2024-01-02T00:00:00+09:00",
+  "observed_at_source": "source",
+  "observed_period_type": "H",
+  "observed_period_start": "2024-01-01T23:00:00+09:00",
+  "observed_period_end": "2024-01-02T00:00:00+09:00",
+  "place_code_raw": "336121",
+  "place_code_system": "airkorea_station",
+  "place_id": null,
+  "place_map_status": "unmapped",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      127.725967,
+      34.741301
+    ]
+  },
+  "location_precision": "exact",
+  "geometry_role": "station",
+  "indicator_id": "TBD_pm25",
+  "value": null,
+  "unit": "µg/m³",
+  "missing_reason": "not_published",
+  "locator": {
+    "sheet": "2024년 1월 ",
+    "측정소코드": "336121",
+    "측정일시": 2024010124,
+    "column": "초미세먼지(PM25)"
+  },
+  "dedup_key": "airkorea_final:336121:PM25:2024010124",
+  "license_type": "KOGL-3",
+  "storage_scope": "full",
+  "run_id": "run_20261021_003",
+  "collector_version": "0.1.0",
+  "is_provisional": false
+}

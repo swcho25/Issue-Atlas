@@ -105,6 +105,10 @@ const steps = {
       "다시 실행              pnpm frontend:e2e",
     ],
   },
+  "backend format": {
+    cmd: () => [process.execPath, [join(root, "scripts", "gradle.mjs"), "spotlessCheck"]],
+    fix: ["Java 포맷 자동 수정      pnpm backend:format", "다시 검사               pnpm backend:format:check"],
+  },
   "backend test": {
     needsDocker: true,
     cmd: () => [process.execPath, [join(root, "scripts", "gradle.mjs"), "test"]],
@@ -115,19 +119,32 @@ const steps = {
     cmd: () => [process.execPath, [join(root, "scripts", "gradle.mjs"), "build"]],
     fix: ["실패한 테스트 보고서   backend/build/reports/tests/test/index.html", "다시 실행             pnpm backend:build"],
   },
+  "engine lint": {
+    cmd: () => pnpmCommand(["engine:lint"]),
+    fix: [
+      "uv 가 없으면 설치          https://docs.astral.sh/uv/getting-started/installation/",
+      "포맷(ruff) 자동 수정       uv --directory engine run ruff format .",
+      "린트 자동 수정             uv --directory engine run ruff check --fix .",
+    ],
+  },
+  "engine test": {
+    cmd: () => pnpmCommand(["engine:test"]),
+    fix: ["실패한 테스트만 다시      uv --directory engine run pytest --lf", "다시 실행                pnpm engine:test"],
+  },
 };
 
 function plan() {
-  if (all) return { label: "전체", names: ["harness", "frontend lint", "frontend typecheck", "frontend test", "frontend e2e", "backend build"] };
+  if (all) return { label: "전체", names: ["harness", "backend format", "frontend lint", "frontend typecheck", "frontend test", "frontend e2e", "backend build", "engine lint", "engine test"] };
   const { base, files } = changedFiles();
   const areas = areasOf(files);
   const names = [];
   if (areas.has("harness")) names.push("harness");
+  if (areas.has("backend")) names.push("backend format");
   if (areas.has("frontend")) names.push("frontend lint", "frontend typecheck", "frontend test");
   if (areas.has("backend")) names.push("backend test");
+  if (areas.has("engine")) names.push("engine lint", "engine test");
   const notes = [];
   if (areas.has("contracts")) notes.push("contracts 변경: 검사기 없음. 받는 쪽(frontend·backend) 리뷰를 MR 에 요청하세요");
-  if (areas.has("engine")) notes.push("engine 변경: 검사기 없음 (engine 이 생기면 추가)");
   return { label: `변경 영역 [${[...areas].join(", ") || "없음"}] · 기준 ${base} · 파일 ${files.length}개`, names, notes };
 }
 

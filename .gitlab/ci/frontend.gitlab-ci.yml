@@ -1,0 +1,51 @@
+# self-hosted GitLab이므로 Cloudflare Git 연동 대신 기존 Runner에서 배포한다.
+frontend-worker:
+  stage: image
+  rules: !reference [.frontend-scope, rules]
+  image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
+    - corepack enable
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm --filter frontend worker:build
+    - pnpm --filter frontend exec wrangler deploy --dry-run --env "$WORKER_ENV"
+    - node --check deploy/frontend/verify.mjs
+    - pnpm --filter frontend exec playwright install --with-deps chromium
+    - pnpm --filter frontend worker:test
+  cache:
+    key: { files: [pnpm-lock.yaml] }
+    paths: [.pnpm-store]
+  artifacts:
+    paths: [frontend/.open-next/]
+    expire_in: 1 day
+
+frontend-deploy:
+  rules: !reference [.frontend-release, rules]
+  stage: deploy
+  image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
+  needs:
+    - job: frontend-worker
+      artifacts: true
+    - job: backend-deploy
+      artifacts: false
+      optional: true
+  resource_group: issueatlas-workers-$CI_COMMIT_BRANCH
+  environment:
+    name: ${WORKER_ENV}-workers
+    url: $FRONTEND_URL
+  interruptible: false
+  timeout: 15 minutes
+  cache:
+    key: { files: [pnpm-lock.yaml] }
+    paths: [.pnpm-store]
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
+    - corepack enable
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+  script:
+    - test -n "$CLOUDFLARE_ACCOUNT_ID" && test -n "$CLOUDFLARE_API_TOKEN"
+    - pnpm --filter frontend worker:deploy --env "$WORKER_ENV" --var "DEPLOYMENT_REVISION:$CI_COMMIT_SHA"
+    - node deploy/frontend/verify.mjs "$FRONTEND_URL" "$CI_COMMIT_SHA"
