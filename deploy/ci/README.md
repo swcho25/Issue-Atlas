@@ -10,7 +10,30 @@
 | 보호된 develop/main에 병합(push 파이프라인) | 변경 영역 검사 → 해당 이미지/Workers 빌드 → 해당 서비스만 자동 배포 |
 | 다른 브랜치 push·태그·스케줄·웹 수동 파이프라인 | 실행 안 함 |
 
-두 브랜치는 하나의 `shared-ec2` 환경·`issueatlas-ec2` resource group을 사용한다. 서버에서도 파일 잠금과 공통 pipeline ID 상한으로 오래된 작업을 거부한다. 마지막으로 성공한 배포가 실행되며 main이 항상 우선하는 구조가 아니다. 수동 direct push도 기술적으로 push 이벤트이므로 **develop/main의 직접 push를 금지하고 MR로만 병합**하도록 보호해야 한다.
+137번부터 `develop → development`, `main → production`으로 분리한다. 같은 EC2를 사용하되 개발은 `/opt/issueatlas-dev`(기존 볼륨 유지), 운영은 `/opt/issueatlas-prod`(새 볼륨)를 사용한다. 환경별 잠금·pipeline 상한·복구 기록을 분리하고, 같은 환경의 BE·수집기는 직렬 배포한다. 직접 push는 계속 금지하며 MR로만 병합한다.
+
+## 환경 분리 전환 — S15P31C108-137
+
+| 항목 | development / develop | production / main |
+| --- | --- | --- |
+| 프론트 | dev.issue-atlas.kr / issueatlas-frontend-dev | issue-atlas.kr / issueatlas-frontend |
+| API | dev-backend.issue-atlas.kr | backend.issue-atlas.kr |
+| 서버 경로 | /opt/issueatlas-dev | /opt/issueatlas-prod |
+| 로컬 Spring / DB 포트 | 8080 / 5432 | 8081 / 5433 |
+| Compose / 볼륨 | issueatlas-dev / issueatlas-dev_postgres-data | issueatlas-prod / issueatlas-prod_postgres-data |
+
+환경 설정의 원본은 `cicd.example.json`이다. SSH 요청의 branch로 서버가 설정을 선택하며 CI가 임의 경로를 지정하지 못한다. 기존 `.deploy`는 개발 기록으로 보존하고 운영 기록은 새 경로에 생성한다. 운영 첫 배포 실패 시 후보 컨테이너를 정지하며 이전 버전이 없는 것을 복구 성공으로 표시하지 않는다. DB 마이그레이션은 되돌리지 않는다.
+
+전환 순서:
+1. 실행 중인 파이프라인이 없는지 확인하고 기존 DB를 `pg_dump -Fc`로 백업한다. 볼륨 삭제나 개발 DB 복제는 하지 않는다.
+2. `/opt/issueatlas-prod/deploy/dev`에 `compose.yaml`, `compose.release.yaml`을 root 소유로 설치한다. 별도 `.env`는 root 600으로 만들며 운영 DB·관리자 비밀번호는 새로 생성한다. `COMPOSE_PROJECT_NAME=issueatlas-prod`, `DB_HOST_PORT=5433`, `BACKEND_HOST_PORT=8081`, `BACKEND_NETWORK_ALIAS=issueatlas-production-backend`, `SESSION_COOKIE_SECURE=true`로 설정한다. 운영 postgres만 먼저 실행해 네트워크와 빈 DB를 준비한다.
+3. 개발 경로의 최신 Compose와 `compose.routing.yaml`을 설치한다. Tunnel은 개발 경로에서 한 개만 운영하며 두 네트워크에 연결한다. 개발 API origin은 `http://issueatlas-development-backend:8080`, 운영은 `http://issueatlas-production-backend:8080`이다. DNS의 API hostname은 기존 Tunnel로 연결한다. 운영 API의 기존 origin 전환은 운영 backend 기동 시점에 맞춘다. 기존 운영 프론트 주소를 개발 DB에 계속 연결한 채 완료로 표시하지 않는다.
+4. 운영 수집기의 설정·input/output/log 경로는 example JSON대로 별도로 준비한다. API 키는 준비된 경우에만 서버 관리자가 설정한다. 수집기 실행이나 데이터 이관은 자동으로 하지 않는다.
+5. 검토한 배포 프로그램·수동 실행기·example JSON을 기존 설치 경로에 설치하고, egress 복원 스크립트를 갱신한다. 개발 DB·배포 기록·개인키·Tunnel 토큰은 교체하지 않는다.
+6. GitLab의 `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`, `DEPLOY_HOST`, `DEPLOY_USER`, `DOCKERHUB_PULL_TOKEN`은 기존 `shared-ec2` 범위를 `*-ec2`로 바꾼다. development-ec2/production-ec2와 전환 중 shared-ec2에서 같은 EC2 인증을 사용하며 빌드·검사 job에는 전달하지 않는다. 값은 로그/저장소에 출력하지 않는다. Cloudflare 변수·Docker push 변수는 기존 protected `*` 범위를 유지한다. 각 환경의 배포 변수는 MR에 제공하지 않는다.
+7. develop MR로 개발 배포를 확인한다. 이어 develop 전체를 main에 MR하여 운영 FE·BE·수집기를 모두 최초 배포한다. Flyway MR 순서 V0011→V0012→V0013→V0014를 유지한다. 화면·API·인증·서로 다른 DB 연결 및 수집기 배포 기록을 확인한다.
+
+설정 파일의 서버 설치는 자동 CD 범위가 아니다. 첫 병합 전에 서버 준비와 GitLab 변수 전환을 마쳐야 한다. 기존 환경으로 되돌릴 때는 백업한 프로그램·설정·Compose·변수 범위·Tunnel origin을 함께 복구하며 볼륨은 보존한다. 프론트 배포 실패 후 자동 원복은 기존과 동일하게 제공하지 않는다.
 
 ### 변경 영역 선택 (S15P31C108-113)
 
@@ -39,8 +62,8 @@ FE 배포도 빌드·검사와 같은 pnpm store 캐시를 재사용한다. Runn
 1. `issueatlas-docker` 태그의 Linux amd64 Docker executor Runner를 준비한다. 고정한 Docker-in-Docker 서비스만 privileged로 실행하고 일반 작업 컨테이너에는 허용하지 않는다. 사용 가능한 서버가 EC2 한 대이므로 동시 실행 1, CPU·메모리 제한, CI 전용 Docker daemon을 구성한다. 운영 DB·서비스 Docker socket·배포 키를 검사 컨테이너에 마운트하지 않는다. 같은 호스트에서 privileged 서비스를 실행하므로 완전한 보안 격리는 아니며 신뢰하는 팀 코드만 실행한다.
 2. Docker Hub Private 저장소 `swcho25/issueatlas-backend`를 사용한다. GitLab의 Deploy·프로젝트 기능·Packages and registries 설정에는 Container Registry 항목이 없어 외부 저장소로 확정했다.
 3. develop/main을 protected branch로 지정하고 직접 push를 금지한다. MR 단계에는 protected 배포 변수를 제공하지 않는다. MR의 protected 변수 접근 옵션도 끈다.
-4. CI/CD File 변수 `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`를 protected·환경 범위 `shared-ec2`로 등록한다. 전용 배포 키를 사용하며 서버 host key는 검증된 값으로 고정한다. CI 중 ssh-keyscan으로 신뢰를 새로 만들지 않는다.
-5. 일반 변수 `DEPLOY_HOST=k15c108.p.ssafy.io`, `DEPLOY_USER=ubuntu`를 같은 환경 범위에 등록한다.
+4. CI/CD File 변수 `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`를 protected·환경 범위 `*-ec2`로 등록한다. 전용 배포 키를 사용하며 서버 host key는 검증된 값으로 고정한다. CI 중 ssh-keyscan으로 신뢰를 새로 만들지 않는다.
+5. 일반 변수 `DEPLOY_HOST=k15c108.p.ssafy.io`, `DEPLOY_USER=ubuntu`를 각 환경 범위에 등록한다.
 6. 배포 환경의 오래된 작업 방지 옵션을 켜고 resource group 순서를 newest-ready-first로 지정할 수 있다. 서버 상한 검사가 최종 방어를 담당한다. 실제 첫 CI 성공 후 MR 병합 조건의 pipeline success를 활성화한다.
 
 Docker Hub 변수는 다음처럼 등록한다. 토큰은 Masked·Hidden(지원 시)·Protected로 지정하고 변수 확장을 끈다. 계정 비밀번호 대신 만료일을 정한 Personal Access Token을 사용한다.
@@ -49,13 +72,13 @@ Docker Hub 변수는 다음처럼 등록한다. 토큰은 Masked·Hidden(지원 
 | --- | --- | --- |
 | `DOCKERHUB_USERNAME` | `swcho25` | `*` |
 | `DOCKERHUB_PUSH_TOKEN` | 이미지 업로드용 Read & Write 토큰, Protected | `*` |
-| `DOCKERHUB_PULL_TOKEN` | 배포용 Read-only 토큰, Protected | `shared-ec2` |
+| `DOCKERHUB_PULL_TOKEN` | 배포용 Read-only 토큰, Protected | `*-ec2` |
 
 쓰기 토큰은 EC2 배포 프로그램에 전달하지 않는다. 서버는 읽기 토큰을 임시 Docker 설정에서만 사용하고 작업 후 삭제한다. 토큰 자체는 만료·폐기 전까지 유효하므로 GitLab 변수에서 별도로 갱신해야 한다. MR에서는 보호된 토큰을 제공하지 않는다.
 
 ## EC2 최초 설정 (서버 관리자)
 
-### Runner 설치 상태 (2026-10-26)
+### Runner 최초 설치 기록 (2026-10-26)
 
 - 프로젝트 Runner #2252 `IssueAtlas EC2 Runner`, 태그 `issueatlas-docker`, 이 프로젝트에만 연결, untagged 작업 비활성화, 최대 작업 시간 1시간. MR 검사용이므로 Runner 자체는 protected 전용으로 제한하지 않는다. 배포 변수는 protected이며 MR의 보호 변수 접근은 비활성화했다.
 - GitLab Runner 19.5.1 공식 `alpine` 이미지와 digest를 `runner/issueatlas-runner.service`에 고정했다.
@@ -76,7 +99,7 @@ sudo systemctl show issueatlas-ci.slice -p CPUQuotaPerSecUSec -p MemoryMax
 
 기존 서비스는 `sudo docker ps`에서 확인한다. CI 작업 상태를 보려면 별도 `-H unix:///run/docker-ci.sock`을 사용한다. 인증을 포함할 수 있는 Runner config·로그 전체를 공유하지 않는다.
 
-### 배포 프로그램 설정
+### 배포 프로그램 최초 설치 기록 (전환 시 위 137번 절차 우선)
 
 2026-10-26 설치 완료: 배포 전용 Ed25519 공개키를 forced command로 등록했고, 개인키는 GitLab의 `SSH_PRIVATE_KEY` File 변수에만 보관한다. `SSH_KNOWN_HOSTS`도 File 형식이며 두 File 변수와 `DEPLOY_HOST`·`DEPLOY_USER`는 모두 Protected·`shared-ec2` 범위, 변수 확장 비활성화다. 기존 서버 키 fingerprint와 전용 키 SSH 인증을 확인했다. CI 전용 임시 컨테이너에서도 SSH 인증과 임의 명령 차단을 확인했다. 설치된 프로그램으로 Compose 합성·현재 이미지 조회·내부/외부 health 점검을 통과했으며 서비스 이미지는 교체하지 않았다. 실제 Registry pull·이미지 교체·실패 복구는 첫 파이프라인에서 검증한다.
 

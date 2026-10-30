@@ -12,6 +12,16 @@ import urllib.request
 from pathlib import Path
 
 
+def environment_config(config, branch):
+    """The server owns all paths; a request can select only its branch's environment."""
+    if branch not in {"develop", "main"}:
+        raise ValueError("Unsupported branch")
+    environments = config.get("environments")
+    if not environments or branch not in environments:
+        raise ValueError("Branch environment is not configured")
+    return {**config, **environments[branch], "branch": branch}
+
+
 def validate_request(request, repository):
     if request.get("branch") not in {"develop", "main"}:
         raise ValueError("Unsupported branch")
@@ -40,7 +50,10 @@ class Deployment:
         self.state.mkdir(mode=0o700, exist_ok=True)
         self.env = dict(os.environ)
         self.compose = ["docker", "compose", "--env-file", str(self.app / "deploy/dev/.env")]
-        for name in ("compose.yaml", "compose.tunnel.yaml", "compose.release.yaml"):
+        files = config.get(
+            "compose_files", ("compose.yaml", "compose.tunnel.yaml", "compose.release.yaml")
+        )
+        for name in files:
             self.compose += ["-f", str(self.app / "deploy/dev" / name)]
 
     def run(self, *args, input=None, timeout=180):
@@ -64,10 +77,13 @@ class Deployment:
     def current_image(self):
         container = self.run(*self.compose, "ps", "-q", "backend")
         if not container:
-            raise RuntimeError("Existing backend required for rollback")
+            return None
         return json.loads(self.run("docker", "inspect", container, timeout=30))[0]["Image"]
 
     def apply(self, image):
+        if image is None:
+            self.run(*self.compose, "stop", "backend")
+            return
         self.env["BACKEND_IMAGE"] = image
         self.run(*self.compose, "config", "--quiet")
         self.run(
@@ -88,7 +104,10 @@ class Deployment:
     def healthy(self):
         for _ in range(12):
             try:
-                for url in ("http://127.0.0.1:8080/actuator/health", self.config["health_url"]):
+                local_url = self.config.get(
+                    "local_health_url", "http://127.0.0.1:8080/actuator/health"
+                )
+                for url in (local_url, self.config["health_url"]):
                     req = urllib.request.Request(
                         url, headers={"User-Agent": "IssueAtlasDeploymentCheck/1.0"}
                     )
@@ -104,7 +123,9 @@ class Deployment:
 
     def release(self, request):
         validate_request(request, self.config["image_repository"])
-        # One shared watermark across main/develop. Even a failed newer attempt blocks older jobs.
+        if self.config.get("branch", request["branch"]) != request["branch"]:
+            raise ValueError("Deployment branch does not match the selected environment")
+        # Each environment has its own app_dir, lock and watermark.
         watermark = self.state / "watermark.json"
         previous_attempt = json.loads(watermark.read_text()) if watermark.exists() else {}
         if request["pipeline_id"] < previous_attempt.get("pipeline_id", 0):
@@ -161,8 +182,11 @@ class Deployment:
             result = {**metadata, "status": "failed", "rollback": "failed"}
             try:
                 self.apply(previous_image)
-                self.healthy()
-                result["rollback"] = "restored"
+                if previous_image is not None:
+                    self.healthy()
+                result["rollback"] = (
+                    "restored" if previous_image is not None else "no_previous_release"
+                )
                 if previous_state is not None:
                     write_json(previous_state_file, previous_state)
                 elif previous_state_file.exists():
@@ -242,6 +266,7 @@ def main():
     if len(raw) > 16384:
         raise ValueError("Release request too large")
     request = json.loads(raw)
+    config = environment_config(config, request.get("branch"))
     component = request.get("component", "backend")
     if component == "collector":
         deployment = CollectorDeployment(
