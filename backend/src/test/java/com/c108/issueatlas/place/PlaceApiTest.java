@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.c108.issueatlas.C2Contract;
 import com.c108.issueatlas.TestcontainersConfiguration;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +34,7 @@ class PlaceApiTest {
     void 지역_목록은_C2_예시와_같다() throws Exception {
         mvc.perform(get("/v1/places"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("place-list"))
                 // STRICT: 순서 · 칸 수까지 같아야 한다 (6곳, 코드 12개)
                 .andExpect(content().json(Files.readString(EXAMPLE), JsonCompareMode.STRICT));
     }

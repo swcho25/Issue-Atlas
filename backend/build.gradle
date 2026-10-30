@@ -22,6 +22,7 @@ repositories {
 ext {
 	springdocVersion = '3.1.0'
 	archunitVersion = '1.5.1'
+	jsonSchemaValidatorVersion = '1.5.6'
 }
 
 dependencies {
@@ -46,6 +47,8 @@ dependencies {
 	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 	testImplementation 'org.testcontainers:testcontainers-postgresql'
 	testImplementation "com.tngtech.archunit:archunit:${archunitVersion}"
+	// API 응답이 C2 계약(contracts/c2/schemas)과 같은지 테스트에서 검사한다(FR-J1). 테스트 전용
+	testImplementation "com.networknt:json-schema-validator:${jsonSchemaValidatorVersion}"
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
