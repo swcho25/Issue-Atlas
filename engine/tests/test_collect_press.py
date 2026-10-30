@@ -2,7 +2,7 @@
 
 import itertools
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -90,6 +90,44 @@ def test_parse_keeps_visible_fields_and_full_title():
         "published_on": "2025-06-29",
     }
     assert parse_yeosu(EMPTY_YEOSU) == []
+
+
+def test_yeosu_today_row_shows_time_and_gets_today(monkeypatch):
+    monkeypatch.setattr(press, "_today_kst", lambda: "2026-10-30")
+    [y] = parse_yeosu(yeosu_page([(584262, "행정", "여수시, 오늘 보도", "홍보과", "11:01:13")]))
+    assert y["published_on"] == "2026-10-30"
+
+
+def test_yeosu_today_uses_korean_date_at_utc_day_boundary(monkeypatch):
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 29, 15, 1, tzinfo=UTC).astimezone(tz)
+
+    monkeypatch.setattr(press, "datetime", FixedDatetime)
+    [row] = parse_yeosu(yeosu_page(rows_yeosu(1, ["00:01:00"])))
+    assert row["published_on"] == "2026-10-30"
+
+
+def test_yeosu_time_only_today_does_not_stop_historical_collection(monkeypatch):
+    monkeypatch.setattr(press, "_today_kst", lambda: "2026-10-30")
+    monkeypatch.setattr(press, "PAGE_SIZE", 2)
+    web = Web(
+        {
+            1: (200, yeosu_page(rows_yeosu(4, ["11:01:13", "2026-10-29"]))),
+            2: (200, yeosu_page(rows_yeosu(2, ["2025-12-31", "2022-12-31"]))),
+        }
+    )
+    pages = list(collect_pages("yeosu", date(2023, 1, 1), date(2025, 12, 31), **web.options()))
+    assert pages[0] == []
+    assert [r["press_id"] for page in pages for r in page] == ["yeosu:2"]
+
+
+@pytest.mark.parametrize("day", ["24:00:00", "11:60:00", "11:01:60", "unknown"])
+def test_yeosu_invalid_time_is_not_assumed_to_be_today(day):
+    web = Web({1: (200, yeosu_page(rows_yeosu(1, [day])))})
+    with pytest.raises(PressError, match="^PRESS_UNRECOGNIZED_ROW$"):
+        list(collect_pages("yeosu", date(2023, 1, 1), date(2025, 12, 31), **web.options()))
 
 
 def test_yeosu_walks_until_older_than_start_and_respects_crawl_delay(monkeypatch):

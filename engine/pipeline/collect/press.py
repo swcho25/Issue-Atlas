@@ -22,6 +22,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from urllib.robotparser import RobotFileParser
+from zoneinfo import ZoneInfo
 
 import lxml.html
 import psycopg
@@ -38,6 +39,7 @@ MIN_INTERVAL = (
 ATTEMPTS = 3
 MAX_PAGES = 300  # 여수시 2023–2025 는 약 100쪽. 넘으면 끝을 못 찾은 것으로 보고 멈춘다
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+TIME = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d")
 
 
 class PressError(Exception):
@@ -54,6 +56,10 @@ def _doc(html: bytes):
     return lxml.html.fromstring(html.decode("utf-8", errors="replace"))
 
 
+def _today_kst() -> str:
+    return datetime.now(ZoneInfo("Asia/Seoul")).date().isoformat()
+
+
 def parse_yeosu(html: bytes) -> list[dict]:
     rows = []
     for tr in _doc(html).xpath("//table//tbody/tr"):
@@ -61,13 +67,15 @@ def parse_yeosu(html: bytes) -> list[dict]:
         links = tr.xpath("./td//a[contains(@href, 'mode=view')]")
         if len(cells) != 6 or not links:
             continue  # 「등록된 글이 없습니다」 한 칸짜리 줄
+        day = _text(cells[4:5])
         rows.append(
             {
                 "id": parse_qs(urlsplit(links[0].get("href")).query).get("idx", [""])[0],
                 "category": _text(cells[1:2]),
                 "title": _text(links),
                 "department": _text(cells[3:4]),
-                "published_on": _text(cells[4:5]),
+                # 오늘 올린 글은 날짜 대신 시각(11:01:13)만 보인다
+                "published_on": _today_kst() if TIME.fullmatch(day) else day,
             }
         )
     return rows
