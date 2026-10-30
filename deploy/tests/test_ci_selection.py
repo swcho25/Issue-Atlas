@@ -124,7 +124,15 @@ class SelectionTests(unittest.TestCase):
             (["engine/api/main.py"], {"engine"}),
             (["engine/tests/test_collect_kosis.py"], {"engine"}),
             (["frontend/src/a.ts", "backend/src/b.java"], fe | be),
-            (["contracts/c1/schema.json"], fe | be | collector),
+            (["contracts/c1/schema.json"], {"frontend", "backend"} | collector),
+            (["contracts/c2/openapi.yaml"], {"frontend", "backend", "engine"}),
+            (["contracts/c2/examples/place-list.json"], {"frontend", "backend", "engine"}),
+            (["contracts/c1/README.md", "contracts/c2/README.md"], set()),
+            (["backend/src/main/java/App.java", "contracts/c2/README.md"], be),
+            (["frontend/src/a.ts", "contracts/c2/README.md"], fe),
+            (["engine/pipeline/collect/kosis.py", "contracts/c1/README.md"], collector),
+            (["engine/pipeline/collect/README.md"], set()),
+            (["contracts/c1/examples/raw/kosis-sp01-monthly.json"], {"frontend", "backend"} | collector),
             ([".gitlab/ci/changes.gitlab-ci.yml"], fe | be | collector),
             (["deploy/ci/send_deploy.py"], be | collector),
             (["deploy/frontend/README.md", "docs/plans/active/plan.md", "README.md"], set()),
@@ -168,6 +176,15 @@ class SelectionTests(unittest.TestCase):
         self.assertIn("backend-deploy", selected)
         self.assertIn("frontend-deploy", selected)
 
+    def test_contract_only_mr_keeps_checks_without_worker_bundle(self):
+        selected = self.selected(["contracts/c2/schemas/evidence.schema.json"], source="merge_request_event")
+        self.assertEqual(selected, {"harness", "infra", "frontend", "backend", "engine"})
+        # A moved runtime schema must still refresh the collector, even when deleted.
+        selected = self.selected(["contracts/c1/record.schema.json", "contracts/p2/record.schema.json"])
+        self.assertIn("collector-deploy", selected)
+        self.assertNotIn("frontend-deploy", selected)
+        self.assertNotIn("backend-deploy", selected)
+
     def test_environment_selection_and_worker_targets(self):
         config = yaml.load((ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8"), Loader=Loader)
         self.assertEqual(config["variables"]["WORKER_ENV"], "development")
@@ -184,6 +201,28 @@ class SelectionTests(unittest.TestCase):
         for job in ("backend-deploy", "collector-deploy", "frontend-deploy"):
             self.assertEqual(self.jobs[job]["environment"]["name"], "${WORKER_ENV}-" + ("workers" if job == "frontend-deploy" else "ec2"))
             self.assertIn("$CI_COMMIT_BRANCH", self.jobs[job]["resource_group"])
+
+    def test_browser_image_matches_installed_playwright_and_skips_downloads(self):
+        package = __import__("json").loads((ROOT / "frontend/package.json").read_text())
+        version = package["devDependencies"]["@playwright/test"]
+        for name in ("frontend", "frontend-worker", "frontend-deploy"):
+            job = self.jobs[name]
+            self.assertRegex(job["image"], rf"playwright:v{re.escape(version)}-noble@sha256:[0-9a-f]{{64}}$")
+            commands = job["before_script"] + job["script"]
+            self.assertFalse(any("apt-get" in c or "playwright install" in c for c in commands))
+            self.assertIn("pnpm install --frozen-lockfile", commands)
+        node_cache = self.jobs["frontend"]["cache"][1]["key"]["prefix"]
+        worker_cache = self.jobs["frontend-worker"]["cache"][1]["key"]["prefix"]
+        self.assertNotEqual(node_cache, worker_cache)
+        self.assertIn("$WORKER_ENV", worker_cache)
+
+    def test_deployment_reuses_current_pipeline_bundle_without_rebuilding(self):
+        job = self.jobs["frontend-deploy"]
+        artifact = next(n for n in job["needs"] if n["job"] == "frontend-worker")
+        self.assertTrue(artifact["artifacts"])
+        self.assertIn("frontend/.open-next/", self.jobs["frontend-worker"]["artifacts"]["paths"])
+        self.assertFalse(any("worker:build" in c or "next build" in c for c in job["script"]))
+        self.assertEqual(job["cache"]["policy"], "pull")
 
 
 if __name__ == "__main__":

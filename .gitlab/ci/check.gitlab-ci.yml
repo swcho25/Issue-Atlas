@@ -11,24 +11,27 @@ harness:
   script:
     - node scripts/check-harness.mjs
 
-frontend:
-  stage: check
-  image: node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
+.frontend-browser:
+  # @playwright/test 1.64.1과 함께 갱신. Node/Git/인증서/브라우저·OS 의존성 포함.
+  image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:d65108d1a8095d8b0c4a5e32bf1807a40a5ce90ff0c78473e1116b1c243235e8
   before_script:
-    # pnpm install의 루트 prepare가 git config를 실행한다.
-    - apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates
-  rules: !reference [.frontend-scope, rules]
-  cache:
-    key: { files: [pnpm-lock.yaml] }
-    paths: [.pnpm-store]
-  script:
     - corepack enable
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
+
+frontend:
+  extends: .frontend-browser
+  stage: check
+  rules: !reference [.frontend-scope, rules]
+  cache:
+    - key: { files: [pnpm-lock.yaml] }
+      paths: [.pnpm-store]
+    - key: { prefix: "next-node-$WORKER_ENV", files: [pnpm-lock.yaml, frontend/next.config.ts] }
+      paths: [frontend/.next/cache/]
+  script:
     - pnpm frontend:lint
     - pnpm frontend:typecheck
     - pnpm frontend:test
-    - pnpm --filter frontend exec playwright install --with-deps chromium
     - pnpm frontend:e2e   # next build 포함
 
 backend:

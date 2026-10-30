@@ -37,7 +37,7 @@
 
 ### 변경 영역 선택 (S15P31C108-113)
 
-경로 목록은 `.gitlab/ci/changes.gitlab-ci.yml`에서 검사·빌드·배포가 공유한다. MR은 대상 브랜치와의 차이, 병합 후 push는 해당 브랜치의 이전 커밋과의 차이를 사용한다. 현재 workflow는 MR과 develop/main push만 허용하므로 스케줄에서 changes가 무조건 참이 되는 경우는 없다.
+경로 목록은 `.gitlab/ci/changes.gitlab-ci.yml`에서 관리한다. 151번부터 계약 검사와 실행 산출물의 빌드·배포 조건을 분리한다. MR은 대상 브랜치와의 차이, 병합 후 push는 해당 브랜치의 이전 커밋과의 차이를 사용한다. 현재 workflow는 MR과 develop/main push만 허용하므로 스케줄에서 changes가 무조건 참이 되는 경우는 없다.
 
 | 변경 | 추가로 실행할 작업 (harness·infra는 항상 실행) |
 | --- | --- |
@@ -45,17 +45,22 @@
 | BE 소스·Flyway·Gradle·Dockerfile, 개발 Compose | BE 검사·이미지, 병합 후 BE 배포 |
 | engine/pipeline·의존성·Dockerfile, 수집기 실행 설정 | engine 검사·수집기 이미지, 병합 후 수집기 버전 갱신 (수집 자동 실행 없음) |
 | engine/api·ai·tests·tests_postgres | engine 검사만 |
-| contracts, 공통 CI YAML | FE·BE·engine 모두 검사하고 병합 후 모두 배포 |
+| contracts의 JSON/YAML | FE·BE·engine 검사. C1 JSON은 수집기 실행 및 이미지 smoke test에서 읽으므로 수집기 이미지·배포도 실행. FE Workers·BE 이미지·배포는 생략 |
+| 공통 CI YAML | FE·BE·engine 모두 검사하고 병합 후 모두 배포 |
 | deploy/ci의 공통 Python·JSON | BE·수집기 검사·이미지·배포 |
-| docs, 루트/서비스 README | 가벼운 harness·infra 검사만 |
+| docs, 루트/서비스/계약 README, pipeline의 MD 설명 | 가벼운 harness·infra 검사만 |
 
-여러 영역을 바꾸면 합집합으로 실행한다. scripts 변경은 FE 검사·빌드에도 반영한다. 이미지에 포함되는 pipeline 내부 문서/자료는 보수적으로 수집기 변경으로 취급한다. 새 소스 디렉터리·설정 형식을 도입하면 경로 목록과 선택 시나리오 테스트도 함께 갱신한다.
+여러 영역을 바꾸면 합집합으로 실행한다. scripts 변경은 FE 검사·빌드에도 반영한다. pipeline 실행 입력은 py/json/yaml/yml/toml/sql/txt/csv를 대상으로 하며 MD 설명은 제외한다. 새 소스 디렉터리·설정 형식을 도입하면 경로 목록과 선택 시나리오 테스트도 함께 갱신한다.
 
 FE·수집기 배포의 `backend-deploy` 의존성은 optional이다. BE 작업이 없으면 기존 BE/DB를 사용하고, 있으면 성공을 기다린다. 이미지 작업은 check 단계를 모두 통과해야 실행하며, 배포 이미지 artifact 의존성은 필수다. 공통 계약이나 Flyway를 함께 바꿀 때의 호환성 검토는 계속 필요하다.
 
 실패한 배포는 해당 파이프라인의 실패 job을 재시도한다. 이후 무관한 변경을 병합해도 누락된 서비스를 자동 재배포하지 않는다. 서비스마다 마지막 배포 SHA가 달라지는 것은 정상이며, FE는 `/healthz`, BE·수집기는 각 배포 기록으로 확인한다. 변경 없는 서비스를 포함한 강제 전체 배포 기능은 이번 범위에 없다.
 
-FE 배포도 빌드·검사와 같은 pnpm store 캐시를 재사용한다. Runner 동시 실행 수·기존 테스트·로컬 pre-push 규칙은 변경하지 않는다. 실제 시간 감소는 다음 GitLab 실행에서 확인한다.
+FE 검사·Workers 빌드·배포는 같은 공식 Playwright 1.64.1 이미지(digest 고정)를 사용한다. Node 24·Git·인증서·브라우저 및 OS 의존성을 포함하므로 apt/playwright install을 매번 실행하지 않는다. 최초 이미지 다운로드는 크지만 이후 레이어를 재사용한다. @playwright/test 버전과 이미지 버전은 함께 갱신하며 선택 테스트에서 일치를 검사한다.
+
+pnpm store는 잠금 파일 기준으로 재사용하고 매번 frozen-lockfile로 확인한다. 배포 job은 캐시를 읽기만 하여 중복 압축·업로드를 줄인다. Next 컴파일 캐시는 잠금 파일·Next 설정·WORKER_ENV 및 Node/Workers별로 분리한다. 캐시는 선택적 가속 수단이며 완성 빌드를 대신하지 않는다.
+
+Node E2E는 Cache Components 활성, Workers는 호환성 때문에 비활성이므로 두 Next 빌드를 공유하거나 skipNextBuild로 대체하지 않는다. Workers 빌드는 한 번 수행하고 같은 파이프라인의 .open-next artifact를 dry-run·Workers E2E·배포에 사용한다(기존 동작 유지). MR artifact를 병합 후 배포에 재사용하지 않는다. Runner 동시 실행 수·기존 테스트·로컬 pre-push 규칙은 변경하지 않는다. 실제 시간 감소는 다음 GitLab 실행에서 확인한다.
 
 ## 최초 GitLab 설정 (Maintainer 필요)
 
