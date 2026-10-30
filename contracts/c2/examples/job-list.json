@@ -1,0 +1,53 @@
+{
+  "schema_version": "c2-0.1",
+  "jobs": [
+    {
+      "job_run_id": "airkorea_ee6ff672076e483cad099984f801aefe",
+      "source_id": "airkorea_final",
+      "source_name": "에어코리아",
+      "spec_id": "airkorea_final_yeosu_gwangju",
+      "method": "file",
+      "collector_version": "airkorea-0.2.0",
+      "status": "ok",
+      "started_at": "2026-10-28T08:20:11Z",
+      "finished_at": "2026-10-28T08:21:40Z",
+      "received": 88704,
+      "inserted": 88704,
+      "duplicates": 0,
+      "error_code": null,
+      "details": {
+        "file_name": "2023.zip",
+        "start_date": "2023-02-01",
+        "end_date_exclusive": "2023-03-01",
+        "data_status": "confirmed",
+        "received": 88704,
+        "inserted": 88704,
+        "duplicates": 0
+      }
+    },
+    {
+      "job_run_id": "airkorea_3f1c0d9a2b7e4c6f8a1d2e3f4a5b6c7d",
+      "source_id": "airkorea_station",
+      "source_name": "에어코리아",
+      "spec_id": "airkorea_stations_yeosu_gwangju",
+      "method": "api",
+      "collector_version": "airkorea-0.2.0",
+      "status": "failed",
+      "started_at": "2026-10-26T05:02:00Z",
+      "finished_at": "2026-10-26T05:02:01Z",
+      "received": 0,
+      "inserted": 0,
+      "duplicates": 0,
+      "error_code": "AIRKOREA_KEY_MISSING",
+      "details": {
+        "received": 0,
+        "inserted": 0,
+        "duplicates": 0,
+        "error_code": "AIRKOREA_KEY_MISSING"
+      }
+    }
+  ],
+  "page": 1,
+  "size": 20,
+  "total": 2
+}

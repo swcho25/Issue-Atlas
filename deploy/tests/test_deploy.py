@@ -87,11 +87,47 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(json.loads(state)["image"], IMAGE)
         self.assertNotIn("registry_password", state)
 
-    def test_main_uses_same_watermark_as_develop(self):
-        self.release(request(branch="main", pipeline_id=12))
+    def test_newer_attempt_blocks_older_attempt_in_same_environment(self):
+        # A Deployment instance is one environment, not the shared server.
+        self.release(request(pipeline_id=12))
         with self.assertRaisesRegex(RuntimeError, "Outdated"):
             self.release(request(pipeline_id=11))
         self.assertEqual(self.deployment.applied, [IMAGE])
+
+    def test_environment_routing_preserves_development_path_and_separates_state(self):
+        config = json.loads((MODULE.parent / "cicd.example.json").read_text())
+        dev = deploy.environment_config(config, "develop")
+        prod = deploy.environment_config(config, "main")
+        self.assertEqual(dev["app_dir"], "/opt/issueatlas-dev")
+        self.assertNotEqual(dev["app_dir"], prod["app_dir"])
+        self.assertNotEqual(dev["local_health_url"], prod["local_health_url"])
+        self.assertNotEqual(dev["collector_network"], prod["collector_network"])
+        with self.assertRaises(ValueError):
+            deploy.environment_config(config, "feature/untrusted")
+
+    def test_cross_environment_request_cannot_replace_service(self):
+        self.deployment.config["branch"] = "develop"
+        with self.assertRaisesRegex(ValueError, "branch"):
+            self.release(request(branch="main"))
+        self.assertEqual(self.deployment.applied, [])
+
+    def test_environment_watermarks_are_independent(self):
+        self.release(request(pipeline_id=20))
+        prod_root = Path(self.tmp.name) / "production"
+        prod_root.mkdir()
+        prod = FakeDeployment(str(prod_root))
+        with contextlib.redirect_stdout(io.StringIO()):
+            prod.release(request(branch="main", pipeline_id=10))
+        self.assertEqual(prod.applied, [IMAGE])
+
+    def test_first_backend_failure_stops_candidate_without_claiming_rollback(self):
+        self.deployment.running = None
+        self.deployment.fail_new_health = True
+        with self.assertRaisesRegex(RuntimeError, "Deployment failed"):
+            self.release()
+        self.assertIsNone(self.deployment.running)
+        result = json.loads((self.deployment.state / "last-result.json").read_text())
+        self.assertEqual(result["rollback"], "no_previous_release")
 
     def test_same_pipeline_can_retry_same_release(self):
         self.release()

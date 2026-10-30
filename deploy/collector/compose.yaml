@@ -1,4 +1,4 @@
-name: issueatlas-collector
+name: ${COLLECTOR_PROJECT_NAME:-issueatlas-collector}
 
 services:
   collector:
@@ -14,17 +14,17 @@ services:
     pids_limit: 128
     volumes:
       - type: bind
-        source: /etc/issueatlas/collector.env
+        source: ${COLLECTOR_ENV_FILE:?Select the collector environment file}
         target: /app/.env
         read_only: true
         bind: {create_host_path: false}
       - type: bind
-        source: /var/lib/issueatlas/collector/input
+        source: ${COLLECTOR_INPUT_DIR:?Select the collector input directory}
         target: /inputs
         read_only: true
         bind: {create_host_path: false}
       - type: bind
-        source: /var/lib/issueatlas/collector/output
+        source: ${COLLECTOR_OUTPUT_DIR:?Select the collector output directory}
         target: /app/outputs
         bind: {create_host_path: false}
     networks: [database]
@@ -35,4 +35,4 @@ services:
 networks:
   database:
     external: true
-    name: issueatlas-dev_default
+    name: ${COLLECTOR_NETWORK:?Select the database network}

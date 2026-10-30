@@ -1,8 +1,38 @@
 {
-  "app_dir": "/opt/issueatlas-dev",
   "image_repository": "swcho25/issueatlas-backend",
   "collector_image_repository": "swcho25/issueatlas-backend",
   "registry_host": "docker.io",
   "project_url": "https://lab.ssafy.com/s15-final/S15P31C108",
-  "health_url": "https://backend.issue-atlas.kr/actuator/health"
+  "environments": {
+    "develop": {
+      "app_dir": "/opt/issueatlas-dev",
+      "health_url": "https://dev-backend.issue-atlas.kr/actuator/health",
+      "local_health_url": "http://127.0.0.1:8080/actuator/health",
+      "collector_env_file": "/etc/issueatlas/collector.env",
+      "collector_input_dir": "/var/lib/issueatlas/collector/input",
+      "collector_output_dir": "/var/lib/issueatlas/collector/output",
+      "collector_log_dir": "/var/log/issueatlas/collector",
+      "collector_network": "issueatlas-dev_default",
+      "compose_files": [
+        "compose.yaml",
+        "compose.tunnel.yaml",
+        "compose.routing.yaml",
+        "compose.release.yaml"
+      ]
+    },
+    "main": {
+      "app_dir": "/opt/issueatlas-prod",
+      "compose_files": [
+        "compose.yaml",
+        "compose.release.yaml"
+      ],
+      "health_url": "https://backend.issue-atlas.kr/actuator/health",
+      "local_health_url": "http://127.0.0.1:8081/actuator/health",
+      "collector_env_file": "/etc/issueatlas/production/collector.env",
+      "collector_input_dir": "/var/lib/issueatlas/production/collector/input",
+      "collector_output_dir": "/var/lib/issueatlas/production/collector/output",
+      "collector_log_dir": "/var/log/issueatlas/production/collector",
+      "collector_network": "issueatlas-prod_default"
+    }
+  }
 }

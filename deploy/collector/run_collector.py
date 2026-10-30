@@ -55,12 +55,14 @@ def main(argv=None):
     import fcntl
 
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--environment", choices=("develop", "main"), default="develop")
     parser.add_argument("mode", choices=MODES)
     parser.add_argument("arguments", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     if any(value == "--output" or value.startswith("--output=") for value in args.arguments):
         parser.error("Output paths are assigned by this runner")
     config = json.loads(Path("/etc/issueatlas/cicd.json").read_text())
+    config = {**config, **config["environments"][args.environment]}
     lock_path = Path(config["app_dir"]) / ".deploy/collector/run.lock"
     with lock_path.open("a") as lock:
         try:
@@ -69,13 +71,26 @@ def main(argv=None):
             raise RuntimeError("Another collector is already running") from None
         release = published_image(config)
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
-        output = Path("/var/lib/issueatlas/collector/output") / stamp
+        output = Path(config["collector_output_dir"]) / stamp
         output.mkdir(mode=0o700)
         os.chown(output, 10001, 10001)
-        logs = Path("/var/log/issueatlas/collector")
+        logs = Path(config["collector_log_dir"])
         log = logs / f"{stamp}.log"
-        metadata = {"mode": args.mode, "image": release["image"], "revision": release["revision"]}
-        env = dict(os.environ, COLLECTOR_IMAGE=release["image"])
+        metadata = {
+            "environment": args.environment,
+            "mode": args.mode,
+            "image": release["image"],
+            "revision": release["revision"],
+        }
+        env = dict(
+            os.environ,
+            COLLECTOR_IMAGE=release["image"],
+            COLLECTOR_PROJECT_NAME=f"issueatlas-collector-{args.environment}",
+        )
+        for key in (
+            "collector_env_file", "collector_input_dir", "collector_output_dir", "collector_network"
+        ):
+            env[key.upper()] = config[key]
         with log.open("x") as stream:
             log.chmod(0o600)
             result = subprocess.run(

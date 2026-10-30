@@ -20,6 +20,8 @@ tags:
     description: 질문 저장과 논증 카드
   - name: evidence
     description: 근거 상세와 지도 점
+  - name: admin
+    description: 관리자 전용 (/v1/admin/**, 조회자는 403)
 paths:
   /v1/places:
     get:
@@ -144,6 +146,60 @@ paths:
                 $ref: ./schemas/observations.schema.json
         "400":
           $ref: "#/components/responses/Problem"
+  /v1/admin/jobs:
+    get:
+      tags: [admin]
+      operationId: listJobs
+      summary: 수집 이력 목록 (관리자 전용, FR-F5). 최근 시작 순, 재실행 없음
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { enum: [running, ok, failed, aborted] }
+        - name: source_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: spec_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: 수집 이력
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/job-list.schema.json
+        "4XX":
+          $ref: "#/components/responses/Problem"
+  /v1/admin/jobs/{job_run_id}:
+    get:
+      tags: [admin]
+      operationId: getJob
+      summary: 수집 실행 1건 (관리자 전용)
+      parameters:
+        - name: job_run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 수집 실행
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/job.schema.json
+        "4XX":
+          $ref: "#/components/responses/Problem"
 components:
   parameters:
     PlaceId:
@@ -181,7 +237,7 @@ components:
               status: { type: integer }
               detail: { type: string }
               instance: { type: string }
-              code: { enum: [INVALID_REQUEST, RESOURCE_NOT_FOUND, INTERNAL_ERROR, HTTP_ERROR] }
+              code: { enum: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, RESOURCE_NOT_FOUND, INTERNAL_ERROR, HTTP_ERROR] }
               errors:
                 type: array
                 items:

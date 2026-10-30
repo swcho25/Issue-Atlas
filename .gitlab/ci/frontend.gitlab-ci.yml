@@ -10,7 +10,7 @@ frontend-worker:
     - pnpm install --frozen-lockfile
   script:
     - pnpm --filter frontend worker:build
-    - pnpm --filter frontend exec wrangler deploy --dry-run
+    - pnpm --filter frontend exec wrangler deploy --dry-run --env "$WORKER_ENV"
     - node --check deploy/frontend/verify.mjs
     - pnpm --filter frontend exec playwright install --with-deps chromium
     - pnpm --filter frontend worker:test
@@ -31,10 +31,10 @@ frontend-deploy:
     - job: backend-deploy
       artifacts: false
       optional: true
-  resource_group: issueatlas-workers
+  resource_group: issueatlas-workers-$CI_COMMIT_BRANCH
   environment:
-    name: shared-workers
-    url: https://issue-atlas.kr
+    name: ${WORKER_ENV}-workers
+    url: $FRONTEND_URL
   interruptible: false
   timeout: 15 minutes
   cache:
@@ -47,5 +47,5 @@ frontend-deploy:
     - pnpm install --frozen-lockfile
   script:
     - test -n "$CLOUDFLARE_ACCOUNT_ID" && test -n "$CLOUDFLARE_API_TOKEN"
-    - pnpm --filter frontend worker:deploy --var "DEPLOYMENT_REVISION:$CI_COMMIT_SHA"
-    - node deploy/frontend/verify.mjs https://issue-atlas.kr "$CI_COMMIT_SHA"
+    - pnpm --filter frontend worker:deploy --env "$WORKER_ENV" --var "DEPLOYMENT_REVISION:$CI_COMMIT_SHA"
+    - node deploy/frontend/verify.mjs "$FRONTEND_URL" "$CI_COMMIT_SHA"
