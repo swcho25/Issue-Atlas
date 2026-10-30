@@ -21,7 +21,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 가상 지역 · 측정소 · 월 값으로 확인한다. 실제 측정소 좌표 적재는 담당 확인 뒤(S15P31C108-135).
+ * 가상 지역 · 측정소 · 월 값으로 확인한다. V0017 이 넣은 실제 측정소는 「시드된_여수_측정소」에서 본다.
  *
  * <p>측정소 b 는 2024-02 부터 코드가 바뀐다(T002 → T003). 측정소 d 는 좌표가 없고, x 는 다른 지역이다.
  *
@@ -103,6 +103,35 @@ class ObservationApiTest {
                 .andExpect(jsonPath("$.summary.min_month.month").value("2024-02"))
                 .andExpect(jsonPath("$.summary.min_month.value").value(9.0))
                 .andExpect(jsonPath("$.summary.bad_days_total").value(nullValue()));
+    }
+
+    @Test
+    @WithMockUser
+    void 시드된_여수_측정소_9곳이_지도_점으로_나온다() throws Exception {
+        // 실제 월 값은 없어 모두 not_collected. 점 순서는 측정소 코드 순
+        mvc.perform(observations("plc_yeosu", "A3", "2024-01-01", "2024-02-01"))
+                .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("observations"))
+                .andExpect(jsonPath("$.summary.station_count").value(9))
+                .andExpect(
+                        jsonPath("$.features[*].properties.place_id")
+                                .value(
+                                        contains(
+                                                "plc_stn_336121",
+                                                "plc_stn_336124",
+                                                "plc_stn_336125",
+                                                "plc_stn_336127",
+                                                "plc_stn_336128",
+                                                "plc_stn_336221",
+                                                "plc_stn_336222",
+                                                "plc_stn_336223",
+                                                "plc_stn_336903")))
+                .andExpect(
+                        jsonPath("$.features[0].geometry.coordinates")
+                                .value(contains(127.725967, 34.741301)))
+                .andExpect(jsonPath("$.features[0].properties.name").value("서강동"))
+                .andExpect(
+                        jsonPath("$.features[0].properties.missing_reason").value("not_collected"));
     }
 
     @Test
