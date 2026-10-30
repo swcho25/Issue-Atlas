@@ -39,5 +39,13 @@ frontend-deploy:
     policy: pull
   script:
     - test -n "$CLOUDFLARE_ACCOUNT_ID" && test -n "$CLOUDFLARE_API_TOKEN"
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "web" ]; then
+        current_sha=$(git ls-remote --exit-code origin "refs/heads/$CI_COMMIT_BRANCH" | cut -f1)
+        if [ "$current_sha" != "$CI_COMMIT_SHA" ]; then
+          echo "Branch advanced. Start a new frontend redeployment from the latest branch."
+          exit 1
+        fi
+      fi
     - pnpm --filter frontend worker:deploy --env "$WORKER_ENV" --var "DEPLOYMENT_REVISION:$CI_COMMIT_SHA"
     - node deploy/frontend/verify.mjs "$FRONTEND_URL" "$CI_COMMIT_SHA"

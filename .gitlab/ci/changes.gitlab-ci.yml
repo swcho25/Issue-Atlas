@@ -1,6 +1,9 @@
 # MR은 대상 브랜치, push는 이전 커밋과 비교한다. 설명 MD는 배포 대상이 아니다.
 .frontend-build-scope:
   rules:
+    - if: &frontend-redeploy '$CI_PIPELINE_SOURCE == "web" && $REDEPLOY_COMPONENT == "frontend" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: never
     - changes: &frontend-paths
         - frontend/src/**/*
         - frontend/app/**/*
@@ -25,12 +28,16 @@
         - contracts/**/*.{json,yaml,yml}
 .frontend-release:
   rules:
+    - if: *frontend-redeploy
     - if: &release-condition '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/ && $CI_COMMIT_REF_PROTECTED == "true"'
       changes: *frontend-paths
     - when: never
 
 .backend-build-scope:
   rules:
+    # web 파이프라인의 changes는 push diff가 없어 참이 될 수 있다. FE 전용 실행에서 제외.
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: never
     - changes: &backend-paths
         - backend/src/**/*
         - backend/gradle/**/*
@@ -56,6 +63,8 @@
 
 .collector-scope:
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: never
     - changes: &collector-paths
         - engine/pipeline/**/*.{py,json,yaml,yml,toml,sql,txt,csv}
         - engine/pyproject.toml
