@@ -54,6 +54,12 @@ sudo issueatlas-collect press --site yeosu --db
 sudo issueatlas-collect press --site gwangju --db
 # 지방재정365 세부사업별 세출현황 XLSX(통합자료실 첨부, 연도마다 한 파일)를 input 에 넣고 한 해씩. 파일 하나 약 30초
 sudo issueatlas-collect lofin --xlsx /inputs/2025_세부사업별세출현황.xlsx --db
+# 온통청년 청년정책(광주 5구 · 여수시, 새 법정 시군구 코드). collector.env 에 YOUTHCENTER_API_KEY 필요. 약 1~2분
+sudo issueatlas-collect youth-policy
+# 빅카인즈 뉴스(한 번에 최대 31일, 끝난 날짜만). collector.env 에 BIGKINDS_API_KEY 필요. 기사마다 원문을 받아 오래 걸린다
+sudo issueatlas-collect bigkinds --start 2025-10-01 --until 2025-10-08
+# P2 정제: 장부 → normalized_record. 키 없음. 수집과 같은 잠금이라 수집 중에는 돌지 않는다. 결과 파일 없음(--output 을 붙이지 않는다)
+sudo issueatlas-collect refine
 
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
 sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023

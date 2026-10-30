@@ -30,6 +30,7 @@ from pipeline.refine.validate import validate
 from .airkorea import KST
 from .kosis import MAX_BYTES, CollectionError, NoRedirect, canonical
 from .store import PostgresStore
+from .youth_policy import write_jsonl
 
 ROOT = Path(__file__).resolve().parents[3]
 ENDPOINT = "https://tools.kinds.or.kr/search/news"
@@ -216,8 +217,13 @@ class NewsStore(PostgresStore):
         return {row[0] for row in rows}
 
 
-def collect(query: NewsQuery, api_key: str, store, *, fetch=fetch_page, **article_options):
-    """검색 → 본문 수집 → SAVE_EVERY 건씩 저장. article_options 는 fetch_articles 로(테스트)."""
+def collect(
+    query: NewsQuery, api_key: str, store, *, fetch=fetch_page, output=None, **article_options
+):
+    """검색 → 본문 수집 → SAVE_EVERY 건씩 저장. article_options 는 fetch_articles 로(테스트).
+
+    output(Path)을 주면 저장하는 C1 레코드를 묶음마다 JSONL 로도 남긴다(서버 실행기가 붙인다).
+    """
     run_id = "bigkinds_" + uuid4().hex
     at = datetime.now(UTC).isoformat()
     store.start(query, run_id, at)
@@ -236,6 +242,8 @@ def collect(query: NewsQuery, api_key: str, store, *, fetch=fetch_page, **articl
         rows, records = [], []
 
         def flush():
+            if output:
+                write_jsonl(output, records)
             try:
                 saved = store.save(rows, records)
             except Exception:
@@ -269,6 +277,8 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--start", type=date.fromisoformat, required=True)
     p.add_argument("--until", type=date.fromisoformat)
+    # 서버 실행기(deploy/collector)가 실행마다 붙인다. 저장하는 C1 레코드의 JSONL 사본
+    p.add_argument("--output", type=Path)
     args = p.parse_args(argv)
     today = datetime.now(KST).date()
     until = args.until or today
@@ -289,7 +299,9 @@ def main(argv=None) -> int:
             autocommit=True,
         ) as conn:
             query = NewsQuery(args.start, until)
-            result = collect(query, config.get("BIGKINDS_API_KEY") or "", NewsStore(conn))
+            result = collect(
+                query, config.get("BIGKINDS_API_KEY") or "", NewsStore(conn), output=args.output
+            )
         print(json.dumps(result, ensure_ascii=False))
         return 0
     except CollectionError as exc:

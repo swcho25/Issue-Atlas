@@ -1,5 +1,7 @@
 """온통청년 청년정책 → C1 정책 레코드. 가상 응답, 네트워크 없음."""
 
+import json
+
 import pytest
 
 from pipeline.collect import youth_policy
@@ -216,3 +218,14 @@ def test_collect_twice_saves_once():
     assert (first["received"], first["inserted"], first["duplicates"]) == (3, 3, 0)
     assert (second["inserted"], second["duplicates"]) == (0, 3)
     assert first["regions"] == ["12130", "12210"]
+
+
+def test_output_file_gets_saved_records(tmp_path):
+    # 서버 실행기는 언제나 --output 을 붙인다
+    out = tmp_path / "c1.json"
+    api = Api({"12130": [policy("A"), policy("B")]})
+    collect(
+        PolicyQuery(("12130",)), "k", MemoryStore(), fetch=api, sleep=lambda _: None, output=out
+    )
+    lines = [json.loads(line) for line in out.read_bytes().splitlines()]
+    assert [r["locator"]["plcyNo"] for r in lines] == ["A", "B"]
