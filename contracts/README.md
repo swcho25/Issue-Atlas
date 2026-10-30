@@ -8,6 +8,7 @@ PRD v4.1 의 계약을 여기에 둔다. 계약을 바꾸는 MR 은 양쪽 담�
 | [P2](p2/) | 정제 레코드(C1 + P2 칸) — JSON Schema, 저장 테이블 `normalized_record` · `normalized_ready` 뷰, 에어코리아 월별 표 `air_monthly`, 문서(기사) 정제 — v0.5 초안 | 정제(P2) → 지역·시간·분류(P3·P4) | — |
 | [기사](article/) | 기사 본문 수집 결과(C1 `fetch.status` 의 뜻) · 본문 이용 규칙. 저장은 C1 기사 칸 → `raw_record` → `normalized_record` — v0.2 초안 | 본문 수집(P2) → 요약·분류(P3·P4) | — |
 | [보도자료](press/) | 여수시 · 광주광역시 보도자료 목록(제목 · 등록일 · 링크, 본문 없음) — 저장 테이블 `press_release` — v0.1 초안 | 수집(P1) → 정제·지역·분류(P2~P4) | — |
+| [지방 세출](expenditure/) | 지방재정365 세부사업별 세출현황(광주 본청 · 5구 · 여수시, 예산 · 지출) — 저장 테이블 `local_expenditure` — v0.1 초안 | 수집(P1 · P8) → 지역 · 분류 · 카드(P3 · P4 · L2) | — |
 | [C2](c2/) | API 응답(논증 카드 6칸 · 근거 · 관측점) — OpenAPI · v0.1 초안 | backend(P7) → frontend(S1·S2·S4) | 10/30 v0.1 · 11/13 v1 |
 | C3 | card_revision(수정 제안·승인) | 검수 화면 ↔ 되쓰기 | W3 |
 

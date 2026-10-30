@@ -72,3 +72,4 @@ V0006은 `vector` 확장만 활성화한다. 벡터 칼럼과 벡터 인덱스�
 - v0.1.8 (2026-10-28): 지역 6곳(광주 5구 · 여수시)과 KOSIS 옛 · 새 코드를 `place` · `place_code_map` 에 넣는다(V0011). place_id 는 [C2 예시](../c2/examples/place-list.json)와 같다. `GET /v1/places` 가 이 표를 읽는다.
 - v0.1.9 (2026-10-29): 기사 본문 표 `news_article` · `news_article_ready` 뷰를 지운다(V0012, S15P31C108-128). 기사는 C1 기사 칸으로 `raw_record` → `normalized_record` 에 저장한다. V0007 은 이미 적용돼 있어 그대로 둔다. 개발 서버 표에 있던 행도 함께 지워진다.
 - v0.1.10 (2026-10-29): 근거 표 `evidence` 추가(V0014, S15P31C108-134). 논증 카드의 근거 하나가 한 행이며 원본 여러 건을 묶을 수 있다(원본 위치는 `locator`). 출처 등급 · 이용허락 · 저장 범위는 근거를 만든 때의 값을 함께 둔다. `link_only` 는 `display` 를 둘 수 없다(CHECK). 채우는 쪽은 질문 실행(S15P31C108-133). `GET /v1/evidence/{evidence_id}` 가 읽는다.
+- v0.1.11 (2026-10-29): 지방 세출 표 `local_expenditure` 추가(V0015). 지방재정365 세부사업별 세출현황의 광주 본청 · 5구 · 여수시 행. 기반 6개 테이블과 FK 없이 따로 두고 칸 · 규칙은 [지방 세출 계약](../expenditure/README.md)에 둔다. `storage_scope = full` CHECK.
