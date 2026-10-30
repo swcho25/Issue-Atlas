@@ -7,7 +7,7 @@ from .url import mask_secrets
 from .validate import validate
 
 # 정제 결과가 달라지는 규칙 변경(금지 소스·이용허락 표 등)마다 올린다
-RULE_VERSION = "p2-0.4.0"
+RULE_VERSION = "p2-0.5.0"
 
 # P2 가 고치고 넘기는 사유. 이것만 있으면 fixed, 그 밖의 사유가 하나라도 있으면 held
 FIX_CODES = frozenset({"SCOPE_DOWNGRADED", "VALUE_STRIPPED_BY_SCOPE", "BODY_STRIPPED_BY_SCOPE"})
