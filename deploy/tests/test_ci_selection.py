@@ -87,8 +87,42 @@ class SelectionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.jobs = configuration()
+        cls.root = yaml.load((ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8"), Loader=Loader)
 
-    def selected(self, paths, source="push", branch="develop", protected=True):
+    def condition(self, expression, source, branch, protected, redeploy, target="develop"):
+        values = {
+            "CI_PIPELINE_SOURCE": source,
+            "CI_COMMIT_BRANCH": branch,
+            "CI_COMMIT_REF_PROTECTED": "true" if protected else "false",
+            "REDEPLOY_COMPONENT": redeploy,
+            "CI_MERGE_REQUEST_TARGET_BRANCH_NAME": target,
+        }
+        for part in expression.split(" && "):
+            match = re.fullmatch(r'\$(\w+) (==|=~) (.+)', part)
+            self.assertIsNotNone(match, f"Unsupported test expression: {part}")
+            key, operator, expected = match.groups()
+            actual = values[key]
+            if operator == "==":
+                result = actual == expected.strip('"')
+            else:
+                result = re.search(expected.strip("/"), actual) is not None
+            if not result:
+                return False
+        return True
+
+    def workflow(self, source="push", branch="develop", protected=True, redeploy="none", target="develop"):
+        for rule in self.root["workflow"]["rules"]:
+            if "if" in rule and not self.condition(rule["if"], source, branch, protected, redeploy, target):
+                continue
+            if rule.get("when") == "never":
+                return None
+            values = {k: v.get("value") if isinstance(v, dict) else v for k, v in self.root["variables"].items()}
+            return values | rule.get("variables", {})
+        return None
+
+    def selected(self, paths, source="push", branch="develop", protected=True, redeploy="none"):
+        if self.workflow(source, branch, protected, redeploy) is None:
+            return set()
         selected = set()
         for name, job in self.jobs.items():
             if "rules" not in job:
@@ -96,8 +130,7 @@ class SelectionTests(unittest.TestCase):
                 continue
             for rule in job["rules"]:
                 if "if" in rule:
-                    self.assertEqual(rule["if"], '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/ && $CI_COMMIT_REF_PROTECTED == "true"')
-                    if not (source == "push" and branch in {"develop", "main"} and protected):
+                    if not self.condition(rule["if"], source, branch, protected, redeploy):
                         continue
                 patterns = rule.get("changes")
                 if patterns and not any(matches(path, pattern) for path in paths for pattern in patterns):
@@ -155,6 +188,35 @@ class SelectionTests(unittest.TestCase):
         # Jobs without rules can default to except: merge_requests in GitLab.
         for name in ("harness", "infra"):
             self.assertEqual(self.jobs[name]["rules"], [{"when": "on_success"}])
+
+    def test_manual_frontend_redeployment_runs_checks_and_bundle_only_for_selected_service(self):
+        for branch, environment in (("develop", "development"), ("main", "production")):
+            with self.subTest(branch=branch):
+                for paths in ([], [".gitlab-ci.yml", "backend/src/App.java", "engine/pipeline/main.py"]):
+                    selected = self.selected(paths, source="web", branch=branch, redeploy="frontend")
+                    self.assertEqual(selected, {"harness", "infra", "frontend", "frontend-worker", "frontend-deploy"})
+                    for name in selected:
+                        for need in self.jobs[name].get("needs", []):
+                            if not need.get("optional"):
+                                self.assertIn(need["job"], selected)
+                values = self.workflow(source="web", branch=branch, redeploy="frontend")
+                self.assertEqual(values["WORKER_ENV"], environment)
+                self.assertEqual(values["FRONTEND_URL"], "https://issue-atlas.kr" if branch == "main" else "https://dev.issue-atlas.kr")
+
+    def test_manual_redeployment_rejects_other_sources_refs_and_unspecified_component(self):
+        cases = [
+            {"redeploy": "none"}, {"redeploy": "backend"},
+            {"protected": False}, {"branch": "feature/test"}, {"branch": ""},
+            {"source": "api"}, {"source": "schedule"},
+        ]
+        for overrides in cases:
+            options = {"source": "web", "branch": "develop", "protected": True, "redeploy": "frontend"} | overrides
+            with self.subTest(options=options):
+                self.assertEqual(self.selected([".gitlab-ci.yml"], **options), set())
+
+    def test_manual_selection_cannot_enable_deployment_in_an_mr(self):
+        selected = self.selected(["frontend/src/a.ts"], source="merge_request_event", redeploy="frontend")
+        self.assertEqual(selected, {"harness", "infra", "frontend", "frontend-worker"})
 
     def test_unprotected_push_cannot_deploy(self):
         selected = self.selected([".gitlab-ci.yml"], protected=False)

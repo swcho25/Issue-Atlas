@@ -8,7 +8,8 @@
 | --- | --- |
 | develop/main 대상 MR 생성·갱신 | 변경 영역 검사, FE 변경 시 Workers 빌드·검사 포함. 배포 없음 |
 | 보호된 develop/main에 병합(push 파이프라인) | 변경 영역 검사 → 해당 이미지/Workers 빌드 → 해당 서비스만 자동 배포 |
-| 다른 브랜치 push·태그·스케줄·웹 수동 파이프라인 | 실행 안 함 |
+| New pipeline에서 보호된 develop/main 및 REDEPLOY_COMPONENT=frontend 선택 | FE 검사 → Workers 빌드·검사 → FE만 배포 |
+| 다른 브랜치 push·태그·스케줄·그 밖의 웹 수동 파이프라인 | 실행 안 함 |
 
 137번부터 `develop → development`, `main → production`으로 분리한다. 같은 EC2를 사용하되 개발은 `/opt/issueatlas-dev`(기존 볼륨 유지), 운영은 `/opt/issueatlas-prod`(새 볼륨)를 사용한다. 환경별 잠금·pipeline 상한·복구 기록을 분리하고, 같은 환경의 BE·수집기는 직렬 배포한다. 직접 push는 계속 금지하며 MR로만 병합한다.
 
@@ -37,7 +38,7 @@
 
 ### 변경 영역 선택 (S15P31C108-113)
 
-경로 목록은 `.gitlab/ci/changes.gitlab-ci.yml`에서 관리한다. 151번부터 계약 검사와 실행 산출물의 빌드·배포 조건을 분리한다. MR은 대상 브랜치와의 차이, 병합 후 push는 해당 브랜치의 이전 커밋과의 차이를 사용한다. 현재 workflow는 MR과 develop/main push만 허용하므로 스케줄에서 changes가 무조건 참이 되는 경우는 없다.
+경로 목록은 `.gitlab/ci/changes.gitlab-ci.yml`에서 관리한다. 151번부터 계약 검사와 실행 산출물의 빌드·배포 조건을 분리한다. MR은 대상 브랜치와의 차이, 병합 후 push는 해당 브랜치의 이전 커밋과의 차이를 사용한다. 명시적 FE 수동 실행은 별도 조건을 사용하며 BE/engine의 web 실행을 차단한다. 스케줄은 workflow에서 허용하지 않는다.
 
 | 변경 | 추가로 실행할 작업 (harness·infra는 항상 실행) |
 | --- | --- |
@@ -54,7 +55,19 @@
 
 FE·수집기 배포의 `backend-deploy` 의존성은 optional이다. BE 작업이 없으면 기존 BE/DB를 사용하고, 있으면 성공을 기다린다. 이미지 작업은 check 단계를 모두 통과해야 실행하며, 배포 이미지 artifact 의존성은 필수다. 공통 계약이나 Flyway를 함께 바꿀 때의 호환성 검토는 계속 필요하다.
 
-실패한 배포는 해당 파이프라인의 실패 job을 재시도한다. 이후 무관한 변경을 병합해도 누락된 서비스를 자동 재배포하지 않는다. 서비스마다 마지막 배포 SHA가 달라지는 것은 정상이며, FE는 `/healthz`, BE·수집기는 각 배포 기록으로 확인한다. 변경 없는 서비스를 포함한 강제 전체 배포 기능은 이번 범위에 없다.
+실패한 배포는 해당 파이프라인의 실패 job을 재시도한다. 이후 무관한 변경을 병합해도 누락된 서비스를 자동 재배포하지 않는다. 서비스마다 마지막 배포 SHA가 달라지는 것은 정상이며, FE는 `/healthz`, BE·수집기는 각 배포 기록으로 확인한다. 변경 없는 서비스를 포함한 강제 전체 배포 기능은 제공하지 않는다.
+
+### 누락된 FE 배포 복구 (151번 후속)
+
+오래된 BE 배포가 차단되어 같은 파이프라인의 frontend-deploy가 skipped된 경우, 이전 BE job을 반복 실행하지 않는다. 아래 수동 실행으로 현재 브랜치의 FE를 새로 검사·빌드·배포한다.
+
+1. 보완 코드가 들어간 브랜치에서 GitLab **Build → Pipelines → New pipeline**을 연다.
+2. **Branch**는 `develop`(개발) 또는 `main`(운영)을 선택한다. 해당 브랜치 병합/실행 권한이 필요하다.
+3. 표시된 **REDEPLOY_COMPONENT**를 `frontend`로 선택하고 실행한다. SSH 키·Cloudflare 토큰이나 WORKER_ENV/FRONTEND_URL을 직접 입력하지 않는다. 기존 보호 변수와 브랜치별 환경을 사용한다.
+4. harness·infra·frontend 검사 → frontend-worker 빌드/dry-run/Workers E2E → frontend-deploy 및 HTTPS 검증 성공을 확인한다. BE·수집기 job은 생성하지 않으므로 기존 정상 BE에 연결한다.
+5. 대상 환경의 `/healthz` revision이 이번 파이프라인 커밋과 같은지 확인한다. 실행을 기다리는 동안 브랜치가 갱신되면 배포 직전 최신 SHA 확인에서 차단하므로 최신 브랜치로 New pipeline을 다시 생성한다.
+
+기존 push/MR 실행과 같은 환경별 resource group·배포 후 검증을 유지한다. 이전 파이프라인 artifact를 가져오거나 검사 없이 배포하지 않는다. 새 보완 코드는 main에도 병합되어야 main 수동 실행을 사용할 수 있다. 자동 배포 파이프라인에서 BE도 함께 변경된 경우에는 기존처럼 BE 배포 성공을 기다린다.
 
 FE 검사·Workers 빌드·배포는 같은 공식 Playwright 1.64.1 이미지(digest 고정)를 사용한다. Node 24·Git·인증서·브라우저 및 OS 의존성을 포함하므로 apt/playwright install을 매번 실행하지 않는다. 최초 이미지 다운로드는 크지만 이후 레이어를 재사용한다. @playwright/test 버전과 이미지 버전은 함께 갱신하며 선택 테스트에서 일치를 검사한다.
 
