@@ -14,6 +14,7 @@ MODES = {
     "airkorea-stations": ("pipeline.collect.airkorea_cli", "stations"),
     "airkorea-final": ("pipeline.collect.airkorea_cli", "final"),
     "press": ("pipeline.collect.press",),
+    "lofin": ("pipeline.collect.lofin",),
 }
 
 

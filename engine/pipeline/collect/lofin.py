@@ -174,19 +174,25 @@ def main(argv=None, connect=connect_from_env) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--xlsx", type=Path, required=True)
     p.add_argument("--db", action="store_true")
+    # 서버 실행기(deploy/collector)가 실행마다 붙인다. JSONL 을 이 파일에 쓴다(--db 와 함께면 사본)
+    p.add_argument("--output", type=Path)
     args = p.parse_args(argv)
     now = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
     try:
         records, counts = read_rows(args.xlsx, now)
+        counts["records"] = len(records)
+        # Windows 에서도 \n 만 쓰게 바이트로
+        lines = [json.dumps(r, ensure_ascii=False).encode("utf-8") + b"\n" for r in records]
+        if args.output:
+            args.output.write_bytes(b"".join(lines))
+        elif not args.db:
+            sys.stdout.buffer.writelines(lines)
         if args.db:
             with connect() as conn:
-                result = store(conn, records)
-            print(json.dumps(counts | result | {"records": len(records)}, ensure_ascii=False))
-            return 0
-        out = sys.stdout.buffer  # Windows 에서도 \n 만 쓰게 바이트로
-        for record in records:
-            out.write(json.dumps(record, ensure_ascii=False).encode("utf-8") + b"\n")
-        print(json.dumps(counts | {"records": len(records)}), file=sys.stderr)
+                counts |= store(conn, records)
+            print(json.dumps(counts, ensure_ascii=False))
+        else:
+            print(json.dumps(counts), file=sys.stderr)
         return 0
     except CollectionError as exc:
         print(str(exc), file=sys.stderr)

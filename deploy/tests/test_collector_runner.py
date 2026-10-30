@@ -44,5 +44,9 @@ class CollectorRunnerTests(unittest.TestCase):
             runner.command(self.app, "press", ["--site", "yeosu", "--db"])[-5:],
             ["-m", "pipeline.collect.press", "--site", "yeosu", "--db"],
         )
+        self.assertEqual(
+            runner.command(self.app, "lofin", ["--xlsx", "/inputs/2025.xlsx", "--db"])[-5:],
+            ["-m", "pipeline.collect.lofin", "--xlsx", "/inputs/2025.xlsx", "--db"],
+        )
         self.assertIn("--rm", command)
         self.assertIn("never", command)

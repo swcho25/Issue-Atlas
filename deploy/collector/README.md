@@ -52,6 +52,8 @@ sudo issueatlas-collect airkorea-final --xlsx /inputs/final.xlsx --start-date 20
 # 여수시 · 광주광역시 보도자료 목록 → press_release. 키 없음. robots.txt 간격(여수 30초)을 지켜 여수 약 33분, 광주 약 3분
 sudo issueatlas-collect press --site yeosu --db
 sudo issueatlas-collect press --site gwangju --db
+# 지방재정365 세부사업별 세출현황 XLSX(통합자료실 첨부, 연도마다 한 파일)를 input 에 넣고 한 해씩. 파일 하나 약 30초
+sudo issueatlas-collect lofin --xlsx /inputs/2025_세부사업별세출현황.xlsx --db
 
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
 sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023

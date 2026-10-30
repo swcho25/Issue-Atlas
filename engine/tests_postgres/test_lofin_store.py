@@ -25,8 +25,11 @@ def test_store_then_rerun_adds_nothing(lofin_db, tmp_path, capsys):
     )
     assert main(["--xlsx", str(path), "--db"], connect=connect) == 0
     assert '"inserted": 2' in capsys.readouterr().out
-    assert main(["--xlsx", str(path), "--db"], connect=connect) == 0
+    # 서버 실행기처럼 --output 을 붙이면 저장하고 사본도 남긴다
+    copy = tmp_path / "c1.json"
+    assert main(["--xlsx", str(path), "--db", "--output", str(copy)], connect=connect) == 0
     assert '"duplicates": 2' in capsys.readouterr().out
+    assert len(copy.read_bytes().splitlines()) == 2
     rows = conn.execute(
         "SELECT place_code_raw, fiscal_year, project_name, budget_total, storage_scope"
         " FROM local_expenditure ORDER BY place_code_raw"

@@ -92,6 +92,16 @@ def test_unexpected_files_stop_with_fixed_code(tmp_path, kwargs, rows, code):
         read_rows(path, NOW)
 
 
+def test_cli_output_file_replaces_stdout(tmp_path, capsysbinary):
+    path = book(tmp_path / "z.xlsx", [row("광주", "서구", "청년 공간")])
+    out_file = tmp_path / "c1.json"
+    assert main(["--xlsx", str(path), "--output", str(out_file)]) == 0
+    out, err = capsysbinary.readouterr()
+    assert out == b"" and json.loads(err)["records"] == 1
+    [line] = out_file.read_bytes().splitlines()
+    assert json.loads(line)["place_code_raw"] == "29140"
+
+
 def test_cli_prints_jsonl_without_db(tmp_path, capsysbinary):
     path = book(tmp_path / "y.xlsx", [row("전남", "여수시", "청년 정착 지원")])
 
