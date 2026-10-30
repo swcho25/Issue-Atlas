@@ -135,7 +135,7 @@ uv --directory engine run python -m pipeline.collect.youth_policy --regions 1213
 - `storage_scope=metadata`, 본문 · 링크 없음(원천이 상세 주소를 주지 않아 만들지 않는다). `place_code_system=bjd`
 - **지역 코드는 2026-07-01 행정통합 뒤 새 코드**(여수 `12130`, 광주 동구 `12210` · 서구 `12240` · 남구 `12270` · 북구 `12300` · 광산구 `12330`). 옛 코드로 물으면 0건이다(2026-10-30 실호출)
 - 지역 조회에는 대상 지역에 여수 · 광주가 들어간 **다른 지자체 · 중앙 정책도 함께 나온다**(2026-10-30 여수 867건 · 광주 동구 946건). 고르기는 P4 · 카드에서
-- 같은 정책 · 같은 지역 · 같은 내용은 같은 원본(조회수 `inqCnt` 는 지문에서 뺀다). 내용이 바뀌면 새 원본, dedup_key `youthcenter:<plcyNo>:<zipCd>` 는 같다
+- 같은 정책 · 같은 지역 · 같은 내용은 같은 원본(조회수 `inqCnt` 는 지문에서 뺀다). 내용이 바뀌면 새 원본이자 새 판: dedup_key `youthcenter:<plcyNo>:<zipCd>:<지문 앞 12자리>` 가 판마다 다르고 locator `{plcyNo, zipCd}` 는 같아, P2 가 같은 정책 칸의 판으로 묶어 늦게 받은 판을 최신본으로 고른다. 지문이 없던 0.1.0(`youthcenter:<plcyNo>:<zipCd>`)은 수정본과 같은 키 · 다른 내용이라 둘 다 `DEDUP_KEY_CONFLICT` 로 보류됐다
 - 발행 시각은 최초 등록, 없으면 최종 수정 시각. 둘 다 모르면 넣지 않고 `no_published_at` 으로 센다(C1 문서는 발행 시각 필수)
 - 요청 사이 1초, 지역마다 50쪽까지(`YOUTHCENTER_TOO_MANY_PAGES`)
 - 이용허락 `공공데이터-이용허락범위제한없음` 은 P2 이용허락 표에서 `full`(최대치). 이 수집기는 `metadata` 로 보내 실제 저장 범위는 `metadata`
