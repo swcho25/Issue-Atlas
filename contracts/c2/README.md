@@ -16,7 +16,7 @@
 | ① | `GET /v1/places` | 지역 선택 | `place-list` | `place-list.json` |
 | ② | `GET /v1/places/{place_id}/cards?period_start&period_end` | 이슈 카드 목록 (근거 n/4) | `place-cards` | `place-cards-yeosu.json` |
 | ③ | `POST /v1/questions` | 질문 저장 | `question-create-request` · `-response` | `question-create-*.json` |
-| ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 3개 |
+| ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 4개 |
 | ④ | `GET /v1/evidence/{evidence_id}` | 원문 탭 · 각주 복사 | `evidence` | `evidence-kosis.json` |
 | ⑤ | `GET /v1/observations?place_id&card_id&period_start&period_end` | 지도 점 | `observations` | `observations-a3-yeosu.json` |
 | 보조 | `GET /v1/sources` | 근거 출처 · 이용 조건 · 마지막 수집 (8장 보조) | `source-list` | `source-list.json` |
@@ -29,6 +29,24 @@
 현재 카드 seed는 C1·A3 두 개다. 카드 목록은 대분류 → 한국어 가나다 → 카드 ID로 고정 정렬하며 확보 수와 무관하다. 네 종류는 statistics·documents·existing_responses·denominators 순서로 각각 한 번씩 반환한다.
 
 상태는 [DB 계약](../database/README.md)의 `card_evidence_status`에서 정확히 같은 지역·조회 기간·카드 버전만 읽는다. 미등록 종류는 `not_collected`다. `available_kinds`는 available 종류 수, `review_pending_count`는 종류별 보류 항목 수의 합이다. 예시 JSON의 가상 확보 상태를 실서비스 seed에 복사하지 않는다. P3/P4의 근거 연결·상태 작성은 후속 작업이며, 연결 전 0/4 응답은 자료가 없다는 판정이 아니라 확보 상태가 등록되지 않았다는 뜻이다.
+
+## 질문 · 실행 구현 (S15P31C108-133)
+
+`POST /v1/questions` 는 요청마다 질문 하나와 실행 하나를 저장하고 새 `run_id` 를 준다(같은 질문을 다시 보내도 새 실행). 결과는 실행 때 한 번 만들어 `argument_run.result` 에 저장하고, `GET /v1/arguments/{run_id}` 는 그 값을 그대로 준다 — 지난 실행을 다시 계산하거나 덮어쓰지 않는다. 잘못된 기간(시작 ≥ 끝 · 날짜 형식) · 빠진 칸은 `400 INVALID_REQUEST`, 없는 지역 · 카드 · 실행은 `404 RESOURCE_NOT_FOUND`.
+
+| 경우 | `run_status` | 판단 ① 문장 |
+| --- | --- | --- |
+| `card_id = null` (목록에 없는 질문) | `unsupported`, `candidate: true`, `card_version` · `formula_version` null | 신규 카드 후보로 저장했습니다. 판단하지 않습니다 |
+| 필수 근거(통계)가 `available` 아님 | `blocked` | 필수 근거(통계)가 없어 판단하지 않습니다 |
+| 카드 판정 규칙이 연결되지 않음 | `unsupported`, `formula_version` null | 이 카드의 판정 규칙이 아직 연결되지 않아 판단하지 않습니다 |
+| 규칙 판정 · 선택 근거가 빠짐 | `partial` | 템플릿 (규칙의 claim · 지표 이름) |
+| 규칙 판정 · 네 종류 모두 있음 | `ready` | 템플릿 |
+
+- 판단(claim · 비교 조건 · 통계 · 문서 · 분모 근거)은 카드 판정 규칙(P5)이 낸다. backend 는 카드마다 `CardRule` 빈 하나를 부른다. **지금 저장소에는 규칙이 없어** 통계가 있어도 판단하지 않는다(위 표 셋째 줄). 규칙 결과가 증가 · 감소인데 비교 조건이 하나라도 통과가 아니면 실행이 실패한다(고쳐 쓰지 않음)
+- 6칸 문장은 템플릿으로만 만든다(LLM 없음). 보증 ③ · 상한선 ⑥ 은 카드 정의(규칙이 함께 줌), 반박 ⑤ 는 아직 `[]`
+- 「기존 대응」: [-136 후보](../existing-response/) 중 같은 카드 · 지역(`place_id`)이고 기간이 겹치는 현재 판만 잇는다. 세출은 회계연도 `[Y-01-01, Y+1-01-01)`, 온통청년은 사업 기간으로 겹침을 본다. 기간을 모르는 후보와 광역 후보(`place_id` null)는 잇지 않는다. 출처 등급(`source.reliability_grade`)이 정해진 출처의 후보만 근거(`evidence`, ID `ev_<후보 해시>`)로 만들고, 등급 없는 후보는 근거 수요표에 `review_pending`(보류 수 = 후보 수)으로만 센다
+- 근거 수요표 상태는 `card_evidence_status`(정확히 같은 기간 · 카드 판)를 읽는다. 기존 대응은 이번 실행이 이은 후보가 있으면 그것으로 정한다
+- 한정어 ④ 는 위 「정하지 않은 것」의 임시 방식으로 센다
 
 ## 공통 규칙
 
@@ -144,3 +162,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-10-29): 근거 충실도 규칙표 `qualifier-0.1` 추가(S15P31C108-131). `components` 에 `ab_grade_sources` · `latest_within_one_year` 를 더하고, 스키마가 등급과 구성 값이 맞는지 검사한다. 구성 값을 세는 방법 4가지는 미결. 동결 전.
 - v0.1 (2026-10-29): 관리자 수집 이력 `GET /v1/admin/jobs` · `/{job_run_id}` 추가(FR-F5). 상태 · 수집 대상(`source_id` · `spec_id`) 필터, 페이지네이션(`page` 1부터, `size` 최대 100). 관리자 전용이라 `/v1/admin/**` 아래에 둔다. 오류 코드 목록에 `UNAUTHORIZED` · `FORBIDDEN` 을 더했다.
 - v0.1 (2026-10-30): 출처 목록 `GET /v1/sources` 추가(8장 보조 API). 출처마다 등급 · 이용허락 · 저장 범위와 수집 명세별 마지막 성공 수집 시각. 등급을 아직 정하지 않은 출처는 `source_grade: null`.
+- v0.1 (2026-11-01): 질문 · 실행 구현(S15P31C108-133). argument 의 `question.card_id` · `card_name` · `card_version` · `formula_version` 을 null 허용으로 바꾼다 — 목록에 없는 질문(FR-A3)과 판정 규칙이 없는 카드. `card_id` 가 null 이면 `run_status = unsupported` · `card_version = null` 을 스키마가 검사한다. 예시 `argument-unsupported.json` 추가.
