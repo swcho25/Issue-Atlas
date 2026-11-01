@@ -14,7 +14,7 @@
 | `card_id` | `C1` · `A3` |
 | `origin` · `origin_ref` | 원천과 판이 바뀌어도 같은 식별자. 온통청년 `<plcyNo>:<zipCd>`, 세출은 `expenditure_id` |
 | `raw_content_hash` · `expenditure_id` | 원천 판(FK). 온통청년은 원본 `raw_record.content_hash`, 세출은 `local_expenditure.expenditure_id`. 둘 중 하나만 |
-| `place_code_raw` · `place_id` | 원천 지역 코드 그대로 · 맞춘 지역. 광주 본청(`29`)처럼 6곳에 없는 넓은 단위는 `place_id = null` |
+| `place_code_raw` · `place_id` | 원천 지역 코드 그대로 · 맞춘 지역. 광주 본청(`29`)은 시도 place `kr-29`(V0018, S15P31C108-163). 지역 코드 연결에 없는 코드는 `place_id = null` |
 | `name` | 사업명 |
 | `department` | 담당 부서. 원천에 없으면 null |
 | `fiscal_year` | 세출 회계연도. 사업 시행 기간이 아니다 |
