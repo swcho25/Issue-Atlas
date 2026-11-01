@@ -1,7 +1,7 @@
-# P3 지역 · 시간 v0.3 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place`
+# P3 지역 · 시간 v0.4 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place`
 
 지역 · 시간(P3)이 P2 정제 결과([P2 계약](../p2/README.md))에 붙이는 것. 기사에는 요약 · 사건 시간대 · 위치를, 통계에는 지역 코드가 가리키는 위치를 붙인다.
-**통계 값은 다시 저장하지 않는다.** 서비스는 요청 때 `normalized_ready` · `air_monthly` 를 지역 코드로 걸러 읽는다. 표는 Flyway [V0016](../../backend/src/main/resources/db/migration/V0016__create_news_event.sql) · [V0017](../../backend/src/main/resources/db/migration/V0017__seed_station_places.sql).
+**통계 값은 다시 저장하지 않는다.** 서비스는 요청 때 `normalized_ready` · `air_monthly` 를 지역 코드로 걸러 읽는다. 표는 Flyway [V0016](../../backend/src/main/resources/db/migration/V0016__create_news_event.sql) · [V0017](../../backend/src/main/resources/db/migration/V0017__seed_station_places.sql) · [V0020](../../backend/src/main/resources/db/migration/V0020__add_news_event_regions.sql).
 계약 변경은 정우현(P3) · 받는 쪽 장성우(P7) 리뷰가 필요하다.
 
 ## 무엇을 어디에
@@ -32,22 +32,27 @@
 | `place_name` · `address` | 장소 이름(없으면 읍면동 · 시군구 이름) · 도로명주소(없으면 행정 주소) |
 | `geometry` · `location_precision` | 좌표 · `address`(주소 좌표) / `admin_centroid`(읍면동 · 시군구 중심) / `none`(좌표 없음, `geometry` null) |
 | `place_id` | 위치의 읍면동 · 시군구. 읍면동 `place` 행이 아직 없어 외래키 없는 참고 값 |
-| `sido` · `sigun` · `gu` | 기사 지역. 정해지지 않은 단계는 null. 시도는 `전남광주통합특별시` · `전국` · 다른 시도, 시군은 `여수시` 등, 광주 5개 구는 시군 `광주` + 구 |
+| `sido` · `sigun` · `gu` | 기사 대표 지역. 정해지지 않은 단계는 null. 시도는 `전남광주통합특별시` · `전국` · 다른 시도, 시군은 `여수시` 등, 광주 5개 구는 시군 `광주` + 구 |
+| `regions` | 기사 지역 전부(V0020, jsonb 배열). 원소 `{sido, sigun, gu}` 는 위 세 칸과 같은 값이고, **첫 원소가 대표 지역**으로 `sido` · `sigun` · `gu` 와 늘 같다. 여러 지역을 다룬 기사는 모두 넣는다. 전국이라 밝혔거나 특정 지역이 없으면 `[{"sido": "전국", "sigun": null, "gu": null}]`. 빈 배열 `[]`(기본값)은 보류(지역 미정)만 |
 
-CHECK: `event_end > event_start`, 좌표가 없으면 `location_precision = none`, 좌표는 경도 124–132 · 위도 33–39.
+CHECK: `event_end > event_start`, 좌표가 없으면 `location_precision = none`, 좌표는 경도 124–132 · 위도 33–39, `regions` 는 JSON 배열.
 
 ## 지역 맞추기
 
-사용자가 고른 시군구 `place_id` 와 기사 지역 칸은 `place.attrs` 의 같은 세 값(`sido` · `sigun` · `gu`, V0017)으로 맞춘다.
+사용자가 고른 시군구 `place_id` 와 기사 지역 배열 `regions` 의 원소를 `place.attrs` 의 같은 세 값(`sido` · `sigun` · `gu`, V0017)으로 맞춘다. 원소 하나라도 맞으면 그 기사가 나온다.
 
 ```sql
 SELECT e.*
 FROM news_event e
 JOIN place p ON p.place_id = :place_id
-WHERE e.sido = p.attrs ->> 'sido'
-  AND (e.sigun IS NULL OR e.sigun = p.attrs ->> 'sigun')
-  AND (e.gu IS NULL OR e.gu = p.attrs ->> 'gu')
+WHERE EXISTS (
+    SELECT 1 FROM jsonb_array_elements(e.regions) r
+    WHERE r ->> 'sido' = p.attrs ->> 'sido'
+      AND (r ->> 'sigun' IS NULL OR r ->> 'sigun' = p.attrs ->> 'sigun')
+      AND (r ->> 'gu' IS NULL OR r ->> 'gu' = p.attrs ->> 'gu'))
 ```
+
+여수 · 순천 기사는 여수와 순천 양쪽에, 광주 동구 · 북구 기사는 두 구에 모두 나온다. `전국` 기사는 시도가 달라 어느 시군구에도 나오지 않는다.
 
 `plc_gwangju_donggu` 를 고르면 동구 기사, 「광주」 전체 기사(`gu` null), 시도 전체 기사(`sigun` null)가 함께 나온다. 넓은 단위 기사 · `전국` 기사를 근거에 넣을지는 카드 규칙이 정한다.
 
@@ -110,5 +115,6 @@ PRD FR-A1(지역 계층 시 → 구·군 → 읍·면·동)의 읍·면·동. **
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
 | v0.1 | 2026-10-30 | 초안: `news_event`(V0016), 측정소 22곳 · 시군구 6곳 위치(V0017), 지역 맞추기 규칙 (S15P31C108-148) |
-| v0.3 | 2026-11-01 | 행정동 123곳 `place`(`level = emd`, `kr-<KOSIS 시군구><읍면동 3자리>`, SGIS 대표점)와 SGIS 행정동 코드 통합 전 · 뒤 두 줄(V0019). `GET /v1/places?parent_id=` 로 시군구의 행정동을 내보낸다 (S15P31C108-167) |
 | v0.2 | 2026-11-01 | 시도 18곳 `place`(`kr-<코드>`, 대표점)와 코드 연결(V0018): KOSIS 시도 2자리 · 광주 전체 29 · 온통청년 `bjd` · 측정소 이름. `GET /v1/places` 는 시도를 빼고 내보낸다. 개발 DB `news_event` 3,477건 적재(p9.1 · s1) |
+| v0.3 | 2026-11-01 | 행정동 123곳 `place`(`level = emd`, `kr-<KOSIS 시군구><읍면동 3자리>`, SGIS 대표점)와 SGIS 행정동 코드 통합 전 · 뒤 두 줄(V0019). `GET /v1/places?parent_id=` 로 시군구의 행정동을 내보낸다 (S15P31C108-167) |
+| v0.4 | 2026-11-01 | 기사 지역 배열 `news_event.regions`(V0020, jsonb · GIN): 여러 지역을 다룬 기사는 지역을 모두 두고 첫 원소가 대표 지역(`sido` · `sigun` · `gu` 칸과 같음), 전국 · 지역 없음은 `전국` 한 원소, `[]` 는 보류만. 「지역 맞추기」를 원소 하나라도 맞으면 고르도록 바꿈. 기존 행은 지역 칸 하나로 채움 (S15P31C108-168) |
