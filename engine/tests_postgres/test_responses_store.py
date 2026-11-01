@@ -1,6 +1,6 @@
 """명시 실행: uv --directory engine run pytest tests_postgres (Docker 필요).
 
-정제된 온통청년 정책 · local_expenditure → existing_response(V0018). 원천은 고치지 않는다.
+정제된 온통청년 정책 · local_expenditure → existing_response(V0019). 원천은 고치지 않는다.
 """
 
 import hashlib
@@ -31,7 +31,7 @@ def responses_db(postgis):
             "V0011__seed_places.sql",
             "V0013__create_card_catalog.sql",
             "V0015__create_local_expenditure.sql",
-            "V0018__create_existing_response.sql",
+            "V0019__create_existing_response.sql",
         ),
     )
 
