@@ -1,4 +1,4 @@
-"""온통청년 정책 · 지방재정365 세출 → 카드 근거 ③ 「기존 대응」 후보(existing_response, V0019).
+"""온통청년 정책 · 지방재정365 세출 → 카드 근거 ③ 「기존 대응」 후보(existing_response, V0022).
 
 python -m pipeline.responses --db   → 건수 JSON (stdout)
 
