@@ -65,6 +65,9 @@ sudo issueatlas-collect bigkinds --start 2025-12-22 --until 2025-12-29
 sudo issueatlas-collect bigkinds --start 2025-12-29 --until 2026-01-01
 # P2 정제: 장부 → normalized_record. 키 없음. 수집과 같은 잠금이라 수집 중에는 돌지 않는다. 결과 파일 없음(--output 을 붙이지 않는다)
 sudo issueatlas-collect refine
+# 기존 대응 후보(existing_response): 정제된 온통청년 정책 · 세출에서 카드 C1 · A3 후보를 뽑는다. 키 없음 · 결과 파일 없음.
+# youth-policy · lofin 적재와 refine 뒤에 돌린다. 같은 판을 다시 돌리면 0건 추가
+sudo issueatlas-collect responses
 
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
 sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023

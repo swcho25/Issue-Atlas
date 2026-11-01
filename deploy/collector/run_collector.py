@@ -19,9 +19,11 @@ MODES = {
     "bigkinds": ("pipeline.collect.bigkinds",),
     # P2 정제: 장부(raw_record.c1_record) → normalized_record. 키 없음, DB 칸만 쓴다
     "refine": ("pipeline.refine", "--db"),
+    # 기존 대응 후보: 정제된 온통청년 정책 · local_expenditure → existing_response. 키 없음, refine 뒤에 돈다
+    "responses": ("pipeline.responses", "--db"),
 }
 # 결과 파일이 없는 모드. --output 을 붙이면 사용법 오류로 끝난다
-NO_OUTPUT = {"refine"}
+NO_OUTPUT = {"refine", "responses"}
 
 
 def published_image(config):
