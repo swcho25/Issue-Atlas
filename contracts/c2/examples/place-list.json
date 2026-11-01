@@ -5,7 +5,7 @@
       "place_id": "plc_gwangju_donggu",
       "name": "광주 동구",
       "level": "sigungu",
-      "parent_id": null,
+      "parent_id": "kr-29",
       "codes": [
         { "code_system": "kosis", "place_code": "29110", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "kosis", "place_code": "12210", "valid_from": "2026-07-01", "valid_to": null }
@@ -15,7 +15,7 @@
       "place_id": "plc_gwangju_seogu",
       "name": "광주 서구",
       "level": "sigungu",
-      "parent_id": null,
+      "parent_id": "kr-29",
       "codes": [
         { "code_system": "kosis", "place_code": "29140", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "kosis", "place_code": "12240", "valid_from": "2026-07-01", "valid_to": null }
@@ -25,7 +25,7 @@
       "place_id": "plc_gwangju_namgu",
       "name": "광주 남구",
       "level": "sigungu",
-      "parent_id": null,
+      "parent_id": "kr-29",
       "codes": [
         { "code_system": "kosis", "place_code": "29155", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "kosis", "place_code": "12270", "valid_from": "2026-07-01", "valid_to": null }
@@ -35,7 +35,7 @@
       "place_id": "plc_gwangju_bukgu",
       "name": "광주 북구",
       "level": "sigungu",
-      "parent_id": null,
+      "parent_id": "kr-29",
       "codes": [
         { "code_system": "kosis", "place_code": "29170", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "kosis", "place_code": "12300", "valid_from": "2026-07-01", "valid_to": null }
@@ -45,7 +45,7 @@
       "place_id": "plc_gwangju_gwangsangu",
       "name": "광주 광산구",
       "level": "sigungu",
-      "parent_id": null,
+      "parent_id": "kr-29",
       "codes": [
         { "code_system": "kosis", "place_code": "29200", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "kosis", "place_code": "12330", "valid_from": "2026-07-01", "valid_to": null }
@@ -55,7 +55,7 @@
       "place_id": "plc_yeosu",
       "name": "여수시",
       "level": "sigungu",
-      "parent_id": null,
+      "parent_id": "kr-46",
       "codes": [
         { "code_system": "kosis", "place_code": "46130", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "kosis", "place_code": "12130", "valid_from": "2026-07-01", "valid_to": null }

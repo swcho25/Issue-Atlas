@@ -1,4 +1,4 @@
-# P3 지역 · 시간 v0.4 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place`
+# P3 지역 · 시간 v0.5 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place`
 
 지역 · 시간(P3)이 P2 정제 결과([P2 계약](../p2/README.md))에 붙이는 것. 기사에는 요약 · 사건 시간대 · 위치를, 통계에는 지역 코드가 가리키는 위치를 붙인다.
 **통계 값은 다시 저장하지 않는다.** 서비스는 요청 때 `normalized_ready` · `air_monthly` 를 지역 코드로 걸러 읽는다. 표는 Flyway [V0016](../../backend/src/main/resources/db/migration/V0016__create_news_event.sql) · [V0017](../../backend/src/main/resources/db/migration/V0017__seed_station_places.sql) · [V0020](../../backend/src/main/resources/db/migration/V0020__add_news_event_regions.sql).
@@ -81,6 +81,33 @@ WHERE EXISTS (
 - `place_id` 는 `kr-<코드>`(11/3 `plc_` → `kr-` 전환과 같은 형식). 기존 시군구 · 측정소 행은 고치지 않고, 그 행에 잇는 코드는 기존 코드로 찾아 넣는다
 - 지역 목록 `GET /v1/places` 는 시도를 내보내지 않는다(고르는 지역이 아니다)
 
+## 상위 지역 자료 — `place.parent_id` (V0021)
+
+광주시청(본청) 세출 · 광주시 보도자료처럼 **시군구보다 넓은 지역 코드**가 붙은 자료는 고른 시군구에서 상위 지역으로 올라가 찾는다.
+
+```
+통합시 kr-12 (KOSIS 12)
+├─ 광주광역시(5개 구) kr-29 (KOSIS 29 ← 세출 「광주 본청」 · 보도자료 광주광역시)
+│   └─ 광주 동구 · 서구 · 남구 · 북구 · 광산구 (V0021)
+└─ 옛 전라남도(22개 시군) kr-46 (KOSIS 46)
+    └─ 여수시 (V0021)
+```
+
+```sql
+-- 고른 지역(:place_id)과 그 상위 지역의 코드. depth 0 = 고른 지역, 1 이상 = 상위 지역
+WITH RECURSIVE up AS (
+    SELECT place_id, parent_id, 0 AS depth FROM place WHERE place_id = :place_id
+    UNION ALL
+    SELECT p.place_id, p.parent_id, up.depth + 1 FROM place p JOIN up ON p.place_id = up.parent_id
+)
+SELECT up.place_id, up.depth, c.code_system, c.place_code, c.valid_from, c.valid_to
+FROM up JOIN place_code_map c ON c.place_id = up.place_id
+```
+
+- 자료 행의 `(place_code_system, place_code_raw)` 가 이 목록에 있으면 그 지역 자료다. 광주 동구를 고르면 동구 코드(29110 · 12210)와 함께 광주 전체 `29` · 통합시 `12` 가 나와 본청 세출 · 광주시 보도자료가 잡힌다
+- **depth 1 이상 자료는 「상위 지역 자료」로 따로 보여 준다.** 구의 근거로 셀지는 넓은 지역 기사와 같은 결정이다(아래 「아직 없는 것」)
+- 행정동(V0019)의 상위는 시군구, 측정소(V0017)의 상위도 시군구다. 지역 목록의 시군구 `parent_id` 는 `kr-29` · `kr-46` 으로 나간다(시도는 목록에 없다)
+
 ## 행정동 — `place` (V0019)
 
 PRD FR-A1(지역 계층 시 → 구·군 → 읍·면·동)의 읍·면·동. **법정동이 아니라 행정동**으로 만든다. 사용자가 아는 동 이름(주민센터)과 주민등록 읍면동 통계가 행정동이다. 입력은 P3 행정동 표(p3-region-lab `data/emd_points.tsv`, 2026-11-01 SGIS).
@@ -107,7 +134,7 @@ PRD FR-A1(지역 계층 시 → 구·군 → 읍·면·동)의 읍·면·동. **
 - 시군구 · 행정동 경계(폴리곤). `place.geometry` 는 대표점뿐이라 화면의 테두리 · 행정동 안 점 거르기에 쓸 경계가 아직 없다
 - 만든 판 칸 — 요약 · 시간대 · 지역 규칙의 판이 행에 없다
 - 보도자료(`press_release`)의 사건 시간
-- 넓은 지역 기사(광주 구 모름 · 통합시 전체)를 구의 근거로 셀지 — 지금 「지역 맞추기」 쿼리는 모든 구에 함께 넣는다. 대표 피드백(2026-11-01 #6 「특정 구 근거로 집계 금지」)에 맞춰 정해야 한다
+- 넓은 지역 기사(광주 구 모름 · 통합시 전체) · 상위 지역 자료(광주 본청 세출 · 광주시 보도자료)를 구의 근거로 셀지 — 지금 「지역 맞추기」 쿼리는 모든 구에 함께 넣는다. 대표 피드백(2026-11-01 #6 「특정 구 근거로 집계 금지」)에 맞춰 정해야 한다
 - 기사 ↔ 카드 분류(P4)
 
 ## 변경 이력
@@ -118,3 +145,4 @@ PRD FR-A1(지역 계층 시 → 구·군 → 읍·면·동)의 읍·면·동. **
 | v0.2 | 2026-11-01 | 시도 18곳 `place`(`kr-<코드>`, 대표점)와 코드 연결(V0018): KOSIS 시도 2자리 · 광주 전체 29 · 온통청년 `bjd` · 측정소 이름. `GET /v1/places` 는 시도를 빼고 내보낸다. 개발 DB `news_event` 3,477건 적재(p9.1 · s1) |
 | v0.3 | 2026-11-01 | 행정동 123곳 `place`(`level = emd`, `kr-<KOSIS 시군구><읍면동 3자리>`, SGIS 대표점)와 SGIS 행정동 코드 통합 전 · 뒤 두 줄(V0019). `GET /v1/places?parent_id=` 로 시군구의 행정동을 내보낸다 (S15P31C108-167) |
 | v0.4 | 2026-11-01 | 기사 지역 배열 `news_event.regions`(V0020, jsonb · GIN): 여러 지역을 다룬 기사는 지역을 모두 두고 첫 원소가 대표 지역(`sido` · `sigun` · `gu` 칸과 같음), 전국 · 지역 없음은 `전국` 한 원소, `[]` 는 보류만. 「지역 맞추기」를 원소 하나라도 맞으면 고르도록 바꿈. 기존 행은 지역 칸 하나로 채움 (S15P31C108-168) |
+| v0.5 | 2026-11-01 | 시군구 상위 지역(V0021): 광주 5개 구 → `kr-29`, 여수시 → `kr-46`. 고른 지역과 상위 지역 코드로 자료를 찾는 법(재귀 SQL) — 광주 본청 세출 · 광주시 보도자료가 구에서 「상위 지역 자료」로 잡힌다 (S15P31C108-169) |
