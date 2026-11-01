@@ -1,6 +1,6 @@
 # feat/region-code-map — 통계 · 추가 자료 지역 코드 연결과 시도 place
 
-- Jira: (Atlassian 연결 전이라 미생성 — MR 전에 만든다) · PRD: 7.6 · 묶음/단위: P3-7 · P3-8
+- Jira: S15P31C108-163 · PRD: 7.6 · 묶음/단위: P3-7 · P3-8
 
 ## 완료 조건
 - [x] 개발 DB 에서 출처마다 지역 코드를 세어 `place_code_map` 에 없는 코드를 찾는다 (읽기만)
