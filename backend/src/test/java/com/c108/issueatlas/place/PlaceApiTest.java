@@ -26,6 +26,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(TestcontainersConfiguration.class)
 class PlaceApiTest {
     private static final Path EXAMPLE = Path.of("../contracts/c2/examples/place-list.json");
+    private static final Path EMD_EXAMPLE =
+            Path.of("../contracts/c2/examples/place-list-emd-donggu.json");
 
     @Autowired MockMvc mvc;
 
@@ -37,6 +39,23 @@ class PlaceApiTest {
                 .andExpect(C2Contract.matches("place-list"))
                 // STRICT: 순서 · 칸 수까지 같아야 한다 (6곳, 코드 12개)
                 .andExpect(content().json(Files.readString(EXAMPLE), JsonCompareMode.STRICT));
+    }
+
+    @Test
+    @WithMockUser
+    void 시군구를_주면_그_행정동을_C2_예시대로() throws Exception {
+        mvc.perform(get("/v1/places").param("parent_id", "plc_gwangju_donggu"))
+                .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("place-list"))
+                // V0019 동구 행정동 13곳, SGIS 코드 통합 전 · 뒤 두 줄씩
+                .andExpect(content().json(Files.readString(EMD_EXAMPLE), JsonCompareMode.STRICT));
+    }
+
+    @Test
+    @WithMockUser
+    void 없는_지역의_행정동은_404() throws Exception {
+        mvc.perform(get("/v1/places").param("parent_id", "plc_nowhere"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

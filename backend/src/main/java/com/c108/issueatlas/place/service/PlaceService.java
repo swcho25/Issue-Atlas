@@ -1,5 +1,6 @@
 package com.c108.issueatlas.place.service;
 
+import com.c108.issueatlas.common.exception.ResourceNotFoundException;
 import com.c108.issueatlas.place.dto.PlaceListResponse.CodeResponse;
 import com.c108.issueatlas.place.dto.PlaceListResponse.PlaceResponse;
 import com.c108.issueatlas.place.repository.PlaceRepository;
@@ -20,7 +21,19 @@ public class PlaceService {
     }
 
     public List<PlaceResponse> listRegions() {
-        return places.findRegionCodes().stream()
+        return group(places.findRegionCodes());
+    }
+
+    /** 시군구 아래 행정동. 없는 지역이면 404, 행정동이 없는 지역(측정소 · 시도 등)이면 빈 목록. */
+    public List<PlaceResponse> listEmds(String parentId) {
+        if (!places.exists(parentId)) {
+            throw new ResourceNotFoundException();
+        }
+        return group(places.findEmdCodes(parentId));
+    }
+
+    private static List<PlaceResponse> group(List<RegionCodeRow> rows) {
+        return rows.stream()
                 .collect(
                         Collectors.groupingBy(
                                 RegionCodeRow::placeId, LinkedHashMap::new, Collectors.toList()))
