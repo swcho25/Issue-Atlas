@@ -14,6 +14,7 @@
 | # | 메서드·경로 | 화면 | 스키마 | 예시 |
 | --- | --- | --- | --- | --- |
 | ① | `GET /v1/places` | 지역 선택 | `place-list` | `place-list.json` |
+| ① | `GET /v1/places?parent_id=<시군구>` | 고른 시군구 안의 범위 (읍·면·동) | `place-list` | `place-list-emd-donggu.json` |
 | ② | `GET /v1/places/{place_id}/cards?period_start&period_end` | 이슈 카드 목록 (근거 n/4) | `place-cards` | `place-cards-yeosu.json` |
 | ③ | `POST /v1/questions` | 질문 저장 | `question-create-request` · `-response` | `question-create-*.json` |
 | ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 3개 |
@@ -144,3 +145,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-10-29): 근거 충실도 규칙표 `qualifier-0.1` 추가(S15P31C108-131). `components` 에 `ab_grade_sources` · `latest_within_one_year` 를 더하고, 스키마가 등급과 구성 값이 맞는지 검사한다. 구성 값을 세는 방법 4가지는 미결. 동결 전.
 - v0.1 (2026-10-29): 관리자 수집 이력 `GET /v1/admin/jobs` · `/{job_run_id}` 추가(FR-F5). 상태 · 수집 대상(`source_id` · `spec_id`) 필터, 페이지네이션(`page` 1부터, `size` 최대 100). 관리자 전용이라 `/v1/admin/**` 아래에 둔다. 오류 코드 목록에 `UNAUTHORIZED` · `FORBIDDEN` 을 더했다.
 - v0.1 (2026-10-30): 출처 목록 `GET /v1/sources` 추가(8장 보조 API). 출처마다 등급 · 이용허락 · 저장 범위와 수집 명세별 마지막 성공 수집 시각. 등급을 아직 정하지 않은 출처는 `source_grade: null`.
+- v0.1 (2026-11-01): 지역 목록에 `parent_id` 추가(PRD FR-A1 시 → 구·군 → 읍·면·동). 주지 않으면 지금처럼 시군구 6곳, 시군구 `place_id` 를 주면 그 아래 행정동(`level: emd`, 코드 `sgis` 통합 전 · 뒤 두 줄)을 돌려준다. 없는 지역은 `404 RESOURCE_NOT_FOUND`. 예시 `place-list-emd-donggu.json`(S15P31C108-167).
