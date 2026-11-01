@@ -17,6 +17,7 @@
 - 2026-11-01: C2 충돌 — argument `question.card_id` · `card_name` · `card_version` · `formula_version` null 허용, card_id null 이면 unsupported 를 스키마가 검사. 예시 `argument-unsupported.json`
 - 2026-11-01: 기존 대응 — 출처 등급이 있는 출처의 후보만 evidence 로 만든다. 지금 로컬은 youthcenter 등급 null · lofin 출처 행 없음 → 실데이터 실행에서는 모두 review_pending
 - 2026-11-01: 로컬 DB V0019 적용. 2023–2025 질문에 이어질 후보: C1 세출 349 · 온통청년 3, A3 세출 97 (여수 C1 115 · A3 18 등)
+- 2026-11-01: Flyway 번호 V0019 → V0020. !74(S15P31C108-163)가 V0018 을 써서 -136 표가 V0019 로 밀렸다(같은 번호 변경 커밋을 이 브랜치에도 가져옴). database 변경 이력은 v0.1.15
 - 2026-11-01: 검사 — QuestionApiTest 7 · C2ExamplesTest 2 통과
 
 ## 다음 할 일 / 범위 밖
