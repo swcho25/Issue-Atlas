@@ -1,7 +1,7 @@
 # 기존 대응 후보 v0.1 — `existing_response`
 
 카드 근거 ③ 「기존 대응」에 쓸 **후보**. 온통청년 청년정책과 지방재정365 세출에서 규칙으로 골라 원천 판과 함께 둔다(S15P31C108-136).
-만드는 곳: `python -m pipeline.responses --db` (`engine/pipeline/responses/extract.py`). 테이블은 Flyway [V0019](../../backend/src/main/resources/db/migration/V0019__create_existing_response.sql).
+만드는 곳: `python -m pipeline.responses --db` (`engine/pipeline/responses/extract.py`). 테이블은 Flyway [V0022](../../backend/src/main/resources/db/migration/V0022__create_existing_response.sql).
 계약 변경은 받는 쪽 최동준(P5 판정) · 질문 실행(P7, -133) 리뷰가 필요하다.
 
 **후보일 뿐 근거 확정이 아니다.** 카드 · 지역 · 기간에 맞는지는 질문 실행이 판단한다. 키워드 · 주관기관이 맞았다고 정책 효과 · 대상 · 지역을 확정하지 않는다.
@@ -48,4 +48,4 @@
 
 ## 변경 이력
 
-- v0.1 (2026-10-31): 초안. V0019
+- v0.1 (2026-10-31): 초안. V0022
