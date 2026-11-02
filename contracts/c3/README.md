@@ -2,7 +2,7 @@
 
 작성(P5 최동준, S15P31C108-174 / -180~-184) → backend(P7 장성우) · 카드 계약(P2 박준우, -171) · 관리자 화면 담당. 받는 쪽 리뷰 전 초안이다.
 
-구현: `V0027__create_card_storage.sql`(표) + `V0028__card_validation_and_approval.sql`(검사 · 승인 함수, MR !86) + `V0029__align_card_checks_with_card_design.sql`(#171 리뷰 반영으로 V0028의 함수 세 개를 같은 시그니처로 다시 정의). 이미 적용된 migration의 이름/내용은 바꾸지 않는다. Flyway는 운영 지표나 승인본을 seed하지 않는다.
+구현: `V0027__create_card_storage.sql`(표) + `V0028__card_validation_and_approval.sql`(검사 · 승인 함수, MR !86) + `V0030__align_card_checks_with_card_design.sql`(#171 리뷰 반영으로 V0028의 함수 세 개를 같은 시그니처로 다시 정의). 이미 적용된 migration의 이름/내용은 바꾸지 않는다. Flyway는 운영 지표나 승인본을 seed하지 않는다.
 
 ## 저장 구조와 V0013 호환
 
@@ -120,4 +120,4 @@ CardRule 소비: 실행의 카드 버전으로 승인 spec을 읽고 spec.rule +
 ## 변경 이력
 
 - v0.1 (2026-11-02): 초안.
-- v0.1.1 (2026-11-02, V0029): #171 리뷰(박준우) 반영. target 선택 칸, 연령은 지표 ID 기준, place_level을 #171과 통일(sigungu_pair 제외), 금지어에 카드 forbidden_terms, 검사 9 지도 표현 · 범례, 규칙 indicator_id · otherwise 검사, max_claim_level에서 insufficient_evidence 제외, none_reason 대신 null + note, 저장 승인 기록을 card_approval로 분리. 지표 1–3개 상한은 양식 B2 근거로 유지.
+- v0.1.1 (2026-11-02, V0030): #171 리뷰(박준우) 반영. target 선택 칸, 연령은 지표 ID 기준, place_level을 #171과 통일(sigungu_pair 제외), 금지어에 카드 forbidden_terms, 검사 9 지도 표현 · 범례, 규칙 indicator_id · otherwise 검사, max_claim_level에서 insufficient_evidence 제외, none_reason 대신 null + note, 저장 승인 기록을 card_approval로 분리. 지표 1–3개 상한은 양식 B2 근거로 유지.
