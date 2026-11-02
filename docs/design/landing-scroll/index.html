@@ -11,8 +11,8 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Gothic A1", system-ui, sans-serif; }
   /* 지구 → 구름 → 지도로 이어지는 구간. 스크롤 길이만큼 화면이 고정된 채 진행된다 */
-  /* 300vh = 화면 2장 분량을 스크롤하면 끝난다(광주 도착은 그중 84% 지점, 휠 약 15칸) */
-  #journey { position: relative; height: 300vh; }
+  /* 360vh = 화면 2.6장 분량을 스크롤하면 끝난다(광주 도착은 그중 84% 지점, 휠 약 17~20칸) */
+  #journey { position: relative; height: 360vh; }
   .stage { position: sticky; top: 0; height: 100vh; overflow: hidden;
     background: linear-gradient(180deg, #fefefe 0%, #fcfdfe 13%, #f7f8fc 30%, #f6f8fd 56%, #f7f8fc 70%, #f6f8fb 100%); }
   .layer { position: absolute; inset: 0; }
