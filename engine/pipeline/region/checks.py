@@ -16,6 +16,8 @@ from datetime import datetime, timedelta, timezone
 from .labels import SIDO_VALUES
 
 KST = timezone(timedelta(hours=9))
+# 사건 시각을 믿는 기간(p3_fix v2 · 2026-11-02, 수집 기사 2023 ~ 2026).
+# 수집 기간을 늘리면 이 값만 바꾼다
 WINDOW = (datetime(2023, 1, 1, tzinfo=KST), datetime(2027, 1, 1, tzinfo=KST))
 TIME_PRECISIONS = frozenset({"minute", "day", "month", "published"})
 LOCATION_PRECISIONS = frozenset({"address", "admin_centroid", "none"})
