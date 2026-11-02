@@ -192,6 +192,97 @@ class QuestionApiTest {
                 .andExpect(C2Contract.matches("argument"));
     }
 
+    /** observation view(V0025)가 읽는 KOSIS 정제 한 행. 기간은 그 달 한 달. */
+    private void kosis(String spec, String indicator, String locator, String month, int value) {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope)"
+                        + " VALUES ('S01','KOSIS','통계청','KOGL-1','full') ON CONFLICT DO NOTHING");
+        jdbc.update(
+                "INSERT INTO source_spec(spec_id,source_id,method,evidence_class)"
+                        + " VALUES (?,'S01','api','statistics') ON CONFLICT DO NOTHING",
+                spec);
+        jdbc.update(
+                "INSERT INTO job_run(job_run_id,spec_id,collector_version,started_at)"
+                        + " VALUES (?,?,'test',now()) ON CONFLICT DO NOTHING",
+                "run-q-" + spec,
+                spec);
+        String hash = "sha256:" + spec + locator + month;
+        jdbc.update(
+                "INSERT INTO raw_record(job_run_id,spec_id,raw_url,content_hash,collected_at)"
+                        + " VALUES (?,?,'https://kosis.kr',?,now())",
+                "run-q-" + spec,
+                spec,
+                hash);
+        jdbc.update(
+                "INSERT INTO normalized_record(content_hash,source_id,spec_id,indicator_id,place_code_system,"
+                        + "place_code_raw,observed_period_type,observed_period_start,observed_period_end,value,unit,"
+                        + "storage_scope,validation_status,issues,rule_version,obs_key,is_latest,record)"
+                        + " VALUES (?,'S01',?,?,'kosis','46130','M',CAST(? AS date)::timestamp AT TIME ZONE 'Asia/Seoul',"
+                        + "(CAST(? AS date) + interval '1 month')::timestamp AT TIME ZONE 'Asia/Seoul',?,'명','full',"
+                        + "'pass','[]','p2-test','obs:' || encode(sha256(convert_to(?, 'UTF8')), 'hex'),true,"
+                        + "jsonb_build_object('locator', ?::jsonb))",
+                hash,
+                spec,
+                indicator,
+                month,
+                month,
+                value,
+                hash,
+                locator);
+    }
+
+    @Test
+    void cardRunCarriesMonthlySeriesFromObservationsEvenWithoutJudgment() throws Exception {
+        kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", "2025-01-01", -30);
+        kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", "2025-02-01", -40);
+        kosis("SP01", "population_net_migration", "{\"C3\": \"000\"}", "2025-01-01", -90);
+        kosis("SP02", "population_movers", "{\"C2\": \"11\"}", "2025-01-01", 12);
+        String body =
+                """
+                {"place_id": "kr-12130", "card_id": "C1", "period_start": "2025-01-01",
+                 "period_end": "2025-04-01", "raw_text": null}
+                """;
+        // 통계 확보 상태가 없어 blocked 지만 그림 자료(series)는 보낸다. 연령 계(000)는 카드 지표가 아니라 빠진다
+        argument(runId(ask(body)))
+                .andExpect(jsonPath("$.run_status").value("blocked"))
+                .andExpect(jsonPath("$.series.length()").value(2))
+                .andExpect(
+                        jsonPath("$.series[0].indicator_id")
+                                .value("population_net_migration_19_39"))
+                .andExpect(jsonPath("$.series[0].name").value("여수시"))
+                .andExpect(jsonPath("$.series[0].coordinates").isEmpty())
+                .andExpect(jsonPath("$.series[0].periods[2]").value("2025-03"))
+                .andExpect(jsonPath("$.series[0].values[1]").value(-40))
+                .andExpect(jsonPath("$.series[0].values[2]").isEmpty())
+                .andExpect(jsonPath("$.series[0].statuses[2]").value("not_collected"))
+                .andExpect(jsonPath("$.series[1].from").value("kr-12130"))
+                .andExpect(jsonPath("$.series[1].to").value("kr-11"))
+                .andExpect(jsonPath("$.series[1].to_name").value("서울특별시"))
+                .andExpect(jsonPath("$.series[1].values[0]").value(12))
+                .andExpect(jsonPath("$.articles.length()").value(0));
+    }
+
+    @Test
+    void a3SeriesIsOneLinePerStationWithCoordinates() throws Exception {
+        jdbc.update(
+                "INSERT INTO air_monthly(station_code,station_name,indicator_id,unit,month_start,month_end,"
+                        + "month_hours,valid_hours,held_hours,value_mean,value_min,value_max,has_provisional)"
+                        + " VALUES ('336121','서강동','air_pm25','µg/m³',TIMESTAMPTZ '2025-01-01 00:00+09',"
+                        + "TIMESTAMPTZ '2025-02-01 00:00+09',744,700,0,15.3,1,30,false)");
+        String body =
+                """
+                {"place_id": "kr-12130", "card_id": "A3", "period_start": "2025-01-01",
+                 "period_end": "2025-03-01", "raw_text": null}
+                """;
+        argument(runId(ask(body)))
+                .andExpect(jsonPath("$.series.length()").value(1))
+                .andExpect(jsonPath("$.series[0].station_id").value("plc_stn_336121"))
+                .andExpect(jsonPath("$.series[0].name").value("서강동"))
+                .andExpect(jsonPath("$.series[0].coordinates.length()").value(2))
+                .andExpect(jsonPath("$.series[0].values[0]").value(15.3))
+                .andExpect(jsonPath("$.series[0].statuses[1]").value("not_collected"));
+    }
+
     @Test
     void eachRunGetsNewIdAndPastResultsStay() throws Exception {
         String first = runId(ask(body("C1", "2023-01-01", "2026-01-01")));

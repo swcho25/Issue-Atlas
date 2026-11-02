@@ -42,5 +42,7 @@
     "provenance": "rule"
   },
   "rebuttals": [],
-  "ceiling": { "items": [], "provenance": "card" }
+  "ceiling": { "items": [], "provenance": "card" },
+  "series": [],
+  "articles": []
 }
