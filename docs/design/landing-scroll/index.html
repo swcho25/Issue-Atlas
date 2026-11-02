@@ -48,7 +48,9 @@
   /* 지도 위 표시: 3D 판 위 좌표를 화면 좌표로 옮겨 글자 · 점을 얹는다(판에 구워 넣지 않아 늘 또렷하다) */
   .marks { pointer-events: none; overflow: hidden; visibility: hidden; }
   .marks > div { position: absolute; left: 0; top: 0; will-change: transform; }
-  .place { font-size: 13px; font-weight: 700; color: #69717f; letter-spacing: .04em; white-space: nowrap; text-shadow: 0 0 2px #fff, 0 0 6px #fff, 0 0 10px #fff; }
+  .place { font-size: 13px; font-weight: 700; color: #5a6b8c; letter-spacing: .04em; white-space: nowrap; text-shadow: 0 0 2px #fff, 0 0 6px #fff, 0 0 10px #fff; }
+  .place.city { font-size: 17px; font-weight: 800; color: var(--navy); }
+  .place.gu { font-size: 15px; font-weight: 800; color: var(--navy); letter-spacing: .08em; }
   .pin { display: flex; flex-direction: column; align-items: center; opacity: 0; }
   .bubble { display: flex; gap: 8px; align-items: center; padding: 8px 14px 8px 12px; margin-bottom: 8px; border-radius: 999px; background: #fff; box-shadow: 0 4px 14px rgb(0 0 0 / .14); white-space: nowrap; font-size: 14px; font-weight: 500; position: relative; }
   .bubble b { font-size: 12px; font-weight: 700; color: var(--navy); }
@@ -91,9 +93,9 @@
       <div class="cloud" style="background-position: 50% 30%; background-size: 220% auto"></div>
     </div>
     <div class="fog" id="fog"><span id="wait">지도를 불러오는 중</span></div>
-    <div class="at title2" id="title2"><p>지금 모이는 중</p><h2>광주에서 여수까지,<br>근거가 지도 위에 쌓이고 있어요</h2></div>
+    <div class="at title2" id="title2"><p>지금 모이는 중</p><h2>광주 다섯 개 구,<br>근거가 지도 위에 쌓이고 있어요</h2></div>
     <div class="at caption" id="caption">공식 통계 · 보도자료 · 정책 문서가 같은 지도 위에 모여요</div>
-    <div class="at attrib" id="attrib">위성 사진 © Esri · 지도 © OpenStreetMap, OpenFreeMap</div>
+    <div class="at attrib" id="attrib">지도 © OpenStreetMap, OpenFreeMap · 지형 Terrain Tiles(AWS)</div>
   </div>
 </section>
 <section class="next"><p>우리 지역이 궁금할 때</p><h2>판단보다,<br>근거부터 먼저</h2></section>
@@ -195,16 +197,18 @@ tilt.add(new THREE.Mesh(new THREE.SphereGeometry(1.008, 64, 64), rimMat));
 // 8K 텍스처를 첫 스크롤 전에 GPU 로 올려 둔다(처음 그릴 때 멈칫하지 않게)
 renderer.initTexture(tex); renderer.initTexture(cloudTex);
 
-// 목표: 광주 · 여수 사이(경도 127.25, 위도 35)
-const TARGET = { lon: 127.25, lat: 35.0 };
+// 목표: 광주 한가운데
+const TARGET = { lon: 126.85, lat: 35.16 };
 let lon = 127.5, lonAtStart = null;
 const deg = THREE.MathUtils.degToRad;
 
 // ---------- 지도: 미리 구운 장면을 겹친 판 ----------
 // 스크롤 중에 지도 타일을 받지 않는다. 같은 중심에서 확대만 다르게 구운 정사각형 사진들을
 // 바깥(넓고 흐림) → 안쪽(좁고 선명) 순으로 겹쳐 두고, 카메라만 내려가며 기울인다
-const Z0 = 8, MAP_FOV = 36.87, CENTER = [127.27, 34.95], SIDE = 2048;
-const SAT = [4.5, 6, 7.5, 9], LIGHT = [6.5, 7.5, 8.5, 9.5, 10.5];
+// 위성 사진은 쓰지 않는다: OpenFreeMap 테마 지도 하나로 끝까지 내려간다(?map=liberty | bright | blue)
+const MAP = ["liberty", "bright", "blue"].includes(q.get("map")) ? q.get("map") : "liberty";
+const Z0 = 8, MAP_FOV = 36.87, CENTER = [126.85, 35.16], SIDE = 2048;
+const LEVELS = [4.5, 6, 7.5, 9, 10.5, 11.5, 12.5];
 const WORLD = 512 * 2 ** Z0;   // 세계 단위 = 확대 8 단계에서의 화면 1px
 const merc = (lo, la) => [((lo + 180) / 360) * WORLD, ((1 - Math.log(Math.tan(Math.PI / 4 + deg(la) / 2)) / Math.PI) / 2) * WORLD];
 const [CX, CY] = merc(...CENTER);
@@ -216,34 +220,40 @@ const feather = (() => { const n = 256, c = document.createElement("canvas"); c.
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const a = 255 * smooth(0, 0.08, Math.min(x, y, n - 1 - x, n - 1 - y) / (n - 1)), i = (y * n + x) * 4; im.data[i] = im.data[i + 1] = im.data[i + 2] = a; im.data[i + 3] = 255; }
   g.putImageData(im, 0, 0); return new THREE.CanvasTexture(c); })();
 const levels = [];
-[["sat", SAT], ["light", LIGHT]].forEach(([kind, zs], k) => zs.forEach((z, i) => {
+LEVELS.forEach((z, i) => {
   const s = SIDE * 2 ** (Z0 - z);
-  const mat = new THREE.MeshBasicMaterial({ alphaMap: i === 0 && kind === "sat" ? null : feather, transparent: true, depthTest: false, depthWrite: false });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(s, s), mat); mesh.renderOrder = k * 10 + i; mesh.visible = false; ground.add(mesh);
-  levels.push({ kind, z, mat, mesh, ready: false });
-}));
+  const mat = new THREE.MeshBasicMaterial({ alphaMap: i === 0 ? null : feather, transparent: true, depthTest: false, depthWrite: false });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(s, s), mat); mesh.renderOrder = i; ground.add(mesh);
+  levels.push({ z, mat, mesh, ready: false });
+});
 // 사진은 메인 스레드 밖에서 풀고(createImageBitmap), GPU 에는 한 프레임에 한 장씩 올린다
 const queue = [];
-levels.forEach((L) => fetch(`baked/${L.kind}-${L.z}.webp`).then((r) => r.blob()).then((b) => createImageBitmap(b, { imageOrientation: "flipY" })).then((bmp) => {
+levels.forEach((L) => fetch(`baked/${MAP}-${L.z}.webp`).then((r) => r.blob()).then((b) => createImageBitmap(b, { imageOrientation: "flipY" })).then((bmp) => {
   const t = new THREE.Texture(bmp); t.flipY = false; t.anisotropy = maxAniso; t.needsUpdate = true; L.mat.map = t; L.mat.needsUpdate = true; queue.push(L);
 }));
 let groundReady = false, lastUpload = 0;
 
 // 지도 위 표시(예시 값). 점끼리 선으로 잇지 않는다 — 이동 경로처럼 읽히지 않게
+// 측정소 13곳(대략 위치) → 보도자료 3건 순으로 놓인다
 const PINS = [
-  { at: [126.877, 35.176] }, { at: [126.793, 35.139] }, { at: [126.925, 35.140] }, { at: [126.842, 35.205] }, { at: [126.902, 35.118], doc: true },
-  { at: [126.880, 35.155], kind: "측정소 13곳", text: "광주 PM2.5 연평균 17.0 → 14.7" },
-  { at: [127.742, 34.712], doc: true }, { at: [127.612, 34.835], doc: true }, { at: [127.690, 34.745], doc: true },
-  { at: [127.662, 34.762], kind: "통계", text: "여수시 청년 순유출 2,262명 · 2025", stat: true },
+  { at: [126.871, 35.153], kind: "측정소 13곳", text: "광주 PM2.5 연평균 17.0 → 14.7" },
+  { at: [126.851, 35.152] }, { at: [126.927, 35.144] }, { at: [126.901, 35.129] }, { at: [126.894, 35.088] }, { at: [126.878, 35.174] }, { at: [126.932, 35.172] },
+  { at: [126.884, 35.221] }, { at: [126.898, 35.206] }, { at: [126.793, 35.139] }, { at: [126.801, 35.201] }, { at: [126.742, 35.122] }, { at: [126.813, 35.169] },
+  { at: [126.852, 35.160], doc: true }, { at: [126.912, 35.150], doc: true }, { at: [126.822, 35.190], doc: true },
 ];
-const PLACES = [["나주", 126.711, 35.016], ["화순", 126.986, 35.064], ["담양", 126.988, 35.321], ["보성", 127.080, 34.771], ["순천", 127.487, 34.951], ["광양", 127.696, 34.940], ["고흥", 127.285, 34.611], ["남해", 127.892, 34.837], ["하동", 127.751, 35.067], ["구례", 127.463, 35.202], ["장흥", 126.907, 34.682], ["진주", 128.108, 35.180]];
+// 지명은 확대에 따라 바뀐다: 광주광역시 → 둘레 시 · 군 → 다섯 구 [이름, 경도, 위도, 나타나는 확대, 사라지는 확대, 종류]
+const PLACES = [
+  ["광주광역시", 126.85, 35.16, 6.4, 9.6, "city"],
+  ["나주", 126.711, 35.016, 8.3, 10.8], ["담양", 126.988, 35.321, 8.3, 10.8], ["화순", 126.986, 35.064, 8.3, 10.8], ["장성", 126.785, 35.302, 8.3, 10.8], ["함평", 126.517, 35.066, 8.3, 10.4],
+  ["광산구", 126.765, 35.172, 9.9, 99, "gu"], ["북구", 126.935, 35.215, 9.9, 99, "gu"], ["서구", 126.858, 35.128, 9.9, 99, "gu"], ["남구", 126.872, 35.098, 9.9, 99, "gu"], ["동구", 126.958, 35.128, 9.9, 99, "gu"],
+];
 const marksEl = document.getElementById("marks");
 const mark = (cls, html, at) => { const wrap = document.createElement("div"), el = document.createElement("div"); el.className = cls; el.innerHTML = html; wrap.appendChild(el); marksEl.appendChild(wrap); return { wrap, el, pos: toGround(...at) }; };
 const pins = PINS.map((p) => mark("pin", (p.text ? `<div class="bubble"><b>${p.kind}</b>${p.text}</div>` : "") + `<div class="dot ${p.doc ? "doc" : p.stat ? "stat" : ""} ${p.text ? "" : "small"}"></div>`, p.at));
-const places = PLACES.map(([n, lo, la]) => mark("place", n, [lo, la]));
+const places = PLACES.map(([n, lo, la, zin, zout, kind]) => ({ ...mark(`place ${kind || ""}`, n, [lo, la]), zin, zout }));
 
 // 카메라: MapLibre 와 같은 셈(중심 · 확대 · 기울기 · 방위)으로 판 위에 놓는다
-const START = { center: [127.25, 35.0], zoom: 4.4 }, FINAL = { center: [127.27, 34.95], zoom: 9.4, pitch: 52, bearing: 30 };
+const START = { center: CENTER, zoom: 4.4 }, FINAL = { center: [126.855, 35.15], zoom: 11.7, pitch: 55, bearing: 18 };
 const fwd = new THREE.Vector3(), aim = new THREE.Vector3();
 function placeGround(v, h) {
   const dist = (h / 2) / Math.tan(deg(MAP_FOV / 2)) * 2 ** (Z0 - v.zoom);
@@ -298,7 +308,7 @@ function frameLoop(now) {
   // 1) 히어로가 사라진다
   const fade = ease(span(p, 0.03, 0.15));
   put(hero, "opacity", String(1 - fade)); put(hero, "transform", `translate(-50%, calc(-50% + ${(fade * 14).toFixed(2)}vh))`); put(hero, "visibility", fade >= 1 ? "hidden" : "visible");
-  // 2) 지구가 광주 · 여수를 향해 돌고 다가간다
+  // 2) 지구가 광주를 향해 돌고 다가간다
   const SWAP = 0.42;   // 안개가 화면을 다 덮은 순간 지구 → 지도로 바꾼다
   if (p < SWAP) {
     const turn = ease(span(p, 0.04, 0.26));
@@ -323,7 +333,7 @@ function frameLoop(now) {
   const hold = waiting && p > SWAP - 0.01;
   put(fog, "opacity", (hold ? 0.98 : 0.98 * ease(span(p, 0.36, 0.415)) * (1 - ease(span(p, 0.43, 0.52)))).toFixed(3));
   put(wait, "opacity", hold ? "1" : "0");
-  // 4) 위성 사진으로 내려오다 밝은 지도로 바뀌며 기울어 내려앉는다
+  // 4) 광주로 곧장 내려가며 기울어 내려앉는다
   //    확대 · 기울기 · 방위를 한 곡선으로 이어, 중간에 멈칫하는 구간이 없다
   const onGround = p >= SWAP && groundReady;
   put(marksEl, "visibility", onGround ? "visible" : "hidden");
@@ -334,12 +344,10 @@ function frameLoop(now) {
     const view = { center: [lerp(START.center[0], FINAL.center[0], zk), lerp(START.center[1], FINAL.center[1], zk)], zoom: lerp(START.zoom, finZoom, zk),
       pitch: FINAL.pitch * ease(span(p, 0.52, 0.84)), bearing: FINAL.bearing * ease(span(p, 0.5, 0.84)) };
     placeGround(view, h);
-    const light = smooth(7.3, 8.3, view.zoom);   // 밝은 지도가 화면을 다 덮을 만큼 내려온 뒤에 바꾼다
-    levels.forEach((L) => { const o = L.kind === "light" ? light : 1; L.mat.opacity = o; L.mesh.visible = o > 0.002 && !(L.kind === "sat" && light >= 1); });
     renderer.render(ground, gcam);
-    places.forEach((m) => { put(m.el, "opacity", light.toFixed(3)); if (light > 0) project(m, w, h, "translate(-50%, -50%)"); });
+    places.forEach((m) => { const o = smooth(m.zin - 0.4, m.zin + 0.2, view.zoom) * (1 - smooth(m.zout - 0.2, m.zout + 0.4, view.zoom)); put(m.el, "opacity", o.toFixed(3)); if (o > 0) project(m, w, h, "translate(-50%, -50%)"); else put(m.wrap, "visibility", "hidden"); });
     // 5) 근거가 하나씩 지도 위에 놓인다
-    pins.forEach((m, i) => { const t = ease(span(p, 0.72 + i * 0.015, 0.76 + i * 0.015)); put(m.el, "opacity", t.toFixed(3)); put(m.el, "transform", `translateY(${((1 - t) * 12).toFixed(1)}px)`); if (t > 0) project(m, w, h, "translate(-50%, -100%)"); });
+    pins.forEach((m, i) => { const t = ease(span(p, 0.72 + i * 0.008, 0.76 + i * 0.008)); put(m.el, "opacity", t.toFixed(3)); put(m.el, "transform", `translateY(${((1 - t) * 12).toFixed(1)}px)`); if (t > 0) project(m, w, h, "translate(-50%, -100%)"); });
   } else if (p >= SWAP) renderer.clear();
   const ct = ease(span(p, 0.88, 0.93)); put(caption, "opacity", ct.toFixed(3)); put(caption, "transform", `translate(-50%, ${((1 - ct) * 12).toFixed(1)}px)`);
   const tt = ease(span(p, 0.9, 0.95)); put(title2, "opacity", tt.toFixed(3));

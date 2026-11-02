@@ -8,13 +8,12 @@
   body { margin: 0; font: 13px monospace; }
   #log { position: fixed; top: 0; left: 0; z-index: 2; background: #fff; padding: 8px; white-space: pre; }
   /* 정사각형으로 굽는다: 랜딩에서 기울이고 돌려도 모서리가 덜 보인다 */
-  .m { width: 2048px; height: 2048px; }
+  #m { width: 2048px; height: 2048px; }
 </style>
 </head>
 <body>
 <div id="log">준비 중…</div>
-<div class="m" id="a"></div>
-<div class="m" id="b"></div>
+<div id="m"></div>
 <script>
   // 창이 숨어 있으면 requestAnimationFrame 이 멈춰 지도 스타일조차 읽지 않는다 — 타이머로 대신 돈다
   window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
@@ -22,51 +21,54 @@
 </script>
 <script src="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"></script>
 <script>
-// 같은 중심에서 확대만 다르게 구운 장면들. 랜딩에서 안쪽(선명한) 장면을 바깥 장면 위에 겹쳐 그린다
-//   ?only=sat|light  ?z=6,7.5 (몇 장만 다시)  ?src=esri|s2023
-const C = [127.27, 34.95], SIDE = 2048;
-let SAT = [4.5, 6, 7.5, 9], LIGHT = [6.5, 7.5, 8.5, 9.5, 10.5];
-const qs = new URLSearchParams(location.search), only = qs.get("only");
-if (qs.get("z")) SAT = LIGHT = qs.get("z").split(",").map(Number);
-// 위성 사진은 땅만 쓴다. 바다는 확대 단계마다 원본 사진이 달라 색이 튀므로(이음매의 원인), 지도 데이터의 물 영역으로 오려 한 색으로 칠한다
-const SEA = [27, 45, 74];
-const SRC = { esri: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", s2023: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/{z}/{y}/{x}.jpg" };
-const OMT = { type: "vector", url: "https://tiles.openfreemap.org/planet" };
+// 광주 한가운데를 중심으로 확대만 다르게 구운 장면들. 랜딩에서 안쪽(선명한) 장면을 바깥 장면 위에 겹쳐 그린다
+//   ?style=blue|fiord   ?z=11.5,12.5 (몇 장만 다시)
+const C = [126.85, 35.16], SIDE = 2048;
+const qs = new URLSearchParams(location.search), STYLE = qs.get("style") || "blue";
+const LEVELS = qs.get("z") ? qs.get("z").split(",").map(Number) : [4.5, 6, 7.5, 9, 10.5, 11.5, 12.5];
 const log = (s) => (document.getElementById("log").textContent += "\n" + s);
 const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
-const make = (id, style) => new maplibregl.Map({ container: id, style, center: C, zoom: SAT[0], interactive: false, attributionControl: false, pixelRatio: 1, fadeDuration: 0, canvasContextAttributes: { preserveDrawingBuffer: true } });
+
+// 밝은 남색 지도: positron 의 회색을 밝기에 따라 남색(#2E4A7D) ~ 흰색 사이로 옮겨 칠한다
+const ink = document.createElement("canvas").getContext("2d");
+const parse = (s) => { ink.fillStyle = "#010203"; ink.fillStyle = s; const v = ink.fillStyle; if (v === "#010203") return null;
+  if (v[0] === "#") return [1, 3, 5].map((i) => parseInt(v.slice(i, i + 2), 16)).concat(1);
+  const n = v.match(/[\d.]+/g).map(Number); return [n[0], n[1], n[2], n[3] ?? 1]; };
+const NAVY = [46, 74, 125];
+const tone = (s) => { const c = parse(s); if (!c) return s; const t = Math.pow((0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255, 1.15);
+  const k = (i) => Math.round(NAVY[i] + (255 - NAVY[i]) * t); return `rgba(${k(0)},${k(1)},${k(2)},${c[3]})`; };
+const walk = (v) => (typeof v === "string" ? tone(v) : Array.isArray(v) ? v.map((x, i) => (i === 0 ? x : walk(x))) : v);
+const paint = (style, id, props) => { const l = style.layers.find((x) => x.id === id); if (l) Object.assign((l.paint ??= {}), props); };
+
+async function buildStyle() {
+  // blue = positron 을 남색 톤으로 다시 칠한 것. 그 밖(liberty · bright …)은 OpenFreeMap 테마 그대로
+  const style = await (await fetch(`https://tiles.openfreemap.org/styles/${STYLE === "blue" ? "positron" : STYLE}`)).json();
+  // 글자는 굽지 않는다(랜딩에서 글자로 따로 얹는다)
+  style.layers = style.layers.filter((l) => l.type !== "symbol");
+  let relief;
+  if (STYLE === "blue") {
+    for (const l of style.layers) for (const k of Object.keys(l.paint || {})) if (k.endsWith("-color")) l.paint[k] = walk(l.paint[k]);
+    paint(style, "water", { "fill-color": "#c3d4ee" });
+    paint(style, "waterway", { "line-color": "#b2c7e8" });
+    paint(style, "park", { "fill-color": "#e3ebf6" });
+    paint(style, "boundary_3", { "line-color": "#7d92bc" });
+    relief = { "hillshade-shadow-color": "#6d84ad", "hillshade-highlight-color": "#ffffff", "hillshade-accent-color": "#a5b5d2", "hillshade-exaggeration": 0.32 };
+  } else {
+    relief = { "hillshade-shadow-color": "#6f7b8c", "hillshade-highlight-color": "#ffffff", "hillshade-accent-color": "#a9b2bf", "hillshade-exaggeration": 0.3 };
+  }
+  style.sources.dem = { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], tileSize: 256, encoding: "terrarium", maxzoom: 11 };
+  const at = style.layers.findIndex((l) => /^(waterway|building|tunnel|highway|road|railway|boundary|aeroway)/.test(l.id));
+  style.layers.splice(at < 0 ? style.layers.length : at, 0, { id: "relief", type: "hillshade", source: "dem", paint: relief });
+  return style;
+}
+
 // 창이 숨어 있어도 직접 그려서 타일 요청을 밀어 준다
-const settle = async (map, ok = () => true) => { for (let i = 0; i < 320; i++) { map.redraw(); if (map.isStyleLoaded() && ok() && map.areTilesLoaded()) { await wait(300); map.redraw(); if (map.areTilesLoaded()) return; } await wait(250); } log("시간 초과"); };
-const grab = (map) => { map.redraw(); const c = document.createElement("canvas"); c.width = c.height = SIDE; c.getContext("2d").drawImage(map.getCanvas(), 0, 0); return c; };
-const save = async (canvas, name) => { const blob = await new Promise((ok) => canvas.toBlob(ok, "image/webp", 0.86)); const r = await fetch("/save/" + name, { method: "POST", body: blob }); log((await r.text()) + " " + Math.round(blob.size / 1024) + "KB"); };
+const settle = async (map) => { for (let i = 0; i < 320; i++) { map.redraw(); if (map.isStyleLoaded() && map.getLayer("relief") && map.areTilesLoaded()) { await wait(300); map.redraw(); if (map.areTilesLoaded()) return; } await wait(250); } log("시간 초과"); };
+const save = async (map, name) => { map.redraw(); const blob = await new Promise((ok) => map.getCanvas().toBlob(ok, "image/webp", 0.86)); const r = await fetch("/save/" + name, { method: "POST", body: blob }); log((await r.text()) + " " + Math.round(blob.size / 1024) + "KB"); };
 
 (async () => {
-  if (only !== "light") {
-    const sat = make("a", { version: 8, sources: { sat: { type: "raster", tiles: [SRC[qs.get("src") || "esri"]], tileSize: 256, maxzoom: 17 } }, layers: [{ id: "sat", type: "raster", source: "sat", paint: { "raster-fade-duration": 0 } }] });
-    const mask = make("b", { version: 8, sources: { omt: OMT }, layers: [{ id: "land", type: "background", paint: { "background-color": "#000" } }, { id: "water", type: "fill", source: "omt", "source-layer": "water", paint: { "fill-color": "#fff", "fill-antialias": true } }] });
-    for (const z of SAT) {
-      sat.jumpTo({ center: C, zoom: z }); mask.jumpTo({ center: C, zoom: z });
-      await Promise.all([settle(sat), settle(mask)]);
-      const out = grab(sat), g = out.getContext("2d");
-      // 물 영역 → 바다색 + 투명도. 해안선은 1px 만 흐려 사진과 부드럽게 맞춘다
-      const m = document.createElement("canvas"); m.width = m.height = SIDE; const mg = m.getContext("2d"); mg.filter = "blur(1px)"; mg.drawImage(grab(mask), 0, 0); mg.filter = "none";
-      const im = mg.getImageData(0, 0, SIDE, SIDE), d = im.data;
-      for (let i = 0; i < d.length; i += 4) { const a = d[i]; d[i] = SEA[0]; d[i + 1] = SEA[1]; d[i + 2] = SEA[2]; d[i + 3] = a; }
-      mg.putImageData(im, 0, 0); g.drawImage(m, 0, 0);
-      await save(out, `sat-${z}.webp`);
-    }
-  }
-  if (only !== "sat") {
-    // 밝은 지도: positron + 지형 음영, 글자는 굽지 않는다(랜딩에서 글자로 따로 얹는다)
-    // 스타일을 먼저 받아 고친 뒤 적용한다(바뀌는 도중에 손대면 옛 스타일에 들어가 사라진다)
-    const style = await (await fetch("https://tiles.openfreemap.org/styles/positron")).json();
-    style.layers = style.layers.filter((l) => l.type !== "symbol");
-    style.sources.dem = { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], tileSize: 256, encoding: "terrarium", maxzoom: 11 };
-    const above = style.layers.findIndex((l) => /^(road|highway|bridge|tunnel|boundary|admin)/.test(l.id));
-    style.layers.splice(above < 0 ? style.layers.length : above, 0, { id: "relief", type: "hillshade", source: "dem", paint: { "hillshade-shadow-color": "#8a93a3", "hillshade-highlight-color": "#ffffff", "hillshade-exaggeration": 0.5, "hillshade-accent-color": "#b4bcc8" } });
-    const light = make("a", style);
-    for (const z of LIGHT) { light.jumpTo({ center: C, zoom: z }); await settle(light, () => !!light.getLayer("relief")); await save(grab(light), `light-${z}.webp`); }
-  }
+  const map = new maplibregl.Map({ container: "m", style: await buildStyle(), center: C, zoom: LEVELS[0], interactive: false, attributionControl: false, pixelRatio: 1, fadeDuration: 0, canvasContextAttributes: { preserveDrawingBuffer: true } });
+  for (const z of LEVELS) { map.jumpTo({ center: C, zoom: z }); await settle(map); await save(map, `${STYLE}-${z}.webp`); }
   log("끝");
   window.__done = true;
 })().catch((e) => { log("오류 " + e.message); window.__done = "error"; });
