@@ -355,7 +355,7 @@ const FINAL = { center: [126.855, 35.15], zoom: 11.7, pitch: 55, bearing: 18 };
 const EARTH_R = 6.371e6, M_PER_PX0 = (40075016 * Math.cos(deg(CENTER[1]))) / 512;
 const zoomOfAlt = (alt, h) => Math.log2(M_PER_PX0 / ((2 * alt * Math.tan(deg(FOV / 2)) * EARTH_R) / h));
 const altOfZoom = (z, h) => ((M_PER_PX0 / 2 ** z) * h) / (2 * Math.tan(deg(FOV / 2)) * EARTH_R);
-const MAP_IN = [3.2, 6.0];   // 이 확대 구간에서 지구가 지도로 서서히 바뀐다(넓을수록 천천히 녹아든다)
+const MAP_IN_SPAN = 1.8;   // 지구가 지도로 서서히 바뀌는 확대 구간의 길이(넓을수록 천천히 녹아든다). 시작점은 화면 비율로 정한다(아래 zIn)
 const fwd = new THREE.Vector3(), aim = new THREE.Vector3();
 function placeGround(v, h) {
   const dist = (h / 2) / Math.tan(deg(MAP_FOV / 2)) * 2 ** (Z0 - v.zoom);
@@ -415,7 +415,11 @@ function frameLoop(now) {
   const finZoom = FINAL.zoom + Math.log2(Math.min(1, w / 1440));
   const d0 = Math.sqrt(1 + ((h / 2) / (R * Math.tan(deg(FOV / 2)))) ** 2);
   const Z = lerp(zoomOfAlt(d0 - 1, h), finZoom, ease(span(p, 0.12, 0.84)));   // 지구부터 광주까지 한 곡선
-  const mapIn = groundReady ? smooth(MAP_IN[0], MAP_IN[1], Z) : 0;
+  // 지도로 바꾸기는 지구가 화면을 모서리까지 다 덮은 뒤에 시작한다 — 그전에 바꾸면 지구 둘레로 뒤 지도가 보인다(가로로 넓은 화면일수록 늦게).
+  // 화면 대각선 끝이 지구 가장자리 안쪽에 들어오는 카메라 높이를 셈하고, 대기 테두리 몫으로 조금 더 다가간다
+  const halfDiag = Math.atan(Math.tan(deg(FOV / 2)) * Math.hypot(1, w / h));
+  const zIn = Math.max(3.2, zoomOfAlt((1 / Math.sin(halfDiag) - 1) * 0.92, h));
+  const mapIn = groundReady ? smooth(zIn, zIn + MAP_IN_SPAN, Z) : 0;
   put(canvas, "opacity", (1 - mapIn).toFixed(3)); put(canvas, "visibility", mapIn < 1 ? "visible" : "hidden");
   put(groundCanvas, "visibility", mapIn > 0 ? "visible" : "hidden");
   if (mapIn < 1) {
@@ -444,7 +448,7 @@ function frameLoop(now) {
   put(clouds, "opacity", cop.toFixed(3)); put(clouds, "visibility", cop > 0.001 ? "visible" : "hidden");
   if (cop > 0.001) cloudEls.forEach((c, i) => { const k = span(p, 0.27, 0.58), s = 1 + k * (1.6 + i * 0.7); put(c, "transform", `scale(${s.toFixed(3)}) rotate(${((i - 1) * 6 * k).toFixed(2)}deg)`); });
   // 안개는 지도 사진이 아직 GPU 에 안 올라왔을 때만 잠깐 덮는다. 바뀌는 동안엔 옅은 막만 살짝
-  const hold = waiting && Z > MAP_IN[0];
+  const hold = waiting && Z > zIn;
   put(fog, "opacity", (hold ? 0.98 : 0.22 * Math.sin(Math.PI * mapIn)).toFixed(3));
   put(wait, "opacity", hold ? "1" : "0");
   // 4) 광주로 곧장 내려가며 기울어 내려앉는다
@@ -453,7 +457,7 @@ function frameLoop(now) {
   put(marksEl, "display", onGround ? "block" : "none");
   put(attrib, "opacity", onGround ? String(0.8 * mapIn) : "0");
   if (onGround) {
-    const mk = ease(span(Z, MAP_IN[0], finZoom));
+    const mk = ease(span(Z, zIn, finZoom));
     const view = { center: [lerp(CENTER[0], FINAL.center[0], mk), lerp(CENTER[1], FINAL.center[1], mk)], zoom: Z,
       pitch: FINAL.pitch * ease(span(p, 0.52, 0.84)), bearing: FINAL.bearing * ease(span(p, 0.5, 0.84)) };
     placeGround(view, h);
