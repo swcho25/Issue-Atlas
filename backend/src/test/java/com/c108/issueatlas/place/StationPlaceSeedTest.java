@@ -29,9 +29,11 @@ class StationPlaceSeedTest {
             SELECT e.news_id
             FROM news_event e
             JOIN place p ON p.place_id = ?
-            WHERE e.sido = p.attrs ->> 'sido'
-              AND (e.sigun IS NULL OR e.sigun = p.attrs ->> 'sigun')
-              AND (e.gu IS NULL OR e.gu = p.attrs ->> 'gu')
+            WHERE EXISTS (
+                SELECT 1 FROM jsonb_array_elements(e.regions) r
+                WHERE r ->> 'sido' = p.attrs ->> 'sido'
+                  AND (r ->> 'sigun' IS NULL OR r ->> 'sigun' = p.attrs ->> 'sigun')
+                  AND (r ->> 'gu' IS NULL OR r ->> 'gu' = p.attrs ->> 'gu'))
             ORDER BY e.news_id
             """;
 
@@ -115,9 +117,13 @@ class StationPlaceSeedTest {
 
     private void news(String newsId, String sido, String sigun, String gu) {
         jdbc.update(
-                "INSERT INTO news_event(news_id,event_start,time_precision,sido,sigun,gu)"
-                        + " VALUES (?,TIMESTAMPTZ '2023-01-09 00:00:00+09','published',?,?,?)",
+                "INSERT INTO news_event(news_id,event_start,time_precision,sido,sigun,gu,regions)"
+                        + " VALUES (?,TIMESTAMPTZ '2023-01-09 00:00:00+09','published',?,?,?,"
+                        + " jsonb_build_array(jsonb_build_object('sido', ?::text, 'sigun', ?::text, 'gu', ?::text)))",
                 newsId,
+                sido,
+                sigun,
+                gu,
                 sido,
                 sigun,
                 gu);
