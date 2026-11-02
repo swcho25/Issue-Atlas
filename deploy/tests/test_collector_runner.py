@@ -85,6 +85,13 @@ class CollectorRunnerTests(unittest.TestCase):
         self.assertEqual(runner.run_arguments("refine", [], "T"), [])
         self.assertEqual(runner.run_arguments("responses", [], "T"), [])
         self.assertEqual(
+            runner.run_arguments("region-load", ["--delete-bodies"], "T"), ["--delete-bodies"]
+        )
+        self.assertEqual(
+            runner.run_arguments("region-export", [], "T"),
+            ["--output", "/app/outputs/T/articles.jsonl"],
+        )
+        self.assertEqual(
             runner.run_arguments("youth-policy", ["--regions", "12130"], "T"),
             ["--regions", "12130", "--output", "/app/outputs/T/c1.json"],
         )

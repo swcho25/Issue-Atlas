@@ -9,4 +9,6 @@
 - text: 기사 본문 앞부분 정리(제목 · 사진 설명 · 출처 표시)
 - regions: 기사 지역 여러 개(news_event.regions)
 - checks: 적재 전 고치기 · 검사, 본문을 지워도 되는 요약인지
+- export: 아직 P3 를 안 돌린 기사 → 주피터 입력 JSONL (수집기 region-export)
+- load: 추출 결과 → news_event, 본문 지우기 (수집기 region-load, S15P31C108-195)
 """

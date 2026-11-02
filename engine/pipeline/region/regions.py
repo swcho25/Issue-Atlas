@@ -20,21 +20,13 @@
 
 import re
 
-from .labels import GJ_GU, split_region
+from .labels import GJ_GU, GJ_NAMES, SIDO_SHORT, split_region
 from .places import load
 from .text import body_text
 
 HEAD = 200
 MANY = 5  # 더한 지역이 이만큼이면 대표 지역만
-_SIDO_FULL = {
-    "서울특별시": "서울", "부산광역시": "부산", "대구광역시": "대구", "인천광역시": "인천",
-    "대전광역시": "대전", "울산광역시": "울산", "세종특별자치시": "세종", "경기도": "경기",
-    "강원특별자치도": "강원", "강원도": "강원", "충청북도": "충북", "충청남도": "충남",
-    "전북특별자치도": "전북", "전라북도": "전북", "경상북도": "경북", "경상남도": "경남",
-    "제주특별자치도": "제주", "제주도": "제주",
-}  # fmt: skip
-_SIDO_SHORT = set(_SIDO_FULL.values())
-_GJ = {"광주", "광주시", "광주광역시"}
+_SHORT_NAMES = set(SIDO_SHORT.values())
 _OUR_WHOLE = {"전남광주", "전남광주통합특별시", "통합특별시", "광주전남", "광주·전남", "전남·광주",
               "전남", "전라남도"}  # fmt: skip
 _NATION = re.compile(
@@ -56,9 +48,9 @@ def label_of(mention: str, gj_context: bool, main: str = "") -> str | None:
         return "NAT"
     if flat in _OUR_WHOLE:
         return "SIDO"
-    if m.startswith("경기 광주") or flat == "경기광주" or (flat in _GJ and main == "OUT:경기"):
+    if m.startswith("경기 광주") or flat == "경기광주" or (flat in GJ_NAMES and main == "OUT:경기"):
         return "OUT:경기"
-    if flat in _GJ:
+    if flat in GJ_NAMES:
         return "광주권"
     for gu in GJ_GU:
         named = flat in (f"광주{gu}", f"광주광역시{gu}", f"광주시{gu}")
@@ -68,9 +60,9 @@ def label_of(mention: str, gj_context: bool, main: str = "") -> str | None:
         return m
     if flat in places.sgg:
         return places.sgg[flat]
-    if flat in _SIDO_FULL:
-        return "OUT:" + _SIDO_FULL[flat]
-    if flat in _SIDO_SHORT:
+    if flat in SIDO_SHORT:
+        return "OUT:" + SIDO_SHORT[flat]
+    if flat in _SHORT_NAMES:
         return "OUT:" + flat
     if flat in places.other_sgg:
         return "OUT:" + places.other_sgg[flat]

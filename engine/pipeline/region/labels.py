@@ -11,9 +11,18 @@ GJ_GU = ("동구", "서구", "남구", "북구", "광산구")
 OTHER_SIDO = ("서울", "부산", "대구", "인천", "대전", "울산", "세종", "경기",
               "강원", "충북", "충남", "전북", "경북", "경남", "제주")  # fmt: skip
 SIDO_VALUES = frozenset({SIDO, "전국", *OTHER_SIDO})
+# 다른 시도 전체 이름 → 줄임말. 옛 이름(강원도 · 전라북도 · 제주도)도 기사에 나온다.
+# 지명 사전(places)과 지명 → 지역(regions)이 같이 쓴다 — 행정구역이 바뀌면 여기만 고친다
+SIDO_SHORT = {
+    "서울특별시": "서울", "부산광역시": "부산", "대구광역시": "대구", "인천광역시": "인천",
+    "대전광역시": "대전", "울산광역시": "울산", "세종특별자치시": "세종", "경기도": "경기",
+    "강원특별자치도": "강원", "강원도": "강원", "충청북도": "충북", "충청남도": "충남",
+    "전북특별자치도": "전북", "전라북도": "전북", "경상북도": "경북", "경상남도": "경남",
+    "제주특별자치도": "제주", "제주도": "제주",
+}  # fmt: skip
 # 우리 지역을 가리키는 시도 이름 (LLM 이 통합 전 이름으로 답하기도 한다)
 _OUR_SIDO = {SIDO, "전남광주", "전라남도", "전남", "광주광역시", "광주"}
-_GJ_NAMES = {"광주", "광주광역시", "광주시"}
+GJ_NAMES = frozenset({"광주", "광주광역시", "광주시"})  # 광주(구 모름)
 
 
 def split_region(label: str) -> tuple[str | None, str | None, str | None]:
@@ -41,7 +50,7 @@ def join_region(sido: str | None, sigun: str | None, gu: str | None) -> str:
         return "NAT"
     if sido and sido not in _OUR_SIDO:
         return f"OUT:{sido}"
-    if sigun in _GJ_NAMES or (not sigun and sido in _GJ_NAMES):
+    if sigun in GJ_NAMES or (not sigun and sido in GJ_NAMES):
         return f"광주 {gu}" if gu else "광주권"
     if sigun:
         return f"광주 {sigun}" if sigun in GJ_GU else sigun

@@ -21,9 +21,15 @@ MODES = {
     "refine": ("pipeline.refine", "--db"),
     # 기존 대응 후보: 정제된 온통청년 정책 · local_expenditure → existing_response. 키 없음, refine 뒤에 돈다
     "responses": ("pipeline.responses", "--db"),
+    # P3: 아직 지역 · 시간을 안 정한 기사 → 주피터 추출기 입력(본문 포함 JSONL). 키 없음
+    "region-export": ("pipeline.region.export", "--db"),
+    # P3: 주피터 추출 결과(/inputs) → news_event, --delete-bodies 로 요약된 기사 본문 지우기. 기본 시험 실행
+    "region-load": ("pipeline.region.load", "--db"),
 }
 # 결과 파일이 없는 모드. --output 을 붙이면 사용법 오류로 끝난다
-NO_OUTPUT = {"refine", "responses"}
+NO_OUTPUT = {"refine", "responses", "region-load"}
+# 결과 파일이 C1 이 아닌 모드의 파일 이름
+OUTPUT_NAME = {"region-export": "articles.jsonl"}
 # 원본 장부(raw_record)에 쓰는 수집 모드. 성공하면 같은 잠금 안에서 바뀐 출처만 정제한다.
 # lofin 은 자체 표(local_expenditure)라 정제가 없다
 REFINE_AFTER = {"kosis", "airkorea-stations", "airkorea-final", "press", "youth-policy", "bigkinds"}
@@ -44,7 +50,7 @@ def run_arguments(mode, arguments, stamp):
     """사람이 준 인자 + 실행마다 정하는 결과 파일. 결과 파일이 없는 모드에는 붙이지 않는다."""
     if mode in NO_OUTPUT:
         return list(arguments)
-    return [*arguments, "--output", f"/app/outputs/{stamp}/c1.json"]
+    return [*arguments, "--output", f"/app/outputs/{stamp}/{OUTPUT_NAME.get(mode, 'c1.json')}"]
 
 
 def refine_after(mode, returncode, started):
