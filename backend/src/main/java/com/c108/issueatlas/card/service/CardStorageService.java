@@ -48,7 +48,7 @@ public class CardStorageService {
                         "status",
                         "taxonomy_version",
                         "rule",
-                        "approval",
+                        "card_approval",
                         "indicator_snapshots")) spec.remove(key);
         spec.put("author", actor);
         return write(

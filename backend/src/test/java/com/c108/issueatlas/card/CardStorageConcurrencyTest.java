@@ -42,13 +42,13 @@ class CardStorageConcurrencyTest {
                 json.createArrayNode()
                         .add(
                                 json.createObjectNode()
-                                        .put("indicator_id", "race_indicator")
+                                        .put("indicator_id", "race_indicator_15_39")
                                         .put("role", "main")));
         jdbc.update(
                 """
                 INSERT INTO indicator(indicator_id,definition,rule,added_by_card,updated_by)
-                VALUES ('race_indicator',
-                  '{"id":"race_indicator","label":"테스트","unit":"명","target":"청년 15–39세",
+                VALUES ('race_indicator_15_39',
+                  '{"id":"race_indicator_15_39","label":"테스트","unit":"명","target":"청년 15–39세",
                     "period_type":"M","place_level":"sigungu","roll":{"method":"sum","min_months":12},"source":{}}',
                   '{"rule_id":"test","formula_version":"test-1","thresholds":{},"outcomes":[{"when":"otherwise","label":"불분명","claim":"unclear"}]}',
                   'C1','test')

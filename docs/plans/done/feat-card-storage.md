@@ -17,6 +17,7 @@
 - 2026-11-02: 열려 있는 V0024/V0025와 충돌하지 않는 V0026 초안. 배포·병합 전 성우 님과 번호/순서 조율 필요. 현재 실제 개발/운영 DB에는 적용하지 않음.
 - 2026-11-02: develop(d628e80)에 V0024~V0026이 병합돼 V0026 번호가 겹침. 브랜치를 최신 develop으로 옮기고 V0027(저장)·V0028(승인)로 변경. 충돌 없음. #171은 develop에 병합됐고 Codex가 본 초안과 같은 커밋(2c582d4)이라 C3 문구만 갱신. 주석의 일본어·한자 정리. 최신 develop 기준 backend build(포맷·전체 테스트 22묶음 115개) 통과.
 - 2026-11-02: finish. check:all 통과(harness·frontend lint·typecheck·test·e2e·backend build·engine lint·test). Jira 단계(-180~-184)마다 커밋 하나씩 5개로 나눔. outputs/는 제외.
+- 2026-11-02: MR !86 박준우 리뷰 반영. #171 지표 6개·A3가 저장·검사에서 막히던 문제 수정: target 선택, 연령은 지표 ID 기준, place_level #171과 통일, 검사 9(map_mode·legend_text), 카드 forbidden_terms, 규칙 indicator_id·otherwise, insufficient_evidence·none_reason 제외, 저장 승인 기록 card_approval 분리(#171 approval 보존). 지표 1–3개 상한은 양식 B2 근거로 유지. #171 C1·A3·지표 사전을 그대로 넣는 CardDesignContractTest 추가. 반영 중 !86이 먼저 병합(장성우, 88dbc0a)돼 V0028은 고치지 않고 V0030에서 함수 세 개를 다시 정의(V0029는 !89가 먼저 사용). 브랜치 fix/card-design-checks.
 
 ## 다음 할 일 / 범위 밖
 - CardRule 시그니처와 series 전달은 성우 님 담당. 판정 알고리즘·관측 집계, 작성 화면, 문서 태그·실행 반박 저장은 후속.

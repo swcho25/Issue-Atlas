@@ -2,7 +2,7 @@
 
 작성(P5 최동준, S15P31C108-174 / -180~-184) → backend(P7 장성우) · 카드 계약(P2 박준우, -171) · 관리자 화면 담당. 받는 쪽 리뷰 전 초안이다.
 
-구현: `V0027__create_card_storage.sql` + `V0028__card_validation_and_approval.sql`. develop의 V0024(지역 ID)·V0025(observation)·V0026(세출 실행) 다음 번호다. 병합 전에 다른 MR이 같은 번호를 쓰면 P7과 다시 조율하며, 이미 적용된 migration의 이름/내용은 바꾸지 않는다. 이번 작업은 실제 개발·운영 DB에 적용하지 않는다.
+구현: `V0027__create_card_storage.sql`(표) + `V0028__card_validation_and_approval.sql`(검사 · 승인 함수, MR !86) + `V0030__align_card_checks_with_card_design.sql`(#171 리뷰 반영으로 V0028의 함수 세 개를 같은 시그니처로 다시 정의). 이미 적용된 migration의 이름/내용은 바꾸지 않는다. Flyway는 운영 지표나 승인본을 seed하지 않는다.
 
 ## 저장 구조와 V0013 호환
 
@@ -28,13 +28,17 @@ V0013의 `domain`은 `C 인구·지역소멸`처럼 이름을 포함한 문자�
 
 ## 지표와 규칙의 단일 원본
 
-`definition`은 #171 `contracts/cards/indicators.json`의 `id`, `label`, `unit`, `period_type`, `place_level`, `roll`, `source`, `value_direction` 등을 보존한다. 저장 검증에 필요한 `target`(예: 청년 15–39세)을 추가한다. `shape`는 생략하면 value이며 value/flow/ratio/grade_days를 허용한다.
+`definition`은 #171 `contracts/cards/indicators.json`의 한 행을 그대로 저장한다(`id`, `label`, `unit`, `period_type`, `place_level`, `roll`, `source`, `value_direction`, `cards` …). 여기에 더하는 칸은 모두 선택이다: `shape`(생략하면 value, value/flow/ratio/grade_days), ratio의 `multiplier`, grade_days의 `cut`, 설명용 `target`. #171 지표 6개가 그대로 저장되는지는 `CardDesignContractTest`가 확인한다.
 
+- **연령은 지표 ID 끝(`_19_39`)이 유일한 원본이다**(#171 · observation view와 같음). `target`은 글이라 검사에 쓰지 않는다.
+- `place_level`: sido / sigungu / emd / station(#171과 같음).
 - `roll.method`: sum / mean / end_of_period. 옛 SQL의 `year_end`는 end_of_period로 변환한다. sum/mean은 min_months 1~12 필수.
 - `period_type`: 원천 자료 주기 Y/M. `roll`은 판정용 연 집계 방식이며 화면 series와 별개.
 - ratio: 분자·분모 FK와 `definition.multiplier` 숫자. grade_days: base FK와 `definition.cut` 숫자.
-- rule: #171 카드의 `rule` 객체를 주 지표 행으로 이동한다. rule_id/formula_version/thresholds 객체/outcomes 배열 필수. 숫자 임계의 업무적 타당성은 카드 작성·검수 책임이다. 규칙을 SQL 문자열로 실행하지 않는다.
+- rule: #171 카드의 `rule` 객체를 주 지표 행으로 옮긴다(시공간 명세 4절 지표 사전과 같음). rule_id/formula_version/thresholds 객체/outcomes 배열 필수. `indicator_id`가 있으면 그 지표 행 ID와 같아야 하고, outcomes 마지막 `when`은 `otherwise`다. #171의 `min_years`, `outcomes[].meaning`은 그대로 남는다. 숫자 임계의 업무적 타당성은 카드 작성·검수 책임이다. 규칙을 SQL 문자열로 실행하지 않는다.
+- **제약: 지표 하나에 규칙 하나다.** 같은 주 지표를 다른 규칙으로 판정하는 카드가 생기면 지금 구조로는 막힌다. 그때는 규칙 전용 지표 행을 새로 등록하거나 규칙을 카드 쪽으로 옮기는 변경이 필요하다.
 - 정의·규칙·분자·분모·base 변경 시 rule_version 증가. 과거 이력은 수정/삭제 불가. 검증 상태만 바뀌면 규칙 버전은 유지한다.
+- `added_by_card`는 **그 지표를 만든 카드** 하나다. 지표를 **쓰는 카드**는 승인본의 `card_claim_item`(판단 항목)과 `card_evidence_bind.binding->>'indicator_id'`(근거)에서 구한다. #171 `cards`는 정의 JSON에 남아도 검사에 쓰지 않는다.
 - unverified 지표는 그 지표를 추가한 카드가 승인될 때 의존성까지 verified가 된다. 다른 카드 소유의 미검증 지표는 승인에 사용할 수 없다. `verified`는 정의 검수이며 수집 완료를 뜻하지 않는다.
 
 승인본 `spec.rule`은 주 지표 rule에 `indicator_id`, `rule_version`을 넣은 복사본이다. `spec.indicator_snapshots[]`는 main/related와 재귀적으로 참조한 분자·분모·base의 **전체 행**을 보존한다. claim_items에는 순서와 역할만 유지한다. FK 조인은 탐색용이며, 과거 실행에 현재 사전의 값을 대입하면 안 된다.
@@ -48,18 +52,34 @@ develop에 병합된 #171 계약([contracts/cards](../cards/README.md), S15P31C1
 | 첫 번째 판단 항목이 주 지표 | claim_items의 `role=main` 정확히 1개, related는 보조 |
 | comparability.indicator/period/boundary/method | same_indicator/same_period_length/same_boundary/same_method |
 | required_for_claim의 boolean | required / optional |
-| evidence[].sp_id | spec_id. 미등록 소스는 null + note 또는 none_reason |
+| evidence[].sp_id | spec_id. 미등록 · 없는 소스는 null + note(없음 사유). 종류마다 1개 이상(양식 「비우지 않는다」) |
 | warrant 문자열 | `{status:draft 또는 approved, text}` |
 | rebuttals 배열 | `{status,items:[{id,text,...}]}`. 기존 조건·확인 소스·다른 해석도 추가 키로 보존 가능 |
 | ceiling.card/common | 합친 ceiling 문자열 배열 |
 | applicability.min_periods | min_complete_years, population, place_level |
-| 생략됐던 A7/B5/C5 | inclusion/exclusion, max_claim_level, expected_gaps를 저장 가능 |
+| 생략됐던 A7/B5/C5 | inclusion/exclusion, max_claim_level(observed_fact/calculated/associated), expected_gaps를 저장 가능 |
+| 승인 기록 | #171 `approval`(대표 승인 칸 기록: approved_fields · source)은 초안 그대로 보존. 저장 승인 기록은 `card_approval` |
 
-`draft_spec`은 미완성 객체도 저장한다. 저장 API는 author를 세션 사용자로 기록하고 card_id/card_version/status/taxonomy_version/rule/approval/indicator_snapshots는 요청에서 제거한다. 이 값들은 승인 시 서버와 지표 사전이 만든다. 승인본은 보증·반박 status도 approved로 고정한다.
+`draft_spec`은 미완성 객체도 저장한다. 저장 API는 author를 세션 사용자로 기록하고 card_id/card_version/status/taxonomy_version/rule/card_approval/indicator_snapshots는 요청에서 제거한다. 이 값들은 승인 시 서버와 지표 사전이 만든다. 승인본은 보증·반박 status도 approved로 고정한다.
 
 ## 검증·승인
 
-`card_spec_check(spec)`는 check_no/ok/label 9행을 반환한다. 객체·기본 정보, 판정값 한 개와 원인 단정 금지, 근거 4종·필수 정책, 보증·경쟁 설명 2개 이상, 비교 조건 4개, 허용 시공간 유형·상한선, 1~3개 사전 지표와 주 지표 규칙, 연령·적용 대상 일치, 적용 조건·허용 판단 수준·선택 필드를 검사한다. 잘못된 JSON 구조는 검증 실패로 반환하며 빈 체크나 null 결과로 승인하지 않는다.
+`card_spec_check(spec)`는 check_no/ok/label 10행(0~9)을 반환한다. 잘못된 JSON 구조는 검증 실패로 반환하며 빈 체크나 null 결과로 승인하지 않는다.
+
+| # | 검사 | 양식 칸 |
+| --- | --- | --- |
+| 0 | JSON 객체, 이름 · 영역 · 대표 질문 · 작성자 | A2 · A3 · A4 · F2 |
+| 1 | 판단 문장에 `{판정값}` 한 개, 공통 금지어(확산 · 전파 · 원인 · 효과 · 소멸) + 카드 `forbidden_terms` 없음. 「원인은 판단하지 않음」 같은 부정문은 허용 | B1 · E3 |
+| 2 | 근거 4종 각각 1개 이상(소스 없으면 spec_id null + note), 필수 정책 required/optional | C1–C4 · C6 |
+| 3 | 보증 1개 + 경쟁 설명 2개 이상(id 중복 없음) | D1 · D2 |
+| 4 | 비교 조건 4가지 | B3 |
+| 5 | 시공간 유형(분포형 · 변화형 · 이동형 · 사건형) + 판단할 수 없는 것 | A5 · D3 |
+| 6 | 사전 지표 1–3개, 주 지표 1개, 주 지표 규칙 있음 | B2 · B4 |
+| 7 | 판단 문장 · `applicability.population`의 연령 숫자 = 주 지표 ID 끝 연령. 연령 없는 지표는 문장 · population에도 연령이 없어야 함 | B1 · B6 |
+| 8 | 적용 조건(place_level · min_complete_years), 허용 판단 수준, 선택 문자열 배열 | B5 · B6 · A7 · F1 |
+| 9 | 지도 표현 `map_mode` + 범례 문구 `legend_text`(대표 승인 칸) | E1 · E2 |
+
+양식 B4는 규칙을 비워도 승인 가능(실행 결과 review_required)으로 적지만, 지금 검사는 주 지표 규칙을 요구한다. C1 · A3는 대표가 규칙까지 승인했으므로 당장 문제는 없고, 바꾸려면 검사 6과 CardRule의 규칙 없음 처리를 함께 정한다.
 
 `approve_card(card_id, actor, expected_draft_revision, reason)`는 다음을 한 트랜잭션에서 처리한다.
 
@@ -91,8 +111,13 @@ develop에 병합된 #171 계약([contracts/cards](../cards/README.md), S15P31C1
 
 ## 테스트 예시와 후속 연결
 
-[c1-draft.json](examples/c1-draft.json)은 사용자가 제공한 15–39세 C1 SQL을 변환한 **테스트 fixture**다. ind_101/102/103과 direction_majority 테스트 규칙은 통합 테스트에서만 만든다. Flyway는 운영 지표나 승인본을 seed하지 않는다. #171의 19–39세/최신 규칙과 혼용하지 않는다.
+[c1-draft.json](examples/c1-draft.json)은 사용자가 제공한 15–39세 C1 SQL을 변환한 **테스트 fixture**다. `ind_101_15_39`/`ind_102_15_39`/`ind_103_15_39`(연령을 ID 끝에 둠)와 direction_majority 테스트 규칙은 통합 테스트에서만 만든다. Flyway는 운영 지표나 승인본을 seed하지 않는다. #171의 19–39세/최신 규칙과 혼용하지 않는다. #171 설계도 자체(`contracts/cards/C1.json` · `A3.json` · `indicators.json`)는 `CardDesignContractTest`가 그대로 저장 · 검사 · 승인해 본다.
 
 CardRule 소비: 실행의 카드 버전으로 승인 spec을 읽고 spec.rule + indicator_snapshots의 정의/roll을 observation series에 적용한다. 인터페이스 변경과 실제 판정 구현은 P7/P5 후속이며 이번 변경은 CardRule을 수정하지 않는다. 기존 QuestionService의 근거 정책·보증 조립까지 DB 정의를 읽도록 연결하는 작업 역시 소비자 측에서 맞춰야 한다. 승인 UI, document_card_tag, argument_rebuttal은 후속이다.
 
-검증: CardStorageIntegrationTest(실제 Flyway·JSON·불변성·롤백·권한), CardStorageConcurrencyTest(별도 PostGIS의 두 연결), 기존 PlaceCardsIntegrationTest 및 QuestionApiTest. 운영 DB 접속 없이 Testcontainers에서만 실행한다.
+검증: CardStorageIntegrationTest(실제 Flyway·JSON·불변성·롤백·권한), CardDesignContractTest(#171 C1 · A3 · 지표 사전 그대로), CardStorageConcurrencyTest(별도 PostGIS의 두 연결), 기존 PlaceCardsIntegrationTest 및 QuestionApiTest. 운영 DB 접속 없이 Testcontainers에서만 실행한다.
+
+## 변경 이력
+
+- v0.1 (2026-11-02): 초안.
+- v0.1.1 (2026-11-02, V0030): #171 리뷰(박준우) 반영. target 선택 칸, 연령은 지표 ID 기준, place_level을 #171과 통일(sigungu_pair 제외), 금지어에 카드 forbidden_terms, 검사 9 지도 표현 · 범례, 규칙 indicator_id · otherwise 검사, max_claim_level에서 insufficient_evidence 제외, none_reason 대신 null + note, 저장 승인 기록을 card_approval로 분리. 지표 1–3개 상한은 양식 B2 근거로 유지.
