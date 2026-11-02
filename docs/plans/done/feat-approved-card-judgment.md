@@ -13,6 +13,7 @@
 - 2026-11-02: 규칙 실행기 단위 `ed8f66c`를 기반으로 시작.
 - 2026-11-02: 승인본·지표 스냅샷 조회, 연 집계, C1·A3 판정, 승인 문장·정책·그림 자료 연결. 새 C9 카드의 규칙 재사용과 필수 통계 근거 누락을 통합 테스트로 확인.
 - 2026-11-02: `pnpm check`(backend format·test, harness, engine lint·test)와 `pnpm backend:build` 통과.
+- 2026-11-02: B6 최소 완전 연수 미달을 `run_status = unsupported`, `claim = insufficient`로 정합화. C1·A3 통합 테스트 보강.
 
 ## 다음 할 일 / 범위 밖
 - 관리자 승인 전 `rule_id`·조건 검증은 다음 단위로 분리한다.

@@ -215,9 +215,10 @@ class QuestionApiTest {
                 """;
         // 12개월이 모두 있는 해가 없어 근거 부족이지만 그림 자료(series)는 보낸다. 연령 계(000)는 카드 지표가 아니라 빠진다
         argument(runId(ask(body)))
+                .andExpect(jsonPath("$.run_status").value("unsupported"))
                 .andExpect(jsonPath("$.evidence_table[0].status").value("available"))
                 .andExpect(jsonPath("$.claim.value").value("insufficient"))
-                .andExpect(jsonPath("$.comparability.same_period_length.passed").value(false))
+                .andExpect(jsonPath("$.comparability.same_period_length.passed").isEmpty())
                 .andExpect(jsonPath("$.series.length()").value(2))
                 .andExpect(
                         jsonPath("$.series[0].indicator_id")
@@ -316,7 +317,7 @@ class QuestionApiTest {
 
         String evidence = "ev_a" + "1".repeat(63);
         argument(runId)
-                .andExpect(jsonPath("$.run_status").value("partial"))
+                .andExpect(jsonPath("$.run_status").value("unsupported"))
                 .andExpect(jsonPath("$.claim.value").value("insufficient"))
                 .andExpect(jsonPath("$.data.statistics.length()").value(1))
                 // 2021 세출은 기간 밖이라 잇지 않는다
@@ -393,6 +394,38 @@ class QuestionApiTest {
                                         + " AND evidence_id LIKE 'ev_stat_%'",
                                 Integer.class))
                 .isEqualTo(1);
+    }
+
+    @Test
+    void c1TwoCompleteYearsAreUnsupportedByCardApplicability() throws Exception {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < 24; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        String runId =
+                runId(ask(body("C1", "2023-01-01", "2025-01-01").replace(PLACE, "kr-12130")));
+        argument(runId)
+                .andExpect(jsonPath("$.run_status").value("unsupported"))
+                .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(jsonPath("$.evidence_table[0].status").value("available"))
+                .andExpect(jsonPath("$.data.statistics.length()").value(1));
+    }
+
+    @Test
+    void a3TwoCompleteYearsAreUnsupportedByCardApplicability() throws Exception {
+        for (int month = 1; month <= 9; month++) {
+            air("336121", 2023, month, 10);
+            air("336121", 2024, month, 11);
+        }
+        String runId =
+                runId(ask(body("A3", "2023-01-01", "2025-01-01").replace(PLACE, "kr-12130")));
+        argument(runId)
+                .andExpect(jsonPath("$.run_status").value("unsupported"))
+                .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(jsonPath("$.evidence_table[0].status").value("available"));
     }
 
     @Test

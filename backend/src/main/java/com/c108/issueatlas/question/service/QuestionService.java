@@ -336,6 +336,20 @@ public class QuestionService {
                     responses,
                     pending);
         }
+        int minimumYears =
+                approved.spec().path("applicability").path("min_complete_years").asInt(0);
+        int completeYears = ((Number) judgment.facts().getOrDefault("yearCount", 0)).intValue();
+        if (completeYears < minimumYears) {
+            return notJudged(
+                    "unsupported",
+                    table,
+                    "카드 적용 조건 미충족으로 검사하지 않음",
+                    "완전한 연 값 " + minimumYears + "개 이상이 필요해 판단하지 않습니다.",
+                    approved,
+                    refs,
+                    responses,
+                    pending);
+        }
         Comparability c = judgment.comparability();
         List<String> failed =
                 failed(c).stream().map(CONDITIONS::get).filter(Objects::nonNull).toList();
