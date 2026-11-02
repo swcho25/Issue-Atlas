@@ -13,6 +13,8 @@ P1 수집·P3 지역·P7 서버가 공유하는 DB 기반. 구현은 backend/src
 
 ## 카드 목록 조회 (S15P31C108-132, V0013)
 
+카드 저장·승인 확장: [C3 v0.1](../c3/README.md), S15P31C108-174(-180~-184), V0027/V0028 초안. 기존 card 6칸과 실행 결과를 유지하며 legacy v1을 승인본으로 간주하지 않는다. 최초 실제 승인 v2부터 불변 spec과 지표/규칙/의존성 스냅샷을 저장한다. 새 후보는 공개 목록·질문에서 제외된다. 운영 seed·승인 자동 실행은 없다. 배포 순서는 P7 리뷰에서 확정한다.
+
 - `card`: 카드 ID·이름·대분류·상위 질문·카드 버전·분류 버전. C2 예시의 C1(청년 유출·정착)·A3(대기질) 메타만 seed한다. 논증 판정 규칙이나 카드 승인 기능은 포함하지 않는다.
 - `card_evidence_status`: `(place_id, card_id, card_version, period_start, period_end, kind)`별 확정 상태. 종류는 C2 근거 4종, 상태는 C2의 5가지다. 기간은 날짜 `[start,end)`이며 정확히 같은 기간·카드 버전만 조회에 사용한다. 다른 기간과 겹친다는 이유로 확보 상태를 재사용하지 않는다.
 - P3/P4의 근거 연결 결과를 기록할 조회 경계다. 현재 상태 작성기·자동 분류기는 없으며, API는 미등록을 `not_collected`, 보류 수를 0으로 응답한다. raw_record나 normalized_ready가 있다는 이유만으로 카드·지역 관련성을 추측하지 않는다.
@@ -83,3 +85,4 @@ V0006은 `vector` 확장만 활성화한다. 벡터 칼럼과 벡터 인덱스�
 - v0.1.19 (2026-11-02): 시군구 6곳 `place_id` 를 `plc_*` 에서 `kr-<KOSIS 새 시군구 5자리>` 로 바꾼다(V0024). 새 ID 로 행을 복사하고 참조(`place.parent_id` · `place_code_map` · `card_evidence_status` · `existing_response` · `question`, `argument_run.result` 의 `question.place_id`)를 옮긴 뒤 옛 행을 지운다. 칸 · 대응표는 [P3 계약](../p3/README.md) v0.6. 측정소 `plc_stn_*` 은 그대로.
 - v0.1.20 (2026-11-02): 관측 행 view `observation` 추가(V0025). 새 표 없이 `normalized_ready`(SP01 · SP02 · SP10) · `air_monthly` · `news_event` 를 한 모양으로 읽는다. SP10 연령 22코드를 `population_registered_total` · `_19` – `_39` 로 나눠 전에 빠졌던 378행이 행이 된다. 칸 · 매핑은 [관측 행 계약](../observation/README.md).
 - v0.1.21 (2026-11-02): `local_expenditure` 에 `job_run_id`(FK `job_run`, null 허용)와 최신본 뷰 `local_expenditure_latest` 추가(V0026, S15P31C108-173). 세출 수집 실행마다 `job_run` 을 남기고 그 파일의 행에 실행을 찍는다. 뷰는 회계연도마다 마지막 실행의 행만. 칸 · 규칙은 [지방 세출 계약](../expenditure/README.md) v0.2.
+- v0.1.22 (2026-11-02): 카드 저장 · 승인 표 추가(V0027 · V0028, S15P31C108-174). `card` 에 상태 · 초안 · 현재 승인 버전을 더하고 지표 사전 `indicator` · 승인본 `card_version` · 변경 이력 `card_revision` 등을 둔다. 새 후보는 공개 목록 · 질문에서 빠진다. 칸 · 규칙은 [C3 계약](../c3/README.md) v0.1.
