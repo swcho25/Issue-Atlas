@@ -1,4 +1,4 @@
-# P2 정제 레코드 v0.7
+# P2 정제 레코드 v0.9
 
 정제(P2) → 지역·시간(P3) · 분류(P4). 만드는 곳: `engine/pipeline/refine/` (`refine_records`). DB 에 저장한 결과는 아래 「저장」, 에어코리아 확정 시간값은 「월별 집계」에만 저장한다.
 계약 변경은 받는 쪽 정우현(P3)·최동준(P4) 리뷰가 필요하다.
@@ -22,7 +22,7 @@
 | `issues` | `{code, field}` 배열 | 사유. `pass` 면 빈 배열 |
 | `rule_version` | `p2-…` | 정제 규칙 판. 같은 입력 + 같은 판이면 같은 출력(바이트 단위) |
 | `obs_key` | `obs:<sha256 64자리>` (v0.7 전 측정소 메타는 null) | 원천의 같은 칸(source_id · spec_id · locator). 판(수정본)이 달라도 같다. 관측값 · 문서 · 측정소 메타 모든 레코드에 붙는다. 문서는 원천 문서 하나(빅카인즈 `locator.news_id`)가 한 칸이라 같은 기사를 다시 받은 행이 같은 키다 |
-| `is_latest` | bool (v0.7 전 측정소 메타는 null) | 같은 `obs_key` 중 보류가 아닌 판 하나. 관측값 · 측정소 메타는 가장 늦은 판(published_at, 없으면 collected_at), 문서는 본문이 있는 판이 먼저이고 같으면 가장 늦게 받은 판(collected_at). 같은 판의 사본(원본만 다름, 아래 `DEDUP_KEY_CONFLICT`)은 늦게 받은 것 하나. 이전 판 · 사본은 지우지 않고 false 로 남긴다 |
+| `is_latest` | bool (v0.7 전 측정소 메타는 null) | 같은 `obs_key` 중 보류가 아닌 판 하나. 관측값 · 측정소 메타는 가장 늦은 판(published_at, 없으면 collected_at), 문서는 본문을 받은 판(요약 뒤 본문을 지운 판 포함)이 먼저이고 같으면 가장 늦게 받은 판(collected_at). 같은 판의 사본(원본만 다름, 아래 `DEDUP_KEY_CONFLICT`)은 늦게 받은 것 하나. 이전 판 · 사본은 지우지 않고 false 로 남긴다 |
 
 ## 사유 코드
 
@@ -33,12 +33,12 @@
 | `UNKNOWN_FIELD` | held | C1 에 없는 칸 |
 | `FORBIDDEN_SOURCE` | held | 네이버 · 카카오 주소 (PRD 7.5). 빅카인즈는 언론 기사 수집원으로 쓰기로 해 금지에서 뺐다 (노션 결정 2026-10-26) |
 | `SECRET_IN_URL` | held | URL 쿼리에 실제 API 키. 출력 raw_url 은 `<KEY>` 로 가림 |
-| `LICENSE_UNKNOWN` | held | 이용허락 표(`engine/pipeline/refine/license_scopes.json`)에 없는 license_type. 빅카인즈 기사는 `BIGKINDS-이용약관` (최대 `full`: 본문 저장, 팀 결정 2026-10-28. 본문은 내부 분석(요약 · 분류)에만 쓰고 화면 · API 로 내보내지 않는다) |
+| `LICENSE_UNKNOWN` | held | 이용허락 표(`engine/pipeline/refine/license_scopes.json`)에 없는 license_type. 빅카인즈 기사는 `BIGKINDS-이용약관` (최대 `full`: 본문을 받아 내부 분석(요약 · 분류)에만 쓰고 화면 · API 로 내보내지 않는다. 요약이 제대로 생긴 기사는 P3 가 본문을 지운다 — 대표 결정 2026-11-01, [기사 계약](../article/README.md) 「본문 지우기」) |
 | `DEDUP_KEY_CONFLICT` | held | 같은 dedup_key 인데 장부 내용이 다른 레코드가 함께 옴 — 수집 실행 칸(`collected_at` · `run_id` · `collector_version`)과 원본 지문(`content_hash`) 말고 다른 칸이 다름. 수집 실행 칸만 다르면 재수집으로 보고, 마지막으로 확인한 것(`collected_at` 이 가장 늦은 것, 같으면 `run_id` 가 큰 것) 하나만 내보냄. `content_hash` 도 다르면(원천의 장부 밖 칸 — KOSIS 이름표 · 측정소 측정 항목 등 — 만 바뀐 재수집) 같은 판의 사본이라 충돌이 아니다: 원본 한 행 = 정제 한 행이라 모두 내보내고 `is_latest` 는 늦게 받은 사본 하나만 |
 | `SCOPE_DOWNGRADED` | fixed | P1 의 storage_scope 가 이용허락보다 넓어 낮춤 |
 | `VALUE_STRIPPED_BY_SCOPE` | fixed | 저장 범위가 full 이 아닌 관측값이라 value 를 지우고 missing_reason 을 license_blocked 로 |
 | `BODY_STRIPPED_BY_SCOPE` | fixed | 저장 범위가 full 이 아닌 문서라 `document.body` 를 null 로 (C1 v0.2: full ⇔ 본문 있음). field 는 `document` |
-| `BODY_MISSING` | held | 기사(`document.kind = news`)인데 이용허락이 본문(`full`)을 허락하는데도 `document.body` 가 없음(원문 링크 없음 · robots 차단 · 본문 못 찾음 등). P3 가 본문을 읽어 지역 · 시간 · 요약을 뽑으므로 다음 단계로 넘기지 않는다. 같은 기사를 다시 받아 본문이 생기면 그 판이 나간다. field 는 `document` |
+| `BODY_MISSING` | held | 기사(`document.kind = news`)인데 이용허락이 본문(`full`)을 허락하는데도 `document.body` 가 없음(원문 링크 없음 · robots 차단 · 본문 못 찾음 등). P3 가 본문을 읽어 지역 · 시간 · 요약을 뽑으므로 다음 단계로 넘기지 않는다. 같은 기사를 다시 받아 본문이 생기면 그 판이 나간다. **본문을 받은 뒤 요약하고 지운 기사**(`fetch.status = ok` · `body = null` · `storage_scope = metadata`)는 보류하지 않는다(v0.9). 본문을 못 받은 기사는 쓰지 않는다(2026-11-02 결정, 개발 서버 1,263건 삭제). field 는 `document` |
 
 `fixed` 사유만 있으면 `fixed`, 그 밖의 사유가 하나라도 있으면 `held`.
 
@@ -70,7 +70,7 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 | `record` | 정제 레코드 전체(C1 칸 + P2 칸, jsonb). 위 칸은 모두 여기서 꺼낸 값이다 |
 | `refined_at` | 이 행의 결과가 마지막으로 바뀐 시각 |
 
-**다음 단계가 읽는 곳은 `normalized_ready` 뷰다.** `validation_status` 가 pass·fixed 이고 `is_latest` 가 false 가 아닌 행 — 관측값은 최신본만, 기사는 본문이 있는 것만 원천 문서 하나에 1건, 측정소 메타도 측정소 하나에 1건(v0.7 전에는 `is_latest` 가 null 이라 모두). 이 조건을 각자 다시 쓰지 않는다.
+**다음 단계가 읽는 곳은 `normalized_ready` 뷰다.** `validation_status` 가 pass·fixed 이고 `is_latest` 가 false 가 아닌 행 — 관측값은 최신본만, 기사는 본문을 받은 것만(요약 뒤 지웠으면 `body = null`) 원천 문서 하나에 1건, 측정소 메타도 측정소 하나에 1건(v0.7 전에는 `is_latest` 가 null 이라 모두). 이 조건을 각자 다시 쓰지 않는다.
 
 ## 월별 집계 — `air_monthly`
 
@@ -121,3 +121,4 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 | v0.5 | 2026-10-28 | 문서(C1 v0.2 기사 칸) 정제: 이용허락 표 `BIGKINDS-이용약관` → `full`(기사 본문 저장, 팀 결정), 저장 범위가 full 이 아닌 문서는 본문을 지우고 `BODY_STRIPPED_BY_SCOPE`(fixed). 문서에도 `obs_key` · `is_latest` — 같은 기사의 여러 판 중 본문 있는 판, 같으면 늦게 받은 판 하나만 `normalized_ready`. `source_text` 문서는 `place_code_raw = ""` 허용. 본문을 허락하는데 본문이 없는 기사는 `BODY_MISSING`(held). 결과가 달라지므로 `rule_version` `p2-0.3.0` — 저장된 행은 다음 정제 때 새 판으로 갱신된다. DB 변경 없음 (S15P31C108-122) |
 | v0.7 | 2026-10-30 | 원본만 다른 재수집: 같은 dedup_key · 같은 장부 내용인데 `content_hash` 만 다르면(원천의 장부 밖 칸만 바뀜 — KOSIS 이름표 · 측정소 측정 항목 등) 충돌이 아니라 같은 판의 사본. 모두 정제 행으로 남고 늦게 받은 사본 하나만 `is_latest`. 이전에는 둘 다 `DEDUP_KEY_CONFLICT` 로 보류돼 그 칸이 `normalized_ready` 에서 빠졌다. 측정소 메타에도 `obs_key` · `is_latest` 를 붙여(모든 레코드) 사본 중 하나만 `normalized_ready`. 정제 저장의 묶음 모으기도 모든 레코드의 관측 칸을 본다. 결과가 달라지므로 `rule_version` `p2-0.5.0` — 저장된 행은 다음 정제 때 새 판으로 갱신된다. 스키마 · DB 변경 없음 (S15P31C108-155) |
 | v0.8 | 2026-11-02 | 보도자료(C1 문서 `kind = press_release`)가 원본 장부 → 정제를 거친다. 이용허락 표에 `KOGL-미표시` → `metadata` 추가(광주광역시 보도자료, 담당자 협의 전). 같은 글은 `locator.press_id` 로 한 칸이고 제목 정정 등 보이는 칸이 바뀐 판 중 늦게 받은 판 하나만 `is_latest`. 결과가 달라지므로 `rule_version` `p2-0.6.0`. 스키마 · DB 변경 없음 (S15P31C108-172) |
+| v0.9 | 2026-11-02 | 요약 뒤 본문을 지운 기사(`fetch.status = ok` · `body = null` · `metadata`)는 `BODY_MISSING` 으로 보류하지 않고 `normalized_ready` 에 남긴다. 같은 기사의 판 순서도 「본문을 받은 판」(지운 판 포함)이 먼저. 본문을 못 받은 기사(`fetch.status` ≠ ok)는 그대로 보류. `rule_version` `p2-0.7.0`. 스키마 · DB 변경 없음 (S15P31C108-189) |
