@@ -1,5 +1,6 @@
 package com.c108.issueatlas.question.repository;
 
+import com.c108.issueatlas.question.dto.ApprovedCard;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import tools.jackson.databind.ObjectMapper;
 
 @Repository
 public class QuestionRepository {
@@ -64,9 +66,11 @@ public class QuestionRepository {
             """;
 
     private final JdbcClient jdbc;
+    private final ObjectMapper json;
 
-    public QuestionRepository(JdbcClient jdbc) {
+    public QuestionRepository(JdbcClient jdbc, ObjectMapper json) {
         this.jdbc = jdbc;
+        this.json = json;
     }
 
     public Optional<String> placeName(String placeId) {
@@ -82,6 +86,16 @@ public class QuestionRepository {
                                 + " WHERE card_id = ? AND status IN ('legacy', 'card')")
                 .param(cardId)
                 .query(CardRow.class)
+                .optional();
+    }
+
+    /** 공개 카드 행에서 고른 정확한 판을 읽는다. legacy에는 승인본이 없다. */
+    public Optional<ApprovedCard> approvedCard(String cardId, int version) {
+        return jdbc.sql("SELECT spec::text FROM card_version WHERE card_id = ? AND version = ?")
+                .params(cardId, version)
+                .query(
+                        (row, index) ->
+                                new ApprovedCard(cardId, version, json.readTree(row.getString(1))))
                 .optional();
     }
 
@@ -297,6 +311,29 @@ public class QuestionRepository {
                 .list();
     }
 
+    /** 판정용 원본 관측. 그림용 월 series와 달리 연 관측도 포함한다. */
+    public List<ObservationRow> observationRows(
+            String indicatorId, String placeId, LocalDate start, LocalDate end) {
+        return jdbc.sql(
+                        """
+                SELECT o.station_id, o.when_unit,
+                       to_char(o.when_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') AS period,
+                       o.value, o.status
+                FROM observation o
+                WHERE o.what_type = 'indicator' AND o.what_id = :indicator AND o.place_id = :place
+                  AND o.when_unit IN ('M', 'Y')
+                  AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+                  AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+                ORDER BY o.station_id NULLS FIRST, o.when_start
+                """)
+                .param("indicator", indicatorId)
+                .param("place", placeId)
+                .param("start", start)
+                .param("end", end)
+                .query(ObservationRow.class)
+                .list();
+    }
+
     public List<ArticleRow> articles(
             String cardId, String placeId, LocalDate start, LocalDate end) {
         return jdbc.sql(ARTICLES)
@@ -331,6 +368,9 @@ public class QuestionRepository {
     }
 
     public record CardRow(String cardId, String name, int cardVersion, String taxonomyVersion) {}
+
+    public record ObservationRow(
+            String stationId, String whenUnit, String period, BigDecimal value, String status) {}
 
     public record MatchedResponse(String responseId, String evidenceId) {}
 
