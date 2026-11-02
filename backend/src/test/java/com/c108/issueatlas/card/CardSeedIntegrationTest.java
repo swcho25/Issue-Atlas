@@ -162,8 +162,11 @@ class CardSeedIntegrationTest {
 
     @Test
     void seedStopsWhenDictionaryDiffers() throws Exception {
-        ObjectNode other = (ObjectNode) contract("indicators.json").get("indicators").get(5);
-        assertThat(other.get("id").asText()).isEqualTo("air_pm25");
+        ObjectNode other = null;
+        for (JsonNode row : contract("indicators.json").get("indicators")) {
+            if (row.get("id").asText().equals("air_pm25")) other = (ObjectNode) row;
+        }
+        assertThat(other).isNotNull();
         jdbc.update(
                 "INSERT INTO indicator(indicator_id,definition,updated_by) VALUES ('air_pm25',?::jsonb,'other')",
                 other.put("label", "다른 정의").toString());

@@ -53,8 +53,12 @@ const drafts = CARD_IDS.map((id) => {
   return { id, draft };
 });
 
+// 파생 지표(ratio · grade_days)는 분자 · 분모 · 기준 지표를 칸으로도 넣는다(C3 저장 트리거가 본다)
 const indicatorRows = indicators
-  .map((i) => `        ('${i.id}', ${text(i.owner)},\n         ${jsonb(i.definition)},\n         ${i.rule ? jsonb(i.rule) : "NULL::jsonb"})`)
+  .map((i) => {
+    const deps = ["numerator_id", "denominator_id", "base_id"].map((k) => text(i.definition[k])).join(", ");
+    return `        ('${i.id}', ${text(i.owner)}, ${deps},\n         ${jsonb(i.definition)},\n         ${i.rule ? jsonb(i.rule) : "NULL::jsonb"})`;
+  })
   .join(",\n");
 const cardRows = drafts.map((c) => `        ('${c.id}',\n         ${jsonb(c.draft)})`).join(",\n");
 
@@ -80,12 +84,16 @@ BEGIN
     -- 지표 사전. 카드가 승인될 때 approve_card 가 그 카드가 넣은 지표를 verified 로 바꾼다
     FOR i IN SELECT * FROM (VALUES
 ${indicatorRows}
-    ) AS v(indicator_id, added_by_card, definition, rule) LOOP
+    ) AS v(indicator_id, added_by_card, numerator_id, denominator_id, base_id, definition, rule) LOOP
         IF NOT EXISTS (SELECT FROM indicator WHERE indicator_id = i.indicator_id) THEN
-            INSERT INTO indicator(indicator_id, definition, rule, added_by_card, updated_by)
-            VALUES (i.indicator_id, i.definition, i.rule, i.added_by_card, approver);
+            INSERT INTO indicator(indicator_id, definition, rule, numerator_id, denominator_id, base_id,
+                                  added_by_card, updated_by)
+            VALUES (i.indicator_id, i.definition, i.rule, i.numerator_id, i.denominator_id, i.base_id,
+                    i.added_by_card, approver);
         ELSIF EXISTS (SELECT FROM indicator WHERE indicator_id = i.indicator_id
-                      AND (definition, rule, added_by_card) IS DISTINCT FROM (i.definition, i.rule, i.added_by_card)) THEN
+                      AND (definition, rule, numerator_id, denominator_id, base_id, added_by_card)
+                          IS DISTINCT FROM (i.definition, i.rule, i.numerator_id, i.denominator_id, i.base_id,
+                                            i.added_by_card)) THEN
             RAISE EXCEPTION '지표 % 가 DB 와 seed 에서 다르다. 어느 쪽이 맞는지 확인한 뒤 다시 실행한다', i.indicator_id;
         END IF;
     END LOOP;

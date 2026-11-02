@@ -130,7 +130,9 @@ def test_dictionary_sources_match_collectors():
             assert source["c1_indicator_id"] == table.indicator_id
             # locator C1 은 지역, C2 부터 dims 순서
             for key, code in source["locator"].items():
-                assert code in table.dims[int(key[1:]) - 2]
+                # 코드 목록은 그 코드 값들의 합(SP10 19–39세)
+                for one in [code] if isinstance(code, str) else code:
+                    assert one in table.dims[int(key[1:]) - 2]
 
 
 def test_cards_match_db_seed():
@@ -216,3 +218,24 @@ def test_banned_words_do_not_appear(card_id):
     card = {k: v for k, v in CARD[card_id].items() if k != "forbidden_terms"}
     for text in texts(card):
         assert "확산" not in text and "전파" not in text
+
+
+def test_youth_population_is_the_sum_of_ages_19_to_39():
+    # SP10 1세별 코드: 1005 = 19세, 1201–1605 = 20–39세(observation V0025 대응표와 같다)
+    youth = INDICATORS["population_registered_19_39"]
+    codes = youth["source"]["locator"]["C2"]
+    assert len(codes) == 21 and codes[0] == "1005" and codes[-1] == "1605"
+    share = INDICATORS["population_youth_share_19_39"]
+    assert (
+        share["shape"],
+        share["numerator_id"],
+        share["denominator_id"],
+        share["multiplier"],
+    ) == (
+        "ratio",
+        "population_registered_19_39",
+        "population_registered_total",
+        100,
+    )
+    denominators = [s["indicator_id"] for s in CARD["C1"]["evidence"]["denominators"]]
+    assert denominators == ["population_registered_19_39", "population_registered_total"]

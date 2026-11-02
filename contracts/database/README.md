@@ -88,3 +88,4 @@ V0006은 `vector` 확장만 활성화한다. 벡터 칼럼과 벡터 인덱스�
 - v0.1.22 (2026-11-02): 카드 저장 · 승인 표 추가(V0027 · V0028, S15P31C108-174). `card` 에 상태 · 초안 · 현재 승인 버전을 더하고 지표 사전 `indicator` · 승인본 `card_version` · 변경 이력 `card_revision` 등을 둔다. 새 후보는 공개 목록 · 질문에서 빠진다. 칸 · 규칙은 [C3 계약](../c3/README.md) v0.1.
 - v0.1.23 (2026-11-02): `normalized_record` 에 `record -> 'locator' ->> 'news_id'` 인덱스 추가(V0029). 근거 기사 목록(C2 `articles[].url`)이 빅카인즈 원본 레코드의 `document.link` 를 기사마다 찾는다.
 - v0.1.24 (2026-11-02): 카드 검사 · 승인 함수를 #171 카드 설계도에 맞춰 다시 정의(V0030, S15P31C108-174 리뷰). 표는 그대로. 지표 `target` 선택 · `place_level` sido · sigungu · emd · station · 연령은 지표 ID 기준 · 저장 승인 기록 `card_approval`. 칸 · 규칙은 [C3 계약](../c3/README.md) v0.1.1.
+- v0.1.25 (2026-11-02): `observation` view 의 통계 카드 태그를 지표 사전에 맞춰 다시 정의(V0031, S15P31C108-196). `population_movers` · SP10 19–39세 각 나이 → C1, `population_registered_total` → C1 · A3. 칸 · 순서 · 행은 그대로.

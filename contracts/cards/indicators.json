@@ -1,5 +1,5 @@
 {
-  "version": "0.2",
+  "version": "0.3",
   "decided_at": "2026-11-01",
   "indicators": [
     {
@@ -59,6 +59,40 @@
       "source": { "spec_id": "SP10", "c1_indicator_id": "population_registered", "locator": { "C2": "000" } },
       "cards": ["C1", "A3"],
       "added_by_card": "C1"
+    },
+    {
+      "id": "population_registered_19_39",
+      "label": "청년(19–39세) 주민등록인구 (연말)",
+      "unit": "명",
+      "period_type": "Y",
+      "place_level": "sigungu",
+      "roll": { "method": "end_of_period" },
+      "value_direction": "인구 수. 19–39세 각 나이(observation population_registered_19 – _39) 값의 합",
+      "source": {
+        "spec_id": "SP10",
+        "c1_indicator_id": "population_registered",
+        "locator": { "C2": ["1005", "1201", "1202", "1203", "1204", "1205", "1301", "1302", "1303", "1304", "1305", "1501", "1502", "1503", "1504", "1505", "1601", "1602", "1603", "1604", "1605"] }
+      },
+      "cards": ["C1"],
+      "added_by_card": "C1",
+      "target": "청년 19–39세"
+    },
+    {
+      "id": "population_youth_share_19_39",
+      "label": "청년(19–39세) 인구 비율",
+      "unit": "%",
+      "period_type": "Y",
+      "place_level": "sigungu",
+      "roll": { "method": "end_of_period" },
+      "value_direction": "클수록 청년 비중이 크다. 19–39세 주민등록인구 ÷ 전체 주민등록인구 × 100",
+      "source": { "spec_id": "SP10", "c1_indicator_id": "population_registered", "locator": {} },
+      "cards": ["C1"],
+      "added_by_card": "C1",
+      "target": "청년 19–39세",
+      "shape": "ratio",
+      "numerator_id": "population_registered_19_39",
+      "denominator_id": "population_registered_total",
+      "multiplier": 100
     },
     {
       "id": "air_pm25",

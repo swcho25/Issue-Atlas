@@ -64,6 +64,19 @@ class ObservationViewTest {
                         "population_registered_30",
                         "population_registered_39",
                         "population_registered_total");
+        // 카드 태그는 지표 사전과 같다: 19–39세 각 나이는 C1, 전체는 C1 · A3 의 분모 (V0031)
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT what_id || ' ' || array_to_string(tags, ',') FROM observation"
+                                        + " WHERE spec_id = 'SP10' ORDER BY what_id",
+                                String.class))
+                .containsExactly(
+                        "population_registered_19 C1",
+                        "population_registered_20 C1",
+                        "population_registered_29 C1",
+                        "population_registered_30 C1",
+                        "population_registered_39 C1",
+                        "population_registered_total C1,A3");
         // 옛 KOSIS 코드 46130 도 시군구 kr-12130 으로
         assertThat(
                         jdbc.queryForList(
@@ -85,7 +98,7 @@ class ObservationViewTest {
                                 "kr-12130",
                                 "kr-11",
                                 "-",
-                                "-",
+                                "C1",
                                 "available"),
                         row(
                                 "indicator",

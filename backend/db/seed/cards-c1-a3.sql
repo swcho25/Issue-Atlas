@@ -19,7 +19,7 @@ BEGIN
 
     -- 지표 사전. 카드가 승인될 때 approve_card 가 그 카드가 넣은 지표를 verified 로 바꾼다
     FOR i IN SELECT * FROM (VALUES
-        ('population_net_migration_19_39', 'C1',
+        ('population_net_migration_19_39', 'C1', NULL::text, NULL::text, NULL::text,
          $json${
            "id": "population_net_migration_19_39",
            "label": "청년(19–39세) 순이동",
@@ -71,7 +71,7 @@ BEGIN
              }
            ]
          }$json$::jsonb),
-        ('population_net_migration_19_34', NULL::text,
+        ('population_net_migration_19_34', NULL::text, NULL::text, NULL::text, NULL::text,
          $json${
            "id": "population_net_migration_19_34",
            "label": "청년(19–34세) 순이동",
@@ -84,7 +84,7 @@ BEGIN
            "cards": []
          }$json$::jsonb,
          NULL::jsonb),
-        ('population_net_migration_total', NULL::text,
+        ('population_net_migration_total', NULL::text, NULL::text, NULL::text, NULL::text,
          $json${
            "id": "population_net_migration_total",
            "label": "전체 순이동",
@@ -97,7 +97,7 @@ BEGIN
            "cards": []
          }$json$::jsonb,
          NULL::jsonb),
-        ('population_movers', 'C1',
+        ('population_movers', 'C1', NULL::text, NULL::text, NULL::text,
          $json${
            "id": "population_movers",
            "label": "전출지 → 전입 시도 이동자 수 (전연령)",
@@ -111,7 +111,7 @@ BEGIN
            "added_by_card": "C1"
          }$json$::jsonb,
          NULL::jsonb),
-        ('population_registered_total', 'C1',
+        ('population_registered_total', 'C1', NULL::text, NULL::text, NULL::text,
          $json${
            "id": "population_registered_total",
            "label": "주민등록인구 (연말)",
@@ -125,7 +125,69 @@ BEGIN
            "added_by_card": "C1"
          }$json$::jsonb,
          NULL::jsonb),
-        ('air_pm25', 'A3',
+        ('population_registered_19_39', 'C1', NULL::text, NULL::text, NULL::text,
+         $json${
+           "id": "population_registered_19_39",
+           "label": "청년(19–39세) 주민등록인구 (연말)",
+           "unit": "명",
+           "period_type": "Y",
+           "place_level": "sigungu",
+           "roll": {"method": "end_of_period"},
+           "value_direction": "인구 수. 19–39세 각 나이(observation population_registered_19 – _39) 값의 합",
+           "source": {
+             "spec_id": "SP10",
+             "c1_indicator_id": "population_registered",
+             "locator": {
+               "C2": [
+                 "1005",
+                 "1201",
+                 "1202",
+                 "1203",
+                 "1204",
+                 "1205",
+                 "1301",
+                 "1302",
+                 "1303",
+                 "1304",
+                 "1305",
+                 "1501",
+                 "1502",
+                 "1503",
+                 "1504",
+                 "1505",
+                 "1601",
+                 "1602",
+                 "1603",
+                 "1604",
+                 "1605"
+               ]
+             }
+           },
+           "cards": ["C1"],
+           "added_by_card": "C1",
+           "target": "청년 19–39세"
+         }$json$::jsonb,
+         NULL::jsonb),
+        ('population_youth_share_19_39', 'C1', 'population_registered_19_39', 'population_registered_total', NULL::text,
+         $json${
+           "id": "population_youth_share_19_39",
+           "label": "청년(19–39세) 인구 비율",
+           "unit": "%",
+           "period_type": "Y",
+           "place_level": "sigungu",
+           "roll": {"method": "end_of_period"},
+           "value_direction": "클수록 청년 비중이 크다. 19–39세 주민등록인구 ÷ 전체 주민등록인구 × 100",
+           "source": {"spec_id": "SP10", "c1_indicator_id": "population_registered", "locator": {}},
+           "cards": ["C1"],
+           "added_by_card": "C1",
+           "target": "청년 19–39세",
+           "shape": "ratio",
+           "numerator_id": "population_registered_19_39",
+           "denominator_id": "population_registered_total",
+           "multiplier": 100
+         }$json$::jsonb,
+         NULL::jsonb),
+        ('air_pm25', 'A3', NULL::text, NULL::text, NULL::text,
          $json${
            "id": "air_pm25",
            "label": "초미세먼지(PM2.5) 월평균",
@@ -172,12 +234,16 @@ BEGIN
              {"when": "otherwise", "label": "불분명", "claim": "unclear", "meaning": "−3 과 +3 사이(경계값은 악화 · 개선)"}
            ]
          }$json$::jsonb)
-    ) AS v(indicator_id, added_by_card, definition, rule) LOOP
+    ) AS v(indicator_id, added_by_card, numerator_id, denominator_id, base_id, definition, rule) LOOP
         IF NOT EXISTS (SELECT FROM indicator WHERE indicator_id = i.indicator_id) THEN
-            INSERT INTO indicator(indicator_id, definition, rule, added_by_card, updated_by)
-            VALUES (i.indicator_id, i.definition, i.rule, i.added_by_card, approver);
+            INSERT INTO indicator(indicator_id, definition, rule, numerator_id, denominator_id, base_id,
+                                  added_by_card, updated_by)
+            VALUES (i.indicator_id, i.definition, i.rule, i.numerator_id, i.denominator_id, i.base_id,
+                    i.added_by_card, approver);
         ELSIF EXISTS (SELECT FROM indicator WHERE indicator_id = i.indicator_id
-                      AND (definition, rule, added_by_card) IS DISTINCT FROM (i.definition, i.rule, i.added_by_card)) THEN
+                      AND (definition, rule, numerator_id, denominator_id, base_id, added_by_card)
+                          IS DISTINCT FROM (i.definition, i.rule, i.numerator_id, i.denominator_id, i.base_id,
+                                            i.added_by_card)) THEN
             RAISE EXCEPTION '지표 % 가 DB 와 seed 에서 다르다. 어느 쪽이 맞는지 확인한 뒤 다시 실행한다', i.indicator_id;
         END IF;
     END LOOP;
@@ -206,7 +272,14 @@ BEGIN
            "max_claim_level": "calculated",
            "applicability": {"place_level": "sigungu", "min_complete_years": 3, "population": "청년 19–39세"},
            "evidence": {
-             "statistics": [{"spec_id": "SP01", "indicator_id": "population_net_migration_19_39"}],
+             "statistics": [
+               {"spec_id": "SP01", "indicator_id": "population_net_migration_19_39"},
+               {
+                 "spec_id": "SP10",
+                 "indicator_id": "population_youth_share_19_39",
+                 "note": "청년 인구 비율(포함 기준 「청년 인구 비율 변화」). 판정에는 쓰지 않는 맥락"
+               }
+             ],
              "documents": [
                {"spec_id": "bigkinds_news_yeosu_gwangju", "note": "빅카인즈 기사. 본문은 요약 · 분류 뒤 폐기(2026-11-01 결정)"},
                {"spec_id": "press_release_yeosu", "note": "여수시 보도자료 목록(제목 · 등록일 · 링크). 공공누리 4유형이라 본문 없음"},
@@ -225,8 +298,13 @@ BEGIN
              "denominators": [
                {
                  "spec_id": "SP10",
+                 "indicator_id": "population_registered_19_39",
+                 "note": "19–39세 순이동률의 분모 · 청년 인구 비율의 분자"
+               },
+               {
+                 "spec_id": "SP10",
                  "indicator_id": "population_registered_total",
-                 "note": "맥락 표시만. 19–39세 분모는 SP10 연령 코드 매핑 뒤"
+                 "note": "맥락 표시 · 청년 인구 비율의 분모"
                }
              ]
            },

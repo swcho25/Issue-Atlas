@@ -1,4 +1,4 @@
-# 카드 설계도 · 지표 사전 v0.3
+# 카드 설계도 · 지표 사전 v0.4
 
 판정 코드가 읽는 카드 정의와 지표 정의. 카드는 **이슈 하나를 어떻게 판단하는가**만 적고, 지역 · 기간을 넣어 돌린 결과는 적지 않는다.
 주는 쪽: 카드 작성(P2 박준우 · 대표 승인) → 받는 쪽: 판정 규칙 `CardRule`(P5 최동준, S15P31C108-159) · 질문 실행(P7 장성우, -133) · 카드 저장 · 승인 [C3](../c3/README.md)(P5 최동준, -174) · 화면(S1 · S4).
@@ -26,7 +26,7 @@ C3 는 이 파일의 키를 그대로 저장한다. 다른 점은 하나: 카드
 | `id` | 지표 ID. 연령 · 성별은 ID 에 넣는다(`_19_39`). 카드 비교 조건 「같은 지표」는 이 ID 가 같은지로 본다 |
 | `roll` | 판정 안에서 월 → 연. `sum` 12개월 모두 있을 때 합계 · `mean` 유효한 달 `min_months` 개 이상일 때 평균 · `end_of_period` 연말 값. 못 채우면 그 해는 null. 화면 series 는 연으로 묶지 않는다 |
 | `value_direction` | 값이 커지면 무슨 뜻인가. 판정 방향(`claim`)과 다를 수 있다 — C1 은 순이동 값이 **작아질수록**(더 음수) 「순유출 확대」= `increasing` |
-| `source` | 원천 수집 명세(`source_spec.spec_id`) · 수집기가 C1 레코드에 넣는 `indicator_id` · 이 지표를 고르는 원천 코드(`locator`). SP01 은 `C3`(연령)로 000 전체 · 901 19–34세 · 905 19–39세 |
+| `source` | 원천 수집 명세(`source_spec.spec_id`) · 수집기가 C1 레코드에 넣는 `indicator_id` · 이 지표를 고르는 원천 코드(`locator`). SP01 은 `C3`(연령)로 000 전체 · 901 19–34세 · 905 19–39세. 값이 코드 목록이면 그 코드 값들의 합(SP10 `C2` 1005 · 1201–1605 = 19–39세) |
 | `cards` | 이 지표를 **쓰는** 카드(`claim_items` · `evidence`). 테스트가 카드 쪽과 맞는지 본다. 승인본에서는 C3 `card_claim_item` · `card_evidence_bind` 가 원본 |
 | `added_by_card` | 이 지표를 사전에 **넣은** 카드(C3 `indicator.added_by_card`, 선택). 검수 전 지표는 그 카드가 승인될 때 함께 검수된다. 쓰는 카드는 여럿이어도 넣은 카드는 하나 |
 | `target` | 적용 대상 설명(선택, 예: 청년 19–39세). 설명용이고 연령의 원본은 `id` 다 |
@@ -83,10 +83,12 @@ psql "<DB 접속 문자열>" -v ON_ERROR_STOP=1 -c "SET issue_atlas.approver = '
 - A3 보증 초안은 나쁨 일수를 말하지만 MVP 판정은 PM2.5 연평균만 쓴다(나쁨 일수는 MVP 뒤)
 - C1-R1 「19–24세가 지배하는가」는 수집 밴드에 19–24 가 없어 지금은 확인할 수 없다
 - 보증 · 반박은 대표 초안 그대로(`draft`). 승인되면 `approved` 로 바꾸고 `card_version` 을 올린다
+- C1 「청년 인구 비율」(`population_youth_share_19_39`)을 통계 근거(판정에 안 쓰는 맥락)로 넣었다. 포함 기준 「청년 인구 비율 변화」에 따른 팀 판단이라 대표 확인 필요(11/4 변경 요청)
 - 광주광역시 보도자료는 시 전체(29) 발행이라 구의 근거로 셀지 정해지지 않았다(대표 피드백 2026-11-01 #6, [P3](../p3/README.md) 「아직 없는 것」)
 
 ## 변경 이력
 
+- v0.4 (2026-11-02): 지표 `population_registered_19_39`(SP10 19–39세 1세별 21코드의 합 — `locator` 값이 코드 목록이면 합계) · `population_youth_share_19_39`(ratio, ÷ `population_registered_total` × 100). C1 분모 근거에 19–39세 인구, 통계 근거에 청년 인구 비율. observation view 태그를 사전 `cards` 에 맞춤(V0031) (S15P31C108-196)
 - v0.3 (2026-11-02): C1 순유입 전환 조건을 「앞선 해에 음수」로 좁힘(`turned_positive`) · A3 공통 측정소와 `not_comparable` 추가(`a3-pm25-diff-0.2`) · `outcomes[].claim` 에 `not_comparable` 허용 · 운영 seed (S15P31C108-159)
 - v0.2 (2026-11-02): C3 저장 칸 맞춤 — 지표에 `added_by_card` · `target` · `shape` · `numerator_id` · `denominator_id` · `multiplier` · `base_id` · `cut`(모두 선택), `claim_items` 1–3개, 보도자료 · 세출 근거를 등록된 수집 명세(`press_release_yeosu` · `press_release_gwangju` · `lofin_expenditure_gwangju_yeosu`)로 (S15P31C108-188)
 - v0.1 (2026-11-02): C1 · A3 카드와 지표 6개. 대표 결정 2026-11-01 반영(S15P31C108-171)
