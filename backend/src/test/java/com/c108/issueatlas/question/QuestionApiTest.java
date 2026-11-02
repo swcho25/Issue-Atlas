@@ -394,7 +394,8 @@ class QuestionApiTest {
 
     @Test
     void cardWithoutRuleIsNotJudged() throws Exception {
-        jdbc.update("INSERT INTO card VALUES ('Z9', '규칙 없음', 'Z 테스트', '?', 1, 'tax-2026.10')");
+        jdbc.update(
+                "INSERT INTO card(card_id,name,domain,parent_question,card_version,taxonomy_version,status) VALUES ('Z9', '규칙 없음', 'Z 테스트', '?', 1, 'tax-2026.10','legacy')");
         statistics("Z9");
         argument(runId(ask(body("Z9", "2023-01-01", "2026-01-01"))))
                 .andExpect(jsonPath("$.run_status").value("unsupported"))

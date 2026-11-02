@@ -97,7 +97,8 @@ class PlaceCardsIntegrationTest {
 
     @Test
     void sortsKoreanNamesInsideDomainRatherThanByAvailability() throws Exception {
-        jdbc.update("INSERT INTO card VALUES ('C9','고령화','C 인구·지역소멸','test',0,'tax-2026.10')");
+        jdbc.update(
+                "INSERT INTO card(card_id,name,domain,parent_question,card_version,taxonomy_version,status) VALUES ('C9','고령화','C 인구·지역소멸','test',0,'tax-2026.10','legacy')");
         for (String kind :
                 new String[] {"statistics", "documents", "existing_responses", "denominators"}) {
             put("cards-test", "C1", 1, "2023-01-01", "2026-01-01", kind, "available", 0);
