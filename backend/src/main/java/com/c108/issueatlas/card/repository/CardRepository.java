@@ -32,6 +32,7 @@ public class CardRepository {
                 LEFT JOIN card_evidence_status s ON s.card_id = c.card_id
                     AND s.card_version = c.card_version AND s.place_id = :place AND s.kind = k.kind
                     AND s.period_start = :start AND s.period_end = :end
+                WHERE c.status IN ('legacy', 'card')
                 ORDER BY c.card_id, k.position
                 """)
                 .param("place", placeId)

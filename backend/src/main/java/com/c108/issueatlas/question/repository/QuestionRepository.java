@@ -72,7 +72,7 @@ public class QuestionRepository {
     public Optional<CardRow> card(String cardId) {
         return jdbc.sql(
                         "SELECT card_id, name, card_version, taxonomy_version FROM card"
-                                + " WHERE card_id = ?")
+                                + " WHERE card_id = ? AND status IN ('legacy', 'card')")
                 .param(cardId)
                 .query(CardRow.class)
                 .optional();

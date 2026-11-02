@@ -1,0 +1,44 @@
+{
+  "name": "청년 유출·정착",
+  "parent_question": "청년은 어디로 떠나고, 지역은 어떻게 늙어가는가?",
+  "domain": "C 인구·지역소멸",
+  "st_type": ["변화형"],
+  "claim_template": "{지역}에서 {기간} 청년(15–39세) 순이동이 {판정값}",
+  "claim_direction_note": "수치 증감과 순유출 확대·축소는 판정 구현에서 구분한다",
+  "claim_items": [
+    {"indicator_id": "ind_101", "role": "main"},
+    {"indicator_id": "ind_102", "role": "related"}
+  ],
+  "comparability": {
+    "same_indicator": "같은 지표 ID",
+    "same_period_length": "1–12월 연간 합",
+    "same_boundary": "같은 place_id",
+    "same_method": "전입 − 전출, 청년 15–39세 고정"
+  },
+  "max_claim_level": "calculated",
+  "applicability": {"min_complete_years": 3, "place_level": "sigungu", "population": "청년 15–39세"},
+  "evidence": {
+    "statistics": [{"spec_id": "SP01", "indicator_id": "ind_101"}],
+    "documents": [{"spec_id": null, "none_reason": "license_blocked", "target": "민원"}],
+    "existing_responses": [{"spec_id": null, "note": "기존 대응 자료 연결 전"}],
+    "denominators": [{"spec_id": "SP10", "role": "denominator"}]
+  },
+  "required_for_claim": {"statistics": "required", "documents": "optional", "existing_responses": "optional", "denominators": "optional"},
+  "warrant": {"status": "draft", "text": "청년 순유출이 여러 해 지속되면 정착 기반이 약해지고 있다고 본다. 검토용 초안."},
+  "rebuttals": {
+    "status": "draft",
+    "items": [
+      {"id": "C1-R1", "text": "대학 진학·군 입대로 인한 일시적 이동", "if_observed": "19–24세에 이동 집중", "could_mean": "일시적 이동 가능성"},
+      {"id": "C1-R2", "text": "행정구역 개편·주민등록 정비에 따른 통계 기준 변경"}
+    ]
+  },
+  "ceiling": ["떠나는 원인", "정책 효과", "예측"],
+  "inclusion": ["청년 순이동"],
+  "exclusion": ["전연령 이동으로 대체"],
+  "expected_gaps": [{"what": "15–39세 자료", "status": "not_collected"}],
+  "map_mode": "시계열만",
+  "legend_text": ["집계 이동량, 이동 경로 아님"],
+  "forbidden_terms": ["확산", "전파"],
+  "keywords": ["청년 유출", "청년 정착"],
+  "author": "테스트 전용 초안"
+}
