@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue Atlas · 랜딩 스크롤 시제품</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Source+Serif+4:wght@400&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.css">
+<style>
+  :root { --ink: #111318; --word: #1e2530; --rule: rgb(16 20 27 / .35); --line: #d2d6db; --amber: #FFB000; --navy: #2E4A7D; --bg: #f7f8fc; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Gothic A1", system-ui, sans-serif; }
+  /* 지구 → 구름 → 지도로 이어지는 구간. 스크롤 길이만큼 화면이 고정된 채 진행된다 */
+  #journey { position: relative; height: 560vh; }
+  .stage { position: sticky; top: 0; height: 100vh; overflow: hidden;
+    background: linear-gradient(180deg, #fefefe 0%, #fcfdfe 13%, #f7f8fc 30%, #f6f8fd 56%, #f7f8fc 70%, #f6f8fb 100%); }
+  .layer { position: absolute; inset: 0; }
+  #map { opacity: 0; }
+  #globe { width: 100%; height: 100%; display: block; }
+
+  /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치) */
+  .frame { --fw: 1684; --fh: 934; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
+    --gx: 845; --gy: 288; --gr: 225; --sx: 705; --sy: 470; --sw: 280; --ly: 745; --by: 814;
+    position: absolute; left: 50%; top: 50%; width: calc(var(--fw) * var(--u)); height: calc(var(--fh) * var(--u)); transform: translate(-50%, -50%); pointer-events: none; }
+  .at { position: absolute; }
+  .px { font-size: calc(var(--fs) * var(--u)); }
+  .statue { left: calc(var(--sx) * var(--u)); top: calc(var(--sy) * var(--u)); width: calc(var(--sw) * var(--u)); height: auto; }
+  .shadow { left: calc((var(--sx) - 2300 * var(--sw) / 1402) * var(--u)); top: calc((var(--sy) + 605 * var(--sw) / 1402) * var(--u)); width: calc(6000 * var(--sw) / 1402 * var(--u)); height: calc(900 * var(--sw) / 1402 * var(--u));
+    mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent), linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-composite: intersect; }
+  .nav { left: calc(297 * var(--u)); right: calc(295 * var(--u)); top: calc(24 * var(--u)); height: calc(48 * var(--u)); display: flex; align-items: center; justify-content: space-between; pointer-events: auto; }
+  .brand { display: flex; align-items: center; gap: .35em; font: 400 calc(22.3 * var(--u)) "Source Serif 4", Georgia, serif; letter-spacing: -0.02em; }
+  .brand img { width: 1.3em; }
+  .login { --fs: 16; height: calc(48 * var(--u)); padding: 0 calc(28 * var(--u)); border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #222; font-family: inherit; }
+  .word { --fs: 14; top: calc(var(--gy) * var(--u)); transform: translateY(-50%); display: flex; align-items: center; gap: calc(16 * var(--u)); font: 500 calc(14 * var(--u)) "IBM Plex Mono", monospace; letter-spacing: .38em; text-transform: uppercase; color: var(--word); }
+  .word i { display: block; width: calc(90 * var(--u)); height: 1px; background: var(--rule); }
+  .wordLeft { right: calc((var(--fw) - var(--gx) + var(--gr) + 28) * var(--u)); }
+  .wordRight { left: calc((var(--gx) + var(--gr) + 28) * var(--u)); }
+  .line { --fs: 37; left: 0; right: 0; top: calc(var(--ly) * var(--u)); margin: 0; text-align: center; font-weight: 700; letter-spacing: -0.02em; }
+  .cta { --fs: 16; left: 50%; top: calc(var(--by) * var(--u)); transform: translateX(-50%); display: inline-flex; gap: .9em; align-items: center; padding: calc(16 * var(--u)) calc(30 * var(--u)); border: 0; border-radius: 999px; background: var(--amber); color: var(--ink); font: 800 calc(16 * var(--u)) "Gothic A1"; letter-spacing: .06em; box-shadow: 0 8px 24px -6px rgb(153 102 0 / .35); pointer-events: auto; cursor: pointer; }
+  .scroll { left: 50%; bottom: calc(18 * var(--u)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; font: 500 10px "IBM Plex Mono"; letter-spacing: .38em; color: #8a8f9c; }
+  .scroll i { width: 1px; height: 34px; background: linear-gradient(#8a8f9c, transparent); }
+
+  /* 구름 통과: 구름 알파맵을 화면 앞에 겹쳐 키우며 지나간다 */
+  .clouds { pointer-events: none; opacity: 0; }
+  .cloud { position: absolute; inset: -40%; background-position: center; background-size: 140% auto; background-repeat: no-repeat; filter: blur(2px); will-change: transform, opacity; }
+  .fog { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, #fff 0%, #fff 45%, rgb(255 255 255 / .85) 70%, rgb(255 255 255 / .6) 100%); opacity: 0; pointer-events: none; }
+
+  /* 지도 위 표시 */
+  .pin { display: flex; flex-direction: column; align-items: center; opacity: 0; transform: translateY(10px); transition: none; }
+  .bubble { display: flex; gap: 8px; align-items: center; padding: 8px 14px 8px 12px; margin-bottom: 8px; border-radius: 999px; background: #fff; box-shadow: 0 4px 14px rgb(0 0 0 / .14); white-space: nowrap; font-size: 14px; font-weight: 500; position: relative; }
+  .bubble b { font-size: 12px; font-weight: 700; color: var(--navy); }
+  .bubble b.doc { color: #9A6700; }
+  .bubble::after { content: ""; position: absolute; bottom: -5px; left: 50%; width: 10px; height: 10px; background: #fff; transform: translateX(-50%) rotate(45deg); }
+  .dot { width: 18px; height: 18px; border-radius: 50%; background: var(--navy); border: 3px solid #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .25); }
+  .dot.doc { background: #fff; border-color: var(--navy); }
+  .dot.stat { width: 24px; height: 24px; background: var(--amber); }
+  .caption { left: 50%; bottom: 6vh; transform: translate(-50%, 12px); padding: 14px 24px; border-radius: 999px; background: rgb(27 29 34 / .88); color: #fff; font-weight: 700; font-size: 16px; opacity: 0; pointer-events: none; white-space: nowrap; }
+  .title2 { left: 0; right: 0; top: 9vh; text-align: center; opacity: 0; pointer-events: none; }
+  .title2 p { margin: 0 0 14px; font-weight: 700; font-size: 18px; color: #8a8f9c; }
+  .title2 h2 { margin: 0; font-weight: 800; font-size: clamp(32px, 4vw, 56px); letter-spacing: -0.03em; line-height: 1.28; }
+
+  /* 다음 섹션(이어지는 느낌만) */
+  .next { padding: 22vh 20px 30vh; text-align: center; }
+  .next p { margin: 0 0 16px; font-weight: 700; font-size: 18px; color: #8a8f9c; }
+  .next h2 { margin: 0; font-weight: 800; font-size: clamp(32px, 4vw, 56px); letter-spacing: -0.03em; line-height: 1.28; }
+  .hud { position: fixed; right: 12px; bottom: 12px; font: 500 11px "IBM Plex Mono"; color: #8a8f9c; z-index: 9; }
+</style>
+</head>
+<body>
+<section id="journey">
+  <div class="stage">
+    <div class="layer" id="map"></div>
+    <canvas class="layer" id="globe" aria-label="아틀라스가 받친 지구"></canvas>
+    <div class="frame" id="hero">
+      <canvas class="at shadow" id="shadow" aria-hidden="true"></canvas>
+      <span class="at word wordLeft" aria-hidden="true">Issue<i></i></span>
+      <span class="at word wordRight" aria-hidden="true"><i></i>Atlas</span>
+      <canvas class="at statue" id="statue" aria-hidden="true"></canvas>
+      <nav class="at nav"><span class="brand"><img src="mark.svg" alt="">Issue Atlas</span><button class="login px">로그인</button></nav>
+      <h1 class="at px line">우리 지역에 이 문제가 정말 있는가?</h1>
+      <button class="at cta">OPEN THE ATLAS <span>→</span></button>
+      <div class="at scroll" aria-hidden="true">SCROLL<i></i></div>
+    </div>
+    <div class="layer clouds" id="clouds">
+      <div class="cloud" style="background-position: 30% 40%"></div>
+      <div class="cloud" style="background-position: 70% 55%; background-size: 180% auto"></div>
+      <div class="cloud" style="background-position: 50% 30%; background-size: 220% auto"></div>
+    </div>
+    <div class="fog" id="fog"></div>
+    <div class="at title2" id="title2"><p>지금 모이는 중</p><h2>광주에서 여수까지,<br>근거가 지도 위에 쌓이고 있어요</h2></div>
+    <div class="at caption" id="caption">공식 통계 · 보도자료 · 정책 문서가 같은 지도 위에 모여요</div>
+  </div>
+</section>
+<section class="next"><p>우리 지역이 궁금할 때</p><h2>판단보다,<br>근거부터 먼저</h2></section>
+<div class="hud" id="hud"></div>
+
+<script src="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"></script>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from "three";
+
+// ---------- 공통 ----------
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const span = (p, a, b) => clamp((p - a) / (b - a));
+const ease = (t) => t * t * (3 - 2 * t);
+const lerp = (a, b, t) => a + (b - a) * t;
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const loadImage = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+const journey = document.getElementById("journey");
+const progress = () => clamp((scrollY - journey.offsetTop) / (journey.offsetHeight - innerHeight));
+const q = new URLSearchParams(location.search);
+if (q.has("p")) requestAnimationFrame(() => scrollTo(0, journey.offsetTop + Number(q.get("p")) * (journey.offsetHeight - innerHeight)));
+
+// ---------- 석상(실제 랜딩 statue.ts 와 같은 처리) ----------
+const SUPPORT = { neck: [0.5, 235 / 1122], palms: [[65 / 1402, 120 / 1122], [1337 / 1402, 120 / 1122]], head: { cx: 0.55, cy: 0.275, rx: 0.105, ry: 0.18 } };
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const frame = document.getElementById("hero");
+const cssNum = (n) => parseFloat(getComputedStyle(frame).getPropertyValue(n));
+function supportLayout(W, H) {
+  const gx = cssNum("--gx"), gy = cssNum("--gy"), radius = cssNum("--gr"), scale = cssNum("--sw") / W;
+  const left = gx - (W * scale) / 2, top = gy + radius - SUPPORT.neck[1] * H * scale;
+  frame.style.setProperty("--sx", left); frame.style.setProperty("--sy", top);
+  const lowerEdge = (x) => gy + Math.sqrt(Math.max(0, radius * radius - (x - gx) ** 2));
+  const palms = SUPPORT.palms.map(([u, v]) => { const x = u * W, y = v * H; return { x, y, dy: (lowerEdge(left + x * scale) - top) / scale - y }; });
+  return { gx, radius, scale, left, top, palms, lowerEdge };
+}
+function drawPose(ctx, src, fit) {
+  const W = src.width, H = src.height, nx = 56, ny = 44, V = [];
+  const vertex = (x, y) => { const upper = 1 - smooth(H * 0.33, H * 0.44, y); const l = (1 - smooth(W * 0.17, W * 0.36, x)) * upper; const r = smooth(W * 0.64, W * 0.83, x) * upper; return [x, y, x, y + fit.palms[0].dy * l + fit.palms[1].dy * r]; };
+  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) V.push(vertex((i * W) / nx, (j * H) / ny));
+  const tri = (a, b, c) => { const [x0, y0, u0, v0] = a, [x1, y1, u1, v1] = b, [x2, y2, u2, v2] = c; const d = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+    const m11 = ((u1 - u0) * (y2 - y0) - (u2 - u0) * (y1 - y0)) / d, m12 = ((u2 - u0) * (x1 - x0) - (u1 - u0) * (x2 - x0)) / d, m21 = ((v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0)) / d, m22 = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / d;
+    const mx = (u0 + u1 + u2) / 3, my = (v0 + v1 + v2) / 3; const g = (p) => [p[2] + (p[2] - mx) * 0.025, p[3] + (p[3] - my) * 0.025]; const [A, B, C] = [g(a), g(b), g(c)];
+    ctx.save(); ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.closePath(); ctx.clip(); ctx.setTransform(m11, m21, m12, m22, u0 - m11 * x0 - m12 * y0, v0 - m21 * x0 - m22 * y0); ctx.drawImage(src, 0, 0); ctx.restore(); };
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = V[j * (nx + 1) + i], b = V[j * (nx + 1) + i + 1], c = V[(j + 1) * (nx + 1) + i], d = V[(j + 1) * (nx + 1) + i + 1]; tri(a, b, d); tri(a, d, c); }
+}
+function drawShadow(el, statue) {
+  const G = Math.round(statue.height * 0.94), Q = 0.25, X0 = -2300, Y0 = G - 450, tint = (a) => `rgba(24,32,54,${a})`;
+  el.width = 6000 * Q; el.height = 900 * Q; const ctx = el.getContext("2d"); const sil = document.createElement("canvas"); sil.width = statue.width; sil.height = statue.height; const sc = sil.getContext("2d");
+  sc.drawImage(statue, 0, 0); sc.globalCompositeOperation = "source-in"; sc.fillStyle = tint(1); sc.fillRect(0, 0, sil.width, sil.height);
+  const at = (a, d, e, f) => ctx.setTransform(Q * a, 0, 0, Q * d, Q * (e - X0), Q * (f - Y0));
+  at(1, 1, 0, 0); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1); g.addColorStop(0, tint(0.12)); g.addColorStop(0.3, tint(0.06)); g.addColorStop(0.65, tint(0.02)); g.addColorStop(1, tint(0));
+  ctx.save(); ctx.translate(725, G - 30); ctx.scale(2200, 125); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  const press = (alpha, blur, sx, sy) => { ctx.save(); ctx.globalAlpha = alpha; ctx.filter = `blur(${blur}px)`; at(sx, sy, 725 - sx * 725, G - sy * G); ctx.drawImage(sil, 0, 0); ctx.restore(); };
+  press(0.3, 9, 1.08, 0.1); press(0.2, 28, 2.8, 0.15); press(0.12, 40, 4.4, 0.17);
+  ctx.save(); ctx.globalAlpha = 0.55; ctx.filter = "blur(2px)"; at(1, 0.3, 0, G - 0.3 * G); ctx.drawImage(sil, 0, G - 80, sil.width, 120, 0, G - 80, sil.width, 120); ctx.restore();
+}
+async function drawStatue() {
+  const img = await loadImage("statue.webp"); const src = document.createElement("canvas"); src.width = img.width; src.height = img.height; src.getContext("2d").drawImage(img, 0, 0);
+  const statue = document.getElementById("statue"), W = src.width, H = src.height; statue.width = W; statue.height = H;
+  const fit = supportLayout(W, H); const base = document.createElement("canvas"); base.width = W; base.height = H; drawPose(base.getContext("2d"), src, fit);
+  const ctx = statue.getContext("2d", { willReadFrequently: true }); ctx.clearRect(0, 0, W, H); ctx.drawImage(base, 0, 0);
+  const px = ctx.getImageData(0, 0, W, H), d = px.data, reach = Math.max(3, fit.radius * 0.028), hd = SUPPORT.head;
+  for (let y = 0; y < H * 0.49; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (!d[i + 3]) continue; const X = fit.left + x * fit.scale, Y = fit.top + y * fit.scale; if (Math.abs(X - fit.gx) >= fit.radius) continue;
+    const below = Y - fit.lowerEdge(X); const head = ((x / W - hd.cx) / hd.rx) ** 2 + ((y / H - hd.cy) / hd.ry) ** 2 < 1; if (below < 0 && !head) d[i + 3] *= 1 - smooth(0.1, 1.3, -below);
+    const shade = 1 - 0.24 * Math.exp(-Math.abs(below) / reach); d[i] *= shade * 0.995; d[i + 1] *= shade; d[i + 2] *= Math.min(1, shade * 1.008); }
+  ctx.putImageData(px, 0, 0); drawShadow(document.getElementById("shadow"), statue);
+}
+drawStatue();
+
+// ---------- 지구(three) ----------
+THREE.ColorManagement.enabled = false;
+const canvas = document.getElementById("globe");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+const scene = new THREE.Scene();
+const FOV = 30; const cam = new THREE.PerspectiveCamera(FOV, 1, 0.001, 100);
+scene.add(new THREE.AmbientLight(0xffffff, 0.66 * Math.PI));
+const sun = new THREE.DirectionalLight(0xffffff, 0.6 * Math.PI); sun.position.set(-3, 2.2, 4); scene.add(sun);
+const [earthImg, cloudImg] = await Promise.all([loadImage("earth_8192.webp"), loadImage("clouds_4096.webp")]);
+const tex = new THREE.Texture(earthImg); tex.needsUpdate = true; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+const cloudTex = new THREE.Texture(cloudImg); cloudTex.needsUpdate = true;
+// 화면 앞 구름: 구름 알파맵(검정 = 맑음)을 흰 구름 + 투명도로 바꿔 쓴다
+{ const c = document.createElement("canvas"); c.width = 2048; c.height = 1024; const g = c.getContext("2d"); g.drawImage(cloudImg, 0, 0, c.width, c.height);
+  const im = g.getImageData(0, 0, c.width, c.height), d = im.data;
+  for (let i = 0; i < d.length; i += 4) { const a = d[i]; d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = Math.min(255, a * 1.15); }
+  g.putImageData(im, 0, 0); const url = c.toDataURL("image/png");
+  document.querySelectorAll(".cloud").forEach((el) => (el.style.backgroundImage = `url(${url})`)); }
+const tilt = new THREE.Group(), spin = new THREE.Group(); tilt.add(spin); scene.add(tilt);
+spin.add(new THREE.Mesh(new THREE.SphereGeometry(1, 160, 160), new THREE.MeshPhongMaterial({ map: tex, shininess: 8, specular: new THREE.Color(0x1a2233) })));
+const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, alphaMap: cloudTex, transparent: true, opacity: 0.9, depthWrite: false });
+const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(1.006, 128, 128), cloudMat); spin.add(cloudMesh);
+const rimMat = new THREE.ShaderMaterial({ uniforms: { c: { value: new THREE.Color(0xbfd8ff) }, o: { value: 1 } }, transparent: true, depthWrite: false,
+  vertexShader: "varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+  fragmentShader: "uniform vec3 c; uniform float o; varying vec3 vN; void main(){ float f = pow(1.0 - max(0.0, vN.z), 2.0) * mix(0.12, 1.0, smoothstep(-0.85, 0.05, vN.y)); gl_FragColor = vec4(c, clamp(f, 0.0, 1.0) * o); }" });
+tilt.add(new THREE.Mesh(new THREE.SphereGeometry(1.008, 96, 96), rimMat));
+
+// 목표: 광주 · 여수 사이(경도 127.25, 위도 35)
+const TARGET = { lon: 127.25, lat: 35.0 };
+let lon = 127.5, lonAtStart = null;
+const deg = THREE.MathUtils.degToRad;
+
+// ---------- 지도(MapLibre) ----------
+const FINAL = { center: [127.27, 34.96], zoom: 9.15, pitch: 56, bearing: -14 };
+const START = { center: [127.25, 35.0], zoom: 7.4, pitch: 0, bearing: 0 };
+const map = new maplibregl.Map({ container: "map", style: "https://tiles.openfreemap.org/styles/positron", center: START.center, zoom: START.zoom, interactive: false, attributionControl: { compact: true }, maxPitch: 75 });
+map.on("load", () => {
+  map.addSource("dem", { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], tileSize: 256, encoding: "terrarium", maxzoom: 14 });
+  map.setTerrain({ source: "dem", exaggeration: 1.6 });
+  const firstSymbol = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
+  map.addLayer({ id: "relief", type: "hillshade", source: "dem", paint: { "hillshade-shadow-color": "#5b6474", "hillshade-highlight-color": "#ffffff", "hillshade-exaggeration": 0.55, "hillshade-accent-color": "#8a93a3" } }, firstSymbol);
+  try { map.setSky({ "sky-color": "#eef2f8", "horizon-color": "#f7f8fc", "fog-color": "#f7f8fc", "sky-horizon-blend": 0.6, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.4 }); } catch (e) {}
+});
+// 지도 위 표시(예시 값). 점끼리 선으로 잇지 않는다 — 이동 경로처럼 읽히지 않게
+const PINS = [
+  { at: [126.877, 35.176], kind: "측정소", text: "운암동 · 2024-03 · PM2.5 41" },
+  { at: [126.793, 35.139], kind: "측정소", text: "송정동 · 연평균 15.8" },
+  { at: [126.925, 35.140], kind: "측정소", text: "서석동 · 2023-12 · 28" },
+  { at: [126.902, 35.118], kind: "보도자료", text: "광주시, 미세먼지 계절관리제 시행", doc: true },
+  { at: [127.662, 34.762], kind: "통계", text: "여수시 청년 순유출 2,262명 · 2025", stat: true },
+  { at: [127.742, 34.712], kind: "보도자료", text: "돌산 청년 창업 공간 개소", doc: true },
+  { at: [127.612, 34.835], kind: "기존 대응", text: "여수시 청년정책 시행계획", doc: true },
+];
+const pins = PINS.map((p) => { const el = document.createElement("div"); el.className = "pin";
+  el.innerHTML = `<div class="bubble"><b class="${p.doc ? "doc" : ""}">${p.kind}</b>${p.text}</div><div class="dot ${p.doc ? "doc" : p.stat ? "stat" : ""}"></div>`;
+  new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat(p.at).addTo(map); return el; });
+
+// ---------- 스크롤 → 장면 ----------
+const hero = document.getElementById("hero"), clouds = document.getElementById("clouds"), cloudEls = [...clouds.children], fog = document.getElementById("fog"),
+  mapEl = document.getElementById("map"), caption = document.getElementById("caption"), title2 = document.getElementById("title2"), hud = document.getElementById("hud");
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+addEventListener("resize", () => { resize(); drawStatue(); }); resize();
+
+let last = performance.now();
+function frameLoop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const p = reduced ? (progress() > 0.05 ? 1 : 0) : progress();
+  hud.textContent = `p ${p.toFixed(2)}`;
+  const w = innerWidth, h = innerHeight;
+  // 히어로 지구의 화면 위치 · 크기(설계 프레임 값)
+  const u = Math.min(w / 1684, h / 934), fx = (w - 1684 * u) / 2, fy = (h - 934 * u) / 2;
+  const cx = fx + 845 * u, cy = fy + 288 * u, R = 225 * u;
+  // 1) 히어로가 사라진다
+  const fade = ease(span(p, 0.03, 0.15));
+  hero.style.opacity = 1 - fade; hero.style.transform = `translate(-50%, calc(-50% + ${fade * 14}vh))`;
+  // 2) 지구가 광주 · 여수를 향해 돌고 다가간다
+  const turn = ease(span(p, 0.04, 0.26));
+  if (turn === 0) { lon -= 6 * dt; lonAtStart = null; } else { if (lonAtStart === null) lonAtStart = lon; }
+  let tlon = lon; if (lonAtStart !== null) { let d = ((TARGET.lon - lonAtStart) % 360 + 540) % 360 - 180; tlon = lonAtStart + d * turn; }
+  spin.rotation.y = deg(-(tlon + 90));
+  tilt.rotation.x = deg(lerp(24, TARGET.lat, turn)); tilt.rotation.z = deg(lerp(-10, 0, turn));
+  cloudMesh.rotation.y = deg(now * 0.0004 * (1 - turn));
+  const zoom = span(p, 0.12, 0.6), zEase = zoom * zoom * (3 - 2 * zoom);
+  const d0 = Math.sqrt(1 + ((h / 2) / (R * Math.tan(deg(FOV / 2)))) ** 2);
+  const alt = (d0 - 1) * Math.pow(0.03 / (d0 - 1), zEase);
+  cam.position.set(0, 0, 1 + alt); cam.lookAt(0, 0, 0);
+  const off = 1 - ease(span(p, 0.1, 0.32));
+  cam.setViewOffset(w, h, (w / 2 - cx) * off, (h / 2 - cy) * off, w, h);
+  cloudMat.opacity = 0.9 * (1 - span(p, 0.4, 0.5));
+  rimMat.uniforms.o.value = 1 - span(p, 0.2, 0.35);
+  renderer.render(scene, cam);
+  // 3) 구름을 뚫고 지나간다(앞에 겹친 구름 + 하얀 안개가 지구 → 지도 전환을 가린다)
+  const cin = span(p, 0.42, 0.55), cout = span(p, 0.56, 0.68);
+  clouds.style.opacity = ease(cin) * (1 - ease(cout));
+  cloudEls.forEach((c, i) => { const s = 1 + (span(p, 0.42, 0.68) * (1.6 + i * 0.7)); c.style.transform = `scale(${s}) rotate(${(i - 1) * 6 * span(p, 0.42, 0.68)}deg)`; });
+  fog.style.opacity = 0.96 * ease(span(p, 0.5, 0.56)) * (1 - ease(span(p, 0.58, 0.66)));
+  canvas.style.opacity = 1 - span(p, 0.555, 0.57);
+  mapEl.style.opacity = span(p, 0.555, 0.57);
+  // 4) 지도가 기울며 내려앉는다
+  const m = ease(span(p, 0.56, 0.84));
+  map.jumpTo({ center: [lerp(START.center[0], FINAL.center[0], m), lerp(START.center[1], FINAL.center[1], m)], zoom: lerp(START.zoom, FINAL.zoom, m), pitch: lerp(START.pitch, FINAL.pitch, m), bearing: lerp(START.bearing, FINAL.bearing, m) });
+  // 5) 근거가 하나씩 지도 위에 놓인다
+  pins.forEach((el, i) => { const t = ease(span(p, 0.72 + i * 0.025, 0.76 + i * 0.025)); el.style.opacity = t; el.style.transform = `translateY(${(1 - t) * 12}px)`; });
+  const ct = ease(span(p, 0.88, 0.93)); caption.style.opacity = ct; caption.style.transform = `translate(-50%, ${(1 - ct) * 12}px)`;
+  const tt = ease(span(p, 0.62, 0.7)) * (1 - ease(span(p, 0.74, 0.8))); title2.style.opacity = tt;
+  requestAnimationFrame(frameLoop);
+}
+requestAnimationFrame(frameLoop);
+</script>
+</body>
+</html>
