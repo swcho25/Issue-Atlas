@@ -32,12 +32,12 @@ class EmdPlaceSeedTest {
                                         + " AND location_precision = 'admin_centroid' AND geometry IS NOT NULL"
                                         + " GROUP BY parent_id ORDER BY parent_id"))
                 .containsExactly(
-                        Map.of("parent_id", "plc_gwangju_bukgu", "n", 27L),
-                        Map.of("parent_id", "plc_gwangju_donggu", "n", 13L),
-                        Map.of("parent_id", "plc_gwangju_gwangsangu", "n", 21L),
-                        Map.of("parent_id", "plc_gwangju_namgu", "n", 17L),
-                        Map.of("parent_id", "plc_gwangju_seogu", "n", 18L),
-                        Map.of("parent_id", "plc_yeosu", "n", 27L));
+                        Map.of("parent_id", "kr-12130", "n", 27L),
+                        Map.of("parent_id", "kr-12210", "n", 13L),
+                        Map.of("parent_id", "kr-12240", "n", 18L),
+                        Map.of("parent_id", "kr-12270", "n", 17L),
+                        Map.of("parent_id", "kr-12300", "n", 27L),
+                        Map.of("parent_id", "kr-12330", "n", 21L));
     }
 
     @Test
@@ -84,7 +84,7 @@ class EmdPlaceSeedTest {
                                         + " WHERE c.code_system = 'sgis' AND c.valid_from IS NOT NULL AND p.name = '우산동'"
                                         + " ORDER BY 1",
                                 String.class))
-                .isEqualTo(List.of("plc_gwangju_bukgu", "plc_gwangju_gwangsangu"));
+                .isEqualTo(List.of("kr-12300", "kr-12330"));
     }
 
     private static Map<String, Object> row(
