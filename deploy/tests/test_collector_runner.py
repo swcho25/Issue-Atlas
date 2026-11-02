@@ -65,10 +65,32 @@ class CollectorRunnerTests(unittest.TestCase):
         self.assertIn("--rm", command)
         self.assertIn("never", command)
 
+    def test_successful_collection_refines_only_changed_sources(self):
+        started = "2026-11-02T06:00:00+00:00"
+        self.assertEqual(
+            runner.refine_after("press", 0, started), ["--changed-since", started]
+        )
+        self.assertEqual(
+            runner.command(self.app, "refine", ["--changed-since", started])[-5:],
+            ["-m", "pipeline.refine", "--db", "--changed-since", started],
+        )
+        # 실패한 수집 · 정제 자체 · 정제가 없는 세출은 뒤따르는 정제가 없다
+        self.assertIsNone(runner.refine_after("bigkinds", 1, started))
+        self.assertIsNone(runner.refine_after("refine", 0, started))
+        self.assertIsNone(runner.refine_after("responses", 0, started))
+        self.assertIsNone(runner.refine_after("lofin", 0, started))
+
     def test_refine_gets_no_output_path_but_collectors_do(self):
         # pipeline.refine 은 --db 하나만 받는다. --output 을 붙이면 사용법 오류(종료 코드 2)
         self.assertEqual(runner.run_arguments("refine", [], "T"), [])
         self.assertEqual(runner.run_arguments("responses", [], "T"), [])
+        self.assertEqual(
+            runner.run_arguments("region-load", ["--delete-bodies"], "T"), ["--delete-bodies"]
+        )
+        self.assertEqual(
+            runner.run_arguments("region-export", [], "T"),
+            ["--output", "/app/outputs/T/articles.jsonl"],
+        )
         self.assertEqual(
             runner.run_arguments("youth-policy", ["--regions", "12130"], "T"),
             ["--regions", "12130", "--output", "/app/outputs/T/c1.json"],

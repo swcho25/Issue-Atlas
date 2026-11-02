@@ -1,0 +1,180 @@
+"""주피터 추출 결과 → news_event, 요약이 제대로 생긴 기사의 본문 지우기.
+
+python -m pipeline.region.load --db --extract <JSONL> [--mentions <JSONL>]
+                                [--delete-bodies] [--apply]          → 건수 JSON (stdout)
+- 기본은 시험 실행: 같은 트랜잭션에서 넣고 세어 본 뒤 되돌린다. --apply 일 때만 커밋
+- 적재(--extract): 기사마다 고치기(checks.fix_row) → 여러 지역(regions) → 검사(checks.violations).
+  보류(지역을 못 정함) · 위반 · 정제 기사 없음은 넣지 않고 이유별로 센다.
+  이미 있는 기사는 요약을 null 로 덮지 않는다(기사 계약 v0.3). 위치는 아직 정하지 않는다(MR 2b)
+  — 새 기사는 위치 none · place_id null, 이미 있는 행의 위치 칸은 그대로
+- 본문 지우기(--delete-bodies): news_event 요약이 checks.good_summary 인 기사만
+  raw_record 본문 3칸을 null, storage_scope = metadata (기사 계약 v0.3 「본문 지우기」).
+  정제 표의 본문은 다음 refine 이 지운다
+추출 결과 한 줄: {id, sigungu(지역 이름 체계), summary, event_start, event_end, time_precision,
+mentions?}. mentions 는 --mentions 파일({id, mentions})로 따로 줘도 된다
+"""
+
+import argparse
+import json
+import sys
+from collections import Counter
+from pathlib import Path
+
+import psycopg
+from psycopg.types.json import Jsonb
+
+from pipeline.collect.lofin import connect_from_env
+
+from .checks import COPIED_PREFIX, SUMMARY_LENGTH, fix_row, good_summary, violations
+from .labels import split_region
+from .regions import regions
+
+ARTICLES = """
+SELECT DISTINCT ON (news_id) news_id, title, body, published_at
+FROM (
+    SELECT n.record -> 'locator' ->> 'news_id' AS news_id,
+           n.record -> 'document' ->> 'title' AS title,
+           n.record -> 'document' ->> 'body' AS body,
+           n.record ->> 'published_at' AS published_at, n.refined_at, n.id
+    FROM normalized_ready n
+    WHERE n.record -> 'document' ->> 'kind' = 'news'
+      AND n.record -> 'locator' ->> 'news_id' = ANY(%s)
+) a
+ORDER BY news_id, refined_at DESC, id DESC
+"""
+UPSERT = """
+INSERT INTO news_event (news_id, summary, event_start, event_end, time_precision,
+                        location_precision, sido, sigun, gu, regions)
+VALUES (%(news_id)s, %(summary)s, %(event_start)s, %(event_end)s, %(time_precision)s,
+        %(location_precision)s, %(sido)s, %(sigun)s, %(gu)s, %(regions)s)
+ON CONFLICT (news_id) DO UPDATE SET
+    summary = COALESCE(EXCLUDED.summary, news_event.summary),
+    event_start = EXCLUDED.event_start, event_end = EXCLUDED.event_end,
+    time_precision = EXCLUDED.time_precision,
+    sido = EXCLUDED.sido, sigun = EXCLUDED.sigun, gu = EXCLUDED.gu, regions = EXCLUDED.regions
+RETURNING (xmax = 0) AS inserted
+"""
+# 본문 칸이 하나라도 남은 기사 원본과 그 기사의 P3 요약(없으면 null)
+BODIES = """
+SELECT r.id, coalesce(r.c1_record -> 'document' ->> 'body', r.payload -> 'article' ->> 'body'),
+       e.summary
+FROM raw_record r
+LEFT JOIN news_event e ON e.news_id = r.c1_record -> 'locator' ->> 'news_id'
+WHERE r.c1_record -> 'document' ->> 'kind' = 'news'
+  AND (r.c1_record -> 'document' ->> 'body' IS NOT NULL
+       OR r.payload -> 'article' ->> 'body' IS NOT NULL
+       OR r.payload -> 'bigkinds' ->> 'content' IS NOT NULL)
+"""
+# fetch.status · content_hash 는 그대로 둔다 — 「받았다가 지운 것」의 표시 · 같은 원본 지문
+DELETE_BODIES = """
+UPDATE raw_record SET
+    c1_record = jsonb_set(jsonb_set(c1_record, '{document,body}', 'null'),
+                          '{storage_scope}', '"metadata"'),
+    payload = jsonb_set(jsonb_set(payload, '{article,body}', 'null', false),
+                        '{bigkinds,content}', 'null', false)
+WHERE id = ANY(%s)
+"""
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def event_row(extracted: dict, title: str, body: str | None, published_at: str | None):
+    """추출 결과 한 줄 → (news_event 행, 넣지 않는 이유). 이유가 있으면 행은 None"""
+    main = (extracted.get("sigungu") or "").strip()
+    labels = regions(main, extracted.get("mentions") or [], title, body or "")
+    if not labels:
+        return None, "보류"
+    sido, sigun, gu = split_region(main)
+    row = {
+        "news_id": extracted["id"],
+        "summary": (extracted.get("summary") or "").strip() or None,
+        "event_start": extracted.get("event_start"),
+        "event_end": extracted.get("event_end") or None,
+        "time_precision": extracted.get("time_precision"),
+        "location_precision": "none",
+        "sido": sido,
+        "sigun": sigun,
+        "gu": gu,
+        "regions": labels,
+    }
+    fix_row(row, published_at)
+    if problems := violations(row):
+        return None, "위반: " + problems[0]
+    return row, None
+
+
+def load(conn, extracted: list[dict]) -> dict:
+    """추출 결과를 news_event 에 넣는다(호출한 쪽 트랜잭션 안에서)"""
+    ids = [e["id"] for e in extracted]
+    articles = {r[0]: r[1:] for r in conn.execute(ARTICLES, (ids,))}
+    stats, skipped = Counter(), Counter()
+    with conn.cursor() as cur:
+        for e in extracted:
+            if e["id"] not in articles:
+                skipped["정제 기사 없음"] += 1
+                continue
+            row, reason = event_row(e, *articles[e["id"]])
+            if reason:
+                skipped[reason] += 1
+                continue
+            cur.execute(UPSERT, row | {"regions": Jsonb(row["regions"])})
+            stats["inserted" if cur.fetchone()[0] else "updated"] += 1
+    return {"input": len(extracted), **stats, "skipped": dict(skipped)}
+
+
+def delete_bodies(conn) -> dict:
+    """요약이 제대로 생긴 기사의 원본 본문을 지운다(호출한 쪽 트랜잭션 안에서)"""
+    delete, kept = [], Counter()
+    for raw_id, body, summary in conn.execute(BODIES):
+        if good_summary(summary, body):
+            delete.append(raw_id)
+        elif summary is None:
+            kept["요약 없음"] += 1
+        elif not SUMMARY_LENGTH[0] <= len(summary.strip(" ")) <= SUMMARY_LENGTH[1]:
+            kept["요약 길이"] += 1
+        else:
+            kept[f"요약 앞 {COPIED_PREFIX}자가 본문에 있음"] += 1
+    if delete:
+        conn.execute(DELETE_BODIES, (delete,))
+    return {"deleted": len(delete), "kept": dict(kept)}
+
+
+def merge_mentions(extracted: list[dict], mentions: list[dict]) -> list[dict]:
+    by_id = {m["id"]: m.get("mentions") or [] for m in mentions}
+    return [e if "mentions" in e else e | {"mentions": by_id.get(e["id"], [])} for e in extracted]
+
+
+def main(argv=None, connect=connect_from_env) -> int:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--db", action="store_true", required=True)
+    p.add_argument("--extract", type=Path)
+    p.add_argument("--mentions", type=Path)
+    p.add_argument("--delete-bodies", action="store_true")
+    p.add_argument("--apply", action="store_true", help="없으면 시험 실행(되돌림)")
+    args = p.parse_args(argv)
+    if not args.extract and not args.delete_bodies:
+        p.error("--extract 나 --delete-bodies 중 하나는 있어야 한다")
+    try:
+        extracted = read_jsonl(args.extract) if args.extract else []
+        if args.mentions:
+            extracted = merge_mentions(extracted, read_jsonl(args.mentions))
+        result = {"apply": args.apply}
+        with connect() as conn, conn.transaction(force_rollback=not args.apply):
+            if args.extract:
+                result["load"] = load(conn, extracted)
+            if args.delete_bodies:
+                result["delete_bodies"] = delete_bodies(conn)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+    except psycopg.Error:
+        # DSN · SQL 이 담길 수 있는 예외 문구는 출력하지 않는다
+        print("REGION_LOAD_DB_ERROR", file=sys.stderr)
+    except Exception:
+        print("REGION_LOAD_FAILED", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
