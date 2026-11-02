@@ -12,16 +12,22 @@
         "question_id": { "$ref": "common.schema.json#/$defs/id" },
         "place_id": { "$ref": "common.schema.json#/$defs/id" },
         "place_name": { "type": "string" },
-        "card_id": { "type": "string" },
-        "card_name": { "type": "string" },
+        "card_id": {
+          "description": "null 이면 목록에 없는 질문(신규 카드 후보). run_status 는 unsupported (FR-A3)",
+          "type": ["string", "null"]
+        },
+        "card_name": { "type": ["string", "null"] },
         "period_start": { "$ref": "common.schema.json#/$defs/date" },
         "period_end": { "$ref": "common.schema.json#/$defs/date" }
       },
       "required": ["question_id", "place_id", "place_name", "card_id", "card_name", "period_start", "period_end"],
       "additionalProperties": false
     },
-    "card_version": { "type": "integer", "minimum": 0 },
-    "formula_version": { "type": "string" },
+    "card_version": { "type": ["integer", "null"], "minimum": 0 },
+    "formula_version": {
+      "description": "카드 판정 규칙 판. 카드가 없거나 그 카드의 판정 규칙이 아직 없으면 null",
+      "type": ["string", "null"]
+    },
     "taxonomy_version": { "type": "string" },
     "run_status": { "$ref": "common.schema.json#/$defs/run_status" },
     "created_at": { "$ref": "common.schema.json#/$defs/date_time" },
@@ -181,6 +187,10 @@
   ],
   "additionalProperties": false,
   "allOf": [
+    {
+      "if": { "properties": { "question": { "properties": { "card_id": { "const": null } } } } },
+      "then": { "properties": { "run_status": { "const": "unsupported" }, "card_version": { "const": null } } }
+    },
     {
       "if": { "properties": { "run_status": { "enum": ["blocked", "unsupported"] } } },
       "then": { "properties": { "claim": { "properties": { "value": { "const": "insufficient" } } } } }
