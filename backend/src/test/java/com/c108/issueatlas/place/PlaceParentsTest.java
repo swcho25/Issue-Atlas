@@ -43,22 +43,40 @@ class PlaceParentsTest {
                         jdbc.queryForList(
                                 "SELECT place_id, parent_id FROM place WHERE level = 'sigungu' ORDER BY place_id"))
                 .containsExactly(
-                        Map.of("place_id", "plc_gwangju_bukgu", "parent_id", "kr-29"),
-                        Map.of("place_id", "plc_gwangju_donggu", "parent_id", "kr-29"),
-                        Map.of("place_id", "plc_gwangju_gwangsangu", "parent_id", "kr-29"),
-                        Map.of("place_id", "plc_gwangju_namgu", "parent_id", "kr-29"),
-                        Map.of("place_id", "plc_gwangju_seogu", "parent_id", "kr-29"),
-                        Map.of("place_id", "plc_yeosu", "parent_id", "kr-46"));
+                        Map.of("place_id", "kr-12130", "parent_id", "kr-46"),
+                        Map.of("place_id", "kr-12210", "parent_id", "kr-29"),
+                        Map.of("place_id", "kr-12240", "parent_id", "kr-29"),
+                        Map.of("place_id", "kr-12270", "parent_id", "kr-29"),
+                        Map.of("place_id", "kr-12300", "parent_id", "kr-29"),
+                        Map.of("place_id", "kr-12330", "parent_id", "kr-29"));
+    }
+
+    @Test
+    void 시군구_ID는_KOSIS_새_코드이고_옛_plc_ID가_남지_않는다() {
+        // V0024: 시군구 plc_* → kr-<KOSIS 새 5자리>. 측정소 plc_stn_* 은 아직 그대로
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM place WHERE (starts_with(place_id, 'plc_')"
+                                        + " AND level <> 'station') OR starts_with(parent_id, 'plc_')",
+                                Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT p.place_id FROM place p JOIN place_code_map c USING (place_id)"
+                                        + " WHERE p.level = 'sigungu' AND c.code_system = 'kosis'"
+                                        + " AND c.valid_from IS NOT NULL AND p.place_id <> 'kr-' || c.place_code",
+                                String.class))
+                .isEmpty();
     }
 
     @Test
     void 구에서_올라가면_광주_본청_코드_29와_통합시_12가_잡힌다() {
-        assertThat(jdbc.queryForList(UP_CODES, "plc_gwangju_donggu"))
+        assertThat(jdbc.queryForList(UP_CODES, "kr-12210"))
                 .containsExactly(
                         Map.of("depth", 0, "place_code", "12210"),
                         Map.of("depth", 1, "place_code", "29"),
                         Map.of("depth", 2, "place_code", "12"));
-        assertThat(jdbc.queryForList(UP_CODES, "plc_yeosu"))
+        assertThat(jdbc.queryForList(UP_CODES, "kr-12130"))
                 .containsExactly(
                         Map.of("depth", 0, "place_code", "12130"),
                         Map.of("depth", 1, "place_code", "46"),

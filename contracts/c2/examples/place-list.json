@@ -2,7 +2,7 @@
   "schema_version": "c2-0.1",
   "places": [
     {
-      "place_id": "plc_gwangju_donggu",
+      "place_id": "kr-12210",
       "name": "광주 동구",
       "level": "sigungu",
       "parent_id": "kr-29",
@@ -12,7 +12,7 @@
       ]
     },
     {
-      "place_id": "plc_gwangju_seogu",
+      "place_id": "kr-12240",
       "name": "광주 서구",
       "level": "sigungu",
       "parent_id": "kr-29",
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "place_id": "plc_gwangju_namgu",
+      "place_id": "kr-12270",
       "name": "광주 남구",
       "level": "sigungu",
       "parent_id": "kr-29",
@@ -32,7 +32,7 @@
       ]
     },
     {
-      "place_id": "plc_gwangju_bukgu",
+      "place_id": "kr-12300",
       "name": "광주 북구",
       "level": "sigungu",
       "parent_id": "kr-29",
@@ -42,7 +42,7 @@
       ]
     },
     {
-      "place_id": "plc_gwangju_gwangsangu",
+      "place_id": "kr-12330",
       "name": "광주 광산구",
       "level": "sigungu",
       "parent_id": "kr-29",
@@ -52,7 +52,7 @@
       ]
     },
     {
-      "place_id": "plc_yeosu",
+      "place_id": "kr-12130",
       "name": "여수시",
       "level": "sigungu",
       "parent_id": "kr-46",

@@ -54,12 +54,12 @@ class StationPlaceSeedTest {
         assertThat(perParent)
                 .containsExactlyInAnyOrderEntriesOf(
                         Map.of(
-                                "plc_yeosu", 9L,
-                                "plc_gwangju_donggu", 1L,
-                                "plc_gwangju_seogu", 3L,
-                                "plc_gwangju_namgu", 2L,
-                                "plc_gwangju_bukgu", 4L,
-                                "plc_gwangju_gwangsangu", 3L));
+                                "kr-12130", 9L,
+                                "kr-12210", 1L,
+                                "kr-12240", 3L,
+                                "kr-12270", 2L,
+                                "kr-12300", 4L,
+                                "kr-12330", 3L));
         // 측정소마다 exact 좌표와 air_monthly.station_code 로 쓰는 코드 하나
         assertThat(
                         jdbc.queryForObject(
@@ -94,11 +94,11 @@ class StationPlaceSeedTest {
         assertThat(
                         jdbc.queryForList(
                                 "SELECT place_id, attrs ->> 'sigun' AS sigun, coalesce(attrs ->> 'gu', '-') AS gu"
-                                        + " FROM place WHERE place_id IN ('plc_yeosu', 'plc_gwangju_donggu')"
+                                        + " FROM place WHERE place_id IN ('kr-12130', 'kr-12210')"
                                         + " ORDER BY place_id"))
                 .containsExactly(
-                        Map.of("place_id", "plc_gwangju_donggu", "sigun", "광주", "gu", "동구"),
-                        Map.of("place_id", "plc_yeosu", "sigun", "여수시", "gu", "-"));
+                        Map.of("place_id", "kr-12130", "sigun", "여수시", "gu", "-"),
+                        Map.of("place_id", "kr-12210", "sigun", "광주", "gu", "동구"));
     }
 
     @Test
@@ -110,9 +110,8 @@ class StationPlaceSeedTest {
         news("n5-yeosu", "전남광주통합특별시", "여수시", null);
         news("n6-nation", "전국", null, null);
 
-        assertThat(match("plc_gwangju_donggu"))
-                .containsExactly("n1-donggu", "n2-gwangju", "n3-sido");
-        assertThat(match("plc_yeosu")).containsExactly("n3-sido", "n5-yeosu");
+        assertThat(match("kr-12210")).containsExactly("n1-donggu", "n2-gwangju", "n3-sido");
+        assertThat(match("kr-12130")).containsExactly("n3-sido", "n5-yeosu");
     }
 
     private void news(String newsId, String sido, String sigun, String gu) {

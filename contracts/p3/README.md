@@ -1,4 +1,4 @@
-# P3 지역 · 시간 v0.5 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place`
+# P3 지역 · 시간 v0.6 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place`
 
 지역 · 시간(P3)이 P2 정제 결과([P2 계약](../p2/README.md))에 붙이는 것. 기사에는 요약 · 사건 시간대 · 위치를, 통계에는 지역 코드가 가리키는 위치를 붙인다.
 **통계 값은 다시 저장하지 않는다.** 서비스는 요청 때 `normalized_ready` · `air_monthly` 를 지역 코드로 걸러 읽는다. 표는 Flyway [V0016](../../backend/src/main/resources/db/migration/V0016__create_news_event.sql) · [V0017](../../backend/src/main/resources/db/migration/V0017__seed_station_places.sql) · [V0020](../../backend/src/main/resources/db/migration/V0020__add_news_event_regions.sql).
@@ -54,7 +54,7 @@ WHERE EXISTS (
 
 여수 · 순천 기사는 여수와 순천 양쪽에, 광주 동구 · 북구 기사는 두 구에 모두 나온다. `전국` 기사는 시도가 달라 어느 시군구에도 나오지 않는다.
 
-`plc_gwangju_donggu` 를 고르면 동구 기사, 「광주」 전체 기사(`gu` null), 시도 전체 기사(`sigun` null)가 함께 나온다. 넓은 단위 기사 · `전국` 기사를 근거에 넣을지는 카드 규칙이 정한다.
+`kr-12210` 를 고르면 동구 기사, 「광주」 전체 기사(`gu` null), 시도 전체 기사(`sigun` null)가 함께 나온다. 넓은 단위 기사 · `전국` 기사를 근거에 넣을지는 카드 규칙이 정한다.
 
 ## 측정소 · 시군구 — `place` (V0017)
 
@@ -78,7 +78,7 @@ WHERE EXISTS (
 
 - **시도 18곳**: KOSIS 2자리 17곳 + 통합시 `kr-12`(KOSIS `12`, 2026-07-01부터). `level = sido`, `location_precision = admin_centroid`, 좌표는 P3 시도 대표점(SGIS 시도 중심, 인천은 시청, 광주 29 · 전남 46 은 5개 구 · 22개 시군 중심의 평균). `kr-29` · `kr-46` 의 부모는 `kr-12`
 - `attrs` 는 `news_event` 지역 칸과 같은 값: `kr-29` = {통합시, 광주}, `kr-12` = {통합시}, 다른 시도 = {`충남` 등}. 옛 전남 `kr-46` 은 기사 지역 값이 없어 비운다. 그래서 `news_event.place_id`(`kr-29` · `kr-12` · `kr-44` …)가 가리키는 place 가 생겼다
-- `place_id` 는 `kr-<코드>`(11/3 `plc_` → `kr-` 전환과 같은 형식). 기존 시군구 · 측정소 행은 고치지 않고, 그 행에 잇는 코드는 기존 코드로 찾아 넣는다
+- `place_id` 는 `kr-<코드>`. 시군구 6곳도 V0024 부터 `kr-<KOSIS 새 시군구 5자리>`(동구 `kr-12210` · 여수시 `kr-12130`)다. 측정소는 아직 `plc_stn_<코드>`
 - 지역 목록 `GET /v1/places` 는 시도를 내보내지 않는다(고르는 지역이 아니다)
 
 ## 상위 지역 자료 — `place.parent_id` (V0021)
@@ -146,3 +146,4 @@ PRD FR-A1(지역 계층 시 → 구·군 → 읍·면·동)의 읍·면·동. **
 | v0.3 | 2026-11-01 | 행정동 123곳 `place`(`level = emd`, `kr-<KOSIS 시군구><읍면동 3자리>`, SGIS 대표점)와 SGIS 행정동 코드 통합 전 · 뒤 두 줄(V0019). `GET /v1/places?parent_id=` 로 시군구의 행정동을 내보낸다 (S15P31C108-167) |
 | v0.4 | 2026-11-01 | 기사 지역 배열 `news_event.regions`(V0020, jsonb · GIN): 여러 지역을 다룬 기사는 지역을 모두 두고 첫 원소가 대표 지역(`sido` · `sigun` · `gu` 칸과 같음), 전국 · 지역 없음은 `전국` 한 원소, `[]` 는 보류만. 「지역 맞추기」를 원소 하나라도 맞으면 고르도록 바꿈. 기존 행은 지역 칸 하나로 채움 (S15P31C108-168) |
 | v0.5 | 2026-11-01 | 시군구 상위 지역(V0021): 광주 5개 구 → `kr-29`, 여수시 → `kr-46`. 고른 지역과 상위 지역 코드로 자료를 찾는 법(재귀 SQL) — 광주 본청 세출 · 광주시 보도자료가 구에서 「상위 지역 자료」로 잡힌다 (S15P31C108-169) |
+| v0.6 | 2026-11-02 | 시군구 6곳 `place_id` 를 `plc_*` → `kr-<KOSIS 새 시군구 5자리>` 로 바꿈(V0024): 광주 동구 `kr-12210` · 서구 `kr-12240` · 남구 `kr-12270` · 북구 `kr-12300` · 광산구 `kr-12330` · 여수시 `kr-12130`. 참조 표(`place.parent_id` · `place_code_map` · `card_evidence_status` · `existing_response` · `question` · 저장된 실행 결과)를 함께 옮긴다. 측정소 `plc_stn_*` 은 형식을 정한 뒤 바꾼다 |

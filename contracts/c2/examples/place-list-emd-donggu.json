@@ -5,7 +5,7 @@
       "place_id": "kr-12210510",
       "name": "충장동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010510", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060510", "valid_from": "2026-07-01", "valid_to": null }
@@ -15,7 +15,7 @@
       "place_id": "kr-12210540",
       "name": "동명동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010540", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060540", "valid_from": "2026-07-01", "valid_to": null }
@@ -25,7 +25,7 @@
       "place_id": "kr-12210560",
       "name": "계림1동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010560", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060560", "valid_from": "2026-07-01", "valid_to": null }
@@ -35,7 +35,7 @@
       "place_id": "kr-12210580",
       "name": "계림2동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010580", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060580", "valid_from": "2026-07-01", "valid_to": null }
@@ -45,7 +45,7 @@
       "place_id": "kr-12210590",
       "name": "산수1동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010590", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060590", "valid_from": "2026-07-01", "valid_to": null }
@@ -55,7 +55,7 @@
       "place_id": "kr-12210610",
       "name": "산수2동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010610", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060610", "valid_from": "2026-07-01", "valid_to": null }
@@ -65,7 +65,7 @@
       "place_id": "kr-12210620",
       "name": "지산1동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010620", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060620", "valid_from": "2026-07-01", "valid_to": null }
@@ -75,7 +75,7 @@
       "place_id": "kr-12210630",
       "name": "지산2동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010630", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060630", "valid_from": "2026-07-01", "valid_to": null }
@@ -85,7 +85,7 @@
       "place_id": "kr-12210640",
       "name": "서남동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010640", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060640", "valid_from": "2026-07-01", "valid_to": null }
@@ -95,7 +95,7 @@
       "place_id": "kr-12210680",
       "name": "학동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010680", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060680", "valid_from": "2026-07-01", "valid_to": null }
@@ -105,7 +105,7 @@
       "place_id": "kr-12210710",
       "name": "학운동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010710", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060710", "valid_from": "2026-07-01", "valid_to": null }
@@ -115,7 +115,7 @@
       "place_id": "kr-12210720",
       "name": "지원1동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010720", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060720", "valid_from": "2026-07-01", "valid_to": null }
@@ -125,7 +125,7 @@
       "place_id": "kr-12210730",
       "name": "지원2동",
       "level": "emd",
-      "parent_id": "plc_gwangju_donggu",
+      "parent_id": "kr-12210",
       "codes": [
         { "code_system": "sgis", "place_code": "24010730", "valid_from": null, "valid_to": "2026-06-30" },
         { "code_system": "sgis", "place_code": "12060730", "valid_from": "2026-07-01", "valid_to": null }
