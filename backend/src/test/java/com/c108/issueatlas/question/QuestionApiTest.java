@@ -10,35 +10,37 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.c108.issueatlas.C2Contract;
 import com.c108.issueatlas.TestcontainersConfiguration;
-import com.c108.issueatlas.question.dto.ArgumentResponse.Comparability;
-import com.c108.issueatlas.question.dto.ArgumentResponse.Condition;
-import com.c108.issueatlas.question.service.CardRule;
+import com.c108.issueatlas.card.dto.CardStorageDto.Approve;
+import com.c108.issueatlas.card.dto.CardStorageDto.CreateCard;
+import com.c108.issueatlas.card.dto.CardStorageDto.SaveDraft;
+import com.c108.issueatlas.card.service.CardStorageService;
 import com.jayway.jsonpath.JsonPath;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * 질문 저장 → 실행 → 결과 조회(S15P31C108-133). Flyway 실제 적용 + 보안 + SQL + C2 스키마. 각 테스트 자료는 롤백한다.
  *
- * <p>C1 은 실제 규칙({@code C1NetMigrationRule})으로 판정한다. A3 는 규칙이 아직 없어 아래 {@link Rules} 의 <b>테스트 전용 가짜
- * 규칙</b>으로 연결 지점이 규칙 결과를 그대로 싣는지만 본다.
+ * <p>C1 · A3는 운영 seed의 승인본 v2와 실제 규칙 종류 실행기로 판정한다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestcontainersConfiguration.class, QuestionApiTest.Rules.class})
+@Import(TestcontainersConfiguration.class)
 @Transactional
 class QuestionApiTest {
     private static final String PLACE = "q-test";
@@ -48,70 +50,23 @@ class QuestionApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
-
-    @TestConfiguration(proxyBeanMethods = false)
-    static class Rules {
-        @Bean
-        CardRule a3() {
-            return rule(
-                    "A3",
-                    "not_comparable",
-                    "observed_fact",
-                    "PM2.5",
-                    new Condition(false, "주소 다름"));
-        }
-
-        private static CardRule rule(
-                String card, String claim, String level, String indicator, Condition boundary) {
-            Condition ok = new Condition(true, null);
-            return new CardRule() {
-                public String cardId() {
-                    return card;
-                }
-
-                public String formulaVersion() {
-                    return card.toLowerCase() + "-test-0.1";
-                }
-
-                public String indicatorId() {
-                    return "air_pm25";
-                }
-
-                public String warrant() {
-                    return "테스트 보증";
-                }
-
-                public List<String> ceiling() {
-                    return List.of("테스트 상한선");
-                }
-
-                public Judgment judge(
-                        String placeId, LocalDate start, LocalDate end, int cardVersion) {
-                    return new Judgment(
-                            claim,
-                            level,
-                            indicator,
-                            null,
-                            new Comparability(ok, ok, boundary, ok),
-                            List.of("ev_test_stat"),
-                            List.of(),
-                            List.of());
-                }
-            };
-        }
-    }
+    @Autowired CardStorageService storage;
+    @Autowired ObjectMapper json;
 
     @BeforeEach
-    void seed() {
+    void seed() throws Exception {
+        jdbc.queryForObject(
+                "SELECT set_config('issue_atlas.approver', ?, true)",
+                String.class,
+                "admin@seed.test");
+        jdbc.execute(Files.readString(Path.of("db/seed/cards-c1-a3.sql")));
         jdbc.update("INSERT INTO place(place_id,name,level) VALUES (?, '여수시', 'sigungu')", PLACE);
         jdbc.update(
                 "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
                         + " VALUES ('q_stat', 'KOSIS 인구이동', '통계청', 'KOSIS', 'full', 'A')");
         jdbc.update(
-                "INSERT INTO evidence(evidence_id,kind,title,source_id,source_grade,license_type,"
-                        + "storage_scope,observed_at,period_start,period_end,collected_at,locator)"
-                        + " VALUES ('ev_test_stat','statistics','순이동','q_stat','A','KOSIS','full',"
-                        + "'2025-12-31T00:00:00+09:00','2023-01-01','2026-01-01',now(),'{}')");
+                "INSERT INTO source_spec(spec_id,source_id,method,evidence_class)"
+                        + " VALUES ('airkorea_final_yeosu_gwangju','q_stat','api','statistics')");
         // -136 세출 후보: 회계연도 2024(기간 안) · 2021(기간 밖)
         expenditure(EXP, 2024, "1");
         expenditure(OLD_EXP, 2021, "2");
@@ -152,10 +107,27 @@ class QuestionApiTest {
 
     private void statistics(String card) {
         jdbc.update(
-                "INSERT INTO card_evidence_status VALUES (?, ?, 1, '2023-01-01', '2026-01-01',"
+                "INSERT INTO card_evidence_status VALUES (?, ?, 2, '2023-01-01', '2026-01-01',"
                         + " 'statistics', 'available', 0)",
                 PLACE,
                 card);
+    }
+
+    private void air(String station, int year, int month, int value) {
+        LocalDate start = LocalDate.of(year, month, 1);
+        LocalDate end = start.plusMonths(1);
+        jdbc.update(
+                "INSERT INTO air_monthly(station_code,station_name,indicator_id,unit,month_start,month_end,"
+                        + "month_hours,valid_hours,held_hours,value_mean,value_min,value_max,has_provisional)"
+                        + " VALUES (?,?,'air_pm25','µg/m³',CAST(? AS date)::timestamp AT TIME ZONE 'Asia/Seoul',"
+                        + "CAST(? AS date)::timestamp AT TIME ZONE 'Asia/Seoul',744,700,0,?,?,?,false)",
+                station,
+                station,
+                start,
+                end,
+                value,
+                value,
+                value);
     }
 
     private ResultActions ask(String body) throws Exception {
@@ -194,8 +166,8 @@ class QuestionApiTest {
     /** observation view(V0025)가 읽는 KOSIS 정제 한 행. 기간은 그 달 한 달. */
     private void kosis(String spec, String indicator, String locator, String month, int value) {
         jdbc.update(
-                "INSERT INTO source(source_id,name,org,license_type,storage_scope)"
-                        + " VALUES ('S01','KOSIS','통계청','KOGL-1','full') ON CONFLICT DO NOTHING");
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS','통계청','KOGL-1','full','A') ON CONFLICT DO NOTHING");
         jdbc.update(
                 "INSERT INTO source_spec(spec_id,source_id,method,evidence_class)"
                         + " VALUES (?,'S01','api','statistics') ON CONFLICT DO NOTHING",
@@ -243,9 +215,10 @@ class QuestionApiTest {
                 """;
         // 12개월이 모두 있는 해가 없어 근거 부족이지만 그림 자료(series)는 보낸다. 연령 계(000)는 카드 지표가 아니라 빠진다
         argument(runId(ask(body)))
+                .andExpect(jsonPath("$.run_status").value("unsupported"))
                 .andExpect(jsonPath("$.evidence_table[0].status").value("available"))
                 .andExpect(jsonPath("$.claim.value").value("insufficient"))
-                .andExpect(jsonPath("$.comparability.same_period_length.passed").value(false))
+                .andExpect(jsonPath("$.comparability.same_period_length.passed").isEmpty())
                 .andExpect(jsonPath("$.series.length()").value(2))
                 .andExpect(
                         jsonPath("$.series[0].indicator_id")
@@ -309,6 +282,16 @@ class QuestionApiTest {
     }
 
     @Test
+    void requiredStatisticsWithoutLinkedEvidenceDoesNotProduceClaim() throws Exception {
+        statistics("A3");
+        jdbc.update("DELETE FROM source_spec WHERE spec_id = 'airkorea_final_yeosu_gwangju'");
+        argument(runId(ask(body("A3", "2023-01-01", "2026-01-01"))))
+                .andExpect(jsonPath("$.run_status").value("blocked"))
+                .andExpect(jsonPath("$.formula_version").value("a3-pm25-diff-0.2"))
+                .andExpect(jsonPath("$.data.statistics.length()").value(0));
+    }
+
+    @Test
     void nullCardIsStoredAsCandidateAndUnsupported() throws Exception {
         String created =
                 ask(body(null, "2025-01-01", "2026-01-01"))
@@ -334,15 +317,17 @@ class QuestionApiTest {
 
         String evidence = "ev_a" + "1".repeat(63);
         argument(runId)
-                .andExpect(jsonPath("$.run_status").value("partial"))
-                .andExpect(jsonPath("$.claim.value").value("not_comparable"))
-                .andExpect(jsonPath("$.data.statistics[0].evidence_id").value("ev_test_stat"))
+                .andExpect(jsonPath("$.run_status").value("unsupported"))
+                .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(jsonPath("$.data.statistics.length()").value(1))
                 // 2021 세출은 기간 밖이라 잇지 않는다
                 .andExpect(jsonPath("$.data.existing_responses.length()").value(1))
                 .andExpect(jsonPath("$.data.existing_responses[0].evidence_id").value(evidence))
                 .andExpect(jsonPath("$.data.existing_responses[0].period_start").isEmpty())
                 .andExpect(jsonPath("$.evidence_table[2].status").value("available"))
-                .andExpect(jsonPath("$.warrant.text").value("테스트 보증"))
+                .andExpect(
+                        jsonPath("$.warrant.text")
+                                .value(org.hamcrest.Matchers.startsWith("같은 측정소에서")))
                 .andExpect(jsonPath("$.qualifier.grade").value("medium"));
         assertThat(
                         jdbc.queryForList(
@@ -356,9 +341,9 @@ class QuestionApiTest {
                                         + r.get("evidence_id")
                                         + "|"
                                         + r.get("response_id"))
-                .containsExactly(
-                        "existing_responses|" + evidence + "|resp:a" + "1".repeat(63),
-                        "statistics|ev_test_stat|null");
+                .hasSize(2)
+                .first()
+                .isEqualTo("existing_responses|" + evidence + "|resp:a" + "1".repeat(63));
     }
 
     /** 여수 SP01 19–39세 순이동 2023–2025(로컬 실데이터, C2 예시와 같은 값). 해 합계 −1537 · −1935 · −2262. */
@@ -391,7 +376,7 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.claim.level").value("calculated"))
                 .andExpect(
                         jsonPath("$.claim.text")
-                                .value("여수시의 2023–2025 청년(19–39세) 순이동 판정: 청년 순유출 확대."))
+                                .value("여수시에서 2023–2025 청년(19–39세) 순이동이 청년 순유출 확대."))
                 .andExpect(jsonPath("$.comparability.same_period_length.passed").value(true))
                 .andExpect(jsonPath("$.data.statistics.length()").value(1))
                 .andExpect(jsonPath("$.data.statistics[0].source_grade").value("A"))
@@ -412,16 +397,54 @@ class QuestionApiTest {
     }
 
     @Test
+    void c1TwoCompleteYearsAreUnsupportedByCardApplicability() throws Exception {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < 24; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        String runId =
+                runId(ask(body("C1", "2023-01-01", "2025-01-01").replace(PLACE, "kr-12130")));
+        argument(runId)
+                .andExpect(jsonPath("$.run_status").value("unsupported"))
+                .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(jsonPath("$.evidence_table[0].status").value("available"))
+                .andExpect(jsonPath("$.data.statistics.length()").value(1));
+    }
+
+    @Test
+    void a3TwoCompleteYearsAreUnsupportedByCardApplicability() throws Exception {
+        for (int month = 1; month <= 9; month++) {
+            air("336121", 2023, month, 10);
+            air("336121", 2024, month, 11);
+        }
+        String runId =
+                runId(ask(body("A3", "2023-01-01", "2025-01-01").replace(PLACE, "kr-12130")));
+        argument(runId)
+                .andExpect(jsonPath("$.run_status").value("unsupported"))
+                .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(jsonPath("$.evidence_table[0].status").value("available"));
+    }
+
+    @Test
     void a3NotComparableAndUngradedResponsesStayPending() throws Exception {
-        statistics("A3");
         lofin(null);
-        String runId = runId(ask(body("A3", "2023-01-01", "2026-01-01")));
+        jdbc.update("UPDATE existing_response SET place_id = 'kr-12130' WHERE card_id = 'A3'");
+        for (int month = 1; month <= 9; month++) {
+            air("336121", 2023, month, 10);
+            air("336121", 2024, month, 11);
+            air("336124", 2025, month, 13);
+        }
+        String runId =
+                runId(ask(body("A3", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
 
         argument(runId)
                 .andExpect(jsonPath("$.claim.value").value("not_comparable"))
                 .andExpect(
                         jsonPath("$.claim.text")
-                                .value(org.hamcrest.Matchers.containsString("같은 경계")))
+                                .value(org.hamcrest.Matchers.containsString("비교 불가")))
                 .andExpect(jsonPath("$.comparability.same_boundary.passed").value(false))
                 .andExpect(jsonPath("$.evidence_table[2].status").value("review_pending"))
                 .andExpect(jsonPath("$.evidence_table[2].review_pending_count").value(1))
@@ -439,6 +462,56 @@ class QuestionApiTest {
                                 Integer.class,
                                 runId))
                 .isEqualTo(1);
+    }
+
+    @Test
+    void a3UsesCommonStationsAndApprovedClaimTemplate() throws Exception {
+        for (int month = 1; month <= 9; month++) {
+            air("336121", 2023, month, 10);
+            air("336121", 2024, month, 11);
+            air("336121", 2025, month, 13);
+            air("336124", 2025, month, 100);
+        }
+        String runId =
+                runId(ask(body("A3", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+        argument(runId)
+                .andExpect(jsonPath("$.formula_version").value("a3-pm25-diff-0.2"))
+                .andExpect(jsonPath("$.claim.value").value("increasing"))
+                .andExpect(jsonPath("$.claim.level").value("calculated"))
+                .andExpect(
+                        jsonPath("$.claim.text")
+                                .value("여수시의 측정소 1곳에서 2023–2025 초미세먼지(PM2.5) 연평균이 악화."))
+                .andExpect(jsonPath("$.comparability.same_boundary.passed").value(true))
+                .andExpect(jsonPath("$.data.statistics.length()").value(1));
+    }
+
+    @Test
+    void approvedNewCardReusesRuleAndOwnClaimTemplateWithoutJavaBean() throws Exception {
+        storage.create(new CreateCard("C9", "청년 흐름", "C 인구·지역소멸", "청년은 이동하는가?"), "writer");
+        ObjectNode draft =
+                (ObjectNode) json.readTree(Files.readString(Path.of("../contracts/cards/C1.json")));
+        draft.put("name", "청년 흐름");
+        draft.put("parent_question", "청년은 이동하는가?");
+        draft.put("claim_template", "{지역}의 청년(19–39세) 흐름: {기간} {판정값}");
+        storage.saveDraft("C9", new SaveDraft(0L, draft), "writer");
+        storage.approve("C9", new Approve(1L, "새 카드 규칙 재사용"), "approver");
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < YEOSU.length; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        String runId =
+                runId(ask(body("C9", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+        argument(runId)
+                .andExpect(jsonPath("$.card_version").value(1))
+                .andExpect(jsonPath("$.claim.value").value("increasing"))
+                .andExpect(
+                        jsonPath("$.claim.text").value("여수시의 청년(19–39세) 흐름: 2023–2025 청년 순유출 확대."))
+                .andExpect(
+                        jsonPath("$.series[0].indicator_id")
+                                .value("population_net_migration_19_39"));
     }
 
     @Test

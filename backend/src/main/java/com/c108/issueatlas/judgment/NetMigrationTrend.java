@@ -38,11 +38,13 @@ public class NetMigrationTrend implements RuleType {
     @Override
     public Evaluation evaluate(YearValues values, JsonNode rule) {
         validate(rule);
-        if (values.bySeries().size() != 1) {
+        if (values.bySeries().size() > 1) {
             throw new IllegalArgumentException("Net migration requires one series");
         }
         List<BigDecimal> years =
-                new ArrayList<>(values.bySeries().values().iterator().next().values());
+                values.bySeries().isEmpty()
+                        ? List.of()
+                        : new ArrayList<>(values.bySeries().values().iterator().next().values());
         int minimum = rule.path("min_years").asInt();
         if (years.size() < minimum) {
             return new Evaluation(

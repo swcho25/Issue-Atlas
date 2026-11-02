@@ -43,7 +43,20 @@ public class SeriesService {
 
     public List<Series> series(
             String cardId, String placeId, String placeName, LocalDate start, LocalDate end) {
-        List<String> indicators = CARD_INDICATORS.getOrDefault(cardId, List.of());
+        return series(cardId, null, placeId, placeName, start, end);
+    }
+
+    public List<Series> series(
+            String cardId,
+            List<String> approvedIndicators,
+            String placeId,
+            String placeName,
+            LocalDate start,
+            LocalDate end) {
+        List<String> indicators =
+                approvedIndicators == null
+                        ? CARD_INDICATORS.getOrDefault(cardId, List.of())
+                        : approvedIndicators;
         List<String> periods = months(start, end);
         List<Series> out = new ArrayList<>();
         if (!indicators.isEmpty()) {

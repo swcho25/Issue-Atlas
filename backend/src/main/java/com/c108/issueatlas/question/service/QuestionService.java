@@ -3,6 +3,7 @@ package com.c108.issueatlas.question.service;
 import com.c108.issueatlas.card.repository.CardRepository;
 import com.c108.issueatlas.card.repository.CardRepository.CardEvidenceRow;
 import com.c108.issueatlas.common.exception.ResourceNotFoundException;
+import com.c108.issueatlas.question.dto.ApprovedCard;
 import com.c108.issueatlas.question.dto.ArgumentResponse;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Ceiling;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Claim;
@@ -21,6 +22,7 @@ import com.c108.issueatlas.question.repository.QuestionRepository;
 import com.c108.issueatlas.question.repository.QuestionRepository.CardRow;
 import com.c108.issueatlas.question.repository.QuestionRepository.EvidenceRef;
 import com.c108.issueatlas.question.repository.QuestionRepository.MatchedResponse;
+import com.c108.issueatlas.question.service.CardJudge.Judgment;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -37,10 +39,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.ErrorResponseException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * 질문 저장 → 실행 → 결과 저장(S15P31C108-133). 판단(claim · 비교 조건 · 근거 고르기)은 카드 판정 규칙({@link CardRule})이 하고,
+ * 질문 저장 → 실행 → 결과 저장(S15P31C108-133). 판단(claim · 비교 조건 · 근거 고르기)은 승인본 기반 {@link CardJudge}가 하고,
  * 여기서는 근거 수요표 · 실행 상태 · 한정어 · 6칸 문장(템플릿, LLM 없음)만 만든다. 실행 결과는 한 번 쓰고 고치지 않는다.
  */
 @Service
@@ -58,19 +61,19 @@ public class QuestionService {
 
     private final QuestionRepository questions;
     private final CardRepository cards;
-    private final Map<String, CardRule> rules;
+    private final CardJudge judge;
     private final SeriesService series;
     private final ObjectMapper json;
 
     public QuestionService(
             QuestionRepository questions,
             CardRepository cards,
-            List<CardRule> rules,
+            CardJudge judge,
             SeriesService series,
             ObjectMapper json) {
         this.questions = questions;
         this.cards = cards;
-        this.rules = rules.stream().collect(Collectors.toMap(CardRule::cardId, r -> r));
+        this.judge = judge;
         this.series = series;
         this.json = json;
     }
@@ -111,7 +114,13 @@ public class QuestionService {
                         runId,
                         question,
                         card == null ? null : card.cardVersion(),
-                        run.rule() == null ? null : run.rule().formulaVersion(),
+                        run.approved() == null
+                                ? null
+                                : run.approved()
+                                        .spec()
+                                        .path("rule")
+                                        .path("formula_version")
+                                        .asText(),
                         card == null ? questions.taxonomyVersion() : card.taxonomyVersion(),
                         run.status(),
                         OffsetDateTime.now(KST),
@@ -119,15 +128,34 @@ public class QuestionService {
                         run.comparability(),
                         run.claim(),
                         run.data(),
-                        new Text(run.rule() == null ? null : run.rule().warrant(), "card"),
+                        new Text(
+                                run.approved() == null
+                                        ? null
+                                        : run.approved()
+                                                .spec()
+                                                .path("warrant")
+                                                .path("text")
+                                                .asText(),
+                                "card"),
                         qualifier(run.refs(), end),
                         List.of(),
-                        new Ceiling(run.rule() == null ? List.of() : run.rule().ceiling(), "card"),
+                        new Ceiling(
+                                run.approved() == null
+                                        ? List.of()
+                                        : strings(run.approved().spec().path("ceiling")),
+                                "card"),
                         // 판정과 따로, 카드가 있으면 그림 자료를 늘 보낸다(규칙이 없어도 화면은 그린다)
                         card == null
                                 ? List.of()
                                 : series.series(
-                                        card.cardId(), request.placeId(), placeName, start, end),
+                                        card.cardId(),
+                                        run.approved() == null
+                                                ? null
+                                                : indicators(run.approved().spec()),
+                                        request.placeId(),
+                                        placeName,
+                                        start,
+                                        end),
                         card == null
                                 ? List.of()
                                 : series.articles(card.cardId(), request.placeId(), start, end));
@@ -190,6 +218,8 @@ public class QuestionService {
         String placeId = question.placeId();
         LocalDate start = question.periodStart();
         LocalDate end = question.periodEnd();
+        ApprovedCard approved =
+                questions.approvedCard(card.cardId(), card.cardVersion()).orElse(null);
         Map<String, CardEvidenceRow> status =
                 cards.findCards(placeId, start, end).stream()
                         .filter(
@@ -221,11 +251,15 @@ public class QuestionService {
                 "existing_responses",
                 questions.evidence(responses.keySet().stream().sorted().toList()));
 
-        CardRule rule = rules.get(card.cardId());
-        if (rule != null && "not_collected".equals(statusOf(status, "statistics"))) {
+        if (approved != null && "not_collected".equals(statusOf(status, "statistics"))) {
             // ponytail: 카드 확보 상태를 쓰는 곳(P3/P4)이 아직 없어 실행 때 규칙 주 지표의 관측 행으로 정한다.
             // 등록된 available · not_published 는 그 값이 먼저다(등록 없음 = not_collected)
-            String observed = questions.statisticsStatus(rule.indicatorId(), placeId, start, end);
+            String observed =
+                    questions.statisticsStatus(
+                            approved.spec().path("rule").path("indicator_id").asText(),
+                            placeId,
+                            start,
+                            end);
             status.put(
                     "statistics",
                     new CardEvidenceRow(
@@ -240,9 +274,9 @@ public class QuestionService {
                             0));
         }
         boolean statistics = "available".equals(statusOf(status, "statistics"));
-        CardRule.Judgment judgment =
-                statistics && rule != null
-                        ? rule.judge(placeId, start, end, card.cardVersion())
+        Judgment judgment =
+                statistics && approved != null
+                        ? judge.judge(approved, placeId, start, end).orElse(null)
                         : null;
         if (judgment != null) {
             refs.put("statistics", load(judgment.statistics()));
@@ -251,15 +285,42 @@ public class QuestionService {
         }
         List<EvidenceRow> table = new ArrayList<>();
         for (String kind : KINDS) {
-            table.add(row(kind, status.get(kind), refs.get(kind).size(), pending.size()));
+            boolean required =
+                    approved == null
+                            ? kind.equals("statistics")
+                            : "required"
+                                    .equals(
+                                            approved.spec()
+                                                    .path("required_for_claim")
+                                                    .path(kind)
+                                                    .asText());
+            table.add(row(kind, status.get(kind), refs.get(kind).size(), pending.size(), required));
         }
-        if (!statistics) {
+        if (approved == null) {
+            return notJudged(
+                    "unsupported",
+                    table,
+                    "판단하지 않아 검사하지 않음",
+                    "이 카드의 판정 규칙이 아직 연결되지 않아 판단하지 않습니다.",
+                    null,
+                    refs,
+                    responses,
+                    pending);
+        }
+        boolean missingRequired =
+                table.stream()
+                        .anyMatch(
+                                item ->
+                                        item.required()
+                                                && (!"available".equals(item.status())
+                                                        || item.count() == 0));
+        if (!statistics || missingRequired) {
             return notJudged(
                     "blocked",
                     table,
                     "필수 근거가 없어 검사하지 않음",
-                    "필수 근거(통계)가 없어 판단하지 않습니다.",
-                    rule,
+                    !statistics ? "필수 근거(통계)가 없어 판단하지 않습니다." : "필수 근거가 없어 판단하지 않습니다.",
+                    approved,
                     refs,
                     responses,
                     pending);
@@ -275,6 +336,20 @@ public class QuestionService {
                     responses,
                     pending);
         }
+        int minimumYears =
+                approved.spec().path("applicability").path("min_complete_years").asInt(0);
+        int completeYears = ((Number) judgment.facts().getOrDefault("yearCount", 0)).intValue();
+        if (completeYears < minimumYears) {
+            return notJudged(
+                    "unsupported",
+                    table,
+                    "카드 적용 조건 미충족으로 검사하지 않음",
+                    "완전한 연 값 " + minimumYears + "개 이상이 필요해 판단하지 않습니다.",
+                    approved,
+                    refs,
+                    responses,
+                    pending);
+        }
         Comparability c = judgment.comparability();
         List<String> failed =
                 failed(c).stream().map(CONDITIONS::get).filter(Objects::nonNull).toList();
@@ -284,14 +359,14 @@ public class QuestionService {
         }
         boolean optionalMissing =
                 table.stream().anyMatch(r -> !r.required() && !r.status().equals("available"));
-        String text = claimText(judgment, question, failed);
+        String text = claimText(judgment, question, approved);
         return new Run(
                 optionalMissing ? "partial" : "ready",
                 table,
                 c,
                 new Claim(judgment.claim(), judgment.level(), text, "rule"),
                 data(refs),
-                rule,
+                approved,
                 refs,
                 responses,
                 pending);
@@ -302,7 +377,7 @@ public class QuestionService {
             List<EvidenceRow> table,
             String note,
             String text,
-            CardRule rule,
+            ApprovedCard approved,
             Map<String, List<EvidenceRef>> refs,
             Map<String, String> responses,
             List<String> pending) {
@@ -313,7 +388,7 @@ public class QuestionService {
                 new Comparability(none, none, none, none),
                 new Claim("insufficient", "insufficient_evidence", text, "rule"),
                 data(refs),
-                rule,
+                approved,
                 refs,
                 responses,
                 pending);
@@ -333,15 +408,15 @@ public class QuestionService {
     }
 
     /** 근거 수요표 한 줄. 상태는 P3/P4 가 확정한 card_evidence_status, 기존 대응은 이번 실행이 이은 후보로 정한다. */
-    private static EvidenceRow row(String kind, CardEvidenceRow status, int count, int pending) {
-        boolean required = kind.equals("statistics");
+    private static EvidenceRow row(
+            String kind, CardEvidenceRow status, int count, int pending, boolean required) {
         int review = status == null ? 0 : status.reviewPendingCount();
         if (kind.equals("existing_responses") && (count > 0 || pending > 0)) {
             String reason =
                     pending == 0 ? null : "출처 등급이 정해지지 않은 후보 " + pending + "건은 근거로 쓰지 않았습니다.";
             return new EvidenceRow(
                     kind,
-                    false,
+                    required,
                     count > 0 ? "available" : "review_pending",
                     count,
                     pending,
@@ -369,26 +444,20 @@ public class QuestionService {
                 .toList();
     }
 
-    /** 판단 ① 문장 템플릿. 「확산 · 전파 · 원인 · 효과」를 쓰지 않는다. */
-    static String claimText(CardRule.Judgment j, Question q, List<String> failed) {
-        String subject =
-                q.placeName() + "의 " + period(q.periodStart(), q.periodEnd()) + " " + j.indicator();
-        if (j.label() != null && !List.of("not_comparable", "insufficient").contains(j.claim())) {
-            // 카드 결과 이름 그대로(값의 증감과 판정 방향이 다를 수 있다 — C1 은 순이동이 더 음수일 때 increasing)
-            return subject + " 판정: " + j.label() + ".";
-        }
-        return switch (j.claim()) {
-            case "observed" -> subject + " 관측값이 있습니다.";
-            case "increasing" -> subject + " 값이 늘었습니다.";
-            case "decreasing" -> subject + " 값이 줄었습니다.";
-            case "unclear" -> subject + " 값에 뚜렷한 증감이 없습니다.";
-            case "not_comparable" ->
-                    subject
-                            + " 관측값은 있지만, 비교 조건("
-                            + String.join(" · ", failed)
-                            + ")을 채우지 못해 증가·감소를 말하지 않습니다.";
-            default -> subject + " 근거가 부족해 판단하지 않습니다.";
-        };
+    /** 판단 ①은 승인된 카드 문장과 규칙 결과 이름으로 만든다. */
+    static String claimText(Judgment judgment, Question question, ApprovedCard approved) {
+        String result =
+                approved.spec()
+                        .path("claim_template")
+                        .asText()
+                        .replace("{지역}", question.placeName())
+                        .replace("{기간}", period(question.periodStart(), question.periodEnd()))
+                        .replace("{판정값}", judgment.label())
+                        .replace(
+                                "{n}",
+                                String.valueOf(
+                                        judgment.facts().getOrDefault("commonStationCount", 0)));
+        return result.endsWith(".") ? result : result + ".";
     }
 
     /** [start, end) 를 끝을 빼고 적는다: 연 단위 「2023–2025」, 그 밖 「2024-03-01~2024-06-30」. */
@@ -452,6 +521,21 @@ public class QuestionService {
         return refs;
     }
 
+    private static List<String> strings(JsonNode array) {
+        if (!array.isArray()) return List.of();
+        List<String> result = new ArrayList<>();
+        array.forEach(item -> result.add(item.asText()));
+        return result;
+    }
+
+    private static List<String> indicators(JsonNode spec) {
+        List<String> result = new ArrayList<>();
+        for (JsonNode item : spec.path("claim_items")) {
+            result.add(item.path("indicator_id").asText());
+        }
+        return result;
+    }
+
     private static Data data(Map<String, List<EvidenceRef>> refs) {
         Function<String, List<Ref>> to =
                 kind ->
@@ -482,7 +566,7 @@ public class QuestionService {
             Comparability comparability,
             Claim claim,
             Data data,
-            CardRule rule,
+            ApprovedCard approved,
             Map<String, List<EvidenceRef>> refs,
             Map<String, String> responses,
             List<String> pending) {}
