@@ -9,9 +9,9 @@ from datetime import date
 import pytest
 
 from pipeline.collect import press
-from pipeline.collect.press import PressQuery, c1_pages, collect_pages, main, store_pages
+from pipeline.collect.press import PressQuery, c1_pages, collect_pages, main, store_pages, to_c1
 from pipeline.refine.store import refine_raw
-from tests.test_collect_press import Web, rows_yeosu, yeosu_page
+from tests.test_collect_press import AT, Web, gwangju_page, rows_yeosu, yeosu_page
 from tests_postgres.conftest import fresh_schema
 
 QUERY = PressQuery("yeosu", date(2025, 1, 1), date(2025, 12, 31))
@@ -26,6 +26,7 @@ def press_db(postgis):
             "V0005__create_normalized_record.sql",
             "V0008__create_air_monthly.sql",
             "V0009__store_air_monthly_only.sql",
+            "V0010__create_press_release.sql",
         ),
     )
 
@@ -104,3 +105,70 @@ def test_db_run_also_writes_output_copy(press_db, monkeypatch, capsys, tmp_path)
     assert '"inserted": 2' in capsys.readouterr().out
     assert len(path.read_bytes().splitlines()) == 2
     assert conn.execute("SELECT count(*) FROM raw_record").fetchone() == (2,)
+
+
+OLD_COLUMNS = (
+    "press_id, site, org, place_code_raw, category, department, title, published_on, url,"
+    " license_type, storage_scope, collected_at, collector"
+)
+
+
+def old_table(conn, listings):
+    """press-0.1.0 이 옛 표(V0010)에 넣던 모양 그대로 넣는다."""
+    for r in listings:
+        conn.execute(
+            f"INSERT INTO press_release ({OLD_COLUMNS}) VALUES"
+            " (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'press-0.1.0')",
+            [r[c] for c in OLD_COLUMNS.replace(" ", "").split(",")[:-1]],
+        )
+
+
+def gwangju_listings(rows):
+    web = Web({1: (200, gwangju_page(rows))}, robots=(404, b""))
+    pages = collect_pages("gwangju", date(2022, 1, 1), date(2025, 12, 31), **web.options())
+    return [r for page in pages for r in page]
+
+
+def test_old_table_moves_to_raw_as_the_same_originals(press_db, monkeypatch, capsys):
+    # 광주 누리집이 자동 요청을 막아(2026-11-02) 10/30 에 받은 옛 표를 옮긴다
+    conn, connect = press_db
+    monkeypatch.setattr(press, "PAGE_SIZE", 2)
+    collected = gwangju_listings(
+        [
+            (3, "행정", "가상 보도 3", "2025-02-01"),
+            (2, "", "가상 보도 2", "2024-12-31"),
+            (1, "복지", "가상 보도 1", "2023-01-01"),
+            (0, "행정", "범위 밖 보도", "2022-12-31"),
+        ]
+    )
+    old_table(conn, collected)
+    old_table(conn, [r | {"press_id": "yeosu:9", "site": "yeosu"} for r in collected[:1]])
+
+    argv = ["--site", "gwangju", "--db", "--from-table"]
+    assert main(argv, connect=connect) == 0
+    assert '"inserted": 3' in capsys.readouterr().out
+    rows = conn.execute(
+        "SELECT payload->>'press_id', content_hash, c1_record->>'collected_at'"
+        " FROM raw_record ORDER BY 1"
+    ).fetchall()
+    # 게시판에서 다시 받았을 때와 같은 원본 지문 · 그때의 수집 시각
+    expected = sorted((r["press_id"], to_c1(r, "x")[1]["content_hash"], AT) for r in collected[:3])
+    assert rows == expected
+    assert conn.execute(
+        "SELECT spec_id, status, stats->>'imported_from', stats->>'pages' FROM job_run"
+    ).fetchall() == [("press_release_gwangju", "ok", "press_release", "2")]
+
+    assert main(argv, connect=connect) == 0
+    assert '"inserted": 0, "duplicates": 3' in capsys.readouterr().out
+    result = refine_raw(conn)
+    assert result["raw"] == 3 and result["status"] == {"pass": 3}
+
+
+def test_empty_old_table_is_a_failed_run(press_db, capsys):
+    conn, connect = press_db
+    assert main(["--site", "gwangju", "--db", "--from-table"], connect=connect) == 1
+    assert capsys.readouterr().err.strip() == "PRESS_NO_ROWS"
+    assert conn.execute("SELECT status, stats->>'error_code' FROM job_run").fetchone() == (
+        "failed",
+        "PRESS_NO_ROWS",
+    )
