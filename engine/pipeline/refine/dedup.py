@@ -4,6 +4,8 @@ import hashlib
 import json
 from datetime import datetime
 
+from .storage import had_body
+
 # 수집 실행마다 바뀌는 칸. 이것만 다르면 같은 내용을 다시 받은 것(재수집)으로 본다
 RUN_FIELDS = ("collected_at", "run_id", "collector_version")
 # 원본 지문. 장부 내용이 같고 이것만 다르면 원천의 장부 밖 칸(이름표 · 부가 속성)만 바뀐
@@ -99,9 +101,10 @@ def _is_document(record: dict) -> bool:
 
 def _revision_order(r: dict) -> tuple:
     if _is_document(r):
-        # 같은 기사를 실패 → 성공으로 다시 받았으면 본문 있는 판이 먼저, 같으면 늦게 받은 판
+        # 같은 기사를 실패 → 성공으로 다시 받았으면 본문을 받은 판(요약 뒤 지운 판 포함)이 먼저,
+        # 같으면 늦게 받은 판
         return (
-            r["document"].get("body") is not None,
+            had_body(r["document"]),
             datetime.fromisoformat(r["collected_at"]),
             r["dedup_key"],
             str(r["content_hash"]),

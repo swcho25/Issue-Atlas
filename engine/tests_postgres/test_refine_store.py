@@ -304,3 +304,30 @@ def test_article_fetched_twice_leaves_one_ready_row_with_its_body(refine_db, tmp
         "FROM normalized_ready WHERE dedup_key LIKE 'bigkinds:%'"
     ).fetchall()
     assert ready == [("full", "", ok["document"]["body"])]
+
+
+def test_article_whose_body_was_discarded_after_summary_stays_ready(refine_db, tmp_path):
+    # P3 가 요약 뒤 장부의 본문을 지운다(대표 결정 2026-11-01). 다음 정제에서 보류되지 않고
+    # 준비 뷰에 본문 없이 남는다
+    conn, _ = refine_db
+    collect_rows(conn, tmp_path, ROWS)
+    article = variant({**NEWS[0], "license_type": "BIGKINDS-이용약관", "place_code_raw": ""}, 21)
+    add_raw(conn, article)
+    refine_raw(conn)
+
+    conn.execute(
+        "UPDATE raw_record SET c1_record = jsonb_set("
+        "c1_record || '{\"storage_scope\": \"metadata\"}', '{document,body}', 'null')"
+        " WHERE content_hash = %s",
+        (article["content_hash"],),
+    )
+    stats = refine_raw(conn)
+
+    assert (stats["updated"], stats["status"]) == (1, {"pass": 4})
+    ready = conn.execute(
+        "SELECT storage_scope, record -> 'document' ->> 'body',"
+        " record -> 'document' -> 'fetch' ->> 'status' FROM normalized_ready"
+        " WHERE content_hash = %s",
+        (article["content_hash"],),
+    ).fetchall()
+    assert ready == [("metadata", None, "ok")]

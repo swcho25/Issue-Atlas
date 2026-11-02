@@ -29,6 +29,14 @@ def failed(n=1, status="NO_BODY", **changes):
     return record
 
 
+def discarded(n=2, **changes):
+    # 본문을 받아 P3 가 요약한 뒤 본문을 지운 판 (대표 결정 2026-11-01)
+    record = news(n, storage_scope="metadata", **changes)
+    record["dedup_key"] = "bigkinds:synthetic-example-001:ok"
+    record["document"].update(body=None)
+    return record
+
+
 def ok(n=0, **changes):
     record = news(n, **changes)
     record["dedup_key"] = "bigkinds:synthetic-example-001:ok"
@@ -129,6 +137,27 @@ def test_article_without_body_is_held():
 
     assert out["validation_status"] == "held"
     assert out["issues"] == [issue("BODY_MISSING", "document")]
+
+
+def test_article_whose_body_was_discarded_after_summary_passes():
+    record = discarded()
+
+    out = refine_record(record)
+
+    assert out["validation_status"] == "pass"
+    assert out["issues"] == []
+    assert (out["storage_scope"], out["document"]["body"]) == ("metadata", None)
+    assert out["document"]["fetch"]["status"] == "ok"
+    assert schema_issues(c1_part(out, record)) == []
+
+
+def test_discarded_article_wins_over_a_later_failure():
+    out = refine_records([discarded(), failed(collected_at="2026-10-27T00:00:00Z")])
+
+    assert [(r["document"]["fetch"]["status"], r["is_latest"]) for r in out] == [
+        ("ok", True),
+        ("NO_BODY", False),
+    ]
 
 
 def test_article_that_never_got_a_body_is_not_ready():
