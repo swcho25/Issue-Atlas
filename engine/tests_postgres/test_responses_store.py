@@ -8,6 +8,7 @@ import hashlib
 import psycopg
 import pytest
 
+from pipeline.collect.lofin import LofinQuery
 from pipeline.collect.lofin import store as store_expenditure
 from pipeline.collect.store import PostgresStore
 from pipeline.collect.youth_policy import PolicyQuery, collect
@@ -32,6 +33,7 @@ def responses_db(postgis):
             "V0013__create_card_catalog.sql",
             "V0015__create_local_expenditure.sql",
             "V0022__create_existing_response.sql",
+            "V0026__track_local_expenditure_runs.sql",
         ),
     )
 
@@ -86,6 +88,8 @@ def test_candidates_link_source_versions_and_rerun_adds_nothing(responses_db):
             expenditure("미세먼지 저감", "29", "본청"),
             expenditure("신재생에너지확대기반조성"),
         ],
+        LofinQuery(2024, "2024.xlsx"),
+        "lofin_run_1",
     )
 
     first = extract(conn)
