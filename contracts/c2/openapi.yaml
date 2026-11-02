@@ -27,7 +27,14 @@ paths:
     get:
       tags: [places]
       operationId: listPlaces
-      summary: 지역 목록 (광주 5구·여수)
+      summary: 지역 목록 (광주 5구·여수, parent_id 를 주면 그 시군구의 행정동)
+      parameters:
+        - name: parent_id
+          in: query
+          required: false
+          description: 시군구 place_id. 주면 그 아래 행정동(level emd, 코드 sgis)만 돌려준다. 없는 지역이면 404. 행정동은 고른 시군구 안에서 지도 · 기사 범위를 좁히는 내부 선택이고 질문(place_id)은 시군구로 만든다
+          schema:
+            type: string
       responses:
         "200":
           description: 지역 목록
