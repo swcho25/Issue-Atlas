@@ -170,10 +170,11 @@ async function drawStatue() {
 }
 // 위 처리(손바닥을 지구 가장자리에 맞춰 휘고 그늘 · 그림자를 만든다)는 화면 크기와 상관없이 늘 같은 결과다.
 // 그래서 미리 구운 그림을 그대로 쓴다 — 첫 화면에서 0.2~0.4초 걸리던 계산을 없앤다. 다시 구우려면 ?bakestatue 로 열어 캔버스를 저장한다
-const loadBitmap = (src, flip = false) => fetch(src).then((r) => r.blob()).then((b) => createImageBitmap(b, flip ? { imageOrientation: "flipY" } : {}));   // 사진은 메인 스레드 밖에서 푼다
+// 사진은 메인 스레드 밖에서 푼다. priority: 첫 화면에 보이는 것은 high, 스크롤해야 보이는 것은 low
+const loadBitmap = (src, flip = false, priority = "auto") => fetch(src, { priority }).then((r) => r.blob()).then((b) => createImageBitmap(b, flip ? { imageOrientation: "flipY" } : {}));
 async function useBakedStatue() {
   frame.style.setProperty("--sx", 705); frame.style.setProperty("--sy", 466.067);
-  const shots = await Promise.all([loadBitmap("baked/statue-posed.webp"), loadBitmap("baked/statue-shadow.webp")]);
+  const shots = await Promise.all([loadBitmap("baked/statue-posed.webp", false, "high"), loadBitmap("baked/statue-shadow.webp", false, "high")]);
   ["statue", "shadow"].forEach((id, i) => { const c = document.getElementById(id), b = shots[i]; c.width = b.width; c.height = b.height; c.getContext("2d").drawImage(b, 0, 0); });
 }
 if (q.has("bakestatue")) drawStatue(); else useBakedStatue();
@@ -194,28 +195,46 @@ const scene = new THREE.Scene();
 const FOV = 30; const cam = new THREE.PerspectiveCamera(FOV, 1, 0.001, 100);
 scene.add(new THREE.AmbientLight(0xffffff, 0.66 * Math.PI));
 const sun = new THREE.DirectionalLight(0xffffff, 0.6 * Math.PI); sun.position.set(-3, 2.2, 4); scene.add(sun);
-// 처음엔 작은 전체 사진(2K, 0.3MB)으로 바로 띄운다. 히어로 지구는 화면에서 지름 500px 남짓이라 2K 로도 똑같이 보인다.
-// 확대해 들어가는 곳(광주 둘레)만 8K 해상도로 자른 조각을 뒤에서 받아 덧씌운다 — 8K 전체(3MB · GPU 180MB)는 받지 않는다
+// 지구 사진은 보이는 쪽부터 받는다(화면엔 늘 반구만 보인다)
+//  ① 아주 작은 전체 사진(7KB)으로 지구 모양부터 바로 띄우고
+//  ② 2K 사진을 경도 45°씩 자른 8조각(조각당 20~45KB)을 화면 정면에 가까운 순서로 받아 한 장의 텍스처에 채워 넣는다 — 뒤쪽 반구는 나중에 온다
+//  ③ 구름 · 확대용 동아시아 조각 · 지도 사진은 정면 조각이 다 온 뒤 낮은 우선순위로 받는다
+// 8K 전체 사진(3MB · GPU 180MB)은 받지 않는다. 확대해 들어가는 곳(광주 둘레)만 8K 해상도 조각으로 덧씌운다
 const bitmapTexture = (bmp) => { const t = new THREE.Texture(bmp); t.flipY = false; t.anisotropy = maxAniso; t.needsUpdate = true; return t; };
-const [earthImg, cloudImg] = await Promise.all([loadBitmap("baked/earth-2048.webp", true), loadBitmap("baked/clouds-2048.webp", true)]);
-const tex = bitmapTexture(earthImg), cloudTex = bitmapTexture(cloudImg);
-// 화면 앞 구름: 알파맵(검정 = 맑음)을 흰 구름 + 투명도로 바꾸고, 흐림은 미리 한 번만 굽는다(CSS blur 는 매 프레임 비싸다).
-// 구름은 스크롤해야 보이므로 첫 화면을 그린 뒤 한가할 때 만든다
-(window.requestIdleCallback || ((f) => setTimeout(f, 300)))(() => { const c = document.createElement("canvas"); c.width = 1600; c.height = 800; const g = c.getContext("2d"); g.filter = "blur(3px)"; g.drawImage(cloudImg, 0, 0, c.width, c.height); g.filter = "none";
-  const im = g.getImageData(0, 0, c.width, c.height), d = im.data;
-  for (let i = 0; i < d.length; i += 4) { const a = d[i]; d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = Math.min(255, a * 1.15); }
-  g.putImageData(im, 0, 0);
-  c.toBlob((b) => { const url = URL.createObjectURL(b); document.querySelectorAll(".cloud").forEach((el) => (el.style.backgroundImage = `url(${url})`)); }, "image/png"); }, { timeout: 1500 });
+const FRONT_LON = 127.5, TILES = 8, TILE_W = 2048 / TILES;   // 처음 화면 정면 경도 = 아래 globeSpin.lon 시작값
+const earthCanvas = Object.assign(document.createElement("canvas"), { width: 2048, height: 1024 }), earthCtx = earthCanvas.getContext("2d");
+const tex = new THREE.CanvasTexture(earthCanvas); tex.anisotropy = maxAniso;
+const baseDrawn = loadBitmap("baked/earth-base.webp", false, "high").then((b) => { earthCtx.drawImage(b, 0, 0, 2048, 1024); tex.needsUpdate = true; });
+const tileGap = (i) => Math.abs(((((-180 + (i + 0.5) * (360 / TILES) - FRONT_LON) % 360) + 540) % 360) - 180);
+let tilesIn = 0;
+const earthTiles = [...Array(TILES).keys()].sort((a, b) => tileGap(a) - tileGap(b)).map((i, k) => {
+  const tile = loadBitmap(`baked/earth-t${i}.webp`, false, k < 4 ? "high" : "auto");
+  return baseDrawn.then(() => tile).then((b) => { earthCtx.drawImage(b, i * TILE_W, 0); tex.needsUpdate = true; tilesIn++; });
+});
+const frontReady = Promise.all(earthTiles.slice(0, 4)), earthReady = Promise.all(earthTiles);
+await baseDrawn;
 const tilt = new THREE.Group(), spin = new THREE.Group(); tilt.add(spin); scene.add(tilt);
 const earthLook = { shininess: 8, specular: new THREE.Color(0x1a2233) };
 spin.add(new THREE.Mesh(new THREE.SphereGeometry(1, 96, 96), new THREE.MeshPhongMaterial({ map: tex, ...earthLook })));
-const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, alphaMap: cloudTex, transparent: true, opacity: 0.9, depthWrite: false });
+// 구름은 정면 조각이 다 온 뒤에 받아 서서히 나타낸다(그전엔 빈 알파맵 · 투명)
+const noClouds = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); noClouds.needsUpdate = true;
+const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, alphaMap: noClouds, transparent: true, opacity: 0, depthWrite: false });
 const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(1.006, 96, 96), cloudMat); cloudMesh.renderOrder = 2; spin.add(cloudMesh);
+let cloudsAt = 0;
+frontReady.then(() => loadBitmap("baked/clouds-2048.webp", true, "low")).then((cloudImg) => {
+  cloudMat.alphaMap = bitmapTexture(cloudImg); renderer.initTexture(cloudMat.alphaMap); cloudsAt = performance.now();
+  // 화면 앞 구름: 알파맵(검정 = 맑음)을 흰 구름 + 투명도로 바꾸고, 흐림은 미리 한 번만 굽는다(CSS blur 는 매 프레임 비싸다)
+  (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(() => { const c = document.createElement("canvas"); c.width = 1600; c.height = 800; const g = c.getContext("2d"); g.filter = "blur(3px)"; g.drawImage(cloudImg, 0, 0, c.width, c.height); g.filter = "none";
+    const im = g.getImageData(0, 0, c.width, c.height), d = im.data;
+    for (let i = 0; i < d.length; i += 4) { const a = d[i]; d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = Math.min(255, a * 1.15); }
+    g.putImageData(im, 0, 0);
+    c.toBlob((b) => { const url = URL.createObjectURL(b); document.querySelectorAll(".cloud").forEach((el) => (el.style.backgroundImage = `url(${url})`)); }, "image/png"); }, { timeout: 1500 });
+});
 const rimMat = new THREE.ShaderMaterial({ uniforms: { c: { value: new THREE.Color(0xbfd8ff) }, o: { value: 1 } }, transparent: true, depthWrite: false,
   vertexShader: "varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
   fragmentShader: "uniform vec3 c; uniform float o; varying vec3 vN; void main(){ float f = pow(1.0 - max(0.0, vN.z), 2.0) * mix(0.12, 1.0, smoothstep(-0.85, 0.05, vN.y)); gl_FragColor = vec4(c, clamp(f, 0.0, 1.0) * o); }" });
 const rimMesh = new THREE.Mesh(new THREE.SphereGeometry(1.008, 64, 64), rimMat); rimMesh.renderOrder = 3; tilt.add(rimMesh);
-renderer.initTexture(tex); renderer.initTexture(cloudTex);
+renderer.initTexture(tex);
 
 // 목표: 광주 한가운데
 const TARGET = { lon: 126.85, lat: 35.16 };
@@ -223,7 +242,7 @@ const deg = THREE.MathUtils.degToRad;
 
 // 동아시아 조각(경도 87~167°, 위도 10~60°, 8K 해상도): 같은 자리의 구 조각에 붙여 바탕 지구 위에 덧씌운다. 가장자리는 부드럽게 지운다
 const PATCH = { lon: [87, 167], lat: [10, 60] };
-loadBitmap("baked/earth-asia.webp", true).then((img) => {
+frontReady.then(() => loadBitmap("baked/earth-asia.webp", true, "low")).then((img) => {
   const t = bitmapTexture(img);
   const n = 128, c = document.createElement("canvas"); c.width = c.height = n; const g = c.getContext("2d"), im = g.createImageData(n, n);
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const a = 255 * smooth(0, 0.1, Math.min(x, y, n - 1 - x, n - 1 - y) / (n - 1)), i = (y * n + x) * 4; im.data[i] = im.data[i + 1] = im.data[i + 2] = a; im.data[i + 3] = 255; }
@@ -292,9 +311,9 @@ LEVELS.forEach((z, i) => {
 });
 // 사진은 메인 스레드 밖에서 풀고(createImageBitmap), GPU 에는 한 프레임에 한 장씩 올린다
 const queue = [];
-levels.forEach((L) => fetch(`baked/${MAP}-${L.z}.webp`).then((r) => r.blob()).then((b) => createImageBitmap(b, { imageOrientation: "flipY" })).then((bmp) => {
+earthReady.then(() => levels.forEach((L) => fetch(`baked/${MAP}-${L.z}.webp`, { priority: "low" }).then((r) => r.blob()).then((b) => createImageBitmap(b, { imageOrientation: "flipY" })).then((bmp) => {
   const t = new THREE.Texture(bmp); t.flipY = false; t.anisotropy = maxAniso; t.needsUpdate = true; L.mat.map = t; L.mat.needsUpdate = true; queue.push(L);
-}));
+})));
 let groundReady = false, lastUpload = 0;
 
 // 지도 위 표시(예시 값). 점끼리 선으로 잇지 않는다 — 이동 경로처럼 읽히지 않게
@@ -370,7 +389,7 @@ function frameLoop(now) {
   const waiting = !groundReady && p > 0.3;
   const changed = p !== lastP || dirty || waiting;
   lastP = p; dirty = false;
-  hud.textContent = `p ${p.toFixed(3)} · ${fps} fps · 지도 ${levels.filter((l) => l.ready).length}/${levels.length}`;
+  hud.textContent = `p ${p.toFixed(3)} · ${fps} fps · 지구 ${tilesIn}/${TILES} · 지도 ${levels.filter((l) => l.ready).length}/${levels.length}`;
   if (!changed && !heroIdle) return;
   const w = innerWidth, h = innerHeight;
   const u = Math.min(w / 1684, h / 934), fx = (w - 1684 * u) / 2, fy = (h - 934 * u) / 2;
@@ -398,6 +417,7 @@ function frameLoop(now) {
     spin.rotation.y = deg(-(tlon + 90));
     tilt.rotation.x = deg(tlat); tilt.rotation.z = deg(lerp(-10, 0, turn));
     cloudMesh.rotation.y = deg(now * 0.0004 * (1 - turn));
+    cloudMat.opacity = cloudsAt ? 0.9 * smooth(0, 700, now - cloudsAt) : 0;   // 구름은 도착하면 0.7초에 걸쳐 나타난다
     cam.position.set(0, 0, 1 + altOfZoom(Z, h)); cam.lookAt(0, 0, 0);   // 지도로 다 바뀔 즈음엔 8K 지구 사진이 뭉개지기 시작하지만 이미 거의 투명하다
     const off = 1 - ease(span(p, 0.1, 0.32));
     cam.setViewOffset(w, h, (w / 2 - cx) * off, (h / 2 - cy) * off, w, h);
