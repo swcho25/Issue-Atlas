@@ -109,3 +109,34 @@ python3 deploy/dev/verify.py --base-url https://dev-backend.issue-atlas.kr --ses
 ## 배포 소스 관리
 
 이번 최초 배치는 로컬의 backend 소스·Dockerfile·배포 구성만 묶어 전송했다. pgvector 적용 배포에는 `database/Dockerfile`도 포함해야 한다. `.env`·키·빌드 캐시는 전송하지 않았다. Git 커밋·push·MR·CI/CD는 아직 수행하지 않았다. 다음 배포부터는 팀의 리뷰·이미지 버전 관리·자동 배포 절차에 연결한다.
+# 개발 DB 자동 백업
+
+`deploy/backup/`의 Python 프로그램과 systemd service/timer를 서버에 설치한다.
+개발 DB만 매일 04:00 Asia/Seoul에 전체 백업하고 성공한 최신 7개를 보관한다.
+서버가 꺼져 실행을 놓치면 기동 후 한 번 실행한다. 운영 DB는 이 작업 대상이 아니다.
+
+- 경로: `/var/backups/issueatlas/daily/development/<UTC 날짜시간>/database.dump`
+- 같은 폴더 `manifest.json`: 생성 시각, 크기, SHA256, 검사 종류.
+- 중복 실행 잠금, 여유 공간 검사, 실패 시 임시 파일 정리. 새 백업 성공 후에만 오래된 자동 백업 삭제.
+- 기존 수동/복원 검증 백업은 위 경로 밖에 보관하며 자동 삭제하지 않는다.
+- 컨테이너 내부 DB 환경변수를 사용한다. 비밀번호/환경 파일을 호스트로 출력하지 않는다.
+- archive 전체 읽기 검사는 복원 검증과 다르다. 중요한 변경 뒤에는 별도 임시 DB에서 실제 복원을 확인한다.
+- DB 역할·권한은 복원 대상에서 제외한다. 동일 EC2의 백업이므로 서버 자체 손실에는 대비하지 못한다.
+
+서버 설치(root): `backup_database.py`를 `/usr/local/sbin/issueatlas-db-backup.py`에
+0755로, service/timer를 `/etc/systemd/system/`에 0644로 복사한다.
+백업 경로를 root 소유 0700으로 만든 뒤 `systemctl daemon-reload`,
+`systemctl enable --now issueatlas-db-backup.timer`를 실행한다. 코드 변경은 자동 CD로 설치되지 않는다.
+
+```sh
+sudo systemctl start issueatlas-db-backup.service  # 즉시 백업 (복원 아님)
+sudo systemctl status issueatlas-db-backup.service
+sudo systemctl list-timers issueatlas-db-backup.timer
+sudo journalctl -u issueatlas-db-backup.service --since yesterday
+sudo systemctl disable --now issueatlas-db-backup.timer  # 이후 예약 중단
+```
+
+복원 시 원하는 날짜의 파일을 고르고 SHA256을 manifest와 대조한다. 현재 DB를 먼저
+별도 백업한 뒤 동일 PostgreSQL/PostGIS/pgvector 버전의 `template0` 기반 임시 DB에서
+복원·건수 검증 후 실제 DB에 반영한다. 자동 복원/운영 DB 덮어쓰기는 제공하지 않는다.
+실패는 systemd failed 상태와 journal에 남으며 외부 알림 전송은 설정하지 않는다.
