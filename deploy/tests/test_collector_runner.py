@@ -59,12 +59,16 @@ class CollectorRunnerTests(unittest.TestCase):
         self.assertEqual(
             runner.command(self.app, "refine", [])[-3:], ["-m", "pipeline.refine", "--db"]
         )
+        self.assertEqual(
+            runner.command(self.app, "responses", [])[-3:], ["-m", "pipeline.responses", "--db"]
+        )
         self.assertIn("--rm", command)
         self.assertIn("never", command)
 
     def test_refine_gets_no_output_path_but_collectors_do(self):
         # pipeline.refine 은 --db 하나만 받는다. --output 을 붙이면 사용법 오류(종료 코드 2)
         self.assertEqual(runner.run_arguments("refine", [], "T"), [])
+        self.assertEqual(runner.run_arguments("responses", [], "T"), [])
         self.assertEqual(
             runner.run_arguments("youth-policy", ["--regions", "12130"], "T"),
             ["--regions", "12130", "--output", "/app/outputs/T/c1.json"],
