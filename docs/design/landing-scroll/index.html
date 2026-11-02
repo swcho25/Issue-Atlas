@@ -6,7 +6,6 @@
 <title>Issue Atlas · 랜딩 스크롤 시제품</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Source+Serif+4:wght@400&family=IBM+Plex+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.css">
 <style>
   :root { --ink: #111318; --word: #1e2530; --rule: rgb(16 20 27 / .35); --line: #d2d6db; --amber: #FFB000; --navy: #2E4A7D; --bg: #f7f8fc; }
   * { box-sizing: border-box; }
@@ -16,7 +15,6 @@
   .stage { position: sticky; top: 0; height: 100vh; overflow: hidden;
     background: linear-gradient(180deg, #fefefe 0%, #fcfdfe 13%, #f7f8fc 30%, #f6f8fd 56%, #f7f8fc 70%, #f6f8fb 100%); }
   .layer { position: absolute; inset: 0; }
-  #map { opacity: 0; }
   #globe { width: 100%; height: 100%; display: block; }
 
   /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치) */
@@ -42,23 +40,28 @@
   .scroll i { width: 1px; height: 34px; background: linear-gradient(#8a8f9c, transparent); }
 
   /* 구름 통과: 구름 알파맵을 화면 앞에 겹쳐 키우며 지나간다 */
-  .clouds { pointer-events: none; opacity: 0; }
-  .cloud { position: absolute; inset: -40%; background-position: center; background-size: 140% auto; background-repeat: no-repeat; filter: blur(2px); will-change: transform, opacity; }
+  .clouds { pointer-events: none; opacity: 0; visibility: hidden; will-change: opacity; }
+  .cloud { position: absolute; inset: -20%; background-position: center; background-size: 140% auto; background-repeat: no-repeat; will-change: transform; transform: translateZ(0); }
+  #wait { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 500 12px "IBM Plex Mono"; letter-spacing: .2em; color: #8a8f9c; opacity: 0; }
   .fog { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, #fff 0%, #fff 45%, rgb(255 255 255 / .85) 70%, rgb(255 255 255 / .6) 100%); opacity: 0; pointer-events: none; }
 
-  /* 지도 위 표시 */
-  .pin { display: flex; flex-direction: column; align-items: center; opacity: 0; transform: translateY(10px); transition: none; }
+  /* 지도 위 표시: 3D 판 위 좌표를 화면 좌표로 옮겨 글자 · 점을 얹는다(판에 구워 넣지 않아 늘 또렷하다) */
+  .marks { pointer-events: none; overflow: hidden; visibility: hidden; }
+  .marks > div { position: absolute; left: 0; top: 0; will-change: transform; }
+  .place { font-size: 13px; font-weight: 700; color: #69717f; letter-spacing: .04em; white-space: nowrap; text-shadow: 0 0 2px #fff, 0 0 6px #fff, 0 0 10px #fff; }
+  .pin { display: flex; flex-direction: column; align-items: center; opacity: 0; }
   .bubble { display: flex; gap: 8px; align-items: center; padding: 8px 14px 8px 12px; margin-bottom: 8px; border-radius: 999px; background: #fff; box-shadow: 0 4px 14px rgb(0 0 0 / .14); white-space: nowrap; font-size: 14px; font-weight: 500; position: relative; }
   .bubble b { font-size: 12px; font-weight: 700; color: var(--navy); }
-  .bubble b.doc { color: #9A6700; }
   .bubble::after { content: ""; position: absolute; bottom: -5px; left: 50%; width: 10px; height: 10px; background: #fff; transform: translateX(-50%) rotate(45deg); }
   .dot { width: 18px; height: 18px; border-radius: 50%; background: var(--navy); border: 3px solid #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .25); }
   .dot.doc { background: #fff; border-color: var(--navy); }
   .dot.stat { width: 24px; height: 24px; background: var(--amber); }
+  .dot.small { width: 12px; height: 12px; border-width: 2px; }
   .caption { left: 50%; bottom: 6vh; transform: translate(-50%, 12px); padding: 14px 24px; border-radius: 999px; background: rgb(27 29 34 / .88); color: #fff; font-weight: 700; font-size: 16px; opacity: 0; pointer-events: none; white-space: nowrap; }
-  .title2 { left: 0; right: 0; top: 9vh; text-align: center; opacity: 0; pointer-events: none; }
+  .title2 { left: 0; right: 0; top: 0; padding: 9vh 0 10vh; background: linear-gradient(#f7f8fc 0%, rgb(247 248 252 / .92) 55%, rgb(247 248 252 / 0) 100%); text-align: center; opacity: 0; pointer-events: none; }
   .title2 p { margin: 0 0 14px; font-weight: 700; font-size: 18px; color: #8a8f9c; }
   .title2 h2 { margin: 0; font-weight: 800; font-size: clamp(32px, 4vw, 56px); letter-spacing: -0.03em; line-height: 1.28; }
+  .attrib { left: 12px; bottom: 8px; font-size: 10px; color: #8a8f9c; opacity: 0; }
 
   /* 다음 섹션(이어지는 느낌만) */
   .next { padding: 22vh 20px 30vh; text-align: center; }
@@ -70,8 +73,8 @@
 <body>
 <section id="journey">
   <div class="stage">
-    <div class="layer" id="map"></div>
     <canvas class="layer" id="globe" aria-label="아틀라스가 받친 지구"></canvas>
+    <div class="layer marks" id="marks"></div>
     <div class="frame" id="hero">
       <canvas class="at shadow" id="shadow" aria-hidden="true"></canvas>
       <span class="at word wordLeft" aria-hidden="true">Issue<i></i></span>
@@ -87,15 +90,15 @@
       <div class="cloud" style="background-position: 70% 55%; background-size: 180% auto"></div>
       <div class="cloud" style="background-position: 50% 30%; background-size: 220% auto"></div>
     </div>
-    <div class="fog" id="fog"></div>
+    <div class="fog" id="fog"><span id="wait">지도를 불러오는 중</span></div>
     <div class="at title2" id="title2"><p>지금 모이는 중</p><h2>광주에서 여수까지,<br>근거가 지도 위에 쌓이고 있어요</h2></div>
     <div class="at caption" id="caption">공식 통계 · 보도자료 · 정책 문서가 같은 지도 위에 모여요</div>
+    <div class="at attrib" id="attrib">위성 사진 © Esri · 지도 © OpenStreetMap, OpenFreeMap</div>
   </div>
 </section>
 <section class="next"><p>우리 지역이 궁금할 때</p><h2>판단보다,<br>근거부터 먼저</h2></section>
 <div class="hud" id="hud"></div>
 
-<script src="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"></script>
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js" } }</script>
 <script type="module">
 import * as THREE from "three";
@@ -110,7 +113,9 @@ const loadImage = (src) => new Promise((ok, no) => { const i = new Image(); i.on
 const journey = document.getElementById("journey");
 const progress = () => clamp((scrollY - journey.offsetTop) / (journey.offsetHeight - innerHeight));
 const q = new URLSearchParams(location.search);
-if (q.has("p")) requestAnimationFrame(() => scrollTo(0, journey.offsetTop + Number(q.get("p")) * (journey.offsetHeight - innerHeight)));
+// ?timer: 창이 숨어 있어 화면 갱신이 멈출 때(점검용) 타이머로 대신 돈다
+const tick = q.has("timer") ? (f) => setTimeout(() => f(performance.now()), 16) : (f) => requestAnimationFrame(f);
+if (q.has("p")) tick(() => scrollTo(0, journey.offsetTop + Number(q.get("p")) * (journey.offsetHeight - innerHeight)));
 
 // ---------- 석상(실제 랜딩 statue.ts 와 같은 처리) ----------
 const SUPPORT = { neck: [0.5, 235 / 1122], palms: [[65 / 1402, 120 / 1122], [1337 / 1402, 120 / 1122]], head: { cx: 0.55, cy: 0.275, rx: 0.105, ry: 0.18 } };
@@ -162,112 +167,184 @@ drawStatue();
 // ---------- 지구(three) ----------
 THREE.ColorManagement.enabled = false;
 const canvas = document.getElementById("globe");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.setPixelRatio(Math.min(1.5, devicePixelRatio || 1));
+const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 const scene = new THREE.Scene();
 const FOV = 30; const cam = new THREE.PerspectiveCamera(FOV, 1, 0.001, 100);
 scene.add(new THREE.AmbientLight(0xffffff, 0.66 * Math.PI));
 const sun = new THREE.DirectionalLight(0xffffff, 0.6 * Math.PI); sun.position.set(-3, 2.2, 4); scene.add(sun);
 const [earthImg, cloudImg] = await Promise.all([loadImage("earth_8192.webp"), loadImage("clouds_4096.webp")]);
-const tex = new THREE.Texture(earthImg); tex.needsUpdate = true; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+const tex = new THREE.Texture(earthImg); tex.needsUpdate = true; tex.anisotropy = maxAniso;
 const cloudTex = new THREE.Texture(cloudImg); cloudTex.needsUpdate = true;
-// 화면 앞 구름: 구름 알파맵(검정 = 맑음)을 흰 구름 + 투명도로 바꿔 쓴다
-{ const c = document.createElement("canvas"); c.width = 2048; c.height = 1024; const g = c.getContext("2d"); g.drawImage(cloudImg, 0, 0, c.width, c.height);
+// 화면 앞 구름: 알파맵(검정 = 맑음)을 흰 구름 + 투명도로 바꾸고, 흐림은 미리 한 번만 굽는다(CSS blur 는 매 프레임 비싸다)
+{ const c = document.createElement("canvas"); c.width = 1600; c.height = 800; const g = c.getContext("2d"); g.filter = "blur(3px)"; g.drawImage(cloudImg, 0, 0, c.width, c.height); g.filter = "none";
   const im = g.getImageData(0, 0, c.width, c.height), d = im.data;
   for (let i = 0; i < d.length; i += 4) { const a = d[i]; d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = Math.min(255, a * 1.15); }
-  g.putImageData(im, 0, 0); const url = c.toDataURL("image/png");
-  document.querySelectorAll(".cloud").forEach((el) => (el.style.backgroundImage = `url(${url})`)); }
+  g.putImageData(im, 0, 0);
+  c.toBlob((b) => { const url = URL.createObjectURL(b); document.querySelectorAll(".cloud").forEach((el) => (el.style.backgroundImage = `url(${url})`)); }, "image/png"); }
 const tilt = new THREE.Group(), spin = new THREE.Group(); tilt.add(spin); scene.add(tilt);
-spin.add(new THREE.Mesh(new THREE.SphereGeometry(1, 160, 160), new THREE.MeshPhongMaterial({ map: tex, shininess: 8, specular: new THREE.Color(0x1a2233) })));
+spin.add(new THREE.Mesh(new THREE.SphereGeometry(1, 96, 96), new THREE.MeshPhongMaterial({ map: tex, shininess: 8, specular: new THREE.Color(0x1a2233) })));
 const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, alphaMap: cloudTex, transparent: true, opacity: 0.9, depthWrite: false });
-const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(1.006, 128, 128), cloudMat); spin.add(cloudMesh);
+const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(1.006, 96, 96), cloudMat); spin.add(cloudMesh);
 const rimMat = new THREE.ShaderMaterial({ uniforms: { c: { value: new THREE.Color(0xbfd8ff) }, o: { value: 1 } }, transparent: true, depthWrite: false,
   vertexShader: "varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
   fragmentShader: "uniform vec3 c; uniform float o; varying vec3 vN; void main(){ float f = pow(1.0 - max(0.0, vN.z), 2.0) * mix(0.12, 1.0, smoothstep(-0.85, 0.05, vN.y)); gl_FragColor = vec4(c, clamp(f, 0.0, 1.0) * o); }" });
-tilt.add(new THREE.Mesh(new THREE.SphereGeometry(1.008, 96, 96), rimMat));
+tilt.add(new THREE.Mesh(new THREE.SphereGeometry(1.008, 64, 64), rimMat));
+// 8K 텍스처를 첫 스크롤 전에 GPU 로 올려 둔다(처음 그릴 때 멈칫하지 않게)
+renderer.initTexture(tex); renderer.initTexture(cloudTex);
 
 // 목표: 광주 · 여수 사이(경도 127.25, 위도 35)
 const TARGET = { lon: 127.25, lat: 35.0 };
 let lon = 127.5, lonAtStart = null;
 const deg = THREE.MathUtils.degToRad;
 
-// ---------- 지도(MapLibre) ----------
-const FINAL = { center: [127.27, 34.96], zoom: 9.15, pitch: 56, bearing: -14 };
-const START = { center: [127.25, 35.0], zoom: 7.4, pitch: 0, bearing: 0 };
-const map = new maplibregl.Map({ container: "map", style: "https://tiles.openfreemap.org/styles/positron", center: START.center, zoom: START.zoom, interactive: false, attributionControl: { compact: true }, maxPitch: 75 });
-map.on("load", () => {
-  map.addSource("dem", { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], tileSize: 256, encoding: "terrarium", maxzoom: 14 });
-  map.setTerrain({ source: "dem", exaggeration: 1.6 });
-  const firstSymbol = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
-  map.addLayer({ id: "relief", type: "hillshade", source: "dem", paint: { "hillshade-shadow-color": "#5b6474", "hillshade-highlight-color": "#ffffff", "hillshade-exaggeration": 0.55, "hillshade-accent-color": "#8a93a3" } }, firstSymbol);
-  try { map.setSky({ "sky-color": "#eef2f8", "horizon-color": "#f7f8fc", "fog-color": "#f7f8fc", "sky-horizon-blend": 0.6, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.4 }); } catch (e) {}
-});
+// ---------- 지도: 미리 구운 장면을 겹친 판 ----------
+// 스크롤 중에 지도 타일을 받지 않는다. 같은 중심에서 확대만 다르게 구운 정사각형 사진들을
+// 바깥(넓고 흐림) → 안쪽(좁고 선명) 순으로 겹쳐 두고, 카메라만 내려가며 기울인다
+const Z0 = 8, MAP_FOV = 36.87, CENTER = [127.27, 34.95], SIDE = 2048;
+const SAT = [4.5, 6, 7.5, 9], LIGHT = [6.5, 7.5, 8.5, 9.5, 10.5];
+const WORLD = 512 * 2 ** Z0;   // 세계 단위 = 확대 8 단계에서의 화면 1px
+const merc = (lo, la) => [((lo + 180) / 360) * WORLD, ((1 - Math.log(Math.tan(Math.PI / 4 + deg(la) / 2)) / Math.PI) / 2) * WORLD];
+const [CX, CY] = merc(...CENTER);
+const toGround = (lo, la) => { const [x, y] = merc(lo, la); return new THREE.Vector3(x - CX, CY - y, 0); };
+const ground = new THREE.Scene(); ground.fog = new THREE.Fog(0xf7f8fc, 1, 2);
+const gcam = new THREE.PerspectiveCamera(MAP_FOV, 1, 1, 1e6);
+// 장면 가장자리를 부드럽게 지워, 안쪽 장면이 바깥 장면에 이음매 없이 녹아든다
+const feather = (() => { const n = 256, c = document.createElement("canvas"); c.width = c.height = n; const g = c.getContext("2d"), im = g.createImageData(n, n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const a = 255 * smooth(0, 0.08, Math.min(x, y, n - 1 - x, n - 1 - y) / (n - 1)), i = (y * n + x) * 4; im.data[i] = im.data[i + 1] = im.data[i + 2] = a; im.data[i + 3] = 255; }
+  g.putImageData(im, 0, 0); return new THREE.CanvasTexture(c); })();
+const levels = [];
+[["sat", SAT], ["light", LIGHT]].forEach(([kind, zs], k) => zs.forEach((z, i) => {
+  const s = SIDE * 2 ** (Z0 - z);
+  const mat = new THREE.MeshBasicMaterial({ alphaMap: i === 0 && kind === "sat" ? null : feather, transparent: true, depthTest: false, depthWrite: false });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(s, s), mat); mesh.renderOrder = k * 10 + i; mesh.visible = false; ground.add(mesh);
+  levels.push({ kind, z, mat, mesh, ready: false });
+}));
+// 사진은 메인 스레드 밖에서 풀고(createImageBitmap), GPU 에는 한 프레임에 한 장씩 올린다
+const queue = [];
+levels.forEach((L) => fetch(`baked/${L.kind}-${L.z}.webp`).then((r) => r.blob()).then((b) => createImageBitmap(b, { imageOrientation: "flipY" })).then((bmp) => {
+  const t = new THREE.Texture(bmp); t.flipY = false; t.anisotropy = maxAniso; t.needsUpdate = true; L.mat.map = t; L.mat.needsUpdate = true; queue.push(L);
+}));
+let groundReady = false, lastUpload = 0;
+
 // 지도 위 표시(예시 값). 점끼리 선으로 잇지 않는다 — 이동 경로처럼 읽히지 않게
 const PINS = [
-  { at: [126.877, 35.176], kind: "측정소", text: "운암동 · 2024-03 · PM2.5 41" },
-  { at: [126.793, 35.139], kind: "측정소", text: "송정동 · 연평균 15.8" },
-  { at: [126.925, 35.140], kind: "측정소", text: "서석동 · 2023-12 · 28" },
-  { at: [126.902, 35.118], kind: "보도자료", text: "광주시, 미세먼지 계절관리제 시행", doc: true },
+  { at: [126.877, 35.176] }, { at: [126.793, 35.139] }, { at: [126.925, 35.140] }, { at: [126.842, 35.205] }, { at: [126.902, 35.118], doc: true },
+  { at: [126.880, 35.155], kind: "측정소 13곳", text: "광주 PM2.5 연평균 17.0 → 14.7" },
+  { at: [127.742, 34.712], doc: true }, { at: [127.612, 34.835], doc: true }, { at: [127.690, 34.745], doc: true },
   { at: [127.662, 34.762], kind: "통계", text: "여수시 청년 순유출 2,262명 · 2025", stat: true },
-  { at: [127.742, 34.712], kind: "보도자료", text: "돌산 청년 창업 공간 개소", doc: true },
-  { at: [127.612, 34.835], kind: "기존 대응", text: "여수시 청년정책 시행계획", doc: true },
 ];
-const pins = PINS.map((p) => { const el = document.createElement("div"); el.className = "pin";
-  el.innerHTML = `<div class="bubble"><b class="${p.doc ? "doc" : ""}">${p.kind}</b>${p.text}</div><div class="dot ${p.doc ? "doc" : p.stat ? "stat" : ""}"></div>`;
-  new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat(p.at).addTo(map); return el; });
+const PLACES = [["나주", 126.711, 35.016], ["화순", 126.986, 35.064], ["담양", 126.988, 35.321], ["보성", 127.080, 34.771], ["순천", 127.487, 34.951], ["광양", 127.696, 34.940], ["고흥", 127.285, 34.611], ["남해", 127.892, 34.837], ["하동", 127.751, 35.067], ["구례", 127.463, 35.202], ["장흥", 126.907, 34.682], ["진주", 128.108, 35.180]];
+const marksEl = document.getElementById("marks");
+const mark = (cls, html, at) => { const wrap = document.createElement("div"), el = document.createElement("div"); el.className = cls; el.innerHTML = html; wrap.appendChild(el); marksEl.appendChild(wrap); return { wrap, el, pos: toGround(...at) }; };
+const pins = PINS.map((p) => mark("pin", (p.text ? `<div class="bubble"><b>${p.kind}</b>${p.text}</div>` : "") + `<div class="dot ${p.doc ? "doc" : p.stat ? "stat" : ""} ${p.text ? "" : "small"}"></div>`, p.at));
+const places = PLACES.map(([n, lo, la]) => mark("place", n, [lo, la]));
+
+// 카메라: MapLibre 와 같은 셈(중심 · 확대 · 기울기 · 방위)으로 판 위에 놓는다
+const START = { center: [127.25, 35.0], zoom: 4.4 }, FINAL = { center: [127.27, 34.95], zoom: 9.4, pitch: 52, bearing: 30 };
+const fwd = new THREE.Vector3(), aim = new THREE.Vector3();
+function placeGround(v, h) {
+  const dist = (h / 2) / Math.tan(deg(MAP_FOV / 2)) * 2 ** (Z0 - v.zoom);
+  aim.copy(toGround(...v.center));
+  const b = deg(v.bearing), t = deg(v.pitch);
+  fwd.set(Math.sin(b), Math.cos(b), 0);
+  gcam.position.set(aim.x - fwd.x * dist * Math.sin(t), aim.y - fwd.y * dist * Math.sin(t), dist * Math.cos(t));
+  gcam.up.copy(fwd); gcam.lookAt(aim);
+  gcam.near = dist * 0.05; gcam.far = dist * 20; gcam.updateProjectionMatrix();
+  ground.fog.near = dist * 1.35; ground.fog.far = dist * 3.6;   // 멀리 갈수록 배경색으로 옅어진다
+}
+const v3 = new THREE.Vector3();
+function project(m, w, h, anchor) {
+  v3.copy(m.pos).project(gcam);
+  const on = v3.z < 1 && Math.abs(v3.x) < 1.15 && Math.abs(v3.y) < 1.15;
+  put(m.wrap, "visibility", on ? "visible" : "hidden");
+  if (on) put(m.wrap, "transform", `translate3d(${(((v3.x + 1) / 2) * w).toFixed(1)}px, ${(((1 - v3.y) / 2) * h).toFixed(1)}px, 0) ${anchor}`);
+}
 
 // ---------- 스크롤 → 장면 ----------
-const hero = document.getElementById("hero"), clouds = document.getElementById("clouds"), cloudEls = [...clouds.children], fog = document.getElementById("fog"),
-  mapEl = document.getElementById("map"), caption = document.getElementById("caption"), title2 = document.getElementById("title2"), hud = document.getElementById("hud");
-function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+const hero = document.getElementById("hero"), clouds = document.getElementById("clouds"), cloudEls = [...clouds.children], fog = document.getElementById("fog"), wait = document.getElementById("wait"),
+  caption = document.getElementById("caption"), title2 = document.getElementById("title2"), attrib = document.getElementById("attrib"), hud = document.getElementById("hud");
+let dirty = true;
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = gcam.aspect = w / h; cam.updateProjectionMatrix(); dirty = true; }
 addEventListener("resize", () => { resize(); drawStatue(); }); resize();
+// 값이 바뀔 때만 DOM 에 쓴다
+const written = new WeakMap();
+const put = (el, prop, v) => { let c = written.get(el); if (!c) written.set(el, (c = {})); if (c[prop] === v) return; c[prop] = v; el.style[prop] = v; };
 
-let last = performance.now();
+let last = performance.now(), lastP = -1, pS = null, fpsT = 0, fpsN = 0, fps = 0;
 function frameLoop(now) {
+  tick(frameLoop);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  const p = reduced ? (progress() > 0.05 ? 1 : 0) : progress();
-  hud.textContent = `p ${p.toFixed(2)}`;
+  fpsN++; fpsT += dt; if (fpsT > 0.5) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
+  // 미리 구운 지도 사진을 한 장씩 GPU 에 올린다(한꺼번에 올리면 그 순간 멈칫한다)
+  if (queue.length && now - lastUpload > 120) { const L = queue.shift(); renderer.initTexture(L.mat.map); L.ready = true; lastUpload = now;
+    if (levels.every((l) => l.ready)) { groundReady = true; renderer.compile(ground, gcam); dirty = true; } }
+  // 휠 한 칸씩 끊겨 들어오는 스크롤을 부드럽게 따라간다(새로고침 · 큰 점프는 바로 맞춘다)
+  const target = reduced ? (progress() > 0.05 ? 1 : 0) : progress();
+  if (pS === null || Math.abs(target - pS) > 0.2) pS = target; else pS += (target - pS) * (1 - Math.exp(-dt * 9));
+  if (Math.abs(target - pS) < 0.00005) pS = target;
+  const p = pS;
+  const heroIdle = p < 0.04;            // 히어로에서는 지구가 계속 돈다
+  const waiting = !groundReady && p > 0.4;
+  const changed = p !== lastP || dirty || waiting;
+  lastP = p; dirty = false;
+  hud.textContent = `p ${p.toFixed(3)} · ${fps} fps · 지도 ${levels.filter((l) => l.ready).length}/${levels.length}`;
+  if (!changed && !heroIdle) return;
   const w = innerWidth, h = innerHeight;
-  // 히어로 지구의 화면 위치 · 크기(설계 프레임 값)
   const u = Math.min(w / 1684, h / 934), fx = (w - 1684 * u) / 2, fy = (h - 934 * u) / 2;
   const cx = fx + 845 * u, cy = fy + 288 * u, R = 225 * u;
   // 1) 히어로가 사라진다
   const fade = ease(span(p, 0.03, 0.15));
-  hero.style.opacity = 1 - fade; hero.style.transform = `translate(-50%, calc(-50% + ${fade * 14}vh))`;
+  put(hero, "opacity", String(1 - fade)); put(hero, "transform", `translate(-50%, calc(-50% + ${(fade * 14).toFixed(2)}vh))`); put(hero, "visibility", fade >= 1 ? "hidden" : "visible");
   // 2) 지구가 광주 · 여수를 향해 돌고 다가간다
-  const turn = ease(span(p, 0.04, 0.26));
-  if (turn === 0) { lon -= 6 * dt; lonAtStart = null; } else { if (lonAtStart === null) lonAtStart = lon; }
-  let tlon = lon; if (lonAtStart !== null) { let d = ((TARGET.lon - lonAtStart) % 360 + 540) % 360 - 180; tlon = lonAtStart + d * turn; }
-  spin.rotation.y = deg(-(tlon + 90));
-  tilt.rotation.x = deg(lerp(24, TARGET.lat, turn)); tilt.rotation.z = deg(lerp(-10, 0, turn));
-  cloudMesh.rotation.y = deg(now * 0.0004 * (1 - turn));
-  const zoom = span(p, 0.12, 0.6), zEase = zoom * zoom * (3 - 2 * zoom);
-  const d0 = Math.sqrt(1 + ((h / 2) / (R * Math.tan(deg(FOV / 2)))) ** 2);
-  const alt = (d0 - 1) * Math.pow(0.03 / (d0 - 1), zEase);
-  cam.position.set(0, 0, 1 + alt); cam.lookAt(0, 0, 0);
-  const off = 1 - ease(span(p, 0.1, 0.32));
-  cam.setViewOffset(w, h, (w / 2 - cx) * off, (h / 2 - cy) * off, w, h);
-  cloudMat.opacity = 0.9 * (1 - span(p, 0.4, 0.5));
-  rimMat.uniforms.o.value = 1 - span(p, 0.2, 0.35);
-  renderer.render(scene, cam);
+  const SWAP = 0.42;   // 안개가 화면을 다 덮은 순간 지구 → 지도로 바꾼다
+  if (p < SWAP) {
+    const turn = ease(span(p, 0.04, 0.26));
+    if (turn === 0) { lon -= 6 * dt; lonAtStart = null; } else if (lonAtStart === null) lonAtStart = lon;
+    let tlon = lon; if (lonAtStart !== null) { const d = ((TARGET.lon - lonAtStart) % 360 + 540) % 360 - 180; tlon = lonAtStart + d * turn; }
+    spin.rotation.y = deg(-(tlon + 90));
+    tilt.rotation.x = deg(lerp(24, TARGET.lat, turn)); tilt.rotation.z = deg(lerp(-10, 0, turn));
+    cloudMesh.rotation.y = deg(now * 0.0004 * (1 - turn));
+    const zoom = span(p, 0.12, 0.4), zEase = zoom * zoom * (3 - 2 * zoom);
+    const d0 = Math.sqrt(1 + ((h / 2) / (R * Math.tan(deg(FOV / 2)))) ** 2);
+    const alt = (d0 - 1) * Math.pow(0.75 / (d0 - 1), zEase);   // 동아시아가 화면에 찰 때까지만: 그보다 가까우면 8K 지구 사진이 뭉개진다
+    cam.position.set(0, 0, 1 + alt); cam.lookAt(0, 0, 0);
+    const off = 1 - ease(span(p, 0.1, 0.32));
+    cam.setViewOffset(w, h, (w / 2 - cx) * off, (h / 2 - cy) * off, w, h);
+    rimMat.uniforms.o.value = 1 - span(p, 0.2, 0.35);
+    renderer.render(scene, cam);
+  }
   // 3) 구름을 뚫고 지나간다(앞에 겹친 구름 + 하얀 안개가 지구 → 지도 전환을 가린다)
-  const cin = span(p, 0.42, 0.55), cout = span(p, 0.56, 0.68);
-  clouds.style.opacity = ease(cin) * (1 - ease(cout));
-  cloudEls.forEach((c, i) => { const s = 1 + (span(p, 0.42, 0.68) * (1.6 + i * 0.7)); c.style.transform = `scale(${s}) rotate(${(i - 1) * 6 * span(p, 0.42, 0.68)}deg)`; });
-  fog.style.opacity = 0.96 * ease(span(p, 0.5, 0.56)) * (1 - ease(span(p, 0.58, 0.66)));
-  canvas.style.opacity = 1 - span(p, 0.555, 0.57);
-  mapEl.style.opacity = span(p, 0.555, 0.57);
-  // 4) 지도가 기울며 내려앉는다
-  const m = ease(span(p, 0.56, 0.84));
-  map.jumpTo({ center: [lerp(START.center[0], FINAL.center[0], m), lerp(START.center[1], FINAL.center[1], m)], zoom: lerp(START.zoom, FINAL.zoom, m), pitch: lerp(START.pitch, FINAL.pitch, m), bearing: lerp(START.bearing, FINAL.bearing, m) });
-  // 5) 근거가 하나씩 지도 위에 놓인다
-  pins.forEach((el, i) => { const t = ease(span(p, 0.72 + i * 0.025, 0.76 + i * 0.025)); el.style.opacity = t; el.style.transform = `translateY(${(1 - t) * 12}px)`; });
-  const ct = ease(span(p, 0.88, 0.93)); caption.style.opacity = ct; caption.style.transform = `translate(-50%, ${(1 - ct) * 12}px)`;
-  const tt = ease(span(p, 0.62, 0.7)) * (1 - ease(span(p, 0.74, 0.8))); title2.style.opacity = tt;
-  requestAnimationFrame(frameLoop);
+  const cin = span(p, 0.3, 0.4), cout = span(p, 0.44, 0.56), cop = ease(cin) * (1 - ease(cout));
+  put(clouds, "opacity", cop.toFixed(3)); put(clouds, "visibility", cop > 0.001 ? "visible" : "hidden");
+  if (cop > 0.001) cloudEls.forEach((c, i) => { const k = span(p, 0.3, 0.56), s = 1 + k * (1.6 + i * 0.7); put(c, "transform", `scale(${s.toFixed(3)}) rotate(${((i - 1) * 6 * k).toFixed(2)}deg)`); });
+  const hold = waiting && p > SWAP - 0.01;
+  put(fog, "opacity", (hold ? 0.98 : 0.98 * ease(span(p, 0.36, 0.415)) * (1 - ease(span(p, 0.43, 0.52)))).toFixed(3));
+  put(wait, "opacity", hold ? "1" : "0");
+  // 4) 위성 사진으로 내려오다 밝은 지도로 바뀌며 기울어 내려앉는다
+  //    확대 · 기울기 · 방위를 한 곡선으로 이어, 중간에 멈칫하는 구간이 없다
+  const onGround = p >= SWAP && groundReady;
+  put(marksEl, "visibility", onGround ? "visible" : "hidden");
+  put(attrib, "opacity", onGround ? String(0.8 * span(p, 0.5, 0.56)) : "0");
+  if (onGround) {
+    const finZoom = FINAL.zoom + Math.log2(Math.min(1, w / 1440));
+    const zk = ease(span(p, 0.41, 0.84));
+    const view = { center: [lerp(START.center[0], FINAL.center[0], zk), lerp(START.center[1], FINAL.center[1], zk)], zoom: lerp(START.zoom, finZoom, zk),
+      pitch: FINAL.pitch * ease(span(p, 0.52, 0.84)), bearing: FINAL.bearing * ease(span(p, 0.5, 0.84)) };
+    placeGround(view, h);
+    const light = smooth(7.3, 8.3, view.zoom);   // 밝은 지도가 화면을 다 덮을 만큼 내려온 뒤에 바꾼다
+    levels.forEach((L) => { const o = L.kind === "light" ? light : 1; L.mat.opacity = o; L.mesh.visible = o > 0.002 && !(L.kind === "sat" && light >= 1); });
+    renderer.render(ground, gcam);
+    places.forEach((m) => { put(m.el, "opacity", light.toFixed(3)); if (light > 0) project(m, w, h, "translate(-50%, -50%)"); });
+    // 5) 근거가 하나씩 지도 위에 놓인다
+    pins.forEach((m, i) => { const t = ease(span(p, 0.72 + i * 0.015, 0.76 + i * 0.015)); put(m.el, "opacity", t.toFixed(3)); put(m.el, "transform", `translateY(${((1 - t) * 12).toFixed(1)}px)`); if (t > 0) project(m, w, h, "translate(-50%, -100%)"); });
+  } else if (p >= SWAP) renderer.clear();
+  const ct = ease(span(p, 0.88, 0.93)); put(caption, "opacity", ct.toFixed(3)); put(caption, "transform", `translate(-50%, ${((1 - ct) * 12).toFixed(1)}px)`);
+  const tt = ease(span(p, 0.9, 0.95)); put(title2, "opacity", tt.toFixed(3));
 }
-requestAnimationFrame(frameLoop);
+tick(frameLoop);
 </script>
 </body>
 </html>
