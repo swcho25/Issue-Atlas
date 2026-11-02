@@ -144,6 +144,85 @@ public class QuestionRepository {
                 .list();
     }
 
+    /**
+     * 지표의 질문 기간 월 관측으로 정한 필수 근거(통계) 상태: available 한 달이 있으면 available, 없고 미공표 달이 있으면 not_published,
+     * 관측 행이 없으면 not_collected.
+     */
+    public String statisticsStatus(
+            String indicatorId, String placeId, LocalDate start, LocalDate end) {
+        return jdbc.sql(
+                        """
+                SELECT CASE WHEN bool_or(o.status = 'available') THEN 'available'
+                            WHEN bool_or(o.status = 'not_published') THEN 'not_published'
+                            ELSE 'not_collected' END
+                FROM observation o
+                WHERE o.what_type = 'indicator' AND o.when_unit = 'M' AND o.what_id = :indicator
+                  AND o.place_id = :place
+                  AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+                  AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+                """)
+                .param("indicator", indicatorId)
+                .param("place", placeId)
+                .param("start", start)
+                .param("end", end)
+                .query(String.class)
+                .single();
+    }
+
+    /**
+     * 통계 근거 한 건(지역 · 기간 · 지표의 월 관측 묶음)을 만들고 ID 를 준다. 같은 묶음은 같은 ID 라 다시 실행해도 한 행. 출처 등급이 없는 출처면 만들지
+     * 않는다(기존 대응 근거와 같은 규칙).
+     */
+    public Optional<String> statisticsEvidence(
+            String specId,
+            String indicatorId,
+            String label,
+            String placeId,
+            LocalDate start,
+            LocalDate end) {
+        String id =
+                "ev_stat_"
+                        + jdbc.sql("SELECT md5(?)")
+                                .param(
+                                        String.join(
+                                                "|",
+                                                specId,
+                                                indicatorId,
+                                                placeId,
+                                                start + "",
+                                                end + ""))
+                                .query(String.class)
+                                .single();
+        jdbc.sql(
+                        """
+                INSERT INTO evidence (evidence_id, kind, title, source_id, source_grade, license_type,
+                    storage_scope, observed_at, period_start, period_end, collected_at, locator)
+                SELECT :id, 'statistics', s.name || ' · ' || :label, s.source_id, s.reliability_grade,
+                       s.license_type, s.storage_scope,
+                       (SELECT max(o.when_end) FROM observation o
+                        WHERE o.what_id = :indicator AND o.place_id = :place AND o.status = 'available'
+                          AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+                          AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'),
+                       :start, :end, now(),
+                       jsonb_build_object('spec_id', :spec, 'indicator_id', :indicator, 'place_id', :place)
+                FROM source_spec sp JOIN source s USING (source_id)
+                WHERE sp.spec_id = :spec AND s.reliability_grade IS NOT NULL
+                ON CONFLICT (evidence_id) DO NOTHING
+                """)
+                .param("id", id)
+                .param("label", label)
+                .param("indicator", indicatorId)
+                .param("place", placeId)
+                .param("start", start)
+                .param("end", end)
+                .param("spec", specId)
+                .update();
+        return jdbc.sql("SELECT evidence_id FROM evidence WHERE evidence_id = ?")
+                .param(id)
+                .query(String.class)
+                .optional();
+    }
+
     public List<EvidenceRef> evidence(List<String> evidenceIds) {
         if (evidenceIds.isEmpty()) {
             return List.of();

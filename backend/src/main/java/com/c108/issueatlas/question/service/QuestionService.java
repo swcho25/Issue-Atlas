@@ -196,7 +196,12 @@ public class QuestionService {
                                 r ->
                                         r.cardId().equals(card.cardId())
                                                 && r.cardVersion() == card.cardVersion())
-                        .collect(Collectors.toMap(CardEvidenceRow::kind, Function.identity()));
+                        .collect(
+                                Collectors.toMap(
+                                        CardEvidenceRow::kind,
+                                        Function.identity(),
+                                        (a, b) -> a,
+                                        HashMap::new));
 
         // -136 기존 대응 후보 → 근거. 출처 등급이 없는 후보는 근거로 쓰지 않고 보류로 센다
         questions.createResponseEvidence(card.cardId(), placeId, start, end);
@@ -217,6 +222,23 @@ public class QuestionService {
                 questions.evidence(responses.keySet().stream().sorted().toList()));
 
         CardRule rule = rules.get(card.cardId());
+        if (rule != null && "not_collected".equals(statusOf(status, "statistics"))) {
+            // ponytail: 카드 확보 상태를 쓰는 곳(P3/P4)이 아직 없어 실행 때 규칙 주 지표의 관측 행으로 정한다.
+            // 등록된 available · not_published 는 그 값이 먼저다(등록 없음 = not_collected)
+            String observed = questions.statisticsStatus(rule.indicatorId(), placeId, start, end);
+            status.put(
+                    "statistics",
+                    new CardEvidenceRow(
+                            card.cardId(),
+                            card.name(),
+                            null,
+                            null,
+                            card.cardVersion(),
+                            card.taxonomyVersion(),
+                            "statistics",
+                            observed,
+                            0));
+        }
         boolean statistics = "available".equals(statusOf(status, "statistics"));
         CardRule.Judgment judgment =
                 statistics && rule != null
@@ -351,6 +373,10 @@ public class QuestionService {
     static String claimText(CardRule.Judgment j, Question q, List<String> failed) {
         String subject =
                 q.placeName() + "의 " + period(q.periodStart(), q.periodEnd()) + " " + j.indicator();
+        if (j.label() != null && !List.of("not_comparable", "insufficient").contains(j.claim())) {
+            // 카드 결과 이름 그대로(값의 증감과 판정 방향이 다를 수 있다 — C1 은 순이동이 더 음수일 때 increasing)
+            return subject + " 판정: " + j.label() + ".";
+        }
         return switch (j.claim()) {
             case "observed" -> subject + " 관측값이 있습니다.";
             case "increasing" -> subject + " 값이 늘었습니다.";

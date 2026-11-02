@@ -33,8 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 질문 저장 → 실행 → 결과 조회(S15P31C108-133). Flyway 실제 적용 + 보안 + SQL + C2 스키마. 각 테스트 자료는 롤백한다.
  *
- * <p>판정 규칙(P5)은 아직 저장소에 없다. 아래 {@link Rules} 는 <b>테스트 전용 가짜 규칙</b>이며 연결 지점이 규칙 결과를 그대로 싣는지만 본다. 실제
- * 판정이 아니다.
+ * <p>C1 은 실제 규칙({@code C1NetMigrationRule})으로 판정한다. A3 는 규칙이 아직 없어 아래 {@link Rules} 의 <b>테스트 전용 가짜
+ * 규칙</b>으로 연결 지점이 규칙 결과를 그대로 싣는지만 본다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -51,12 +51,6 @@ class QuestionApiTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class Rules {
-        @Bean
-        CardRule c1() {
-            return rule(
-                    "C1", "increasing", "calculated", "청년(15–39세) 순유출", new Condition(true, null));
-        }
-
         @Bean
         CardRule a3() {
             return rule(
@@ -79,6 +73,10 @@ class QuestionApiTest {
                     return card.toLowerCase() + "-test-0.1";
                 }
 
+                public String indicatorId() {
+                    return "air_pm25";
+                }
+
                 public String warrant() {
                     return "테스트 보증";
                 }
@@ -93,6 +91,7 @@ class QuestionApiTest {
                             claim,
                             level,
                             indicator,
+                            null,
                             new Comparability(ok, ok, boundary, ok),
                             List.of("ev_test_stat"),
                             List.of(),
@@ -242,9 +241,11 @@ class QuestionApiTest {
                 {"place_id": "kr-12130", "card_id": "C1", "period_start": "2025-01-01",
                  "period_end": "2025-04-01", "raw_text": null}
                 """;
-        // 통계 확보 상태가 없어 blocked 지만 그림 자료(series)는 보낸다. 연령 계(000)는 카드 지표가 아니라 빠진다
+        // 12개월이 모두 있는 해가 없어 근거 부족이지만 그림 자료(series)는 보낸다. 연령 계(000)는 카드 지표가 아니라 빠진다
         argument(runId(ask(body)))
-                .andExpect(jsonPath("$.run_status").value("blocked"))
+                .andExpect(jsonPath("$.evidence_table[0].status").value("available"))
+                .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(jsonPath("$.comparability.same_period_length.passed").value(false))
                 .andExpect(jsonPath("$.series.length()").value(2))
                 .andExpect(
                         jsonPath("$.series[0].indicator_id")
@@ -300,7 +301,7 @@ class QuestionApiTest {
     void c1WithoutStatisticsIsBlockedAndInsufficient() throws Exception {
         argument(runId(ask(body("C1", "2023-01-01", "2026-01-01"))))
                 .andExpect(jsonPath("$.run_status").value("blocked"))
-                .andExpect(jsonPath("$.formula_version").value("c1-test-0.1"))
+                .andExpect(jsonPath("$.formula_version").value("c1-net-migration-0.1"))
                 .andExpect(jsonPath("$.claim.value").value("insufficient"))
                 .andExpect(jsonPath("$.claim.text").value("필수 근거(통계)가 없어 판단하지 않습니다."))
                 .andExpect(jsonPath("$.evidence_table[0].status").value("not_collected"))
@@ -326,17 +327,15 @@ class QuestionApiTest {
     }
 
     @Test
-    void c1RuleResultAndGradedExistingResponsesAreLinked() throws Exception {
-        statistics("C1");
+    void gradedExistingResponsesAreLinked() throws Exception {
+        statistics("A3");
         lofin("A");
-        String runId = runId(ask(body("C1", "2023-01-01", "2026-01-01")));
+        String runId = runId(ask(body("A3", "2023-01-01", "2026-01-01")));
 
-        String evidence = "ev_" + "1".repeat(64);
+        String evidence = "ev_a" + "1".repeat(63);
         argument(runId)
                 .andExpect(jsonPath("$.run_status").value("partial"))
-                .andExpect(jsonPath("$.claim.value").value("increasing"))
-                .andExpect(
-                        jsonPath("$.claim.text").value("여수시의 2023–2025 청년(15–39세) 순유출 값이 늘었습니다."))
+                .andExpect(jsonPath("$.claim.value").value("not_comparable"))
                 .andExpect(jsonPath("$.data.statistics[0].evidence_id").value("ev_test_stat"))
                 // 2021 세출은 기간 밖이라 잇지 않는다
                 .andExpect(jsonPath("$.data.existing_responses.length()").value(1))
@@ -358,8 +357,58 @@ class QuestionApiTest {
                                         + "|"
                                         + r.get("response_id"))
                 .containsExactly(
-                        "existing_responses|" + evidence + "|" + RESP,
+                        "existing_responses|" + evidence + "|resp:a" + "1".repeat(63),
                         "statistics|ev_test_stat|null");
+    }
+
+    /** 여수 SP01 19–39세 순이동 2023–2025(로컬 실데이터, C2 예시와 같은 값). 해 합계 −1537 · −1935 · −2262. */
+    private static final int[] YEOSU = {
+        -152, -198, -161, -136, -153, -159, -83, -163, -88, -89, -73, -82,
+        -82, -122, -140, -129, -205, -75, -268, -273, -159, -124, -161, -197,
+        -236, -356, -174, -124, -154, -131, -212, -237, -227, -125, -109, -177
+    };
+
+    @Test
+    void c1RuleJudgesYearSumsOfMonthlyNetMigration() throws Exception {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < YEOSU.length; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        String body =
+                """
+                {"place_id": "kr-12130", "card_id": "C1", "period_start": "2023-01-01",
+                 "period_end": "2026-01-01", "raw_text": null}
+                """;
+        String runId = runId(ask(body));
+        argument(runId)
+                .andExpect(jsonPath("$.run_status").value("partial"))
+                .andExpect(jsonPath("$.formula_version").value("c1-net-migration-0.1"))
+                .andExpect(jsonPath("$.evidence_table[0].status").value("available"))
+                .andExpect(jsonPath("$.claim.value").value("increasing"))
+                .andExpect(jsonPath("$.claim.level").value("calculated"))
+                .andExpect(
+                        jsonPath("$.claim.text")
+                                .value("여수시의 2023–2025 청년(19–39세) 순이동 판정: 청년 순유출 확대."))
+                .andExpect(jsonPath("$.comparability.same_period_length.passed").value(true))
+                .andExpect(jsonPath("$.data.statistics.length()").value(1))
+                .andExpect(jsonPath("$.data.statistics[0].source_grade").value("A"))
+                .andExpect(jsonPath("$.data.statistics[0].period_start").value("2023-01-01"))
+                .andExpect(
+                        jsonPath("$.warrant.text")
+                                .value(org.hamcrest.Matchers.startsWith("청년 순유출이")))
+                .andExpect(jsonPath("$.ceiling.items[0]").value("떠난 이유"))
+                .andExpect(jsonPath("$.series[0].values.length()").value(36));
+        // 같은 지역 · 기간 · 지표는 같은 근거 한 행(다시 실행해도 늘지 않는다)
+        runId(ask(body));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM evidence WHERE kind = 'statistics'"
+                                        + " AND evidence_id LIKE 'ev_stat_%'",
+                                Integer.class))
+                .isEqualTo(1);
     }
 
     @Test
