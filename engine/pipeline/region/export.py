@@ -1,12 +1,12 @@
-"""P3 를 아직 돌리지 않은 기사 → 주피터 추출기 입력 JSONL (contracts/p3 「입력」).
+"""P3 를 아직 돌리지 않은 기사 → 추출기(region-extract) 입력 JSONL (contracts/p3 「입력」).
 
 python -m pipeline.region.export --db --output <파일>   → 건수 JSON (stdout)
 
 - 정제된 기사(normalized_ready, document.kind = news) 중 본문이 있고 news_event 에 없는 것만
 - 같은 news_id 가 둘이면 최근 정제 하나 (장부에 같은 기사가 두 번 들어온 경우)
-- 한 줄 = {id, title, lead(본문), published_at, source}.
-  주피터 추출기 · p3-region-lab 입력과 같은 칸
-- 출력에 기사 본문이 들어간다: 파일은 600 으로 만들고, 주피터로 옮긴 뒤 지운다
+- 한 줄 = {id, title, lead(본문), published_at, source} — region-extract 입력.
+  p3-region-lab 입력과 같은 칸
+- 출력에 기사 본문이 들어간다: 파일은 600 으로 만들고, 추출이 끝나면 지운다
 """
 
 import argparse
