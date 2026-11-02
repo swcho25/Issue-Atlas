@@ -10,11 +10,15 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.ErrorResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
@@ -104,6 +108,48 @@ class CardDesignContractTest {
                     .isEqualTo("approver");
         }
         jdbc.execute("SET CONSTRAINTS ALL IMMEDIATE");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"unknown_rule", "unknown_when", "missing_threshold"})
+    void adminApprovalRejectsRuleThatCannotRun(String defect) throws Exception {
+        String cardId = defect.equals("missing_threshold") ? "A3" : "C1";
+        String indicatorId = cardId.equals("A3") ? "air_pm25" : "population_net_migration_19_39";
+        Indicator indicator = service.indicator(indicatorId);
+        ObjectNode rule = (ObjectNode) indicator.rule().deepCopy();
+        switch (defect) {
+            case "unknown_rule" -> rule.put("rule_id", "unsupported_rule");
+            case "unknown_when" ->
+                    ((ObjectNode) rule.path("outcomes").get(1)).put("when", "unknown");
+            case "missing_threshold" -> ((ObjectNode) rule.path("thresholds")).remove("worse");
+            default -> throw new IllegalArgumentException(defect);
+        }
+        service.saveIndicator(
+                indicatorId,
+                new SaveIndicator(
+                        indicator.ruleVersion(),
+                        indicator.definition(),
+                        rule,
+                        null,
+                        null,
+                        null,
+                        cardId,
+                        false),
+                "writer");
+        service.saveDraft(cardId, new SaveDraft(0L, read(cardId + ".json")), "writer");
+        org.assertj.core.api.Assertions.assertThatExceptionOfType(ErrorResponseException.class)
+                .isThrownBy(
+                        () -> service.approve(cardId, new Approve(1L, "실행 불가 규칙 거절"), "approver"))
+                .satisfies(
+                        error ->
+                                assertThat(error.getStatusCode())
+                                        .isEqualTo(HttpStatus.BAD_REQUEST));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM card_version WHERE card_id = ?",
+                                Integer.class,
+                                cardId))
+                .isZero();
     }
 
     @Test

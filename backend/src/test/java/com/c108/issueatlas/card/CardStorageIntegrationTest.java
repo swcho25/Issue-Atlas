@@ -318,6 +318,15 @@ class CardStorageIntegrationTest {
 
     @Test
     void adminApiSavesChecksApprovesAndReturnsVersionedSnapshot() throws Exception {
+        ObjectNode executable =
+                (ObjectNode)
+                        json.readTree(Files.readString(Path.of("../contracts/cards/C1.json")))
+                                .path("rule")
+                                .deepCopy();
+        executable.put("indicator_id", "ind_101_15_39");
+        jdbc.update(
+                "UPDATE indicator SET rule = ?::jsonb WHERE indicator_id = 'ind_101_15_39'",
+                executable.toString());
         ObjectNode body = json.createObjectNode().put("expected_revision", 1);
         body.set("spec", spec);
         mvc.perform(
@@ -347,6 +356,23 @@ class CardStorageIntegrationTest {
         mvc.perform(get("/v1/admin/cards/C1/versions/2").with(user("reader").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.spec.indicator_snapshots.length()").value(3));
+    }
+
+    @Test
+    void adminApiRejectsUnsupportedRuleBeforeApproval() throws Exception {
+        mvc.perform(
+                        post("/v1/admin/cards/C1/approvals")
+                                .with(user("approver").roles("ADMIN"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"expected_revision\":1,\"reason\":\"검토 완료\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM card_version WHERE card_id = 'C1'",
+                                Integer.class))
+                .isZero();
     }
 
     @Test
