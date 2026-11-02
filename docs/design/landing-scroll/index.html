@@ -330,22 +330,6 @@ const written = new WeakMap();
 const put = (el, prop, v) => { let c = written.get(el); if (!c) written.set(el, (c = {})); if (c[prop] === v) return; c[prop] = v; el.style[prop] = v; };
 
 let last = performance.now(), lastP = -1, pS = null, fpsT = 0, fpsN = 0, fps = 0;
-// 한 번 굴리면 끝까지: 히어로에서 아래로 굴리면 광주 도착까지 저절로 재생되고, 끝에서 위로 굴리면 처음으로 되감긴다.
-// 재생 중의 휠은 먹고, 페이지 스크롤 위치는 장면을 따라 움직인다(?dur=2.6 으로 재생 시간 조절, 초)
-const PLAY_MS = (Number(q.get("dur")) || 2.6) * 1000;
-let play = null, quietUntil = 0;
-const journeyRange = () => journey.offsetHeight - innerHeight;
-const startPlay = (to, now) => { if (!play || play.to !== to) play = { from: pS, to, t0: now, ms: PLAY_MS * Math.abs(to - pS) }; };
-addEventListener("wheel", (e) => {
-  if (reduced || pS === null || !e.deltaY) return;
-  const top = journey.offsetTop, range = journeyRange();
-  if (scrollY < top - 1 || scrollY > top + range + 1) return;            // 장면 구간 밖은 원래대로 스크롤
-  const now = performance.now(), down = e.deltaY > 0;
-  if (play || now < quietUntil) { e.preventDefault(); return; }         // 재생 중 · 막 끝난 직후(트랙패드 관성)는 무시
-  if ((down && pS >= 1) || (!down && pS <= 0)) return;                    // 장면 끝에서는 다음 섹션으로
-  e.preventDefault();
-  startPlay(down ? 1 : 0, now);
-}, { passive: false });
 function frameLoop(now) {
   tick(frameLoop);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -353,17 +337,10 @@ function frameLoop(now) {
   // 미리 구운 지도 사진을 한 장씩 GPU 에 올린다(한꺼번에 올리면 그 순간 멈칫한다)
   if (queue.length && now - lastUpload > 120) { const L = queue.shift(); gRenderer.initTexture(L.mat.map); L.ready = true; lastUpload = now;
     if (levels.every((l) => l.ready)) { groundReady = true; gRenderer.compile(ground, gcam); dirty = true; } }
-  // 장면 진행: 재생 중이면 시간에 따라(처음 · 끝은 부드럽게), 아니면 그 자리에 멈춰 있다.
-  // 스크롤바 · 키보드 · 터치로 움직여도 그 방향으로 한 번에 재생한다. 처음 불러올 때(?p= 포함)만 스크롤 위치에 바로 맞춘다
-  const sp = reduced ? (progress() > 0.05 ? 1 : 0) : progress();
-  if (pS === null || reduced || (now < 1500 && !play)) pS = sp;
-  else if (play) {
-    if (!groundReady && pS > 0.3) play.t0 += dt * 1000;   // 지도 사진이 아직 안 올라왔으면 그 자리에서 기다린다
-    const t = clamp((now - play.t0) / Math.max(1, play.ms));
-    pS = lerp(play.from, play.to, ease(t));
-    if (t >= 1) { play = null; quietUntil = now + 450; }
-    if (pS !== lastP) scrollTo(0, journey.offsetTop + pS * journeyRange());   // 페이지가 장면보다 앞서 가지 않게
-  } else if (Math.abs(sp - pS) > 0.01 && scrollY <= journey.offsetTop + journeyRange() + 1) startPlay(sp > pS ? 1 : 0, now);
+  // 휠 한 칸씩 끊겨 들어오는 스크롤을 부드럽게 따라간다(새로고침 · 큰 점프는 바로 맞춘다)
+  const target = reduced ? (progress() > 0.05 ? 1 : 0) : progress();
+  if (pS === null || Math.abs(target - pS) > 0.2) pS = target; else pS += (target - pS) * (1 - Math.exp(-dt * 9));
+  if (Math.abs(target - pS) < 0.00005) pS = target;
   const p = pS;
   const heroIdle = p < 0.04;            // 히어로에서는 지구가 계속 돈다
   const waiting = !groundReady && p > 0.3;
