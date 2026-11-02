@@ -12,6 +12,7 @@
 - 2026-11-02: !94의 C1·A3 규칙 및 seed를 기준으로 실행기 작업을 시작한다.
 - 2026-11-02: 순수 실행기 2개와 경계 사례 테스트 추가. `pnpm check`의 backend format·test, engine lint·test, harness 통과. 검증 보강 뒤 대상 단위 테스트 재통과.
 - 2026-11-02: `pnpm backend:build` 통과.
+- 2026-11-02: 최신 `origin/develop` 병합 충돌 없음. 병합 상태에서 `pnpm check:all` 통과, MR !99 검토 준비.
 
 ## 다음 할 일 / 범위 밖
 - 승인본 조회·월→연 집계·QuestionService 연결·관리자 승인 전 검사는 별도 구현 단위에서 처리한다.
