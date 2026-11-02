@@ -50,7 +50,7 @@ class ObservationViewTest {
 
     @Test
     void SP10_연령_코드는_나이마다_지표_ID_이고_모르는_코드는_빠진다() {
-        for (String age : List.of("000", "1005", "1201", "1305", "1605", "9999")) {
+        for (String age : List.of("000", "1005", "1201", "1305", "1501", "1605", "9999")) {
             stat("SP10", "population_registered", "46130", "{\"C2\": \"" + age + "\"}");
         }
         assertThat(
@@ -61,6 +61,7 @@ class ObservationViewTest {
                         "population_registered_19",
                         "population_registered_20",
                         "population_registered_29",
+                        "population_registered_30",
                         "population_registered_39",
                         "population_registered_total");
         // 옛 KOSIS 코드 46130 도 시군구 kr-12130 으로
