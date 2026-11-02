@@ -1,5 +1,5 @@
 {
-  "version": "0.1",
+  "version": "0.2",
   "decided_at": "2026-11-01",
   "indicators": [
     {
@@ -11,7 +11,8 @@
       "roll": { "method": "sum", "min_months": 12 },
       "value_direction": "음수 = 순유출, 양수 = 순유입. 전입 − 전출",
       "source": { "spec_id": "SP01", "c1_indicator_id": "population_net_migration", "locator": { "C3": "905" } },
-      "cards": ["C1"]
+      "cards": ["C1"],
+      "added_by_card": "C1"
     },
     {
       "id": "population_net_migration_19_34",
@@ -44,7 +45,8 @@
       "roll": { "method": "sum", "min_months": 12 },
       "value_direction": "이동자 수. 방향 판정에 쓰지 않는다",
       "source": { "spec_id": "SP02", "c1_indicator_id": "population_movers", "locator": {} },
-      "cards": ["C1"]
+      "cards": ["C1"],
+      "added_by_card": "C1"
     },
     {
       "id": "population_registered_total",
@@ -55,7 +57,8 @@
       "roll": { "method": "end_of_period" },
       "value_direction": "인구 수",
       "source": { "spec_id": "SP10", "c1_indicator_id": "population_registered", "locator": { "C2": "000" } },
-      "cards": ["C1", "A3"]
+      "cards": ["C1", "A3"],
+      "added_by_card": "C1"
     },
     {
       "id": "air_pm25",
@@ -66,7 +69,8 @@
       "roll": { "method": "mean", "min_months": 9 },
       "value_direction": "클수록 나쁨. 월평균은 유효 시간 75% 이상인 달만 있다(air_monthly.value_mean)",
       "source": { "spec_id": "airkorea_final_yeosu_gwangju", "c1_indicator_id": "air_pm25", "locator": {} },
-      "cards": ["A3"]
+      "cards": ["A3"],
+      "added_by_card": "A3"
     }
   ]
 }

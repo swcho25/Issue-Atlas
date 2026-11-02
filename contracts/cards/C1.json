@@ -43,11 +43,12 @@
     "statistics": [{ "spec_id": "SP01", "indicator_id": "population_net_migration_19_39" }],
     "documents": [
       { "spec_id": "bigkinds_news_yeosu_gwangju", "note": "빅카인즈 기사. 본문은 요약 · 분류 뒤 폐기(2026-11-01 결정)" },
-      { "spec_id": null, "note": "여수시 · 광주광역시 보도자료(press_release). 원본 장부 · P2 연결 전(S15P31C108-172)" }
+      { "spec_id": "press_release_yeosu", "note": "여수시 보도자료 목록(제목 · 등록일 · 링크). 공공누리 4유형이라 본문 없음" },
+      { "spec_id": "press_release_gwangju", "note": "광주광역시 보도자료 목록. 공공누리 표시 없음(협의 전)이라 본문 없음. 발행 기관 지역은 시 전체(29)" }
     ],
     "existing_responses": [
       { "spec_id": "youthcenter_policy_yeosu_gwangju", "note": "온통청년 청년정책 → existing_response" },
-      { "spec_id": null, "note": "지방재정365 세출(local_expenditure) → existing_response. 수집 명세 등록 전(S15P31C108-173)" }
+      { "spec_id": "lofin_expenditure_gwangju_yeosu", "note": "지방재정365 세출 최신본(local_expenditure_latest) → existing_response" }
     ],
     "denominators": [{ "spec_id": "SP10", "indicator_id": "population_registered_total", "note": "맥락 표시만. 19–39세 분모는 SP10 연령 코드 매핑 뒤" }]
   },
