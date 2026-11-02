@@ -11,7 +11,7 @@
     "period_end": "2026-01-01"
   },
   "card_version": 1,
-  "formula_version": "a3-pm25-0.1",
+  "formula_version": "a3-pm25-diff-0.2",
   "taxonomy_version": "tax-2026.10",
   "run_status": "partial",
   "created_at": "2026-10-28T10:10:00+09:00",

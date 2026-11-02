@@ -79,6 +79,16 @@ sudo issueatlas-collect refine --source press_gwangju
 # 기존 대응 후보(existing_response): 정제된 온통청년 정책 · 세출에서 카드 C1 · A3 후보를 뽑는다. 키 없음 · 결과 파일 없음.
 # youth-policy · lofin 적재와 refine 뒤에 돌린다. 같은 판을 다시 돌리면 0건 추가
 sudo issueatlas-collect responses
+# P3 지역 · 시간 (contracts/p3). 키 없음. ① 아직 P3 를 안 돌린 기사(본문 있음) → output 의 articles.jsonl.
+# 본문이 들어 있으니 주피터로 옮긴 뒤 지운다
+sudo issueatlas-collect region-export
+# ② 주피터 추출 결과를 input 에 넣고 적재. 기본은 시험 실행(건수만, 되돌림) → 확인 뒤 --apply
+sudo issueatlas-collect region-load --extract /inputs/extract.jsonl --mentions /inputs/mentions.jsonl
+sudo issueatlas-collect region-load --extract /inputs/extract.jsonl --mentions /inputs/mentions.jsonl --apply
+# ③ 요약이 제대로 생긴 기사의 본문 지우기(기사 계약 v0.3). 시험 실행으로 건수를 본 뒤 --apply, 이어서 refine(전체)
+sudo issueatlas-collect region-load --delete-bodies
+sudo issueatlas-collect region-load --delete-bodies --apply
+sudo issueatlas-collect refine
 
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
 sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023
