@@ -15,7 +15,7 @@
   .stage { position: sticky; top: 0; height: 100vh; overflow: hidden;
     background: linear-gradient(180deg, #fefefe 0%, #fcfdfe 13%, #f7f8fc 30%, #f6f8fd 56%, #f7f8fc 70%, #f6f8fb 100%); }
   .layer { position: absolute; inset: 0; }
-  #globe { width: 100%; height: 100%; display: block; }
+  #globe { width: 100%; height: 100%; display: block; touch-action: pan-y; }   /* 세로로 밀면 스크롤, 가로로 끌면 지구가 돈다 */
 
   /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치) */
   .frame { --fw: 1684; --fh: 934; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
@@ -199,8 +199,40 @@ renderer.initTexture(tex); renderer.initTexture(cloudTex);
 
 // 목표: 광주 한가운데
 const TARGET = { lon: 126.85, lat: 35.16 };
-let lon = 127.5, lonAtStart = null;
 const deg = THREE.MathUtils.degToRad;
+
+// 끌어서 돌리기: 실제 랜딩 globe.ts 의 spinner 와 같은 셈. 오른쪽으로 끌면 동쪽으로 돌고,
+// 놓으면 관성으로 미끄러지다 2초 뒤부터 자전으로 돌아간다. 스크롤을 시작하면 그 자세에서 광주로 돌아간다
+const globeSpin = { lon: 127.5, lat: 0, vLon: 0, vLat: 0, idle: 9, drag: false, px: 0, py: 0, from: null };
+const LAT_RANGE = [-40, 50], AUTO_SPIN = reduced ? 0 : 6;
+const heroUnit = () => Math.min(innerWidth / 1684, innerHeight / 934);
+const onGlobe = (e) => { const u = heroUnit(), cx = (innerWidth - 1684 * u) / 2 + 845 * u, cy = (innerHeight - 934 * u) / 2 + 288 * u;
+  return progress() < 0.03 && Math.hypot(e.clientX - cx, e.clientY - cy) < 225 * u; };
+canvas.addEventListener("pointerdown", (e) => {
+  if (!onGlobe(e)) return;
+  Object.assign(globeSpin, { drag: true, px: e.clientX, py: e.clientY, vLon: 0, vLat: 0 });
+  canvas.setPointerCapture(e.pointerId); canvas.style.cursor = "grabbing";
+});
+canvas.addEventListener("pointermove", (e) => {
+  const s = globeSpin;
+  if (!s.drag) { canvas.style.cursor = onGlobe(e) ? "grab" : ""; return; }
+  const k = 0.3 / ((2.2 * 225 * heroUnit()) / 600), dx = e.clientX - s.px, dy = e.clientY - s.py;
+  s.px = e.clientX; s.py = e.clientY;
+  s.lon -= dx * k; s.vLon = -dx * k * 60;
+  s.lat = clamp(s.lat + dy * k, ...LAT_RANGE); s.vLat = dy * k * 60;
+  s.idle = 0;
+});
+const release = (e) => { if (!globeSpin.drag) return; globeSpin.drag = false; canvas.style.cursor = "grab"; if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId); };
+canvas.addEventListener("pointerup", release);
+canvas.addEventListener("pointercancel", release);
+function stepSpin(dt) {
+  const s = globeSpin;
+  if (s.drag) return;
+  s.idle += dt;
+  s.lon += s.vLon * dt; s.vLon *= Math.pow(0.04, dt);
+  s.lat = clamp(s.lat + s.vLat * dt, ...LAT_RANGE); s.vLat *= Math.pow(0.04, dt);
+  s.lon -= AUTO_SPIN * clamp((s.idle - 2) / 1.5) * dt;
+}
 
 // ---------- 지도: 미리 구운 장면을 겹친 판 ----------
 // 스크롤 중에 지도 타일을 받지 않는다. 같은 중심에서 확대만 다르게 구운 정사각형 사진들을
@@ -311,11 +343,17 @@ function frameLoop(now) {
   // 2) 지구가 광주를 향해 돌고 다가간다
   const SWAP = 0.42;   // 안개가 화면을 다 덮은 순간 지구 → 지도로 바꾼다
   if (p < SWAP) {
-    const turn = ease(span(p, 0.04, 0.26));
-    if (turn === 0) { lon -= 6 * dt; lonAtStart = null; } else if (lonAtStart === null) lonAtStart = lon;
-    let tlon = lon; if (lonAtStart !== null) { const d = ((TARGET.lon - lonAtStart) % 360 + 540) % 360 - 180; tlon = lonAtStart + d * turn; }
+    const turn = ease(span(p, 0.04, 0.26)), s = globeSpin;
+    let tlon = s.lon, tlat = 24 + s.lat;
+    if (turn === 0) { s.from = null; stepSpin(dt); tlon = s.lon; tlat = 24 + s.lat; }
+    else {
+      // 스크롤을 시작한 순간의 자세(끌어서 돌려 둔 자세 그대로)에서 가장 짧은 쪽으로 광주를 향해 돈다
+      if (!s.from) { s.from = { lon: s.lon, lat: s.lat }; s.vLon = s.vLat = 0; s.drag = false; canvas.style.cursor = ""; }
+      const d = (((TARGET.lon - s.from.lon) % 360) + 540) % 360 - 180;
+      tlon = s.from.lon + d * turn; tlat = lerp(24 + s.from.lat, TARGET.lat, turn);
+    }
     spin.rotation.y = deg(-(tlon + 90));
-    tilt.rotation.x = deg(lerp(24, TARGET.lat, turn)); tilt.rotation.z = deg(lerp(-10, 0, turn));
+    tilt.rotation.x = deg(tlat); tilt.rotation.z = deg(lerp(-10, 0, turn));
     cloudMesh.rotation.y = deg(now * 0.0004 * (1 - turn));
     const zoom = span(p, 0.12, 0.4), zEase = zoom * zoom * (3 - 2 * zoom);
     const d0 = Math.sqrt(1 + ((h / 2) / (R * Math.tan(deg(FOV / 2)))) ** 2);
