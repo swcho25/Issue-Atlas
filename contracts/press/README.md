@@ -1,7 +1,7 @@
-# 보도자료 목록 v0.2 — C1 문서(`kind = press_release`)
+# 보도자료 목록 v0.3 — C1 문서(`kind = press_release`)
 
 지자체 보도자료 게시판의 **목록**을 받아 C1 문서 레코드로 원본 장부(`raw_record` · `job_run`)에 둔다. P2 정제를 거쳐 `normalized_ready` 로 나간다.
-만드는 곳: `python -m pipeline.collect.press --site yeosu|gwangju --db` (`engine/pipeline/collect/press.py`).
+만드는 곳: `python -m pipeline.collect.press --site yeosu|gwangju --db` (`engine/pipeline/collect/press.py`). 광주광역시는 지금 `--from-table` 로 옛 표에서 옮긴다(아래 「옛 표에서 옮기기」).
 계약 변경은 받는 쪽 박준우(P2) · 정우현(P3) 리뷰가 필요하다.
 
 ## 왜 목록만인가
@@ -16,6 +16,7 @@
 ## 수집 방법
 
 - robots.txt 를 먼저 읽고 막혔으면 멈춘다(401 · 403 · 5xx 도 막힌 것으로 본다). 2026-10-28 기준 두 곳 모두 게시판 허용
+- 광주광역시 누리집은 **2026-11-02 부터 자동 요청을 400 「Request Blocked」로 막는다**(개발 서버 · 개인 PC 모두, 브라우저로는 열림). 수집기는 `PRESS_NETWORK_ERROR` 로 끝난다. 브라우저인 척 우회하지 않는다
 - 같은 사이트 요청 사이 간격 = robots.txt `Crawl-Delay`(여수시 30초)와 2초 중 큰 값. 동시 요청 없음. User-Agent `IssueAtlasBot/0.1 (SSAFY C108 Issue Atlas)`
 - 한 쪽에 100건씩 읽는다
   - 여수시: 서버가 기간으로 거르지 않는다. 최신 글부터 읽다가 시작일보다 오래된 글이 나온 쪽에서 멈춘다(2023–2025 는 약 100쪽 · 50분)
@@ -57,9 +58,19 @@ C1 레코드(`raw_record.c1_record`)에서 기사와 다른 칸
 
 **`press_release` 표(V0010)** 는 이제 채우지 않는다. 개발 서버에서 새 경로로 다시 받은 것을 확인한 뒤 지운다.
 
+### 옛 표에서 옮기기 (`--from-table`)
+
+`python -m pipeline.collect.press --site gwangju --db --from-table` 은 게시판 대신 옛 `press_release` 표에서 그 게시판 · 기간의 행을 읽어 위와 같은 C1 문서 레코드로 원본 장부에 넣는다.
+
+- 옛 표의 칸은 press-0.1.0 이 목록에서 읽은 그대로라 원본 지문(`content_hash`) · `dedup_key` 가 게시판에서 다시 받았을 때와 같다. 나중에 누리집이 열려 다시 받으면 `duplicates` 로 잡힌다
+- `collected_at` 은 옛 행의 수집 시각(광주광역시 2026-10-30) 그대로, `collector_version` 은 옮긴 수집기(`press-0.2.0`)
+- `job_run.stats.imported_from = "press_release"` 로 게시판에서 받은 실행과 구분한다. 옮길 행이 없으면 `PRESS_NO_ROWS`
+- 광주광역시 게시판은 2026-06-30 에 멈춰 2023–2025 목록은 더 바뀌지 않는다
+
 ## 열린 문제
 
-- `press_release` 표(V0010) 지우기 — 개발 서버 재수집 확인 뒤
+- `press_release` 표(V0010) 지우기 — 개발 서버에서 여수시(재수집) · 광주광역시(옛 표에서 옮기기) 건수 확인 뒤
+- 광주광역시 누리집 자동 요청 차단 — 풀리면 다시 받아 확인, 계속되면 담당자 문의
 - 광주광역시 본문 이용은 누리집 담당자 협의가 필요하다. 2026-07 이후 글(통합특별시 임시 누리집)은 범위 밖
 - 광산구 등 자치구 보도자료는 범위 밖
 
@@ -69,3 +80,4 @@ C1 레코드(`raw_record.c1_record`)에서 기사와 다른 칸
 | --- | --- | --- |
 | v0.1 | 2026-10-28 | 초안: `press_release`(V0010), 여수시 · 광주광역시 목록, 실패 코드, 다시 돌리기 규칙 |
 | v0.2 | 2026-11-02 | C1 문서 레코드로 원본 장부 · `job_run` 에 저장하고 P2 정제를 거친다. 게시판마다 출처 · 수집 명세. 정정된 글은 새 판, 최신본만 `normalized_ready`. 수집기 `press-0.2.0`, `--output` 은 C1 레코드 JSONL. `press_release` 표는 더 채우지 않는다 (S15P31C108-172) |
+| v0.3 | 2026-11-02 | 광주광역시 누리집 자동 요청 차단(400). `--from-table` 로 옛 표 행을 같은 원본 지문 · 그때 수집 시각으로 원본 장부에 옮긴다, `job_run.stats.imported_from` (S15P31C108-187) |

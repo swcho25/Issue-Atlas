@@ -4,6 +4,9 @@ python -m pipeline.collect.press --site yeosu|gwangju [--start 2023-01-01 --end 
     → 보도자료마다 C1 레코드 JSONL (stdout), 건수 JSON (stderr)
 python -m pipeline.collect.press --site yeosu|gwangju --db
     → 원본 장부(raw_record · job_run)에 쪽마다 저장, 건수 JSON (stdout). P2 정제가 이어 받는다
+python -m pipeline.collect.press --site gwangju --db --from-table
+    → 게시판 대신 옛 보도자료 표(press_release)의 목록을 같은 방식으로 원본 장부에 옮긴다.
+    광주 누리집이 2026-11-02 부터 자동 요청을 막아(400) 10/30 에 받은 목록이 유일한 사본이다
 --output <파일>: JSONL 을 그 파일에 쓴다 (--db 와 함께면 저장한 레코드의 사본).
     서버 실행기(deploy/collector)가 실행마다 지정한다
 
@@ -244,6 +247,39 @@ def collect_pages(
     raise PressError("PRESS_TOO_MANY_PAGES")
 
 
+def table_pages(conn, site_name: str, start: date, end: date):
+    """옛 보도자료 표(press_release, V0010) → collect_pages 와 같은 쪽 묶음.
+
+    누리집이 자동 요청을 막았을 때(광주, 2026-11-02 부터 400) press-0.1.0 이 받아 둔 목록을 옮긴다.
+    보이는 칸이 같아 원본 지문은 다시 수집했을 때와 같고, 수집 시각은 그때 그대로 둔다.
+    """
+    rows = conn.execute(
+        "SELECT press_id, site, category, department, title, published_on, url, collected_at"
+        " FROM press_release WHERE site = %s AND published_on BETWEEN %s AND %s"
+        " ORDER BY published_on DESC, press_id",
+        (site_name, start, end),
+    ).fetchall()
+    if not rows:
+        raise PressError("PRESS_NO_ROWS")
+    listings = [
+        {
+            "press_id": press_id,
+            "site": site,
+            "category": category,
+            "department": department,
+            "title": title,
+            "published_on": published_on.isoformat(),
+            "url": url,
+            "collected_at": collected_at.astimezone(UTC)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+        }
+        for press_id, site, category, department, title, published_on, url, collected_at in rows
+    ]
+    for i in range(0, len(listings), PAGE_SIZE):
+        yield listings[i : i + PAGE_SIZE]
+
+
 def _robots_url(url: str) -> str:
     parts = urlsplit(url)
     return f"{parts.scheme}://{parts.netloc}/robots.txt"
@@ -342,14 +378,15 @@ def c1_pages(pages, run_id: str):
         yield [to_c1(listing, run_id) for listing in listings]
 
 
-def store_pages(conn, query: PressQuery, pages, run_id: str) -> dict:
+def store_pages(conn, query: PressQuery, pages, run_id: str, **extra) -> dict:
     """autocommit 연결. 쪽마다 원본 장부에 저장하고, 실행 이력(job_run)에 결과를 남긴다.
 
     같은 글을 그대로 다시 받으면 원본이 같아(content_hash) 새 행이 생기지 않는다.
+    extra 는 실행 이력 stats 에 그대로 붙는다(예: imported_from).
     """
     store = PostgresStore(conn)
     store.start(query, run_id, _utc_now())
-    stats = {"pages": 0, "seen": 0, "inserted": 0, "duplicates": 0} | query.run_params()
+    stats = {"pages": 0, "seen": 0, "inserted": 0, "duplicates": 0} | query.run_params() | extra
     try:
         for pairs in pages:
             saved = store.save([p for p, _ in pairs], [r for _, r in pairs])
@@ -398,26 +435,38 @@ def main(argv=None, connect=connect_from_env, **options) -> int:
     p.add_argument("--start", type=date.fromisoformat, default=date(2023, 1, 1))
     p.add_argument("--end", type=date.fromisoformat, default=date(2025, 12, 31))
     p.add_argument("--db", action="store_true")
+    p.add_argument("--from-table", action="store_true")
     p.add_argument("--output", type=Path)
     args = p.parse_args(argv)
     if args.start > args.end:
         print("PRESS_INVALID_PERIOD", file=sys.stderr)
         return 2
+    if args.from_table and not args.db:
+        print("PRESS_FROM_TABLE_NEEDS_DB", file=sys.stderr)
+        return 2
     run_id = f"press_{args.site}_" + uuid4().hex
-    pages = c1_pages(collect_pages(args.site, args.start, args.end, **options), run_id)
     try:
         # Windows 에서도 \n 만 쓰게 바이트로
         stdout = None if args.db else sys.stdout.buffer
         with args.output.open("wb") if args.output else nullcontext(stdout) as out:
-            if out is not None:
-                pages = _written(pages, out)
-            if args.db:
-                query = PressQuery(args.site, args.start, args.end)
-                with connect() as conn:
-                    result = store_pages(conn, query, pages, run_id)
-                print(json.dumps(result, ensure_ascii=False))
+            if not args.db:
+                pages = c1_pages(collect_pages(args.site, args.start, args.end, **options), run_id)
+                count = sum(map(len, _written(pages, out)))
+                print(json.dumps({"records": count}), file=sys.stderr)
                 return 0
-            print(json.dumps({"records": sum(map(len, pages))}), file=sys.stderr)
+            query = PressQuery(args.site, args.start, args.end)
+            with connect() as conn:
+                if args.from_table:
+                    listings = table_pages(conn, args.site, args.start, args.end)
+                    extra = {"imported_from": "press_release"}
+                else:
+                    listings = collect_pages(args.site, args.start, args.end, **options)
+                    extra = {}
+                pages = c1_pages(listings, run_id)
+                if out is not None:
+                    pages = _written(pages, out)
+                result = store_pages(conn, query, pages, run_id, **extra)
+            print(json.dumps(result, ensure_ascii=False))
             return 0
     except (PressError, CollectionError) as exc:
         print(str(exc), file=sys.stderr)

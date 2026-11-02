@@ -238,6 +238,11 @@ def test_cli_prints_jsonl_without_db(capsysbinary, monkeypatch):
     assert json.loads(err) == {"records": 1}
 
 
+def test_cli_from_table_needs_db(capsys):
+    assert main(["--site", "gwangju", "--from-table"]) == 2
+    assert capsys.readouterr().err.strip() == "PRESS_FROM_TABLE_NEEDS_DB"
+
+
 def test_cli_output_file_replaces_stdout(capsysbinary, monkeypatch, tmp_path):
     monkeypatch.setattr(press, "PAGE_SIZE", 2)
     web = Web({1: (200, yeosu_page(rows_yeosu(3, ["2025-05-01"])))})
