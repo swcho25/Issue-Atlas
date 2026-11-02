@@ -11,6 +11,7 @@ C3 는 이 파일의 키를 그대로 저장한다. 다른 점은 하나: 카드
 | `indicators.json` · `indicators.schema.json` | 지표 사전 — 지표 한 행 = ID · 이름 · 단위 · 주기 · roll · 원천 |
 | `card.schema.json` | 카드 설계도 — 회사 노션 「이슈 카드 표준 개발 양식 v1.1」의 칸(A1–F2)을 코드 키로 |
 | `C1.json` · `A3.json` | 12/1 범위 카드 두 장 |
+| `backend/db/seed/cards-c1-a3.sql` | 위 파일들을 운영 DB 지표 사전 · 카드 승인본(C3)으로 넣는 seed. `node scripts/card-seed.mjs` 가 만든다. 아래 「운영 DB 에 넣기」 |
 
 ## 출처
 
@@ -64,6 +65,19 @@ C3 는 이 파일의 키를 그대로 저장한다. 다른 점은 하나: 카드
 - A3 는 측정소를 고정한다. 측정소가 새로 생기거나 한 해 고장 나면 「측정소별 연평균의 평균」이 공기와 상관없이 움직이기 때문이다. 결과가 0.1 과 달라져 0.2 로 올렸다
 - A3 판정은 월평균 → 연평균만 쓴다. 대기환경기준(연평균 15µg/m³) 같은 기준선은 판정이 아니라 화면 맥락 표시용이다
 
+## 운영 DB 에 넣기
+
+`backend/db/seed/cards-c1-a3.sql` 이 지표 사전 6개와 C1 · A3 초안을 넣고 `approve_card()` 로 승인한다. 기존 legacy v1 다음인 **v2** 가 첫 승인본이다. Flyway 밖이라 개발 · 운영 DB 에 한 번씩 손으로 실행한다.
+
+```bash
+psql "<DB 접속 문자열>" -v ON_ERROR_STOP=1 -c "SET issue_atlas.approver = '<관리자 로그인 이메일>'" -f backend/db/seed/cards-c1-a3.sql
+```
+
+- 승인자(`card_approval.approved_by`)는 관리자 계정의 로그인 이메일이다. 관리자 API 로 승인할 때 남는 값과 같다. 이메일은 저장소에 적지 않고 실행할 때 넣는다. 카드의 `approval`(대표 결정 기록)은 그대로 남는다
+- 전체가 DO 블록 하나라 중간에 실패하면 아무것도 남지 않는다. 다시 실행하면 이미 승인된 카드는 건너뛴다. DB 의 지표가 seed 와 다르면 멈춘다
+- 이 파일들을 바꾸면 `node scripts/card-seed.mjs` 로 seed 를 다시 만든다. 안 그러면 `CardSeedIntegrationTest` 가 실패한다
+- Flyway 에 넣지 않는 이유: C3 계약상 Flyway 는 운영 승인본을 seed 하지 않는다 · 테스트 DB 의 C1 은 legacy 여야 한다 · 관리자 계정은 Flyway 뒤 앱이 켜질 때 만들어진다
+
 ## 정하지 않은 것 (리뷰 때 확인)
 
 - A3 보증 초안은 나쁨 일수를 말하지만 MVP 판정은 PM2.5 연평균만 쓴다(나쁨 일수는 MVP 뒤)
@@ -73,6 +87,6 @@ C3 는 이 파일의 키를 그대로 저장한다. 다른 점은 하나: 카드
 
 ## 변경 이력
 
-- v0.3 (2026-11-02): C1 순유입 전환 조건을 「앞선 해에 음수」로 좁힘(`turned_positive`) · A3 공통 측정소와 `not_comparable` 추가(`a3-pm25-diff-0.2`) · `outcomes[].claim` 에 `not_comparable` 허용 (S15P31C108-159)
+- v0.3 (2026-11-02): C1 순유입 전환 조건을 「앞선 해에 음수」로 좁힘(`turned_positive`) · A3 공통 측정소와 `not_comparable` 추가(`a3-pm25-diff-0.2`) · `outcomes[].claim` 에 `not_comparable` 허용 · 운영 seed (S15P31C108-159)
 - v0.2 (2026-11-02): C3 저장 칸 맞춤 — 지표에 `added_by_card` · `target` · `shape` · `numerator_id` · `denominator_id` · `multiplier` · `base_id` · `cut`(모두 선택), `claim_items` 1–3개, 보도자료 · 세출 근거를 등록된 수집 명세(`press_release_yeosu` · `press_release_gwangju` · `lofin_expenditure_gwangju_yeosu`)로 (S15P31C108-188)
 - v0.1 (2026-11-02): C1 · A3 카드와 지표 6개. 대표 결정 2026-11-01 반영(S15P31C108-171)
