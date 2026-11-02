@@ -253,15 +253,17 @@ frontReady.then(() => loadBitmap("baked/earth-asia.webp", true, "low")).then((im
 });
 
 // 끌어서 돌리기: 실제 랜딩 globe.ts 의 spinner 와 같은 셈. 오른쪽으로 끌면 동쪽으로 돌고,
-// 놓으면 관성으로 미끄러지다 2초 뒤부터 자전으로 돌아간다. 스크롤을 시작하면 그 자세에서 광주로 돌아간다
-const globeSpin = { lon: 127.5, lat: 0, vLon: 0, vLat: 0, idle: 9, drag: false, px: 0, py: 0, from: null };
+// 놓으면 관성으로 미끄러지다 2초 뒤부터 자전으로 돌아간다. 스크롤을 시작하면 그 자세에서 광주로 돌아간다.
+// 손이 가리키는 자세(aim)와 화면에 그리는 자세(lon · lat)를 나눈다: 마우스 신호는 화면 갱신과 박자가 달라
+// (한 프레임에 0개 · 2개씩 들어온다) 그대로 그리면 덜컥인다. 그리는 자세는 매 프레임 aim 을 부드럽게 따라간다
+const globeSpin = { lon: 127.5, lat: 0, aimLon: 127.5, aimLat: 0, vLon: 0, vLat: 0, idle: 9, drag: false, px: 0, py: 0, trail: [], from: null };
 const LAT_RANGE = [-40, 50], AUTO_SPIN = reduced ? 0 : 6;
 const heroUnit = () => Math.min(innerWidth / 1684, innerHeight / 934);
 const onGlobe = (e) => { const u = heroUnit(), cx = (innerWidth - 1684 * u) / 2 + 845 * u, cy = (innerHeight - 934 * u) / 2 + 288 * u;
   return progress() < 0.03 && Math.hypot(e.clientX - cx, e.clientY - cy) < 225 * u; };
 canvas.addEventListener("pointerdown", (e) => {
   if (!onGlobe(e)) return;
-  Object.assign(globeSpin, { drag: true, px: e.clientX, py: e.clientY, vLon: 0, vLat: 0 });
+  Object.assign(globeSpin, { drag: true, px: e.clientX, py: e.clientY, vLon: 0, vLat: 0, trail: [] });
   canvas.setPointerCapture(e.pointerId); canvas.style.cursor = "grabbing";
 });
 canvas.addEventListener("pointermove", (e) => {
@@ -269,20 +271,31 @@ canvas.addEventListener("pointermove", (e) => {
   if (!s.drag) { canvas.style.cursor = onGlobe(e) ? "grab" : ""; return; }
   const k = 0.3 / ((2.2 * 225 * heroUnit()) / 600), dx = e.clientX - s.px, dy = e.clientY - s.py;
   s.px = e.clientX; s.py = e.clientY;
-  s.lon -= dx * k; s.vLon = -dx * k * 60;
-  s.lat = clamp(s.lat + dy * k, ...LAT_RANGE); s.vLat = dy * k * 60;
+  s.aimLon -= dx * k; s.aimLat = clamp(s.aimLat + dy * k, ...LAT_RANGE);
+  s.trail.push([e.timeStamp, s.aimLon, s.aimLat]); while (s.trail.length > 2 && e.timeStamp - s.trail[0][0] > 100) s.trail.shift();
   s.idle = 0;
 });
-const release = (e) => { if (!globeSpin.drag) return; globeSpin.drag = false; canvas.style.cursor = "grab"; if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId); };
+const release = (e) => {
+  const s = globeSpin;
+  if (!s.drag) return;
+  s.drag = false; canvas.style.cursor = "grab";
+  if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  // 놓기 직전 0.1초 동안 실제로 움직인 속도(도/초)로 관성을 준다. 멈췄다 놓으면 관성 없음
+  const a = s.trail[0], b = s.trail[s.trail.length - 1];
+  if (a && b && b !== a && e.timeStamp - b[0] < 60) { const t = (b[0] - a[0]) / 1000; s.vLon = clamp((b[1] - a[1]) / t, -360, 360); s.vLat = clamp((b[2] - a[2]) / t, -180, 180); }
+};
 canvas.addEventListener("pointerup", release);
 canvas.addEventListener("pointercancel", release);
 function stepSpin(dt) {
   const s = globeSpin;
-  if (s.drag) return;
-  s.idle += dt;
-  s.lon += s.vLon * dt; s.vLon *= Math.pow(0.04, dt);
-  s.lat = clamp(s.lat + s.vLat * dt, ...LAT_RANGE); s.vLat *= Math.pow(0.04, dt);
-  s.lon -= AUTO_SPIN * clamp((s.idle - 2) / 1.5) * dt;
+  if (!s.drag) {
+    s.idle += dt;
+    s.aimLon += s.vLon * dt; s.vLon *= Math.pow(0.04, dt);
+    s.aimLat = clamp(s.aimLat + s.vLat * dt, ...LAT_RANGE); s.vLat *= Math.pow(0.04, dt);
+    s.aimLon -= AUTO_SPIN * clamp((s.idle - 2) / 1.5) * dt;
+  }
+  const f = 1 - Math.exp(-dt * 30);   // 약 0.03초 늦게 따라간다 — 손 떨림 · 입력 박자 차이가 사라진다
+  s.lon += (s.aimLon - s.lon) * f; s.lat += (s.aimLat - s.lat) * f;
 }
 
 // ---------- 지도: 미리 구운 장면을 겹친 판 ----------
@@ -377,8 +390,8 @@ function frameLoop(now) {
   tick(frameLoop);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   fpsN++; fpsT += dt; if (fpsT > 0.5) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
-  // 미리 구운 지도 사진을 한 장씩 GPU 에 올린다(한꺼번에 올리면 그 순간 멈칫한다)
-  if (queue.length && now - lastUpload > 120) { const L = queue.shift(); gRenderer.initTexture(L.mat.map); L.ready = true; lastUpload = now;
+  // 미리 구운 지도 사진을 한 장씩 GPU 에 올린다(한꺼번에 올리면 그 순간 멈칫한다). 지구를 끄는 동안엔 미룬다
+  if (queue.length && !globeSpin.drag && now - lastUpload > 150) { const L = queue.shift(); gRenderer.initTexture(L.mat.map); L.ready = true; lastUpload = now;
     if (levels.every((l) => l.ready)) { groundReady = true; gRenderer.compile(ground, gcam); dirty = true; } }
   // 휠 한 칸씩 끊겨 들어오는 스크롤을 부드럽게 따라간다(새로고침 · 큰 점프는 바로 맞춘다)
   const target = reduced ? (progress() > 0.05 ? 1 : 0) : progress();
@@ -389,7 +402,8 @@ function frameLoop(now) {
   const waiting = !groundReady && p > 0.3;
   const changed = p !== lastP || dirty || waiting;
   lastP = p; dirty = false;
-  hud.textContent = `p ${p.toFixed(3)} · ${fps} fps · 지구 ${tilesIn}/${TILES} · 지도 ${levels.filter((l) => l.ready).length}/${levels.length}`;
+  const hudText = `p ${p.toFixed(3)} · ${fps} fps · 지구 ${tilesIn}/${TILES} · 지도 ${levels.filter((l) => l.ready).length}/${levels.length}`;
+  if (hudText !== hud.textContent) hud.textContent = hudText;   // 같은 글자를 매 프레임 다시 쓰지 않는다
   if (!changed && !heroIdle) return;
   const w = innerWidth, h = innerHeight;
   const u = Math.min(w / 1684, h / 934), fx = (w - 1684 * u) / 2, fy = (h - 934 * u) / 2;
@@ -410,7 +424,7 @@ function frameLoop(now) {
     if (turn === 0) { s.from = null; stepSpin(dt); tlon = s.lon; tlat = 24 + s.lat; }
     else {
       // 스크롤을 시작한 순간의 자세(끌어서 돌려 둔 자세 그대로)에서 가장 짧은 쪽으로 광주를 향해 돈다
-      if (!s.from) { s.from = { lon: s.lon, lat: s.lat }; s.vLon = s.vLat = 0; s.drag = false; canvas.style.cursor = ""; }
+      if (!s.from) { s.from = { lon: s.lon, lat: s.lat }; s.aimLon = s.lon; s.aimLat = s.lat; s.vLon = s.vLat = 0; s.drag = false; canvas.style.cursor = ""; }
       const d = (((TARGET.lon - s.from.lon) % 360) + 540) % 360 - 180;
       tlon = s.from.lon + d * turn; tlat = lerp(24 + s.from.lat, TARGET.lat, turn);
     }
