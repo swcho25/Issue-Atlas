@@ -111,7 +111,7 @@ AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지와, 
 | `doc-press-metadata.json` | 보도자료 · 본문 없음 · 추출 전 · 발행 기관 지역 후보만 |
 | `doc-news-region-candidate.json` | 기사 · 시군(광주)까지만 확정, 구는 원천 개체명 후보 |
 | `doc-news-no-event-date.json` | 기사 · 글에 사건 날짜 없음 (`event_period = null`) |
-| `judgment-ready.json` | 성공 — C2 `argument-c1-ready` 와 같은 값 + 가상 15–39세 순이동 |
+| `judgment-ready.json` | 성공 — C2 `argument-c1-ready` 와 같은 값 + 가상 19–39세 순이동 |
 | `judgment-insufficient.json` | 자료 부족 — C2 `argument-c1-insufficient`, 필수 통계 미공표 |
 | `judgment-not-comparable.json` | 비교 불가 — C2 `argument-a3-not-comparable` + 가상 여천동(여수) PM2.5 |
 | `status-done.json` · `status-waiting-input.json` · `status-failed.json` | 처리 상태 |

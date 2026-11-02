@@ -24,7 +24,7 @@ public interface CardRule {
     Judgment judge(String placeId, LocalDate start, LocalDate end, int cardVersion);
 
     /**
-     * claim 은 C2 claim enum, level 은 claim_level. indicator 는 판단 문장에 넣을 지표 이름(예: 청년(15–39세) 순이동).
+     * claim 은 C2 claim enum, level 은 claim_level. indicator 는 판단 문장에 넣을 지표 이름(예: 청년(19–39세) 순이동).
      * increasing · decreasing 이면 comparability 4개가 모두 통과여야 한다.
      */
     record Judgment(
