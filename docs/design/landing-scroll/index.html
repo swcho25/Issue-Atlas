@@ -52,18 +52,19 @@
   /* 숨길 때는 display 로 뺀다: visibility 로 숨기면 글자마다 붙인 visibility: visible 이 이겨서 지구 위에 남는다 */
   .marks { pointer-events: none; overflow: hidden; display: none; }
   .marks > div { position: absolute; left: 0; top: 0; will-change: transform; }
-  .place { font-size: 13px; font-weight: 700; color: #5a6b8c; letter-spacing: .04em; white-space: nowrap; text-shadow: 0 0 2px #fff, 0 0 6px #fff, 0 0 10px #fff; }
-  .place.city { font-size: 17px; font-weight: 800; color: var(--navy); }
-  .place.gu { font-size: 15px; font-weight: 800; color: var(--navy); letter-spacing: .08em; }
+  /* 지도 위 점 · 말풍선 · 지명은 화면 폭에 맞춰 커진다(1440px 기준 → 넓은 화면에서 작아 보이지 않게) */
+  .place { font-size: clamp(14px, 0.9vw, 18px); font-weight: 700; color: #5a6b8c; letter-spacing: .04em; white-space: nowrap; text-shadow: 0 0 2px #fff, 0 0 6px #fff, 0 0 10px #fff; }
+  .place.city { font-size: clamp(19px, 1.25vw, 25px); font-weight: 800; color: var(--navy); }
+  .place.gu { font-size: clamp(17px, 1.1vw, 22px); font-weight: 800; color: var(--navy); letter-spacing: .08em; }
   .pin { display: flex; flex-direction: column; align-items: center; opacity: 0; }
-  .bubble { display: flex; gap: 8px; align-items: center; padding: 8px 14px 8px 12px; margin-bottom: 8px; border-radius: 999px; background: #fff; box-shadow: 0 4px 14px rgb(0 0 0 / .14); white-space: nowrap; font-size: 14px; font-weight: 500; position: relative; }
-  .bubble b { font-size: 12px; font-weight: 700; color: var(--navy); }
+  .bubble { display: flex; gap: .55em; align-items: center; padding: .6em 1.05em .6em .9em; margin-bottom: .6em; border-radius: 999px; background: #fff; box-shadow: 0 4px 14px rgb(0 0 0 / .14); white-space: nowrap; font-size: clamp(15px, 1vw, 20px); font-weight: 500; position: relative; }
+  .bubble b { font-size: .86em; font-weight: 700; color: var(--navy); }
   .bubble::after { content: ""; position: absolute; bottom: -5px; left: 50%; width: 10px; height: 10px; background: #fff; transform: translateX(-50%) rotate(45deg); }
-  .dot { width: 18px; height: 18px; border-radius: 50%; background: var(--navy); border: 3px solid #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .25); }
+  .dot { --d: clamp(24px, 1.6vw, 32px); width: var(--d); height: var(--d); border-radius: 50%; background: var(--navy); border: 4px solid #fff; box-shadow: 0 0 0 5px rgb(255 255 255 / .45), 0 2px 10px rgb(0 0 0 / .28); }
   .dot.doc { background: #fff; border-color: var(--navy); }
-  .dot.stat { width: 24px; height: 24px; background: var(--amber); }
-  .dot.small { width: 12px; height: 12px; border-width: 2px; }
-  .caption { left: 50%; bottom: 6vh; transform: translate(-50%, 12px); padding: 14px 24px; border-radius: 999px; background: rgb(27 29 34 / .88); color: #fff; font-weight: 700; font-size: 16px; opacity: 0; pointer-events: none; white-space: nowrap; }
+  .dot.stat { background: var(--amber); }
+  .dot.small { --d: clamp(17px, 1.15vw, 24px); border-width: 3px; }
+  .caption { left: 50%; bottom: 6vh; transform: translate(-50%, 12px); padding: .85em 1.5em; border-radius: 999px; background: rgb(27 29 34 / .88); color: #fff; font-weight: 700; font-size: clamp(16px, 1.05vw, 20px); opacity: 0; pointer-events: none; white-space: nowrap; }
   .title2 { left: 0; right: 0; top: 0; padding: 9vh 0 10vh; background: linear-gradient(#f7f8fc 0%, rgb(247 248 252 / .92) 55%, rgb(247 248 252 / 0) 100%); text-align: center; opacity: 0; pointer-events: none; }
   .title2 p { margin: 0 0 14px; font-weight: 700; font-size: 18px; color: #8a8f9c; }
   .title2 h2 { margin: 0; font-weight: 800; font-size: clamp(32px, 4vw, 56px); letter-spacing: -0.03em; line-height: 1.28; }
@@ -101,7 +102,7 @@
       <div class="cloud" style="background-position: 50% 30%; background-size: 220% auto"></div>
     </div>
     <div class="fog" id="fog"><span id="wait">지도를 불러오는 중</span></div>
-    <div class="at title2" id="title2"><p>지금 모이는 중</p><h2>광주 다섯 개 구,<br>근거가 지도 위에 쌓이고 있어요</h2></div>
+    <div class="at title2" id="title2"><p>첫 번째 지역 · 광주</p><h2>어느 지역이든,<br>근거는 지도 위에 쌓여요</h2></div>
     <div class="at caption" id="caption">공식 통계 · 보도자료 · 정책 문서가 같은 지도 위에 모여요</div>
     <div class="at attrib" id="attrib">지도 © OpenStreetMap, OpenFreeMap · 지형 Terrain Tiles(AWS)</div>
   </div>
@@ -349,7 +350,11 @@ const PLACES = [
 ];
 const marksEl = document.getElementById("marks");
 const mark = (cls, html, at) => { const wrap = document.createElement("div"), el = document.createElement("div"); el.className = cls; el.innerHTML = html; wrap.appendChild(el); marksEl.appendChild(wrap); return { wrap, el, pos: toGround(...at) }; };
-const pins = PINS.map((p) => mark("pin", (p.text ? `<div class="bubble"><b>${p.kind}</b>${p.text}</div>` : "") + `<div class="dot ${p.doc ? "doc" : p.stat ? "stat" : ""} ${p.text ? "" : "small"}"></div>`, p.at));
+const pins = PINS.map((p) => {
+  const m = mark("pin", (p.text ? `<div class="bubble"><b>${p.kind}</b>${p.text}</div>` : "") + `<div class="dot ${p.doc ? "doc" : p.stat ? "stat" : ""} ${p.text ? "" : "small"}"></div>`, p.at);
+  if (p.text) m.wrap.style.zIndex = 2;   // 말풍선이 달린 점은 다른 점보다 위에(점이 글자를 가리지 않게)
+  return m;
+});
 const places = PLACES.map(([n, lo, la, zin, zout, kind]) => ({ ...mark(`place ${kind || ""}`, n, [lo, la]), zin, zout }));
 
 // 카메라: MapLibre 와 같은 셈(중심 · 확대 · 기울기 · 방위)으로 판 위에 놓는다
