@@ -83,6 +83,8 @@ develop에 병합된 #171 계약([contracts/cards](../cards/README.md), S15P31C1
 
 `approve_card(card_id, actor, expected_draft_revision, reason)`는 다음을 한 트랜잭션에서 처리한다.
 
+관리자 승인 API는 함수를 호출하기 전에 같은 트랜잭션에서 카드 행과 지표 사전을 잠그고 주 지표의 현재 `indicator.rule`을 검사한다. 지원하는 `rule_id`, 조건 이름·순서, 임계값이 맞지 않으면 `400 INVALID_REQUEST`로 승인하지 않는다. SQL 함수를 직접 호출하면 이 Java 검사 경로는 거치지 않으므로 운영 승인은 관리자 API를 사용한다.
+
 1. 카드 행을 잠그고 초안 수정 번호·이미 승인한 초안인지 검사.
 2. 지표 사전 쓰기를 잠시 막고 동일 정의로 완성 검사. 카드 ID와 domain 첫 글자, 지표 의존성 순환·외부 미검증 지표도 검사.
 3. 자기 카드가 추가한 지표를 확정하고 재귀 의존성 전체를 스냅샷.
@@ -115,7 +117,7 @@ develop에 병합된 #171 계약([contracts/cards](../cards/README.md), S15P31C1
 
 운영 지표 사전과 C1·A3 첫 승인본(v2)은 Flyway 밖 `backend/db/seed/cards-c1-a3.sql`을 개발·운영 DB에 한 번씩 손으로 실행해 넣는다(S15P31C108-159). 이 파일은 `node scripts/card-seed.mjs`가 위 #171 설계도로 만들고, `CardDesignContractTest`와 같은 방식(지표 행 · 규칙 그대로, 초안은 저장 API가 빼는 칸만 뺌)으로 넣은 뒤 `approve_card()`를 불러 같은 검사를 거친다. 승인자는 실행할 때 `issue_atlas.approver`로 받은 관리자 로그인 이메일이다. 실행법은 [contracts/cards README](../cards/README.md) 「운영 DB 에 넣기」, 검증은 `CardSeedIntegrationTest`.
 
-질문 실행은 `(card_id, card_version)`의 불변 승인 spec을 읽고 `spec.rule`과 `indicator_snapshots[].definition.roll`을 관측값에 적용한다. `rule_id`별 실행기와 `CardJudge`가 C1 · A3 판정을 맡으며 보증·상한선·주 지표·근거 필수 정책도 승인본에서 읽는다. 승인 전 실행기 검증, 승인 UI, document_card_tag, argument_rebuttal은 후속이다.
+질문 실행은 `(card_id, card_version)`의 불변 승인 spec을 읽고 `spec.rule`과 `indicator_snapshots[].definition.roll`을 관측값에 적용한다. `rule_id`별 실행기와 `CardJudge`가 C1 · A3 판정을 맡으며 보증·상한선·주 지표·근거 필수 정책도 승인본에서 읽는다. 승인 UI, document_card_tag, argument_rebuttal은 후속이다.
 
 검증: CardStorageIntegrationTest(실제 Flyway·JSON·불변성·롤백·권한), CardDesignContractTest(#171 C1 · A3 · 지표 사전 그대로), CardSeedIntegrationTest(운영 seed가 계약과 같은 v2를 만드는지 · 재실행 · 승인자 필수 · 사전 불일치 중단), CardStorageConcurrencyTest(별도 PostGIS의 두 연결), 기존 PlaceCardsIntegrationTest 및 QuestionApiTest. 운영 DB 접속 없이 Testcontainers에서만 실행한다.
 

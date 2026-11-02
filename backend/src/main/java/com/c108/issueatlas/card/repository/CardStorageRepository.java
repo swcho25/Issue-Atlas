@@ -54,6 +54,19 @@ public class CardStorageRepository {
                 .optional();
     }
 
+    /** approve_card()와 같은 순서로 잠가 검증한 규칙이 승인 스냅샷과 같게 한다. */
+    public boolean lockCardForApproval(String id) {
+        return jdbc.sql("SELECT card_id FROM card WHERE card_id = ? FOR UPDATE")
+                .param(id)
+                .query(String.class)
+                .optional()
+                .isPresent();
+    }
+
+    public void lockIndicatorsForApproval() {
+        jdbc.sql("LOCK TABLE indicator IN SHARE ROW EXCLUSIVE MODE").update();
+    }
+
     public int saveDraft(String id, long expected, String spec, String actor) {
         return jdbc.sql(
                         """
