@@ -40,12 +40,7 @@ class NewsEventRegionsTest {
             """;
 
     private static final List<String> GWANGJU_GU =
-            List.of(
-                    "plc_gwangju_donggu",
-                    "plc_gwangju_seogu",
-                    "plc_gwangju_namgu",
-                    "plc_gwangju_bukgu",
-                    "plc_gwangju_gwangsangu");
+            List.of("kr-12210", "kr-12240", "kr-12270", "kr-12300", "kr-12330");
 
     @Autowired JdbcTemplate jdbc;
 
@@ -81,9 +76,9 @@ class NewsEventRegionsTest {
         news("r3-gwangju", SIDO, "광주", null, "[" + region(SIDO, "광주", null) + "]");
         news("r4-nation", "전국", null, null, "[" + region("전국", null, null) + "]");
 
-        assertThat(match("plc_yeosu")).containsExactly("r1-yeosu-suncheon");
-        assertThat(match("plc_gwangju_bukgu")).containsExactly("r2-donggu-bukgu", "r3-gwangju");
-        assertThat(match("plc_gwangju_seogu")).containsExactly("r3-gwangju");
+        assertThat(match("kr-12130")).containsExactly("r1-yeosu-suncheon");
+        assertThat(match("kr-12300")).containsExactly("r2-donggu-bukgu", "r3-gwangju");
+        assertThat(match("kr-12240")).containsExactly("r3-gwangju");
         // 광주(구 없음) 기사는 다섯 구 모두에, 전국 기사는 어디에도 나오지 않는다(시도가 다르다)
         for (String gu : GWANGJU_GU) {
             assertThat(match(gu)).contains("r3-gwangju").doesNotContain("r4-nation");

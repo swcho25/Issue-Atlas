@@ -44,7 +44,7 @@ class PlaceApiTest {
     @Test
     @WithMockUser
     void 시군구를_주면_그_행정동을_C2_예시대로() throws Exception {
-        mvc.perform(get("/v1/places").param("parent_id", "plc_gwangju_donggu"))
+        mvc.perform(get("/v1/places").param("parent_id", "kr-12210"))
                 .andExpect(status().isOk())
                 .andExpect(C2Contract.matches("place-list"))
                 // V0019 동구 행정동 13곳, SGIS 코드 통합 전 · 뒤 두 줄씩

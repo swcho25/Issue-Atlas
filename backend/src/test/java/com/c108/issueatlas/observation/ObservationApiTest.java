@@ -109,7 +109,7 @@ class ObservationApiTest {
     @WithMockUser
     void 시드된_여수_측정소_9곳이_지도_점으로_나온다() throws Exception {
         // 실제 월 값은 없어 모두 not_collected. 점 순서는 측정소 코드 순
-        mvc.perform(observations("plc_yeosu", "A3", "2024-01-01", "2024-02-01"))
+        mvc.perform(observations("kr-12130", "A3", "2024-01-01", "2024-02-01"))
                 .andExpect(status().isOk())
                 .andExpect(C2Contract.matches("observations"))
                 .andExpect(jsonPath("$.summary.station_count").value(9))

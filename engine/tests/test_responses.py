@@ -8,7 +8,7 @@ from tests.test_collect_youth_policy import policy
 HASH = "sha256:" + "a" * 64
 
 
-def candidate(code="12130", place="plc_yeosu", **changes):
+def candidate(code="12130", place="kr-12130", **changes):
     return from_policy(HASH, {"youthcenter": policy("P1", **changes)}, code, place)
 
 
@@ -34,8 +34,8 @@ def test_policies_of_others_in_the_query_region_are_not_candidates():
     for issuer in ("국토교통부", "전남광주통합특별시", "전남광주통합특별시 북구", "남동구", ""):
         assert candidate(sprvsnInstCdNm=issuer) is None
     # 광주 북구 조회에는 북구 정책만
-    gu = candidate("12300", "plc_gwangju_bukgu", sprvsnInstCdNm="전남광주통합특별시 북구")
-    assert gu["place_id"] == "plc_gwangju_bukgu"
+    gu = candidate("12300", "kr-12300", sprvsnInstCdNm="전남광주통합특별시 북구")
+    assert gu["place_id"] == "kr-12300"
     assert candidate("12300", sprvsnInstCdNm="광주광역시 북구청년과") is None
 
 
@@ -58,7 +58,7 @@ def test_missing_source_values_stay_missing():
 
 def test_expenditure_picks_cards_by_attached_keywords_only():
     eid = "sha256:" + "b" * 64
-    youth = from_expenditure(eid, 2024, "46130", "plc_yeosu", "청년 월세 지원")
+    youth = from_expenditure(eid, 2024, "46130", "kr-12130", "청년 월세 지원")
     assert [(c["card_id"], c["selection_reason"]) for c in youth] == [
         ("C1", "세부사업명에 「청년」")
     ]
@@ -69,6 +69,6 @@ def test_expenditure_picks_cards_by_attached_keywords_only():
         "A3"
     ]
     assert from_expenditure(eid, 2024, "29", None, "신재생에너지확대기반조성") == []
-    both = from_expenditure(eid, 2024, "29200", "plc_gwangju_gwangsangu", "청년 대기환경 감시단")
+    both = from_expenditure(eid, 2024, "29200", "kr-12330", "청년 대기환경 감시단")
     assert [c["card_id"] for c in both] == ["C1", "A3"]
     assert len({c["response_id"] for c in both}) == 2
