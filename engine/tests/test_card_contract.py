@@ -161,9 +161,10 @@ def test_c1_follows_decision_2():
         ("fewer_than_min_years", "근거 부족"),
         ("all_negative_abs_increasing", "청년 순유출 확대"),
         ("all_negative_abs_decreasing", "청년 순유출 축소"),
-        ("last_year_positive", "순유입 전환"),
+        ("turned_positive", "순유입 전환"),
         ("otherwise", "불분명"),
     ]
+    assert rule["formula_version"] == "c1-net-migration-0.1"
     assert card["ceiling"] == [
         "떠난 이유",
         "행선지 해석",
@@ -182,10 +183,14 @@ def test_a3_follows_decision_3():
         "min_stations": 1,
     }
     rule = card["rule"]
+    assert rule["formula_version"] == "a3-pm25-diff-0.2"
     assert rule["min_years"] == 3
     assert rule["thresholds"] == {"worse": 3.0, "better": -3.0, "unit": "µg/m³"}
-    assert [(o["when"], o["label"]) for o in rule["outcomes"]] == [
-        ("fewer_than_min_years", "근거 부족"),
+    assert [(o["when"], o["label"], o["claim"]) for o in rule["outcomes"]][:2] == [
+        ("fewer_than_min_years", "근거 부족", "insufficient"),
+        ("no_common_station", "비교 불가", "not_comparable"),
+    ]
+    assert [(o["when"], o["label"]) for o in rule["outcomes"]][2:] == [
         ("diff_at_least_worse", "악화"),
         ("diff_at_most_better", "개선"),
         ("otherwise", "불분명"),

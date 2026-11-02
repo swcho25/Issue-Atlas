@@ -13,8 +13,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
- * C1 청년 유출 · 정착 판정(contracts/cards/C1.json rule, 대표 결정 2026-11-01). 청년(19–39세) 순이동 월 값을 해마다
- * 합하고(12개월이 모두 있는 해만), 완전한 해가 3개 이상이면 위에서부터 처음 맞는 결과를 낸다. 변화 폭 임계는 없다.
+ * C1 청년 유출 · 정착 판정(contracts/cards/C1.json rule, 대표 결정 2026-11-01 · 세부 해석 2026-11-02). 청년(19–39세)
+ * 순이동 월 값을 해마다 합하고(12개월이 모두 있는 해만), 완전한 해가 3개 이상이면 위에서부터 처음 맞는 결과를 낸다. 변화 폭 임계는 없다.
  */
 @Component
 public class C1NetMigrationRule implements CardRule {
@@ -96,7 +96,10 @@ public class C1NetMigrationRule implements CardRule {
         if (negative && narrowing) {
             return new String[] {"decreasing", "청년 순유출 축소"};
         }
-        if (years.get(years.size() - 1).signum() > 0) {
+        // 앞선 해에 음수가 있어야 전환이다. 모두 양수는 전환이 아니라 불분명(-159 세부 해석)
+        boolean earlierOutflow =
+                years.subList(0, years.size() - 1).stream().anyMatch(v -> v.signum() < 0);
+        if (earlierOutflow && years.get(years.size() - 1).signum() > 0) {
             return new String[] {"decreasing", "순유입 전환"};
         }
         return new String[] {"unclear", "불분명"};

@@ -113,9 +113,11 @@ develop에 병합된 #171 계약([contracts/cards](../cards/README.md), S15P31C1
 
 [c1-draft.json](examples/c1-draft.json)은 사용자가 제공한 15–39세 C1 SQL을 변환한 **테스트 fixture**다. `ind_101_15_39`/`ind_102_15_39`/`ind_103_15_39`(연령을 ID 끝에 둠)와 direction_majority 테스트 규칙은 통합 테스트에서만 만든다. Flyway는 운영 지표나 승인본을 seed하지 않는다. #171의 19–39세/최신 규칙과 혼용하지 않는다. #171 설계도 자체(`contracts/cards/C1.json` · `A3.json` · `indicators.json`)는 `CardDesignContractTest`가 그대로 저장 · 검사 · 승인해 본다.
 
+운영 지표 사전과 C1·A3 첫 승인본(v2)은 Flyway 밖 `backend/db/seed/cards-c1-a3.sql`을 개발·운영 DB에 한 번씩 손으로 실행해 넣는다(S15P31C108-159). 이 파일은 `node scripts/card-seed.mjs`가 위 #171 설계도로 만들고, `CardDesignContractTest`와 같은 방식(지표 행 · 규칙 그대로, 초안은 저장 API가 빼는 칸만 뺌)으로 넣은 뒤 `approve_card()`를 불러 같은 검사를 거친다. 승인자는 실행할 때 `issue_atlas.approver`로 받은 관리자 로그인 이메일이다. 실행법은 [contracts/cards README](../cards/README.md) 「운영 DB 에 넣기」, 검증은 `CardSeedIntegrationTest`.
+
 CardRule 소비: 실행의 카드 버전으로 승인 spec을 읽고 spec.rule + indicator_snapshots의 정의/roll을 observation series에 적용한다. 인터페이스 변경과 실제 판정 구현은 P7/P5 후속이며 이번 변경은 CardRule을 수정하지 않는다. 기존 QuestionService의 근거 정책·보증 조립까지 DB 정의를 읽도록 연결하는 작업 역시 소비자 측에서 맞춰야 한다. 승인 UI, document_card_tag, argument_rebuttal은 후속이다.
 
-검증: CardStorageIntegrationTest(실제 Flyway·JSON·불변성·롤백·권한), CardDesignContractTest(#171 C1 · A3 · 지표 사전 그대로), CardStorageConcurrencyTest(별도 PostGIS의 두 연결), 기존 PlaceCardsIntegrationTest 및 QuestionApiTest. 운영 DB 접속 없이 Testcontainers에서만 실행한다.
+검증: CardStorageIntegrationTest(실제 Flyway·JSON·불변성·롤백·권한), CardDesignContractTest(#171 C1 · A3 · 지표 사전 그대로), CardSeedIntegrationTest(운영 seed가 계약과 같은 v2를 만드는지 · 재실행 · 승인자 필수 · 사전 불일치 중단), CardStorageConcurrencyTest(별도 PostGIS의 두 연결), 기존 PlaceCardsIntegrationTest 및 QuestionApiTest. 운영 DB 접속 없이 Testcontainers에서만 실행한다.
 
 ## 변경 이력
 
