@@ -6,8 +6,8 @@
   "claim_template": "{지역}에서 {기간} 청년(15–39세) 순이동이 {판정값}",
   "claim_direction_note": "수치 증감과 순유출 확대·축소는 판정 구현에서 구분한다",
   "claim_items": [
-    {"indicator_id": "ind_101", "role": "main"},
-    {"indicator_id": "ind_102", "role": "related"}
+    {"indicator_id": "ind_101_15_39", "role": "main"},
+    {"indicator_id": "ind_102_15_39", "role": "related"}
   ],
   "comparability": {
     "same_indicator": "같은 지표 ID",
@@ -18,8 +18,8 @@
   "max_claim_level": "calculated",
   "applicability": {"min_complete_years": 3, "place_level": "sigungu", "population": "청년 15–39세"},
   "evidence": {
-    "statistics": [{"spec_id": "SP01", "indicator_id": "ind_101"}],
-    "documents": [{"spec_id": null, "none_reason": "license_blocked", "target": "민원"}],
+    "statistics": [{"spec_id": "SP01", "indicator_id": "ind_101_15_39"}],
+    "documents": [{"spec_id": null, "note": "민원 없음(license_blocked)"}],
     "existing_responses": [{"spec_id": null, "note": "기존 대응 자료 연결 전"}],
     "denominators": [{"spec_id": "SP10", "role": "denominator"}]
   },

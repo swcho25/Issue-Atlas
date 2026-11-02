@@ -47,9 +47,9 @@ class CardStorageIntegrationTest {
                         json.readTree(
                                 Files.readString(
                                         Path.of("../contracts/c3/examples/c1-draft.json")));
-        seedIndicator("ind_101", "value", null, null);
-        seedIndicator("ind_103", "value", null, null);
-        seedIndicator("ind_102", "ratio", "ind_101", "ind_103");
+        seedIndicator("ind_101_15_39", "value", null, null);
+        seedIndicator("ind_103_15_39", "value", null, null);
+        seedIndicator("ind_102_15_39", "ratio", "ind_101_15_39", "ind_103_15_39");
         jdbc.update(
                 "UPDATE card SET draft_spec=?::jsonb,draft_revision=1 WHERE card_id='C1'",
                 spec.toString());
@@ -160,7 +160,7 @@ class CardStorageIntegrationTest {
         approve();
         JsonNode old = snapshot(2);
         jdbc.update(
-                "UPDATE indicator SET definition=jsonb_set(definition,'{label}','\"변경된 분모\"'),rule=jsonb_set(rule,'{thresholds,k}','3') WHERE indicator_id='ind_103'");
+                "UPDATE indicator SET definition=jsonb_set(definition,'{label}','\"변경된 분모\"'),rule=jsonb_set(rule,'{thresholds,k}','3') WHERE indicator_id='ind_103_15_39'");
         jdbc.update(
                 "UPDATE card SET draft_revision=2,draft_spec=jsonb_set(draft_spec,'{keywords}','[\"새 키워드\"]') WHERE card_id='C1'");
         assertThat(
@@ -172,7 +172,7 @@ class CardStorageIntegrationTest {
         assertThat(snapshot(3).path("indicator_snapshots").toString()).contains("변경된 분모");
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT rule_version FROM indicator WHERE indicator_id='ind_103'",
+                                "SELECT rule_version FROM indicator WHERE indicator_id='ind_103_15_39'",
                                 Integer.class))
                 .isEqualTo(2);
         assertThat(service.revisions("C1")).hasSize(2);
@@ -192,15 +192,16 @@ class CardStorageIntegrationTest {
             rejected("UPDATE " + table + " SET version=version WHERE card_id='C1'");
             rejected("DELETE FROM " + table + " WHERE card_id='C1'");
         }
-        rejected("INSERT INTO card_claim_item VALUES ('C1',2,3,'ind_103','related',1)");
+        rejected("INSERT INTO card_claim_item VALUES ('C1',2,3,'ind_103_15_39','related',1)");
         rejected("INSERT INTO card_rebuttal VALUES ('C1',2,'C1-R3',3,'{}')");
         rejected("INSERT INTO card_evidence_bind VALUES ('C1',2,'statistics',2,'SP10','{}')");
         rejected("DELETE FROM card_revision WHERE card_id='C1'");
-        rejected("UPDATE indicator_rule_history SET snapshot='{}' WHERE indicator_id='ind_101'");
+        rejected(
+                "UPDATE indicator_rule_history SET snapshot='{}' WHERE indicator_id='ind_101_15_39'");
         // 현재 포인터를 우회해 바꿔도 이력 기반 봉인은 유지된다.
         jdbc.update(
                 "UPDATE card SET current_version=null,card_version=1,status='legacy' WHERE card_id='C1'");
-        rejected("INSERT INTO card_claim_item VALUES ('C1',2,3,'ind_103','related',1)");
+        rejected("INSERT INTO card_claim_item VALUES ('C1',2,3,'ind_103_15_39','related',1)");
     }
 
     @Test
@@ -228,7 +229,9 @@ class CardStorageIntegrationTest {
                         "comparability",
                         "st_type",
                         "ceiling",
-                        "applicability")) {
+                        "applicability",
+                        "map_mode",
+                        "legend_text")) {
             ObjectNode broken = spec.deepCopy();
             broken.putNull(path);
             assertThat(
@@ -238,6 +241,21 @@ class CardStorageIntegrationTest {
                                     broken.toString()))
                     .isFalse();
         }
+    }
+
+    @Test
+    void ruleMustNameItsOwnIndicatorAndEndWithOtherwise() {
+        rejected(
+                "UPDATE indicator SET rule=jsonb_set(rule,'{indicator_id}','\"ind_103_15_39\"') WHERE indicator_id='ind_101_15_39'");
+        rejected(
+                "UPDATE indicator SET rule=jsonb_set(rule,'{outcomes}','[{\"when\":\"rising\",\"label\":\"증가\",\"claim\":\"increasing\"}]') WHERE indicator_id='ind_101_15_39'");
+        jdbc.update(
+                "UPDATE indicator SET rule=jsonb_set(rule,'{indicator_id}','\"ind_101_15_39\"') WHERE indicator_id='ind_101_15_39'");
+        // target 은 설명용 선택 칸, 지역 단위는 #171 과 같은 네 가지.
+        jdbc.update(
+                "UPDATE indicator SET definition=(definition - 'target') || '{\"place_level\":\"sido\"}' WHERE indicator_id='ind_103_15_39'");
+        rejected(
+                "UPDATE indicator SET definition=jsonb_set(definition,'{place_level}','\"sigungu_pair\"') WHERE indicator_id='ind_103_15_39'");
     }
 
     @Test
@@ -286,13 +304,13 @@ class CardStorageIntegrationTest {
 
     @Test
     void duplicateApprovalAndCyclicOrUnverifiedDependenciesAreRejected() {
-        jdbc.update("UPDATE indicator SET added_by_card='A3' WHERE indicator_id='ind_103'");
+        jdbc.update("UPDATE indicator SET added_by_card='A3' WHERE indicator_id='ind_103_15_39'");
         rejected("SELECT approve_card('C1','approver',1,'테스트')");
         jdbc.update(
-                "UPDATE indicator SET added_by_card='C1',definition=jsonb_set(definition,'{shape}','\"ratio\"'),numerator_id='ind_102',denominator_id='ind_101' WHERE indicator_id='ind_103'");
+                "UPDATE indicator SET added_by_card='C1',definition=jsonb_set(definition,'{shape}','\"ratio\"'),numerator_id='ind_102_15_39',denominator_id='ind_101_15_39' WHERE indicator_id='ind_103_15_39'");
         rejected("SELECT approve_card('C1','approver',1,'테스트')");
         jdbc.update(
-                "UPDATE indicator SET definition=jsonb_set(definition,'{shape}','\"value\"'),numerator_id=null,denominator_id=null WHERE indicator_id='ind_103'");
+                "UPDATE indicator SET definition=jsonb_set(definition,'{shape}','\"value\"'),numerator_id=null,denominator_id=null WHERE indicator_id='ind_103_15_39'");
         approve();
         rejected("SELECT approve_card('C1','approver',1,'중복 승인')");
         rejected("SELECT approve_card('C1','approver',0,'오래된 초안')");
@@ -378,7 +396,7 @@ class CardStorageIntegrationTest {
 
     @Test
     void indicatorApiTracksRuleEditsAndRejectsMalformedDefinition() throws Exception {
-        Indicator existing = service.indicator("ind_101");
+        Indicator existing = service.indicator("ind_101_15_39");
         ObjectNode definition = (ObjectNode) existing.definition().deepCopy();
         definition.put("id", "api_indicator");
         ObjectNode body =
