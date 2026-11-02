@@ -13,20 +13,21 @@
   "comparability": {
     "same_indicator": "지표 사전의 같은 행(air_pm25), 같은 측정소(station_code)",
     "same_period_length": "연. 측정소 연평균은 유효한 달(유효 시간 75% 이상) 9개 이상일 때만",
-    "same_boundary": "시군구 안 측정소. 비교하는 해끼리 측정소 구성이 같아야 한다(이전 · 교체 시 not_comparable)",
-    "same_method": "시군구 연 값 = 측정소별 연평균의 평균"
+    "same_boundary": "시군구 안 측정소 가운데 기간 안 모든 해에 연평균이 있는 측정소(공통 측정소)만 쓴다. 이전 · 교체가 확인된 측정소는 이전 전후를 다른 측정소로 본다",
+    "same_method": "시군구 연 값 = 공통 측정소별 연평균의 평균. 판단 문장의 {n} 은 공통 측정소 수"
   },
   "rule": {
     "rule_id": "first_last_diff",
-    "formula_version": "a3-pm25-diff-0.1",
+    "formula_version": "a3-pm25-diff-0.2",
     "indicator_id": "air_pm25",
     "min_years": 3,
     "thresholds": { "worse": 3.0, "better": -3.0, "unit": "µg/m³" },
     "outcomes": [
-      { "when": "fewer_than_min_years", "label": "근거 부족", "claim": "insufficient", "meaning": "연 값이 3개 미만" },
-      { "when": "diff_at_least_worse", "label": "악화", "claim": "increasing", "meaning": "끝해 − 첫해 연평균이 +3µg/m³ 이상" },
-      { "when": "diff_at_most_better", "label": "개선", "claim": "decreasing", "meaning": "끝해 − 첫해 연평균이 −3µg/m³ 이하" },
-      { "when": "otherwise", "label": "불분명", "claim": "unclear", "meaning": "−3 과 +3 사이" }
+      { "when": "fewer_than_min_years", "label": "근거 부족", "claim": "insufficient", "meaning": "측정소 연평균이 하나라도 있는 해가 3개 미만. 측정소가 하나도 없는 해는 건너뛰고 남은 해를 본다" },
+      { "when": "no_common_station", "label": "비교 불가", "claim": "not_comparable", "meaning": "남은 모든 해에 연평균이 있는 측정소가 없음" },
+      { "when": "diff_at_least_worse", "label": "악화", "claim": "increasing", "meaning": "공통 측정소 평균으로 끝해 − 첫해 연평균이 +3µg/m³ 이상" },
+      { "when": "diff_at_most_better", "label": "개선", "claim": "decreasing", "meaning": "공통 측정소 평균으로 끝해 − 첫해 연평균이 −3µg/m³ 이하" },
+      { "when": "otherwise", "label": "불분명", "claim": "unclear", "meaning": "−3 과 +3 사이(경계값은 악화 · 개선)" }
     ]
   },
   "max_claim_level": "calculated",
