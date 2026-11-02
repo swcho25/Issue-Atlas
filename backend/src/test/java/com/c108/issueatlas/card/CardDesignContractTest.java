@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /** #171 카드 설계도(contracts/cards)를 고치지 않고 저장 · 검사 · 승인한다. rule 만 주 지표 행으로 옮긴다. */
@@ -42,7 +43,10 @@ class CardDesignContractTest {
                             .filter(r -> r.get("indicator_id").asText().equals(id))
                             .findFirst()
                             .orElse(null);
-            String owner = row.get("cards").isEmpty() ? null : row.get("cards").get(0).asText();
+            // 만든 카드는 #171 added_by_card(cards 는 쓰는 카드). 그 칸이 없던 계약에서는 cards[0].
+            JsonNode made =
+                    row.has("added_by_card") ? row.get("added_by_card") : row.get("cards").path(0);
+            String owner = made.isMissingNode() || made.isNull() ? null : made.asText();
             service.saveIndicator(
                     id, new SaveIndicator(0, row, rule, null, null, null, owner, false), "fixture");
         }
@@ -107,7 +111,7 @@ class CardDesignContractTest {
         assertThat(valid(read("C1.json").put("max_claim_level", "insufficient_evidence")))
                 .isFalse();
         ObjectNode noReason = read("C1.json");
-        ((ObjectNode) noReason.get("evidence").get("documents").get(1)).remove("note");
+        ((ArrayNode) noReason.get("evidence").get("documents")).addObject().putNull("spec_id");
         assertThat(valid(noReason)).isFalse();
     }
 }
