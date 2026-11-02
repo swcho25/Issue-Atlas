@@ -47,9 +47,24 @@ class CardDesignContractTest {
             JsonNode made =
                     row.has("added_by_card") ? row.get("added_by_card") : row.get("cards").path(0);
             String owner = made.isMissingNode() || made.isNull() ? null : made.asText();
+            // 파생 지표(ratio · grade_days)는 사전의 분자 · 분모 · 기준 지표를 칸으로도 넘긴다
             service.saveIndicator(
-                    id, new SaveIndicator(0, row, rule, null, null, null, owner, false), "fixture");
+                    id,
+                    new SaveIndicator(
+                            0,
+                            row,
+                            rule,
+                            text(row, "numerator_id"),
+                            text(row, "denominator_id"),
+                            text(row, "base_id"),
+                            owner,
+                            false),
+                    "fixture");
         }
+    }
+
+    static String text(JsonNode row, String field) {
+        return row.hasNonNull(field) ? row.get(field).asText() : null;
     }
 
     boolean valid(ObjectNode card) {
@@ -60,9 +75,11 @@ class CardDesignContractTest {
     }
 
     @Test
-    void wholeIndicatorDictionaryIsStoredWithoutExtraFields() {
+    void wholeIndicatorDictionaryIsStoredWithoutExtraFields() throws Exception {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM indicator", Integer.class))
-                .isEqualTo(6);
+                .isEqualTo(read("indicators.json").get("indicators").size());
+        assertThat(service.indicator("population_youth_share_19_39").numeratorId())
+                .isEqualTo("population_registered_19_39");
         assertThat(service.indicator("air_pm25").rule().get("rule_id").asText())
                 .isEqualTo("first_last_diff");
     }
