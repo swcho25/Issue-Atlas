@@ -81,7 +81,8 @@ public class SeriesService {
                                         a.lon() == null ? null : List.of(a.lon(), a.lat()),
                                         a.locationPrecision(),
                                         a.summary(),
-                                        a.placeName()))
+                                        a.placeName(),
+                                        a.url()))
                 .toList();
     }
 
