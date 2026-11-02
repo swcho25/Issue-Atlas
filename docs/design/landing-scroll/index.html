@@ -24,6 +24,7 @@
     --gx: 845; --gy: 288; --gr: 225; --sx: 705; --sy: 470; --sw: 280; --ly: 745; --by: 814;
     position: absolute; left: 50%; top: 50%; width: calc(var(--fw) * var(--u)); height: calc(var(--fh) * var(--u)); transform: translate(-50%, -50%); pointer-events: none; }
   .at { position: absolute; }
+  #atlas { will-change: transform; }   /* 지구를 따라 옮기고 키운다(매 프레임 transform 만 바꾼다) */
   .px { font-size: calc(var(--fs) * var(--u)); }
   .statue { left: calc(var(--sx) * var(--u)); top: calc(var(--sy) * var(--u)); width: calc(var(--sw) * var(--u)); height: auto; }
   .shadow { left: calc((var(--sx) - 2300 * var(--sw) / 1402) * var(--u)); top: calc((var(--sy) + 605 * var(--sw) / 1402) * var(--u)); width: calc(6000 * var(--sw) / 1402 * var(--u)); height: calc(900 * var(--sw) / 1402 * var(--u));
@@ -80,12 +81,15 @@
   <div class="stage">
     <canvas class="layer" id="ground" aria-hidden="true"></canvas>
     <canvas class="layer" id="globe" aria-label="아틀라스가 받친 지구"></canvas>
+    <!-- 석상 · 그림자는 히어로 글자와 따로 둔다: 스크롤하면 글자는 사라지고, 석상은 지구를 받친 채 함께 움직이고 커진다 -->
+    <div class="frame" id="atlas" aria-hidden="true">
+      <canvas class="at shadow" id="shadow"></canvas>
+      <canvas class="at statue" id="statue"></canvas>
+    </div>
     <div class="layer marks" id="marks"></div>
     <div class="frame" id="hero">
-      <canvas class="at shadow" id="shadow" aria-hidden="true"></canvas>
       <span class="at word wordLeft" aria-hidden="true">Issue<i></i></span>
       <span class="at word wordRight" aria-hidden="true"><i></i>Atlas</span>
-      <canvas class="at statue" id="statue" aria-hidden="true"></canvas>
       <nav class="at nav"><span class="brand"><img src="mark.svg" alt="">Issue Atlas</span><button class="login px">로그인</button></nav>
       <h1 class="at px line">우리 지역에 이 문제가 정말 있는가?</h1>
       <button class="at cta">OPEN THE ATLAS <span>→</span></button>
@@ -126,7 +130,7 @@ if (q.has("p")) tick(() => scrollTo(0, journey.offsetTop + Number(q.get("p")) * 
 // ---------- 석상(실제 랜딩 statue.ts 와 같은 처리) ----------
 const SUPPORT = { neck: [0.5, 235 / 1122], palms: [[65 / 1402, 120 / 1122], [1337 / 1402, 120 / 1122]], head: { cx: 0.55, cy: 0.275, rx: 0.105, ry: 0.18 } };
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
-const frame = document.getElementById("hero");
+const frame = document.getElementById("atlas");
 const cssNum = (n) => parseFloat(getComputedStyle(frame).getPropertyValue(n));
 function supportLayout(W, H) {
   const gx = cssNum("--gx"), gy = cssNum("--gy"), radius = cssNum("--gr"), scale = cssNum("--sw") / W;
@@ -376,7 +380,7 @@ function project(m, w, h, anchor) {
 }
 
 // ---------- 스크롤 → 장면 ----------
-const hero = document.getElementById("hero"), clouds = document.getElementById("clouds"), cloudEls = [...clouds.children], fog = document.getElementById("fog"), wait = document.getElementById("wait"),
+const hero = document.getElementById("hero"), atlas = document.getElementById("atlas"), clouds = document.getElementById("clouds"), cloudEls = [...clouds.children], fog = document.getElementById("fog"), wait = document.getElementById("wait"),
   caption = document.getElementById("caption"), title2 = document.getElementById("title2"), attrib = document.getElementById("attrib"), hud = document.getElementById("hud");
 let dirty = true;
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); gRenderer.setSize(w, h, false); cam.aspect = gcam.aspect = w / h; cam.updateProjectionMatrix(); dirty = true; }
@@ -422,6 +426,17 @@ function frameLoop(now) {
   const mapIn = groundReady ? smooth(zIn, zIn + MAP_IN_SPAN, Z) : 0;
   put(canvas, "opacity", (1 - mapIn).toFixed(3)); put(canvas, "visibility", mapIn < 1 ? "visible" : "hidden");
   put(groundCanvas, "visibility", mapIn > 0 ? "visible" : "hidden");
+  // 아틀라스는 지구를 받친 채 함께 움직인다: 지구가 화면에 그려지는 중심 · 반지름을 그대로 따라 옮기고 키운다.
+  // 지구가 커지면 석상은 자연스럽게 화면 아래로 빠진다(다 빠지면 그리지 않는다)
+  const off = 1 - ease(span(p, 0.1, 0.32));   // 지구 중심: 히어로 자리(1) → 화면 가운데(0)
+  const gcx = w / 2 - (w / 2 - cx) * off, gcy = h / 2 - (h / 2 - cy) * off;
+  const gR = ((h / 2) * Math.tan(Math.asin(1 / (1 + altOfZoom(Z, h))))) / Math.tan(deg(FOV / 2));
+  const atlasOn = mapIn < 1 && gcy + gR * 0.8 < h;
+  put(atlas, "visibility", atlasOn ? "visible" : "hidden");
+  if (atlasOn) {
+    put(atlas, "transformOrigin", `${(845 * u).toFixed(1)}px ${(288 * u).toFixed(1)}px`);
+    put(atlas, "transform", `translate(-50%, -50%) translate(${(gcx - cx).toFixed(1)}px, ${(gcy - cy).toFixed(1)}px) scale(${(gR / R).toFixed(4)})`);
+  }
   if (mapIn < 1) {
     const turn = ease(span(p, 0.04, 0.26)), s = globeSpin;
     let tlon = s.lon, tlat = 24 + s.lat;
@@ -437,7 +452,6 @@ function frameLoop(now) {
     cloudMesh.rotation.y = deg(now * 0.0004 * (1 - turn));
     cloudMat.opacity = cloudsAt ? 0.9 * smooth(0, 700, now - cloudsAt) : 0;   // 구름은 도착하면 0.7초에 걸쳐 나타난다
     cam.position.set(0, 0, 1 + altOfZoom(Z, h)); cam.lookAt(0, 0, 0);   // 지도로 다 바뀔 즈음엔 8K 지구 사진이 뭉개지기 시작하지만 이미 거의 투명하다
-    const off = 1 - ease(span(p, 0.1, 0.32));
     cam.setViewOffset(w, h, (w / 2 - cx) * off, (h / 2 - cy) * off, w, h);
     rimMat.uniforms.o.value = 1 - span(p, 0.2, 0.35);
     renderer.render(scene, cam);
