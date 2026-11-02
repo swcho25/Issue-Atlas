@@ -74,7 +74,8 @@ public record ArgumentResponse(
             List<Double> point,
             String precision,
             String summary,
-            String placeName) {}
+            String placeName,
+            String url) {}
 
     public record Question(
             String questionId,

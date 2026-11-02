@@ -64,13 +64,13 @@
     },
     "same_method": {
       "passed": true,
-      "note": "전입−전출, 15–39세 밴드 고정"
+      "note": "전입−전출, 19–39세 밴드 고정"
     }
   },
   "claim": {
     "value": "increasing",
     "level": "calculated",
-    "text": "여수시에서 2023–2025 청년(15–39세) 순유출이 커졌습니다.",
+    "text": "여수시에서 2023–2025 청년(19–39세) 순유출이 커졌습니다.",
     "provenance": "rule"
   },
   "qualifier": {

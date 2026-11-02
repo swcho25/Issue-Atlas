@@ -46,10 +46,17 @@ public class QuestionRepository {
             """
             SELECT o.what_id AS id, to_char(o.when_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS date,
                    o.place_id, o.lon, o.lat, o.location_precision, o.summary, e.place_name,
-                   p.name AS area_name, ST_X(p.geometry::geometry) AS area_lon, ST_Y(p.geometry::geometry) AS area_lat
+                   p.name AS area_name, ST_X(p.geometry::geometry) AS area_lon, ST_Y(p.geometry::geometry) AS area_lat,
+                   n.url
             FROM observation o
             JOIN news_event e ON e.news_id = o.what_id
             LEFT JOIN place p ON p.place_id = o.place_id
+            -- 원문 링크는 수집 원본(빅카인즈 레코드)에만 있다. 본문은 옮기지 않는다
+            LEFT JOIN LATERAL (
+                SELECT r.record -> 'document' ->> 'link' AS url FROM normalized_ready r
+                WHERE r.source_id = 'bigkinds' AND r.record -> 'locator' ->> 'news_id' = e.news_id
+                ORDER BY r.refined_at DESC LIMIT 1
+            ) n ON true
             WHERE o.source_table = 'news_event' AND :card = ANY (o.tags) AND starts_with(o.place_id, :place)
               AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
               AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
@@ -274,7 +281,8 @@ public class QuestionRepository {
             String placeName,
             String areaName,
             Double areaLon,
-            Double areaLat) {}
+            Double areaLat,
+            String url) {}
 
     public record EvidenceRef(
             String evidenceId,
