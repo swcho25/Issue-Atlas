@@ -20,6 +20,8 @@ uv --directory engine run python -m pipeline.refine --db
 # robots.txt 를 지키고 같은 사이트 요청 사이에 1초를 둔다. 출력에 기사 본문이 들어가므로 저장소 밖에 저장한다
 uv --directory engine run python -m pipeline.article <빅카인즈 응답 JSON 파일> > <저장소 밖 경로>.jsonl
 # DB 저장은 빅카인즈 수집기(pipeline.collect.bigkinds)가 raw_record 에 한다 (pipeline/collect/README.md 「빅카인즈 뉴스」)
+# 기존 대응 후보: 정제된 온통청년 정책 · local_expenditure → existing_response (같은 판은 건너뜀, 건수 JSON)
+uv --directory engine run python -m pipeline.responses --db
 # PostGIS 통합 테스트 (Docker 필요, pnpm engine:test 에는 안 들어감)
 uv --directory engine run pytest tests_postgres
 
@@ -34,4 +36,5 @@ uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 | `pipeline/refine/` | 박준우 | P2 정제 — 검증·정규화·저장 범위 게이트·중복 |
 | `pipeline/article/` | 박준우 | 기사 본문 수집 — 빅카인즈 원문 링크 → 본문(같은 기사 확인). 요약은 P3. 빅카인즈 수집기가 불러 `raw_record` 에 저장 ([계약](../contracts/article/)) |
 | `pipeline/collect/` | 장성우 | P1 KOSIS·에어코리아 수집·원천 저장·C1 출력 ([KOSIS](pipeline/collect/README.md), [에어코리아](pipeline/collect/AIRKOREA.md)) |
+| `pipeline/responses/` | 장성우 | P8 카드 근거 ③ 「기존 대응」 후보 — 온통청년 정책 · 세출에서 규칙으로 골라 `existing_response` 에 저장 ([계약](../contracts/existing-response/)) |
 | `api/` | (미정) | FastAPI HTTP 입구 — pipeline 함수를 부르기만 한다 |
