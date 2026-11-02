@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://issue-atlas.c108/contracts/cards/card.schema.json",
-  "title": "카드 설계도 v0.1",
+  "title": "카드 설계도 v0.2",
   "description": "이슈 카드 표준 개발 양식 v1.1(회사 노션)의 칸을 코드 키로 옮긴 것. 지역 · 기간을 넣어 돌린 결과는 적지 않는다",
   "type": "object",
   "properties": {
@@ -16,9 +16,10 @@
     "exclusion": { "description": "A7", "$ref": "#/$defs/texts" },
     "claim_template": { "description": "B1", "type": "string", "pattern": "\\{판정값\\}" },
     "claim_items": {
-      "description": "B2. 판정은 role = main 하나만 한다. related 는 그림만",
+      "description": "B2 계산할 지표 1–3개. 판정은 role = main 하나만 한다. related 는 그림만",
       "type": "array",
       "minItems": 1,
+      "maxItems": 3,
       "items": {
         "type": "object",
         "properties": { "indicator_id": { "type": "string" }, "role": { "enum": ["main", "related"] } },

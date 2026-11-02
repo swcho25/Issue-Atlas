@@ -1,8 +1,10 @@
-# 카드 설계도 · 지표 사전 v0.1
+# 카드 설계도 · 지표 사전 v0.2
 
 판정 코드가 읽는 카드 정의와 지표 정의. 카드는 **이슈 하나를 어떻게 판단하는가**만 적고, 지역 · 기간을 넣어 돌린 결과는 적지 않는다.
-주는 쪽: 카드 작성(P2 박준우 · 대표 승인) → 받는 쪽: 판정 규칙 `CardRule`(P5 최동준, S15P31C108-159) · 질문 실행(P7 장성우, -133) · 화면(S1 · S4).
-계약 변경은 받는 쪽 최동준 · 장성우 리뷰가 필요하다. 테스트: `engine/tests/test_card_contract.py`.
+주는 쪽: 카드 작성(P2 박준우 · 대표 승인) → 받는 쪽: 판정 규칙 `CardRule`(P5 최동준, S15P31C108-159) · 질문 실행(P7 장성우, -133) · 카드 저장 · 승인 [C3](../c3/README.md)(P5 최동준, -174) · 화면(S1 · S4).
+계약 변경은 받는 쪽 최동준 · 장성우 리뷰가 필요하다. 테스트: `engine/tests/test_card_contract.py` · backend `CardDesignContractTest`(이 파일들을 그대로 C3 에 저장 · 승인).
+
+C3 는 이 파일의 키를 그대로 저장한다. 다른 점은 하나: 카드의 `rule` 은 주 지표 행(`indicator.rule`)으로 옮겨 두고, 승인 때 승인본 `spec.rule` 로 복사한다. 그래서 지표 하나에 규칙은 하나다.
 
 | 파일 | 내용 |
 | --- | --- |
@@ -24,6 +26,10 @@
 | `roll` | 판정 안에서 월 → 연. `sum` 12개월 모두 있을 때 합계 · `mean` 유효한 달 `min_months` 개 이상일 때 평균 · `end_of_period` 연말 값. 못 채우면 그 해는 null. 화면 series 는 연으로 묶지 않는다 |
 | `value_direction` | 값이 커지면 무슨 뜻인가. 판정 방향(`claim`)과 다를 수 있다 — C1 은 순이동 값이 **작아질수록**(더 음수) 「순유출 확대」= `increasing` |
 | `source` | 원천 수집 명세(`source_spec.spec_id`) · 수집기가 C1 레코드에 넣는 `indicator_id` · 이 지표를 고르는 원천 코드(`locator`). SP01 은 `C3`(연령)로 000 전체 · 901 19–34세 · 905 19–39세 |
+| `cards` | 이 지표를 **쓰는** 카드(`claim_items` · `evidence`). 테스트가 카드 쪽과 맞는지 본다. 승인본에서는 C3 `card_claim_item` · `card_evidence_bind` 가 원본 |
+| `added_by_card` | 이 지표를 사전에 **넣은** 카드(C3 `indicator.added_by_card`, 선택). 검수 전 지표는 그 카드가 승인될 때 함께 검수된다. 쓰는 카드는 여럿이어도 넣은 카드는 하나 |
+| `target` | 적용 대상 설명(선택, 예: 청년 19–39세). 설명용이고 연령의 원본은 `id` 다 |
+| `shape` | 값 모양(선택, 없으면 `value`). `flow` 출발 → 도착 이동량 · `ratio` 다른 두 지표의 비율(`numerator_id` · `denominator_id` · `multiplier` 필수) · `grade_days` 기준 지표가 경계를 넘은 날 수(`base_id` · `cut` 필수). 그 칸들은 맞는 모양에만 쓴다 |
 
 ## 카드 칸 (양식 v1.1 → 키)
 
@@ -31,7 +37,7 @@
 | --- | --- | --- |
 | A1–A7 | `card_id` · `name` · `parent_question` · `domain` · `st_type` · `status` · `card_version` · `inclusion` · `exclusion` | `card_version` 은 DB `card.card_version`(V0013)과 같다(테스트가 검사) |
 | B1 | `claim_template` | 판단 ① 문장. `{판정값}` 에 `rule.outcomes[].label` |
-| B2 | `claim_items` | `main` 하나만 판정한다. `related` 는 그림만 |
+| B2 | `claim_items` | 계산할 지표 1–3개. `main` 하나만 판정한다. `related` 는 그림만 |
 | B3 | `comparability` | 비교 조건 4개의 요구사항. 실제 통과 여부는 실행 때 판정 |
 | B4 | `rule` | `rule_id` 규칙 모듈 · `formula_version`(C2 `argument.formula_version` 에 그대로) · `outcomes` 위에서부터 처음 맞는 것 |
 | B5 | `max_claim_level` | C2 `claim.level` 최대 |
@@ -58,8 +64,9 @@
 - A3 「측정소 구성이 같은 해끼리만」(양식 v1.1 B3)은 대표 결정에 없던 비교 조건이다. 측정소가 바뀐 해는 `not_comparable`
 - A3 보증 초안은 나쁨 일수를 말하지만 MVP 판정은 PM2.5 연평균만 쓴다(나쁨 일수는 MVP 뒤)
 - 보증 · 반박은 대표 초안 그대로(`draft`). 승인되면 `approved` 로 바꾸고 `card_version` 을 올린다
-- 보도자료 · 세출은 수집 명세 등록 전이라 `spec_id: null` (S15P31C108-172 · -173)
+- 광주광역시 보도자료는 시 전체(29) 발행이라 구의 근거로 셀지 정해지지 않았다(대표 피드백 2026-11-01 #6, [P3](../p3/README.md) 「아직 없는 것」)
 
 ## 변경 이력
 
+- v0.2 (2026-11-02): C3 저장 칸 맞춤 — 지표에 `added_by_card` · `target` · `shape` · `numerator_id` · `denominator_id` · `multiplier` · `base_id` · `cut`(모두 선택), `claim_items` 1–3개, 보도자료 · 세출 근거를 등록된 수집 명세(`press_release_yeosu` · `press_release_gwangju` · `lofin_expenditure_gwangju_yeosu`)로 (S15P31C108-188)
 - v0.1 (2026-11-02): C1 · A3 카드와 지표 6개. 대표 결정 2026-11-01 반영(S15P31C108-171)

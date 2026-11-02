@@ -10,6 +10,8 @@ from jsonschema import Draft202012Validator
 from pipeline.collect.airkorea import AirSpec
 from pipeline.collect.bigkinds import NewsQuery
 from pipeline.collect.kosis import TABLES
+from pipeline.collect.lofin import LofinQuery
+from pipeline.collect.press import SITES, PressQuery
 from pipeline.collect.youth_policy import PolicyQuery
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +36,8 @@ SPEC_IDS = {
     AirSpec(mode="final", file_name="final.xlsx").spec_id,
     NewsQuery.spec_id,
     PolicyQuery.spec_id,
+    LofinQuery.spec_id,
+    *(PressQuery(site=site).spec_id for site in SITES),
 }
 
 
@@ -77,6 +81,44 @@ def test_card_sources_are_registered_collectors(card_id):
     for sources in CARD[card_id]["evidence"].values():
         for source in sources:
             assert source["spec_id"] is None or source["spec_id"] in SPEC_IDS
+
+
+def test_dictionary_owner_and_dependencies_are_known():
+    # C3 승인은 added_by_card 카드의 검수 전 지표만 함께 검수한다. 넣은 카드는 그 지표를 쓰는 카드다
+    for indicator in INDICATORS.values():
+        if "added_by_card" in indicator:
+            assert indicator["added_by_card"] in indicator["cards"]
+        for key in ("numerator_id", "denominator_id", "base_id"):
+            if key in indicator:
+                assert indicator[key] in INDICATORS
+
+
+def test_indicator_shape_fields_go_with_their_shape():
+    # C3 저장 트리거(V0029)와 같은 조건: ratio 는 분자 · 분모 · 배수, grade_days 는 기준 지표 · 경계값
+    schema = validator("indicators")
+    base = INDICATORS["air_pm25"]
+
+    def ok(**extra):
+        rows = [base | extra]
+        return schema.is_valid({"version": "0.2", "decided_at": "2026-11-01", "indicators": rows})
+
+    ratio = {"numerator_id": "a", "denominator_id": "b", "multiplier": 100}
+    assert ok() and ok(shape="flow")
+    assert ok(shape="ratio", **ratio)
+    assert not ok(shape="ratio", numerator_id="a", denominator_id="b")
+    assert not ok(**ratio)
+    assert ok(shape="grade_days", base_id="air_pm25", cut=35)
+    assert not ok(shape="grade_days", base_id="air_pm25")
+    assert not ok(cut=35)
+
+
+def test_claim_items_are_one_to_three():
+    card = CARD["C1"]
+    more = card["claim_items"] + [
+        {"indicator_id": "population_net_migration_total", "role": "related"},
+        {"indicator_id": "population_net_migration_19_34", "role": "related"},
+    ]
+    assert not validator("card").is_valid(card | {"claim_items": more})
 
 
 def test_dictionary_sources_match_collectors():
