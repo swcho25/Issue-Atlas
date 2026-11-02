@@ -1,17 +1,19 @@
-"""지자체 보도자료 게시판 목록 → press_release(V0010). 본문은 받지 않는다.
+"""지자체 보도자료 게시판 목록 → C1 문서 레코드(kind press_release). 본문은 받지 않는다.
 
 python -m pipeline.collect.press --site yeosu|gwangju [--start 2023-01-01 --end 2025-12-31]
-    → 보도자료마다 JSONL (stdout), 건수 JSON (stderr)
+    → 보도자료마다 C1 레코드 JSONL (stdout), 건수 JSON (stderr)
 python -m pipeline.collect.press --site yeosu|gwangju --db
-    → press_release 에 쪽마다 저장, 건수 JSON (stdout)
---output <파일>: JSONL 을 그 파일에 쓴다 (--db 와 함께면 저장한 목록의 사본).
+    → 원본 장부(raw_record · job_run)에 쪽마다 저장, 건수 JSON (stdout). P2 정제가 이어 받는다
+--output <파일>: JSONL 을 그 파일에 쓴다 (--db 와 함께면 저장한 레코드의 사본).
     서버 실행기(deploy/collector)가 실행마다 지정한다
 
 여수시 보도자료는 공공누리 4유형(변경금지·상업적 이용금지), 광주광역시는 공공누리 표시가 없다.
-P2 이용허락 표(KOGL-4 → metadata)에 맞춰 목록에 보이는 제목·분류·담당부서·등록일·링크만 둔다.
+P2 이용허락 표(KOGL-4 · KOGL-미표시 → metadata)에 맞춰 목록에 보이는
+제목·분류·담당부서·등록일·링크만 둔다. 담당부서는 C1 문서 칸에 없어 원본(payload)에만 남는다.
 """
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -20,8 +22,10 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import ClassVar
 from urllib.parse import parse_qs, urlsplit
 from urllib.robotparser import RobotFileParser
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import lxml.html
@@ -29,9 +33,12 @@ import psycopg
 from dotenv import dotenv_values
 
 from pipeline.article.fetch import USER_AGENT, Pacer, http_getter
+from pipeline.collect.kosis import CollectionError, canonical
+from pipeline.collect.store import PostgresStore
+from pipeline.refine.validate import validate
 
 ROOT = Path(__file__).resolve().parents[3]
-COLLECTOR = "press-0.1.0"
+COLLECTOR = "press-0.2.0"
 PAGE_SIZE = 100
 MIN_INTERVAL = (
     2.0  # robots.txt 에 Crawl-Delay 가 없어도 같은 사이트 요청 사이에 둔다 (PRD 수집 예절)
@@ -106,6 +113,8 @@ class Site:
     org: str
     place_code_raw: str
     license_type: str
+    # 원본의 raw_url. 쪽 번호 · 기간이 없는 게시판 주소라 같은 글은 어느 쪽에서 읽어도 같다
+    board_url: str
     list_url: str
     view_url: str
     parse: object
@@ -118,6 +127,7 @@ SITES = {
         "여수시",
         "46130",
         "KOGL-4",
+        "https://www.yeosu.go.kr/www/govt/news/release/press",
         "https://www.yeosu.go.kr/www/govt/news/release/press?page_scale=100&page={page}",
         "https://www.yeosu.go.kr/www/govt/news/release/press?idx={id}&mode=view",
         parse_yeosu,
@@ -128,6 +138,7 @@ SITES = {
         "광주광역시",
         "29",
         "KOGL-미표시",
+        "https://www.gwangju.go.kr/boardList.do?pageId=www789&boardId=BD_0000000027",
         "https://www.gwangju.go.kr/boardList.do?pageId=www789&boardId=BD_0000000027"
         "&movePage={page}&recordCnt=100&searchSDe={start}&searchEDe={end}",
         "https://www.gwangju.go.kr/boardView.do?pageId=www789&boardId=BD_0000000027&seq={id}",
@@ -135,6 +146,45 @@ SITES = {
         server_filter=True,
     ),
 }
+
+
+@dataclass(frozen=True)
+class PressQuery:
+    """수집 명세 하나 = 게시판 하나. 이용허락이 달라 출처(source)도 게시판마다 따로 둔다."""
+
+    site: str
+    start: date | None = None
+    end: date | None = None
+    source_scope: ClassVar[str] = "metadata"
+    evidence_class: ClassVar[str] = "documents"
+    method: ClassVar[str] = "board"
+    collector_version: ClassVar[str] = COLLECTOR
+
+    @property
+    def source_id(self):
+        return f"press_{self.site}"
+
+    @property
+    def spec_id(self):
+        return f"press_release_{self.site}"
+
+    @property
+    def source_name(self):
+        return f"{SITES[self.site].org} 보도자료"
+
+    @property
+    def source_org(self):
+        return SITES[self.site].org
+
+    @property
+    def license_type(self):
+        return SITES[self.site].license_type
+
+    def identity(self):
+        return {"list_url": SITES[self.site].list_url, "page_size": PAGE_SIZE}
+
+    def run_params(self):
+        return {"start": self.start.isoformat(), "end": self.end.isoformat()}
 
 
 def _utc_now() -> str:
@@ -223,53 +273,107 @@ def _record(site_name, site, row, collected_at) -> dict:
     }
 
 
-COLUMNS = (
-    "press_id",
-    "site",
-    "org",
-    "place_code_raw",
-    "category",
-    "department",
-    "title",
-    "published_on",
-    "url",
-    "license_type",
-    "storage_scope",
-    "collected_at",
-    "collector",
-)
-CHANGING = ("category", "department", "title", "published_on", "url")
-UPSERT = f"""
-INSERT INTO press_release ({", ".join(COLUMNS)})
-VALUES ({", ".join(["%s"] * len(COLUMNS))})
-ON CONFLICT (press_id) DO UPDATE SET
-    {", ".join(f"{c} = EXCLUDED.{c}" for c in COLUMNS[4:])}, stored_at = now()
-WHERE ({", ".join(f"press_release.{c}" for c in CHANGING)})
-    IS DISTINCT FROM ({", ".join(f"EXCLUDED.{c}" for c in CHANGING)})
-RETURNING (xmax = 0) AS inserted
-"""
+# 게시판에서 보이는 칸. 원본(payload)이고, 하나라도 바뀌면 다른 원본 · 다른 판이다
+VISIBLE = ("press_id", "category", "department", "title", "published_on", "url")
 
 
-def store_pages(conn, pages) -> dict:
-    """autocommit 연결. 같은 글을 다시 받으면 제목 등 보이는 칸이 바뀐 때만 덮어쓴다."""
-    stats = {"pages": 0, "seen": 0, "inserted": 0, "updated": 0, "unchanged": 0}
-    for records in pages:
-        stats["pages"] += 1
-        with conn.transaction():
-            for record in records:
-                row = conn.execute(UPSERT, [record[c] for c in COLUMNS]).fetchone()
-                stats["seen"] += 1
-                stats["unchanged" if row is None else "inserted" if row[0] else "updated"] += 1
-    return stats
+def to_c1(listing: dict, run_id: str) -> tuple[dict, dict]:
+    """목록 한 줄 → (원본 payload, C1 문서 레코드)."""
+    site = SITES[listing["site"]]
+    payload = {k: listing[k] for k in VISIBLE}
+    # 수집 시각은 지문에서 뺀다. 같은 글을 그대로 다시 받으면 같은 원본이다
+    digest = hashlib.sha256(canonical(payload).encode()).hexdigest()
+    query = PressQuery(listing["site"])
+    record = {
+        "source_id": query.source_id,
+        "spec_id": query.spec_id,
+        "raw_url": site.board_url,
+        "file_name": None,
+        "content_hash": "sha256:" + digest,
+        "collected_at": listing["collected_at"],
+        # 게시판은 날짜만 보여 준다. 그날 0시(한국)로 적는다
+        "published_at": f"{listing['published_on']}T00:00:00+09:00",
+        "observed_at": None,
+        "observed_at_source": None,
+        "observed_period_type": "none",
+        "observed_period_start": None,
+        "observed_period_end": None,
+        # 글이 다루는 지역이 아니라 발행 기관의 지역(KOSIS 코드). 글의 지역은 P3 가 정한다
+        "place_code_raw": site.place_code_raw,
+        "place_code_system": "kosis",
+        "place_id": None,
+        "place_map_status": "unmapped",
+        "geometry": None,
+        "location_precision": "none",
+        "geometry_role": None,
+        "indicator_id": None,
+        "value": None,
+        "unit": None,
+        "missing_reason": None,
+        "is_provisional": False,
+        "locator": {"press_id": listing["press_id"]},
+        # 제목 정정 등으로 보이는 칸이 바뀌면 새 판이다. 같은 글의 판은 locator 로 묶여
+        # 최신본만 나간다
+        "dedup_key": f"press:{listing['press_id']}:{digest[:12]}",
+        "license_type": site.license_type,
+        "storage_scope": "metadata",
+        "run_id": run_id,
+        "collector_version": COLLECTOR,
+        "document": {
+            "kind": "press_release",
+            "title": listing["title"],
+            "publisher": site.org,
+            "categories": [listing["category"]] if listing["category"] else [],
+            "keywords": [],
+            "entities": {"locations": [], "persons": [], "organizations": []},
+            "excerpt": None,
+            "link": listing["url"],
+            "fetch": None,
+            "body": None,
+        },
+    }
+    if validate(record):
+        raise PressError("C1_INTAKE_VALIDATION_FAILED")
+    return payload, record
+
+
+def c1_pages(pages, run_id: str):
+    for listings in pages:
+        yield [to_c1(listing, run_id) for listing in listings]
+
+
+def store_pages(conn, query: PressQuery, pages, run_id: str) -> dict:
+    """autocommit 연결. 쪽마다 원본 장부에 저장하고, 실행 이력(job_run)에 결과를 남긴다.
+
+    같은 글을 그대로 다시 받으면 원본이 같아(content_hash) 새 행이 생기지 않는다.
+    """
+    store = PostgresStore(conn)
+    store.start(query, run_id, _utc_now())
+    stats = {"pages": 0, "seen": 0, "inserted": 0, "duplicates": 0} | query.run_params()
+    try:
+        for pairs in pages:
+            saved = store.save([p for p, _ in pairs], [r for _, r in pairs])
+            stats["pages"] += 1
+            stats["seen"] += len(pairs)
+            stats["inserted"] += saved
+            stats["duplicates"] += len(pairs) - saved
+    except BaseException as exc:
+        status = "aborted" if isinstance(exc, (KeyboardInterrupt, SystemExit)) else "failed"
+        known = isinstance(exc, (PressError, CollectionError))
+        code = str(exc) if known else "PRESS_COLLECTION_FAILED"
+        store.finish(run_id, status, stats | {"error_code": code})
+        raise
+    store.finish(run_id, "ok", stats)
+    return {"run_id": run_id, **stats}
 
 
 def _written(pages, out):
-    """쪽마다 JSONL 로 쓰고 그대로 넘긴다. 중간에 멈춰도 앞 쪽은 파일에 남는다."""
-    for records in pages:
-        for record in records:
+    """쪽마다 C1 레코드를 JSONL 로 쓰고 그대로 넘긴다. 중간에 멈춰도 앞 쪽은 파일에 남는다."""
+    for pairs in pages:
+        for _, record in pairs:
             out.write(json.dumps(record, ensure_ascii=False).encode("utf-8") + b"\n")
         out.flush()
-        yield records
+        yield pairs
 
 
 def connect_from_env():
@@ -299,7 +403,8 @@ def main(argv=None, connect=connect_from_env, **options) -> int:
     if args.start > args.end:
         print("PRESS_INVALID_PERIOD", file=sys.stderr)
         return 2
-    pages = collect_pages(args.site, args.start, args.end, **options)
+    run_id = f"press_{args.site}_" + uuid4().hex
+    pages = c1_pages(collect_pages(args.site, args.start, args.end, **options), run_id)
     try:
         # Windows 에서도 \n 만 쓰게 바이트로
         stdout = None if args.db else sys.stdout.buffer
@@ -307,12 +412,14 @@ def main(argv=None, connect=connect_from_env, **options) -> int:
             if out is not None:
                 pages = _written(pages, out)
             if args.db:
+                query = PressQuery(args.site, args.start, args.end)
                 with connect() as conn:
-                    print(json.dumps(store_pages(conn, pages), ensure_ascii=False))
+                    result = store_pages(conn, query, pages, run_id)
+                print(json.dumps(result, ensure_ascii=False))
                 return 0
             print(json.dumps({"records": sum(map(len, pages))}), file=sys.stderr)
             return 0
-    except PressError as exc:
+    except (PressError, CollectionError) as exc:
         print(str(exc), file=sys.stderr)
     except psycopg.Error:
         # DSN·SQL 이 담길 수 있는 예외 문구는 출력하지 않는다

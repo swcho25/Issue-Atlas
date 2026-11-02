@@ -49,7 +49,7 @@ sudo issueatlas-collect airkorea-stations
 
 # 담당자가 확인한 최종확정 XLSX를 input에 넣고 컨테이너 경로로 지정한다.
 sudo issueatlas-collect airkorea-final --xlsx /inputs/final.xlsx --start-date 2024-01-01 --end-date 2024-01-02
-# 여수시 · 광주광역시 보도자료 목록 → press_release. 키 없음. robots.txt 간격(여수 30초)을 지켜 여수 약 33분, 광주 약 3분
+# 여수시 · 광주광역시 보도자료 목록 → 원본 장부(raw_record). 뒤이어 refine 을 돌린다. 키 없음. robots.txt 간격(여수 30초)을 지켜 여수 약 33분, 광주 약 3분
 sudo issueatlas-collect press --site yeosu --db
 sudo issueatlas-collect press --site gwangju --db
 # 지방재정365 세부사업별 세출현황 XLSX(통합자료실 첨부, 연도마다 한 파일)를 input 에 넣고 한 해씩. 파일 하나 약 30초

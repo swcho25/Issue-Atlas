@@ -1,18 +1,21 @@
 """명시 실행: uv --directory engine run pytest tests_postgres (Docker 필요).
 
-P2 로 들어오는 수집기 모두(KOSIS · 에어코리아 측정소 · 확정 · 빅카인즈 · 온통청년)를 한 DB 에 받아
-한 번에 정제한다. 수집기마다 따로 보던 정제를 함께 돌려, 섞여도 결과가 그대로인지 본다.
-지방재정365(local_expenditure) · 보도자료(press_release)는 전용 표에 바로 저장돼 P2 밖이다.
+P2 로 들어오는 수집기 모두(KOSIS · 에어코리아 측정소 · 확정 · 빅카인즈 · 온통청년 · 보도자료)를
+한 DB 에 받아 한 번에 정제한다. 수집기마다 따로 보던 정제를 함께 돌려, 섞여도 결과가
+그대로인지 본다.
+지방재정365(local_expenditure)는 전용 표에 바로 저장돼 P2 밖이다.
 """
 
 import copy
 from datetime import date
+from uuid import uuid4
 
 from pipeline.collect.airkorea import AirSpec, measurement_pairs, station_record
 from pipeline.collect.airkorea_cli import execute
 from pipeline.collect.bigkinds import NewsQuery, NewsStore
 from pipeline.collect.bigkinds import collect as collect_news
 from pipeline.collect.kosis import Query
+from pipeline.collect.press import PressQuery, c1_pages, collect_pages, store_pages
 from pipeline.collect.run import collect as collect_kosis
 from pipeline.collect.store import PostgresStore
 from pipeline.collect.youth_policy import PolicyQuery
@@ -22,6 +25,8 @@ from tests.test_article import Web
 from tests.test_collect_airkorea import FINAL, STATIONS, gwangju_station
 from tests.test_collect_airkorea import ROWS as AIR_ROWS
 from tests.test_collect_bigkinds import Search, news, options
+from tests.test_collect_press import Web as Board
+from tests.test_collect_press import rows_yeosu, yeosu_page
 from tests.test_collect_youth_policy import Api, policy
 from tests_postgres.test_refine_store import ROWS as KOSIS_ROWS
 
@@ -69,12 +74,18 @@ def collect_all(conn, tmp_path) -> dict:
         fetch=Api({"12130": [policy("A"), policy("B")], "12210": [policy("A")]}),
         sleep=lambda _: None,
     )
+    query = PressQuery("yeosu", date(2025, 1, 1), date(2025, 12, 31))
+    board = Board({1: (200, yeosu_page(rows_yeosu(2, ["2025-03-01", "2025-02-01"])))})
+    pages = collect_pages("yeosu", query.start, query.end, **board.options())
+    run_id = "press_yeosu_" + uuid4().hex
+    posts = store_pages(conn, query, c1_pages(pages, run_id), run_id)
     runs = {
         "S01": kosis,
         "airkorea_station": station,
         "airkorea_final": final,
         "bigkinds": articles,
         "youthcenter": policies,
+        "press_yeosu": posts,
     }
     return {source: run["inserted"] for source, run in runs.items()}
 
@@ -93,13 +104,14 @@ def test_every_collector_refines_together_and_rerun_changes_nothing(refine_db, t
         "airkorea_final": 18,
         "bigkinds": 2,
         "youthcenter": 3,
+        "press_yeosu": 2,
     }
 
     stats = refine_raw(conn)
 
     # 본문 없는 기사 b 만 보류(BODY_MISSING, 의도된 규칙). 나머지는 모두 통과
-    assert (stats["raw"], stats["skipped"]) == (28, {})
-    assert stats["status"] == {"pass": 27, "held": 1}
+    assert (stats["raw"], stats["skipped"]) == (30, {})
+    assert stats["status"] == {"pass": 29, "held": 1}
     held = conn.execute(
         "SELECT source_id, issues FROM normalized_record WHERE validation_status = 'held'"
     ).fetchall()
@@ -110,6 +122,7 @@ def test_every_collector_refines_together_and_rerun_changes_nothing(refine_db, t
         "airkorea_station": 2,
         "bigkinds": 1,
         "youthcenter": 3,
+        "press_yeosu": 2,
     }
     assert stats["air_monthly"] > 0 and stats["air_unplaced"] == 0
     before = conn.execute("SELECT * FROM normalized_record ORDER BY content_hash").fetchall()
@@ -118,7 +131,7 @@ def test_every_collector_refines_together_and_rerun_changes_nothing(refine_db, t
     again = collect_all(conn, tmp_path)
     assert set(again.values()) == {0}
     restats = refine_raw(conn)
-    assert (restats["inserted"], restats["updated"], restats["unchanged"]) == (0, 0, 10)
+    assert (restats["inserted"], restats["updated"], restats["unchanged"]) == (0, 0, 12)
     assert restats["status"] == stats["status"]
     assert restats["air_monthly"] == stats["air_monthly"]
     after = conn.execute("SELECT * FROM normalized_record ORDER BY content_hash").fetchall()
@@ -147,12 +160,13 @@ def test_recollection_with_only_unledgered_fields_changed_stays_ready(refine_db,
 
     stats = refine_raw(conn)
 
-    assert stats["status"] == {"pass": 30, "held": 1}
+    assert stats["status"] == {"pass": 32, "held": 1}
     assert ready_by_source(conn) == {
         "S01": 3,
         "airkorea_station": 2,
         "bigkinds": 1,
         "youthcenter": 3,
+        "press_yeosu": 2,
     }
     newest = conn.execute(
         "SELECT n.source_id, count(*) FROM normalized_ready n JOIN raw_record r USING"
