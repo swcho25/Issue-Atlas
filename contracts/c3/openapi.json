@@ -890,7 +890,8 @@
         "properties": {
           "check_no": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9
           },
           "ok": {
             "type": "boolean"
@@ -1014,7 +1015,8 @@
           },
           "target": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "설명용 선택 칸. 연령은 지표 ID 끝(_19_39)이 원본"
           },
           "period_type": {
             "type": "string",
@@ -1026,10 +1028,10 @@
           "place_level": {
             "type": "string",
             "enum": [
+              "sido",
               "sigungu",
               "emd",
-              "station",
-              "sigungu_pair"
+              "station"
             ]
           },
           "roll": {
@@ -1077,7 +1079,6 @@
           "id",
           "label",
           "unit",
-          "target",
           "period_type",
           "place_level",
           "roll",
@@ -1094,6 +1095,14 @@
           "formula_version": {
             "type": "string",
             "minLength": 1
+          },
+          "indicator_id": {
+            "type": "string",
+            "description": "판정하는 지표. 있으면 이 지표 행의 ID(= 카드의 main)와 같아야 한다"
+          },
+          "min_years": {
+            "type": "integer",
+            "minimum": 1
           },
           "thresholds": {
             "type": "object",
@@ -1122,6 +1131,9 @@
                     "insufficient",
                     "not_comparable"
                   ]
+                },
+                "meaning": {
+                  "type": "string"
                 }
               },
               "required": [
@@ -1129,7 +1141,8 @@
                 "label",
                 "claim"
               ]
-            }
+            },
+            "description": "위에서부터 처음 맞는 것. 마지막 when 은 otherwise"
           }
         },
         "required": [
