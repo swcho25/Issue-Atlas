@@ -24,7 +24,7 @@ CI 전용 Docker를 같이 운영하는 EC2에서는 서비스 bridge의 외부 
 | `/var/lib/issueatlas/collector/output` | 실행별 C1 결과. UID/GID 10001, 750. `/app/outputs`에 연결 |
 | `/var/log/issueatlas/collector` | 실행별 로그·사용 이미지·종료 코드. root 700, 개별 파일 600 |
 | `/opt/issueatlas-dev/deploy/collector/compose.yaml` | 이 폴더의 Compose. root 소유이며 기존 issueatlas-dev_default 네트워크에 연결 |
-| `/usr/local/sbin/issueatlas-collect` | run_collector.py를 root:root 755로 설치. 수동 실행과 잠금·로그 담당 |
+| `/usr/local/sbin/issueatlas-collect` | run_collector.py를 root:root 755로 설치. 수동 실행과 잠금·로그 담당. **CD 가 갱신하지 않는다** — 이 파일을 바꾸면 서버 관리자가 다시 설치한다 |
 
 기존 `/usr/local/sbin/issueatlas-deploy.py`를 이 브랜치의 `deploy/ci/deploy_backend.py`로 갱신하고 `/etc/issueatlas/cicd.json`에 `collector_image_repository`를 추가한다. 기존 backend 설정은 유지한다. Dockerfile은 저장소 루트에서 `docker build -f engine/Dockerfile .`로 빌드한다. Python 기반 이미지·uv·의존성은 고정하고 API 키·개발 의존성은 포함하지 않는다.
 
@@ -35,6 +35,13 @@ CI 전용 Docker를 같이 운영하는 EC2에서는 서비스 bridge의 외부 
 ## 환경 선택 (137번)
 
 기본 실행은 기존 개발 환경이다. 운영은 **mode 앞에** `--environment main`을 지정한다: `sudo issueatlas-collect --environment main kosis ...`. 개발은 `--environment develop`이며 생략 가능하다. 서버 JSON에서 해당 환경의 배포 기록·DB 네트워크·비밀 파일·input/output/log 경로를 선택한다. 운영 DB 접속 정보는 별도 `/etc/issueatlas/production/collector.env`로 준비하고 개발 설정을 복사해 연결하지 않는다. 입력 파일은 환경별 input 경로에 서버 관리자가 배치한다.
+
+## 수집 뒤 자동 정제
+
+원본 장부(`raw_record`)에 쓰는 수집(kosis · airkorea-stations · airkorea-final · press · youth-policy · bigkinds)이 성공하면 실행기가 **같은 잠금 안에서** `refine --changed-since <수집 시작 시각>` 을 이어 돈다. 그 수집이 실행 이력(`job_run`)을 남긴 출처만 정제한다([P2 계약](../../contracts/p2/README.md) v0.10). DB 에 쓰지 않은 실행(예: `--db` 없는 press)은 정제할 출처가 없어 바로 끝난다. 수집 로그에 정제 출력이 이어 붙고, 요약 JSON 에 `refine_exit_code` 가 붙는다. 수집이 성공하고 정제가 실패하면 실행기 종료 코드는 정제의 코드다.
+
+- `--no-refine`(mode 앞): 이어지는 정제를 끈다. 그 환경의 수집기 이미지에 `refine --changed-since` 가 없을 때(운영에 아직 반영 전) 쓴다: `sudo issueatlas-collect --environment main --no-refine kosis ...`
+- 세출(lofin)은 자체 표라 정제하지 않는다. 기존 대응 후보(`responses`)는 지금처럼 따로 돌린다
 
 ## 수동 실행
 
@@ -49,7 +56,7 @@ sudo issueatlas-collect airkorea-stations
 
 # 담당자가 확인한 최종확정 XLSX를 input에 넣고 컨테이너 경로로 지정한다.
 sudo issueatlas-collect airkorea-final --xlsx /inputs/final.xlsx --start-date 2024-01-01 --end-date 2024-01-02
-# 여수시 · 광주광역시 보도자료 목록 → 원본 장부(raw_record). 뒤이어 refine 을 돌린다. 키 없음. robots.txt 간격(여수 30초)을 지켜 여수 약 33분, 광주 약 3분
+# 여수시 · 광주광역시 보도자료 목록 → 원본 장부(raw_record). 실행기가 그 출처만 이어 정제한다. 키 없음. robots.txt 간격(여수 30초)을 지켜 여수 약 33분, 광주 약 3분
 sudo issueatlas-collect press --site yeosu --db
 sudo issueatlas-collect press --site gwangju --db
 # 광주 누리집이 2026-11-02 부터 자동 요청을 막는다(400). 그동안은 옛 press_release 표(10/30 수집)에서 옮긴다. 몇 초
@@ -66,7 +73,9 @@ sudo issueatlas-collect bigkinds --start 2025-12-15 --until 2025-12-22
 sudo issueatlas-collect bigkinds --start 2025-12-22 --until 2025-12-29
 sudo issueatlas-collect bigkinds --start 2025-12-29 --until 2026-01-01
 # P2 정제: 장부 → normalized_record. 키 없음. 수집과 같은 잠금이라 수집 중에는 돌지 않는다. 결과 파일 없음(--output 을 붙이지 않는다)
+# 수집 뒤에는 자동으로 돈다. 손으로는 규칙 판(rule_version)을 올린 뒤 전체(약 40분) · 한 출처만(1–2분) 다시 돌릴 때
 sudo issueatlas-collect refine
+sudo issueatlas-collect refine --source press_gwangju
 # 기존 대응 후보(existing_response): 정제된 온통청년 정책 · 세출에서 카드 C1 · A3 후보를 뽑는다. 키 없음 · 결과 파일 없음.
 # youth-policy · lofin 적재와 refine 뒤에 돌린다. 같은 판을 다시 돌리면 0건 추가
 sudo issueatlas-collect responses
