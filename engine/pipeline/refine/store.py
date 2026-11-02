@@ -8,12 +8,15 @@ raw 한 행 = 정제 행 하나(content_hash 로 연결).
 같은 장부·같은 규칙 판이면 저장 결과가 바뀌지 않고, 바뀐 행만 refined_at 이 새로 찍힌다.
 에어코리아 확정 시간값은 normalized_record 에 넣지 않고, 묶음마다 측정소 × 지표 × 월 합계에 더해
 두었다가 정제가 끝나면 월별 표(air_monthly, V0009)를 다시 쓴다.
+출처(source)를 고르면 그 출처의 장부만 정제한다. 두 키(obs_key · dedup_key)는 출처 안에서만 겹치므로
+결과는 전체 정제와 같다. 월별 표는 에어코리아 확정 출처를 고른 실행만 다시 쓴다.
 """
 
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
@@ -41,6 +44,16 @@ SELECT r.id, s.source_id, r.c1_record IS NOT NULL AS has_ledger,
     ), '') AS bucket
 FROM raw_record r
 JOIN source_spec s ON s.spec_id = r.spec_id
+"""
+# 고른 출처만. 출처 → 수집 명세로 바꿔 원본의 spec_id 색인을 쓴다
+PARTS_OF = "WHERE r.spec_id IN (SELECT spec_id FROM source_spec WHERE source_id = ANY({sources}))"
+# 이 시각 뒤에 실행 이력(job_run)이 생긴 출처 = 그사이 수집이 돈 출처
+CHANGED_SOURCES = """
+SELECT DISTINCT s.source_id
+FROM job_run j
+JOIN source_spec s ON s.spec_id = j.spec_id
+WHERE j.started_at >= %s
+ORDER BY 1
 """
 # 같은 키가 여러 묶음에 있으면 그 키의 레코드를 모두 MIXED 로 옮긴다. 더 옮길 것이 없을 때까지
 MERGE = """
@@ -114,13 +127,20 @@ class RefineStoreError(Exception):
     """장부·연결 상태가 저장 규칙과 맞지 않을 때의 고정 원인 코드."""
 
 
-def refine_raw(conn) -> dict:
-    """autocommit 연결. 장부가 없는 raw 는 건너뛰고 source_id 별로 센다. 묶음마다 커밋한다."""
+def refine_raw(conn, sources=None) -> dict:
+    """autocommit 연결. 장부가 없는 raw 는 건너뛰고 source_id 별로 센다. 묶음마다 커밋한다.
+
+    sources 가 None 이면 모든 장부, 출처 목록이면 그 출처의 장부만(빈 목록이면 아무것도) 정제한다.
+    """
     if not conn.autocommit:
         raise RefineStoreError("STORE_REQUIRES_AUTOCOMMIT")
+    parts = sql.SQL(PARTS)
+    if sources is not None:
+        where = sql.SQL(PARTS_OF).format(sources=sql.Literal(list(sources)))
+        parts = sql.SQL("{} {}").format(parts, where)
     conn.execute("DROP TABLE IF EXISTS refine_part")
     try:
-        conn.execute(PARTS)
+        conn.execute(parts)
         # 장부가 다른 원본을 가리키면 어느 쪽이 맞는지 모른다. 어느 묶음도 저장하기 전에 멈춘다
         if conn.execute(MISMATCH).fetchone():
             raise RefineStoreError("C1_HASH_MISMATCH")
@@ -141,8 +161,9 @@ def refine_raw(conn) -> dict:
             _refine_bucket(conn, bucket, totals, status, air)
     finally:
         conn.execute("DROP TABLE IF EXISTS refine_part")
-    # 모든 묶음을 더한 뒤 한 번에 바꾼다. 쓰는 동안 읽는 쪽은 이전 월별 값을 본다
-    air_monthly = air.save(conn)
+    # 모든 묶음을 더한 뒤 한 번에 바꾼다. 쓰는 동안 읽는 쪽은 이전 월별 값을 본다.
+    # 에어코리아 확정 출처를 고르지 않은 실행은 월별 표를 건드리지 않는다(null)
+    air_monthly = air.save(conn) if sources is None or AIR_SOURCE in sources else None
     return {
         "raw": raw,
         "skipped": dict(skipped),
@@ -154,6 +175,11 @@ def refine_raw(conn) -> dict:
         "air_monthly": air_monthly,
         "air_unplaced": air.unplaced,
     }
+
+
+def changed_sources(conn, since) -> list[str]:
+    """since(시간대 있는 시각) 뒤에 수집 실행 이력이 생긴 출처."""
+    return [row[0] for row in conn.execute(CHANGED_SOURCES, (since,))]
 
 
 def _merge_split_keys(conn):

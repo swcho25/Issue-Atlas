@@ -6,12 +6,14 @@ P2 가 그 장부를 읽어 정제하고 normalized_record 에 저장한다. P2 
 
 import copy
 import json
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from psycopg.types.json import Jsonb
 
 from pipeline.collect.kosis import Query
+from pipeline.collect.press import PressQuery, store_pages, to_c1
 from pipeline.collect.run import collect
 from pipeline.collect.store import PostgresStore
 from pipeline.refine import store
@@ -331,3 +333,86 @@ def test_article_whose_body_was_discarded_after_summary_stays_ready(refine_db, t
         (article["content_hash"],),
     ).fetchall()
     assert ready == [("metadata", None, "ok")]
+
+
+def press_rows(conn, n):
+    """다른 출처(press_yeosu)의 원본 n 건. 보도자료 수집기의 저장 경로로 넣는다."""
+    run_id = f"press_yeosu_{datetime.now(UTC).timestamp()}"
+    listings = [
+        {
+            "press_id": f"yeosu:{i}",
+            "site": "yeosu",
+            "category": "행정",
+            "department": "홍보과",
+            "title": f"가상 보도 {i}",
+            "published_on": "2025-03-01",
+            "url": f"https://www.yeosu.go.kr/www/govt/news/release/press?idx={i}&mode=view",
+            "collected_at": "2026-11-02T00:00:00Z",
+        }
+        for i in range(1, n + 1)
+    ]
+    query = PressQuery("yeosu", date(2025, 1, 1), date(2025, 12, 31))
+    store_pages(conn, query, [[to_c1(listing, run_id) for listing in listings]], run_id)
+
+
+AIR_ROW = (
+    "INSERT INTO air_monthly (station_code, station_name, indicator_id, unit, month_start,"
+    " month_end, month_hours, valid_hours, held_hours, value_mean, value_min, value_max,"
+    " has_provisional) VALUES ('324115', '서석동', 'air_pm25', 'ug/m3',"
+    " '2025-01-01T00:00:00+09:00', '2025-02-01T00:00:00+09:00', 744, 744, 0, 15, 1, 30, false)"
+)
+
+
+def test_one_source_is_refined_alone_and_leaves_the_rest(refine_db, tmp_path):
+    # 출처를 고르면 그 출처의 장부만. 다른 출처 · 월별 표는 그대로다
+    conn, _ = refine_db
+    collect_rows(conn, tmp_path, ROWS)
+    press_rows(conn, 2)
+    conn.execute(AIR_ROW)
+
+    stats = store.refine_raw(conn, ["press_yeosu"])
+
+    assert (stats["raw"], stats["inserted"], stats["air_monthly"]) == (2, 2, None)
+    assert conn.execute(
+        "SELECT source_id, count(*) FROM normalized_record GROUP BY 1"
+    ).fetchall() == [("press_yeosu", 2)]
+    assert conn.execute("SELECT count(*) FROM air_monthly").fetchone() == (1,)
+    # 이어서 전체를 돌리면 남은 출처만 새로 들어가고 보도자료는 그대로다
+    stats = refine_raw(conn)
+    assert (stats["inserted"], stats["unchanged"]) == (3, 2)
+
+
+def test_changed_since_refines_only_sources_collected_after(refine_db, tmp_path, capsys):
+    conn, connect = refine_db
+    collect_rows(conn, tmp_path, ROWS)
+    conn.execute("UPDATE job_run SET started_at = started_at - interval '1 day'")
+    since = datetime.now(UTC) - timedelta(hours=1)
+    press_rows(conn, 2)
+    capsys.readouterr()
+
+    assert main(["--db", "--changed-since", since.isoformat()], connect=connect) == 0
+
+    printed = json.loads(capsys.readouterr().out)
+    assert (printed["sources"], printed["raw"], printed["inserted"]) == (["press_yeosu"], 2, 2)
+    assert printed["air_monthly"] is None
+    # 그 뒤에 돈 수집이 없으면 정제할 것도 없다
+    later = (datetime.now(UTC) + timedelta(minutes=1)).isoformat()
+    assert main(["--db", "--changed-since", later], connect=connect) == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert (printed["sources"], printed["raw"]) == ([], 0)
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--source", "press_yeosu"],
+        ["--db", "--changed-since", "2026-11-02T00:00:00"],
+        ["--db", "--changed-since", "어제"],
+        ["--db", "--source", "S01", "--changed-since", "2026-11-02T00:00:00Z"],
+        ["records.json", "--db"],
+        [],
+    ],
+)
+def test_cli_rejects_unclear_scope(argv, capsys):
+    assert main(argv, connect=None) == 2
+    assert capsys.readouterr().err.startswith("사용법")
