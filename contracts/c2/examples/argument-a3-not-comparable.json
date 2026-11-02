@@ -71,5 +71,9 @@
   "ceiling": {
     "items": ["배출원(산단·차량·국외)", "오염의 이동 경로", "건강 영향", "저감 정책의 효과", "측정소가 없는 읍면동의 대기질"],
     "provenance": "card"
-  }
+  },
+  "series": [
+    {"indicator_id": "air_pm25", "place_id": "kr-12130", "station_id": "plc_stn_336121", "name": "서강동", "coordinates": [127.725967, 34.741301], "unit": "µg/m³", "periods": ["2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06", "2024-07", "2024-08", "2024-09", "2024-10", "2024-11", "2024-12", "2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12"], "values": [19.3, 19.4, 22.8, 15.6, 13.2, 9.4, 9.6, 9.3, 8.0, 10.2, 10.1, 15.4, 14.5, 13.1, 15.7, 14.9, 10.9, 10.7, 6.0, 10.3, 7.2, 8.2, 9.0, 11.0, 17.4, 13.3, 16.1, 13.3, 12.0, 10.8, 9.7, 8.3, 7.4, 7.1, 12.3, 12.7], "statuses": ["available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available"]}
+  ],
+  "articles": []
 }

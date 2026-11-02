@@ -1,7 +1,9 @@
 package com.c108.issueatlas.question.repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -19,6 +21,39 @@ public class QuestionRepository {
                     THEN daterange(make_date(r.fiscal_year, 1, 1), make_date(r.fiscal_year + 1, 1, 1))
                     ELSE daterange(r.period_start, r.period_end) END && daterange(:start, :end)
               AND (r.origin = 'lofin' OR r.period_start IS NOT NULL OR r.period_end IS NOT NULL)
+            """;
+
+    // 화면 series(「시공간 표시 개발 명세」 5 · 6절): 질문 지역의 월 단위 통계 관측(observation view, V0025).
+    // 측정소 행은 place_id 가 측정소의 시군구라 같이 잡힌다. 이동은 도착 시도 이름 · 대표점을 붙인다
+    private static final String SERIES =
+            """
+            SELECT o.what_id, o.station_id, o.to_place_id, o.unit, o.value, o.status,
+                   to_char(o.when_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') AS period,
+                   o.lon, o.lat, st.name AS station_name, tp.name AS to_name,
+                   ST_X(tp.geometry::geometry) AS to_lon, ST_Y(tp.geometry::geometry) AS to_lat
+            FROM observation o
+            LEFT JOIN place st ON st.place_id = o.station_id
+            LEFT JOIN place tp ON tp.place_id = o.to_place_id
+            WHERE o.what_type = 'indicator' AND o.when_unit = 'M' AND o.what_id IN (:ids)
+              AND o.place_id = :place
+              AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+              AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+            ORDER BY o.what_id, o.station_id NULLS FIRST, o.to_place_id NULLS FIRST, o.when_start
+            """;
+
+    // 근거 기사: 카드 태그가 있고 질문 지역(앞자리가 같은 읍면동 포함) · 기간 안인 기사(명세 6절)
+    private static final String ARTICLES =
+            """
+            SELECT o.what_id AS id, to_char(o.when_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS date,
+                   o.place_id, o.lon, o.lat, o.location_precision, o.summary, e.place_name,
+                   p.name AS area_name, ST_X(p.geometry::geometry) AS area_lon, ST_Y(p.geometry::geometry) AS area_lat
+            FROM observation o
+            JOIN news_event e ON e.news_id = o.what_id
+            LEFT JOIN place p ON p.place_id = o.place_id
+            WHERE o.source_table = 'news_event' AND :card = ANY (o.tags) AND starts_with(o.place_id, :place)
+              AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+              AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+            ORDER BY o.when_start, o.what_id
             """;
 
     private final JdbcClient jdbc;
@@ -165,6 +200,43 @@ public class QuestionRepository {
                 .update();
     }
 
+    public List<SeriesRow> seriesRows(
+            List<String> indicatorIds, String placeId, LocalDate start, LocalDate end) {
+        return jdbc.sql(SERIES)
+                .param("ids", indicatorIds)
+                .param("place", placeId)
+                .param("start", start)
+                .param("end", end)
+                .query(SeriesRow.class)
+                .list();
+    }
+
+    public List<ArticleRow> articles(
+            String cardId, String placeId, LocalDate start, LocalDate end) {
+        return jdbc.sql(ARTICLES)
+                .param("card", cardId)
+                .param("place", placeId)
+                .param("start", start)
+                .param("end", end)
+                .query(ArticleRow.class)
+                .list();
+    }
+
+    /** 지역 대표점 [경도, 위도]. 좌표가 없으면 null 두 개. */
+    public List<Double> point(String placeId) {
+        return jdbc.sql(
+                        "SELECT ST_X(geometry::geometry) AS lon, ST_Y(geometry::geometry) AS lat"
+                                + " FROM place WHERE place_id = ?")
+                .param(placeId)
+                .query(
+                        (rs, n) ->
+                                Arrays.asList(
+                                        rs.getObject(1, Double.class),
+                                        rs.getObject(2, Double.class)))
+                .optional()
+                .orElse(Arrays.asList(null, null));
+    }
+
     public Optional<String> result(String runId) {
         return jdbc.sql("SELECT result::text FROM argument_run WHERE run_id = ?")
                 .param(runId)
@@ -175,6 +247,34 @@ public class QuestionRepository {
     public record CardRow(String cardId, String name, int cardVersion, String taxonomyVersion) {}
 
     public record MatchedResponse(String responseId, String evidenceId) {}
+
+    public record SeriesRow(
+            String whatId,
+            String stationId,
+            String toPlaceId,
+            String unit,
+            BigDecimal value,
+            String status,
+            String period,
+            Double lon,
+            Double lat,
+            String stationName,
+            String toName,
+            Double toLon,
+            Double toLat) {}
+
+    public record ArticleRow(
+            String id,
+            String date,
+            String placeId,
+            Double lon,
+            Double lat,
+            String locationPrecision,
+            String summary,
+            String placeName,
+            String areaName,
+            Double areaLon,
+            Double areaLat) {}
 
     public record EvidenceRef(
             String evidenceId,

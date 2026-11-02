@@ -59,16 +59,19 @@ public class QuestionService {
     private final QuestionRepository questions;
     private final CardRepository cards;
     private final Map<String, CardRule> rules;
+    private final SeriesService series;
     private final ObjectMapper json;
 
     public QuestionService(
             QuestionRepository questions,
             CardRepository cards,
             List<CardRule> rules,
+            SeriesService series,
             ObjectMapper json) {
         this.questions = questions;
         this.cards = cards;
         this.rules = rules.stream().collect(Collectors.toMap(CardRule::cardId, r -> r));
+        this.series = series;
         this.json = json;
     }
 
@@ -119,7 +122,15 @@ public class QuestionService {
                         new Text(run.rule() == null ? null : run.rule().warrant(), "card"),
                         qualifier(run.refs(), end),
                         List.of(),
-                        new Ceiling(run.rule() == null ? List.of() : run.rule().ceiling(), "card"));
+                        new Ceiling(run.rule() == null ? List.of() : run.rule().ceiling(), "card"),
+                        // 판정과 따로, 카드가 있으면 그림 자료를 늘 보낸다(규칙이 없어도 화면은 그린다)
+                        card == null
+                                ? List.of()
+                                : series.series(
+                                        card.cardId(), request.placeId(), placeName, start, end),
+                        card == null
+                                ? List.of()
+                                : series.articles(card.cardId(), request.placeId(), start, end));
         questions.insertRun(
                 runId,
                 questionId,

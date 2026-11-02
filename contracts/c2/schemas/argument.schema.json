@@ -165,6 +165,16 @@
       },
       "required": ["items", "provenance"],
       "additionalProperties": false
+    },
+    "series": {
+      "description": "화면 그림 줄(「시공간 표시 개발 명세」 5절). 질문 기간의 달마다 한 칸이고 periods · values · statuses 길이가 같다. 그림 종류는 모양이 정한다: to 가 있으면 이동, tag 가 있으면 기사 건수(확산), coordinates 가 있으면 지도, 없으면 막대. 카드가 없으면 빈 배열",
+      "type": "array",
+      "items": { "$ref": "#/$defs/series" }
+    },
+    "articles": {
+      "description": "근거 기사 목록(명세 5 · 6절). 카드 태그가 있고 질문 지역 · 기간 안인 기사. 기사는 series 가 아니라 여기로 보낸다",
+      "type": "array",
+      "items": { "$ref": "#/$defs/article" }
     }
   },
   "required": [
@@ -183,7 +193,9 @@
     "warrant",
     "qualifier",
     "rebuttals",
-    "ceiling"
+    "ceiling",
+    "series",
+    "articles"
   ],
   "additionalProperties": false,
   "allOf": [
@@ -214,6 +226,53 @@
     }
   ],
   "$defs": {
+    "lon_lat": {
+      "type": "array",
+      "prefixItems": [{ "type": ["number", "null"] }, { "type": ["number", "null"] }],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "series": {
+      "type": "object",
+      "properties": {
+        "indicator_id": { "type": "string" },
+        "place_id": { "$ref": "common.schema.json#/$defs/id" },
+        "station_id": { "type": ["string", "null"] },
+        "name": { "type": ["string", "null"] },
+        "coordinates": { "oneOf": [{ "$ref": "#/$defs/lon_lat" }, { "type": "null" }] },
+        "from": { "$ref": "common.schema.json#/$defs/id" },
+        "to": { "$ref": "common.schema.json#/$defs/id" },
+        "to_name": { "type": ["string", "null"] },
+        "from_coordinates": { "$ref": "#/$defs/lon_lat" },
+        "to_coordinates": { "$ref": "#/$defs/lon_lat" },
+        "tag": { "type": "string" },
+        "unit": { "type": ["string", "null"] },
+        "periods": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } },
+        "values": { "type": "array", "items": { "type": ["number", "null"] } },
+        "statuses": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/evidence_status" } }
+      },
+      "required": ["unit", "periods", "values", "statuses"],
+      "additionalProperties": false,
+      "oneOf": [
+        { "required": ["indicator_id", "place_id", "station_id", "name", "coordinates"] },
+        { "required": ["indicator_id", "from", "to", "to_name", "from_coordinates", "to_coordinates"] },
+        { "required": ["tag", "place_id", "name", "coordinates"] }
+      ]
+    },
+    "article": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "$ref": "common.schema.json#/$defs/date" },
+        "place_id": { "$ref": "common.schema.json#/$defs/id" },
+        "point": { "oneOf": [{ "$ref": "#/$defs/lon_lat" }, { "type": "null" }] },
+        "precision": { "$ref": "common.schema.json#/$defs/location_precision" },
+        "summary": { "type": ["string", "null"] },
+        "place_name": { "type": ["string", "null"] }
+      },
+      "required": ["id", "date", "place_id", "point", "precision", "summary", "place_name"],
+      "additionalProperties": false
+    },
     "condition": {
       "type": "object",
       "properties": {

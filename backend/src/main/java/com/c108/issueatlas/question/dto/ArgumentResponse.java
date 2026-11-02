@@ -21,7 +21,61 @@ public record ArgumentResponse(
         Text warrant,
         Qualifier qualifier,
         List<Rebuttal> rebuttals,
-        Ceiling ceiling) {
+        Ceiling ceiling,
+        List<Series> series,
+        List<Article> articles) {
+    /**
+     * 화면 그림 한 줄(「시공간 표시 개발 명세」 5절). 세 배열(periods · values · statuses)은 길이가 같고 월 순서다. 그림 종류는 모양이
+     * 정한다: to 가 있으면 이동, tag 가 있으면 기사 건수(확산), coordinates 가 있으면 지도, 없으면 막대.
+     */
+    public sealed interface Series permits StatSeries, MoveSeries, CountSeries {}
+
+    public record StatSeries(
+            String indicatorId,
+            String placeId,
+            String stationId,
+            String name,
+            List<Double> coordinates,
+            String unit,
+            List<String> periods,
+            List<Number> values,
+            List<String> statuses)
+            implements Series {}
+
+    public record MoveSeries(
+            String indicatorId,
+            String from,
+            String to,
+            String toName,
+            List<Double> fromCoordinates,
+            List<Double> toCoordinates,
+            String unit,
+            List<String> periods,
+            List<Number> values,
+            List<String> statuses)
+            implements Series {}
+
+    public record CountSeries(
+            String tag,
+            String placeId,
+            String name,
+            List<Double> coordinates,
+            String unit,
+            List<String> periods,
+            List<Number> values,
+            List<String> statuses)
+            implements Series {}
+
+    /** 근거 기사 한 건. 기사는 series 가 아니라 이 목록으로 보낸다. 좌표를 못 정한 기사는 point null. */
+    public record Article(
+            String id,
+            LocalDate date,
+            String placeId,
+            List<Double> point,
+            String precision,
+            String summary,
+            String placeName) {}
+
     public record Question(
             String questionId,
             String placeId,

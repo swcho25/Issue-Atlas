@@ -49,6 +49,20 @@
 - 근거 수요표 상태는 `card_evidence_status`(정확히 같은 기간 · 카드 판)를 읽는다. 기존 대응은 이번 실행이 이은 후보가 있으면 그것으로 정한다
 - 한정어 ④ 는 위 「정하지 않은 것」의 임시 방식으로 센다
 
+## 그림 자료 `series[]` · 근거 기사 `articles[]`
+
+argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자료를 싣는다. 판정과 따로, 카드가 있으면 규칙 · 통계 확보 상태와 상관없이 늘 보낸다(카드가 없으면 둘 다 `[]`). 실행 때 [관측 행](../observation/README.md) view 를 읽어 결과와 함께 저장하므로, 지난 실행은 그때 자료 그대로다. 화면은 다시 요청하지 않고 이 응답 하나로 그린다.
+
+| 모양 | 칸 | 그림 |
+| --- | --- | --- |
+| 통계 | `indicator_id` · `place_id` · `station_id` · `name` · `coordinates`(측정소면 [경도, 위도], 집계 통계면 null) | 측정소 지도(좌표 있음) · 월별 막대(좌표 없음) |
+| 이동 | `indicator_id` · `from` · `to` · `to_name` · `from_coordinates`(출발 시군구 대표점) · `to_coordinates`(도착 시도 대표점) | 이동 선 지도 |
+| 기사 건수 | `tag` · `place_id` · `name` · `coordinates`, `values` = 그 달 근거 기사 수 | 확산 |
+
+- 공통 칸 `unit` · `periods[]`(`YYYY-MM`, 질문 기간의 달 모두) · `values[]` · `statuses[]`. 세 배열 길이가 같고, `available` 이 아니면 값은 null. 그 달 관측 행이 없으면 `not_collected`. 연으로 묶지 않는다
+- 카드에 연결한 지표(명세 7절 그림 순서): C1 = `population_net_migration_19_39`(순이동 막대) → `population_movers`(이동, 도착 시도마다 한 줄), A3 = `air_pm25`(측정소마다 한 줄). 카드가 늘면 카드 ↔ 지표 표로 옮긴다
+- `articles[]`: `id`(news_id) · `date`(한국 날짜) · `place_id` · `point` · `precision` · `summary` · `place_name`. 카드 태그가 있고 질문 지역(앞자리가 같은 읍면동 포함) · 기간 안인 기사. **지금은 기사에 카드 태그가 없어(기사 분류 P4 전) 늘 빈 배열**이고 기사 건수 series 도 나오지 않는다
+
 ## 공통 규칙
 
 - 필드 이름은 **snake_case**. PRD 8장·C1과 같은 이름을 쓴다. (화면팀 리뷰에서 camelCase 를 원하면 v0.1 동결 전에 바꾼다)
@@ -167,3 +181,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-01): 지역 목록의 시군구 `parent_id` 가 상위 지역(광주 5개 구 `kr-29`, 여수시 `kr-46`)으로 나간다(V0021). 시도는 목록에 없으니 화면은 시군구를 맨 위로 둔다. 예시 `place-list.json` 갱신(S15P31C108-169).
 - v0.1 (2026-11-01): 질문 · 실행 구현(S15P31C108-133). argument 의 `question.card_id` · `card_name` · `card_version` · `formula_version` 을 null 허용으로 바꾼다 — 목록에 없는 질문(FR-A3)과 판정 규칙이 없는 카드. `card_id` 가 null 이면 `run_status = unsupported` · `card_version = null` 을 스키마가 검사한다. 예시 `argument-unsupported.json` 추가.
 - v0.1 (2026-11-02): 시군구 `place_id` 가 `kr-<KOSIS 새 시군구 5자리>` 로 바뀐다(V0024): 광주 동구 `kr-12210` · 서구 `kr-12240` · 남구 `kr-12270` · 북구 `kr-12300` · 광산구 `kr-12330` · 여수시 `kr-12130`. 옛 `plc_*` 는 404. 예시를 모두 새 ID 로 바꿨다. 측정소 `plc_stn_*` 은 그대로.
+- v0.1 (2026-11-02): argument 에 `series[]`(그림 자료: 통계 · 이동 · 기사 건수 세 모양) · `articles[]`(근거 기사)를 더한다 — 「시공간 표시 개발 명세」 5 · 6절. 둘 다 필수 칸이고 카드가 없으면 빈 배열. 예시 4개에 추가(여수 C1 · A3 는 로컬 실데이터 값).

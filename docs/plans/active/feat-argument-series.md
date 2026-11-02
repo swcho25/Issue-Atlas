@@ -1,0 +1,19 @@
+# feat/argument-series — 질문 응답에 series[] · 근거 기사 목록
+
+- Jira: 미정(「[P7] C2 응답 series[] · 근거 기사 목록 반영, 지도 점 · 근거 상세 API 마무리」) · 기준: Notion 「시공간 표시 개발 명세」 5 · 6 · 7절 · 앞선 작업: !81(observation view)
+
+## 완료 조건
+- [x] argument 응답에 `series[]`(통계 · 이동 · 기사 건수)와 `articles[]` 가 실리고 C2 스키마 · 예시가 그 모양을 검사한다
+- [x] series 는 질문 기간의 달마다 한 칸, 관측이 없는 달은 null + not_collected, 그림 순서는 카드 지표 순서
+- [x] 판정(규칙 · 통계 확보 상태)과 상관없이 카드가 있으면 series 를 보낸다
+- [ ] 화면팀 계약 리뷰
+
+## 진행
+- 2026-11-02: 카드 ↔ 지표 연결이 DB 에 없어 명세 7 · 8절 그림대로 상수로 둔다(C1 = 19–39 순이동 · 이동, A3 = PM2.5)
+- 2026-11-02: 기사 카드 태그가 없어(빅카인즈 검색어 하나) articles · 기사 건수 series 는 지금 빈 배열 — 쿼리는 태그가 생기면 그대로 동작
+- 2026-11-02: QuestionApiTest 9(series 2 추가) · C2ExamplesTest · pnpm check 통과
+
+## 다음 할 일 / 범위 밖
+- 지도 점 근거 상세: 에어코리아 출처 등급이 없어 evidence 행을 못 만든다(출처 등급 담당)
+- 기사 태그(P4) 뒤 articles · 확산 확인
+- 판정 규칙(P5)이 series 의 연 값(roll)을 쓰도록 연결
