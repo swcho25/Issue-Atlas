@@ -268,9 +268,10 @@
         "point": { "oneOf": [{ "$ref": "#/$defs/lon_lat" }, { "type": "null" }] },
         "precision": { "$ref": "common.schema.json#/$defs/location_precision" },
         "summary": { "type": ["string", "null"] },
-        "place_name": { "type": ["string", "null"] }
+        "place_name": { "type": ["string", "null"] },
+        "url": { "type": ["string", "null"], "format": "uri" }
       },
-      "required": ["id", "date", "place_id", "point", "precision", "summary", "place_name"],
+      "required": ["id", "date", "place_id", "point", "precision", "summary", "place_name", "url"],
       "additionalProperties": false
     },
     "condition": {
