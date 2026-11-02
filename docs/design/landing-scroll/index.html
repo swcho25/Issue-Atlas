@@ -48,7 +48,8 @@
   .fog { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, #fff 0%, #fff 45%, rgb(255 255 255 / .85) 70%, rgb(255 255 255 / .6) 100%); opacity: 0; pointer-events: none; }
 
   /* 지도 위 표시: 3D 판 위 좌표를 화면 좌표로 옮겨 글자 · 점을 얹는다(판에 구워 넣지 않아 늘 또렷하다) */
-  .marks { pointer-events: none; overflow: hidden; visibility: hidden; }
+  /* 숨길 때는 display 로 뺀다: visibility 로 숨기면 글자마다 붙인 visibility: visible 이 이겨서 지구 위에 남는다 */
+  .marks { pointer-events: none; overflow: hidden; display: none; }
   .marks > div { position: absolute; left: 0; top: 0; will-change: transform; }
   .place { font-size: 13px; font-weight: 700; color: #5a6b8c; letter-spacing: .04em; white-space: nowrap; text-shadow: 0 0 2px #fff, 0 0 6px #fff, 0 0 10px #fff; }
   .place.city { font-size: 17px; font-weight: 800; color: var(--navy); }
@@ -415,7 +416,7 @@ function frameLoop(now) {
   // 4) 광주로 곧장 내려가며 기울어 내려앉는다
   //    확대 · 기울기 · 방위를 한 곡선으로 이어, 중간에 멈칫하는 구간이 없다
   const onGround = mapIn > 0;
-  put(marksEl, "visibility", onGround ? "visible" : "hidden");
+  put(marksEl, "display", onGround ? "block" : "none");
   put(attrib, "opacity", onGround ? String(0.8 * mapIn) : "0");
   if (onGround) {
     const mk = ease(span(Z, MAP_IN[0], finZoom));
