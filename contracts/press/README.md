@@ -1,6 +1,7 @@
-# 보도자료 목록 v0.1 — `press_release`
+# 보도자료 목록 v0.2 — C1 문서(`kind = press_release`)
 
-지자체 보도자료 게시판의 **목록**을 받아 둔다. 만드는 곳: `python -m pipeline.collect.press --site yeosu|gwangju --db` (`engine/pipeline/collect/press.py`). 테이블은 Flyway [V0010](../../backend/src/main/resources/db/migration/V0010__create_press_release.sql).
+지자체 보도자료 게시판의 **목록**을 받아 C1 문서 레코드로 원본 장부(`raw_record` · `job_run`)에 둔다. P2 정제를 거쳐 `normalized_ready` 로 나간다.
+만드는 곳: `python -m pipeline.collect.press --site yeosu|gwangju --db` (`engine/pipeline/collect/press.py`).
 계약 변경은 받는 쪽 박준우(P2) · 정우현(P3) 리뷰가 필요하다.
 
 ## 왜 목록만인가
@@ -29,26 +30,36 @@
 | `PRESS_UNRECOGNIZED_ROW` | 글 번호 · 제목 · 날짜(`YYYY-MM-DD`)를 읽지 못함 |
 | `PRESS_TOO_MANY_PAGES` | 300쪽을 넘김 — 끝을 찾지 못함 |
 
-## 저장 — `press_release`
+## 저장 — 원본 장부 · C1 문서 레코드
 
-| 칸 | 뜻 |
+게시판 하나 = 출처(`source`) 하나 · 수집 명세(`source_spec`) 하나. 이용허락이 달라 나눈다. 실행마다 `job_run` 한 행(쪽 수 · 받은 글 · 새 원본 · 같은 원본 수, 실패면 `error_code`).
+
+| 게시판 | `source_id` | `spec_id` | `license_type` |
+| --- | --- | --- | --- |
+| 여수시 | `press_yeosu` | `press_release_yeosu` | `KOGL-4` |
+| 광주광역시 | `press_gwangju` | `press_release_gwangju` | `KOGL-미표시` |
+
+원본(`raw_record.payload`)은 목록에 보이는 칸 그대로다: `press_id`(`<site>:<게시판 글 번호>`) · `category` · `department`(광주광역시 목록에는 없어 null) · `title`(광주광역시는 잘리지 않은 링크 title 속성) · `published_on`(등록일, 한국 날짜) · `url`(글 보기 주소).
+
+C1 레코드(`raw_record.c1_record`)에서 기사와 다른 칸
+
+| 칸 | 값 |
 | --- | --- |
-| `press_id` | `<site>:<게시판 글 번호>` (PK). 예: `yeosu:584169`, `gwangju:22211` |
-| `site` · `org` | `yeosu` 여수시 · `gwangju` 광주광역시 |
-| `place_code_raw` | 발행 기관의 KOSIS 지역 코드(옛 코드). 여수시 `46130`, 광주광역시 `29`(시 전체). P3 가 지역에 잇는다 |
-| `category` · `department` | 게시판 분류 · 담당부서. 광주광역시 목록에는 담당부서가 없어 null |
-| `title` | 전체 제목. 광주광역시 목록 글자는 길면 잘리므로 링크의 title 속성을 쓴다 |
-| `published_on` | 게시판 등록일(한국 날짜). 목록에 시각이 없다 |
-| `url` | 글 보기 주소(목록 검색 조건 없이) |
-| `license_type` · `storage_scope` | `KOGL-4` / `KOGL-미표시` · 항상 `metadata`(CHECK) |
-| `collected_at` · `collector` | 그 쪽을 받은 시각(UTC) · 수집기 판(`press-0.1.0`) |
-| `stored_at` | 이 행이 마지막으로 바뀐 시각 |
+| `raw_url` | 쪽 번호 · 기간이 없는 게시판 주소. 같은 글은 어느 쪽에서 읽어도 같다 |
+| `published_at` | 등록일 0시(+09:00). 목록에 시각이 없다 |
+| `place_code_raw` · `place_code_system` | 발행 기관의 KOSIS 지역 코드 · `kosis`. 여수시 `46130`, 광주광역시 `29`(시 전체). 글이 다루는 지역은 P3 가 정한다 |
+| `locator` | `{press_id}` — 같은 글의 판을 묶는 칸(P2 `obs_key`) |
+| `dedup_key` | `press:<press_id>:<보이는 칸 지문 12자리>` |
+| `storage_scope` | 늘 `metadata`. `document.body` · `excerpt` · `fetch` 는 null |
+| `document` | `kind = press_release`, `publisher` 기관명, `categories` 게시판 분류(없으면 `[]`), `link` 글 보기 주소. 담당부서는 C1 문서 칸에 없어 원본에만 있다 |
 
-**다시 돌리기:** 같은 글은 한 행이다. 제목 · 분류 · 담당부서 · 등록일 · 링크가 바뀐 때만 덮어쓴다(`updated`). 그대로면 손대지 않는다(`unchanged`).
+**다시 돌리기:** 같은 글을 그대로 다시 받으면 원본 지문(`content_hash`)이 같아 새 행이 생기지 않는다(`duplicates`). 제목 · 분류 · 담당부서 · 등록일 · 링크가 바뀌면 새 원본 · 새 판이고, P2 가 늦게 받은 판 하나만 `is_latest` 로 낸다(옛 판도 장부에 남는다).
+
+**`press_release` 표(V0010)** 는 이제 채우지 않는다. 개발 서버에서 새 경로로 다시 받은 것을 확인한 뒤 지운다.
 
 ## 열린 문제
 
-- C1 문서 칸(S15P31C108-100)이 생기면 raw_record · P2 정제와 잇는다. 그때 `press_id` 로 찾는다
+- `press_release` 표(V0010) 지우기 — 개발 서버 재수집 확인 뒤
 - 광주광역시 본문 이용은 누리집 담당자 협의가 필요하다. 2026-07 이후 글(통합특별시 임시 누리집)은 범위 밖
 - 광산구 등 자치구 보도자료는 범위 밖
 
@@ -57,3 +68,4 @@
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
 | v0.1 | 2026-10-28 | 초안: `press_release`(V0010), 여수시 · 광주광역시 목록, 실패 코드, 다시 돌리기 규칙 |
+| v0.2 | 2026-11-02 | C1 문서 레코드로 원본 장부 · `job_run` 에 저장하고 P2 정제를 거친다. 게시판마다 출처 · 수집 명세. 정정된 글은 새 판, 최신본만 `normalized_ready`. 수집기 `press-0.2.0`, `--output` 은 C1 레코드 JSONL. `press_release` 표는 더 채우지 않는다 (S15P31C108-172) |
