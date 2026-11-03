@@ -140,7 +140,8 @@
   .feat .num { margin-top: 36px; }
   .feat h3 { margin: 8px 0 10px; font-weight: 800; font-size: 26px; letter-spacing: -0.02em; line-height: 34px; }
   .feat p { margin: 0; font-size: 17px; line-height: 28px; color: #5b606d; }
-  .years { position: absolute; left: 48px; top: 42px; margin: 0; display: grid; grid-template-columns: 72px auto; row-gap: 7px; align-items: center; }
+  .subject { position: absolute; left: 48px; top: 32px; margin: 0; font-weight: 700; font-size: 14px; color: #5b606d; }
+  .years { position: absolute; left: 48px; top: 62px; margin: 0; display: grid; grid-template-columns: 72px auto; row-gap: 7px; align-items: center; }
   .years dt { font-weight: 500; font-size: 13px; color: #8a8f9c; }
   .years dd { margin: 0; font-size: 52px; line-height: 71px; letter-spacing: -0.02em; color: #5b606d; font-variant-numeric: tabular-nums; }
   .years dd.now { color: #111318; }
@@ -153,8 +154,8 @@
   .notsay li { display: flex; align-items: center; gap: 12px; min-height: 57px; padding: 6px 0; box-sizing: border-box; border-bottom: 1px solid #e4e6ec; font-weight: 700; font-size: 19px; color: #111318; }
   .notsay li:last-child { border-bottom: 0; }
   .notsay li::before { content: "✕"; font-size: 16px; color: #c2412a; }
-  /* 원문까지 네 단계 */
-  .steps { grid-template-columns: repeat(4, minmax(0, 272px)); gap: 24px; text-align: left; }
+  /* 출처 · 원문 · 각주 세 단계 */
+  .steps { grid-template-columns: repeat(3, minmax(0, 368px)); gap: 32px; text-align: left; }
   .step .panel { height: 220px; display: flex; align-items: center; padding: 22px; }
   .slip { width: 100%; padding: 14px 16px; border-radius: 14px; background: #fff; }
   .slip small { display: block; font-weight: 700; font-size: 12px; color: #8a8f9c; }
@@ -186,14 +187,13 @@
   .foot .lock { display: flex; align-items: center; gap: 7px; color: #252624; text-decoration: none; font: 400 19.7px / 1 "Source Serif 4", serif; letter-spacing: -0.02em; }
   .foot .lock img { width: 25px; }
   .foot small { font-size: 13px; color: #8a8f9c; }
-  @media (max-width: 1199px) { .steps { grid-template-columns: repeat(2, minmax(0, 272px)); } }
   @media (max-width: 899px) {
     .tabs { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .steps { grid-template-columns: minmax(0, 368px); }
     .feats { grid-template-columns: minmax(0, 560px); }
     .feat .panel { height: auto; aspect-ratio: 560 / 400; }
   }
   @media (max-width: 599px) {
-    .steps { grid-template-columns: minmax(0, 340px); }
     .feat .panel { aspect-ratio: auto; height: 400px; }
     .foot { flex-direction: column; align-items: flex-start; }
   }
@@ -236,7 +236,7 @@
 <section class="sec">
   <p class="eyebrow">우리 지역이 궁금할 때</p>
   <h2>판단보다,<br>근거부터 먼저</h2>
-  <p class="lede">근거 수요표부터 논증 카드까지, 질문 하나에 필요한 걸 한 번에 확인하세요</p>
+  <p class="lede">질문 하나면 통계 · 보도자료 · 정책 문서를 한 화면에 모아 보여 드려요</p>
   <div class="tour" id="tour">
     <div class="screen">
       <img class="on" src="baked/screen-map.webp" width="1600" height="900" loading="lazy" decoding="async" alt="광주 대기질 결과 — 측정소 점이 놓인 지도와 월별 막대">
@@ -252,42 +252,41 @@
   </div>
 </section>
 <section class="sec">
-  <p class="eyebrow">결과가 나오면</p>
-  <h2>말할 수 있는 만큼만,<br>분명하게</h2>
-  <p class="lede">판단은 정해진 이름 하나로 끝나요. 근거로 말할 수 없는 건 따로 적어 둬요</p>
+  <p class="eyebrow">결과는 이렇게 나와요</p>
+  <h2>숫자가 말하는 만큼만<br>말해요</h2>
+  <p class="lede">통계로 확인되는 것만 결론으로 말하고, 알 수 없는 건 따로 알려 드려요</p>
   <div class="grid feats">
     <article class="feat">
       <div class="panel" aria-hidden="true">
+        <p class="subject">여수시 청년(19–39세) 순유출 · 명</p>
         <dl class="years"><dt>2023</dt><dd>−1,537</dd><dt>2024</dt><dd>−1,935</dd><dt>2025</dt><dd class="now">−2,262</dd></dl>
-        <span class="verdict"><b>판단</b><strong>청년 순유출 확대</strong></span>
+        <span class="verdict"><b>결론</b><strong>해마다 늘었어요</strong></span>
       </div>
       <span class="num">01</span>
-      <h3>정해진 이름으로 판단해요</h3>
-      <p>확대 · 축소 · 불분명 · 근거 부족 · 비교 불가처럼 카드에 정해 둔 이름으로만 말해요. 같은 자료로 다시 물어도 같은 판단이 나와요.</p>
+      <h3>결론은 짧고 분명하게</h3>
+      <p>「늘었다 · 줄었다 · 판단하기 어렵다」처럼 정해진 표현으로만 말해요. 같은 자료로 다시 물어도 같은 결론이 나와요.</p>
     </article>
     <article class="feat">
       <div class="panel" aria-hidden="true">
-        <div class="notsay"><h4>이 판단으로 말하지 않는 것</h4><ul><li>청년이 여수를 떠나는 원인</li><li>청년 유출과 고령화의 인과</li><li>청년만의 이동 경로</li></ul></div>
+        <div class="notsay"><h4>이 숫자로 알 수 없는 것</h4><ul><li>청년이 왜 떠나는지</li><li>고령화 때문인지</li><li>어디로 옮겨 갔는지</li></ul></div>
       </div>
       <span class="num">02</span>
-      <h3>말하지 않는 것도 적어 둬요</h3>
-      <p>원인, 정책의 효과, 앞으로의 예측은 판단하지 않아요. 판단 옆에 무엇을 말하지 않는지 함께 보여 줘요.</p>
+      <h3>알 수 없는 것도 함께 보여 줘요</h3>
+      <p>이유, 정책의 효과, 앞으로의 변화는 이 숫자만으로 말할 수 없어요. 결과 옆에 그 점을 같이 적어 둬요.</p>
     </article>
   </div>
 </section>
 <section class="sec">
-  <p class="eyebrow">보고서를 쓸 때</p>
-  <h2>원문까지 두 번,<br>각주는 그대로</h2>
-  <p class="lede">판단의 어느 칸이든 원문까지 이어져 있어요</p>
+  <p class="eyebrow">보고서 · 기사를 쓸 때</p>
+  <h2>출처는 바로,<br>각주는 복사해서</h2>
+  <p class="lede">모든 숫자에 출처가 붙어 있어 원문을 바로 열 수 있어요</p>
   <ol class="grid steps">
-    <li class="step"><div class="panel" aria-hidden="true"><div class="slip pick"><small>판단</small><strong>청년 순유출 확대</strong></div></div>
-      <span class="num">1</span><h3>칸을 눌러요</h3><p>판단 · 근거 · 반박 어느 칸이든 눌러요</p></li>
-    <li class="step"><div class="panel" aria-hidden="true"><div class="slip"><small>근거</small><strong>KOSIS 순이동 · A등급 · 2023–2025</strong></div></div>
-      <span class="num">2</span><h3>근거가 열려요</h3><p>출처 등급 · 시점 · 이용 조건이 함께 보여요</p></li>
-    <li class="step"><div class="panel" aria-hidden="true"><div class="slip"><small>원문</small><strong class="link">kosis.kr ↗</strong></div></div>
-      <span class="num">3</span><h3>원문으로 가요</h3><p>한 번 더 누르면 KOSIS · 보도자료 원문이에요</p></li>
-    <li class="step"><div class="panel" aria-hidden="true"><div class="slip note"><p>KOSIS · 시군구/성/연령(5세)별<br>이동자수 · 2023–2025<br>출처 등급 A · 조회일 2026-10-21</p><em>각주 복사</em></div></div>
-      <span class="num">4</span><h3>각주를 복사해요</h3><p>출처 · 자료명 · 시점 · 조회일까지 그대로</p></li>
+    <li class="step"><div class="panel" aria-hidden="true"><div class="slip pick"><small>2025 · 여수시 청년 순유출</small><strong>−2,262명</strong></div></div>
+      <span class="num">1</span><h3>숫자를 눌러요</h3><p>어느 통계에서 온 숫자인지 바로 보여요</p></li>
+    <li class="step"><div class="panel" aria-hidden="true"><div class="slip"><small>출처</small><strong class="link">통계청 KOSIS 국내인구이동통계 ↗</strong></div></div>
+      <span class="num">2</span><h3>원문으로 가요</h3><p>통계청 · 보도자료 원문을 바로 열어요</p></li>
+    <li class="step"><div class="panel" aria-hidden="true"><div class="slip note"><p>통계청 KOSIS · 국내인구이동통계<br>여수시 · 19–39세 · 2023–2025<br>조회 2026-10-21</p><em>각주 복사</em></div></div>
+      <span class="num">3</span><h3>각주를 복사해요</h3><p>출처 · 자료명 · 기간 · 조회일이 한 줄로 복사돼요</p></li>
   </ol>
 </section>
 <section class="sec ask">
