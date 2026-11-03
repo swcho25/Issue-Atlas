@@ -136,6 +136,30 @@ class PlaceLookup:
             self.cache[key] = hit
         return self.cache[key]
 
+    def address(self, name: str, within: str = "") -> str:
+        """장소 이름 → 도로명주소 하나(위치 정하기, locate).
+        lookup 이 시군구를 정한 장소만, 그 시군구 안의 건물로. 장소 사전에 주소가 있으면 그것,
+        아니면 건물명이 같은 결과 → 이름으로 시작하는 결과의 첫 번째.
+        캠퍼스처럼 같은 이름 건물이 여럿이면 첫 번째 — 좌표는 그 안의 한 건물이다"""
+        hit = self.lookup(name, within)
+        if not hit:
+            return ""
+        sgg = hit[0]
+        for addr, _ in self.gazetteer.get(_key(name), []):
+            if addr:
+                return addr
+        prefix = _region_prefix(sgg)
+        for query in (name, f"{prefix} {name}" if prefix else ""):
+            rows = self._search(query) if query else None
+            if not rows:
+                continue
+            same = [r for r in rows if _key(r.get("bdNm", "")) == _key(name)]
+            named = [r for r in rows if _key(r.get("bdNm", "")).startswith(_key(name))]
+            inside = [r for r in same or named if by_code(r.get("admCd", ""))[0] == sgg]
+            if inside:
+                return inside[0].get("roadAddr") or ""
+        return ""
+
     def find_gu(self, names: list) -> tuple[str, str] | None:
         """장소 · 지명들로 광주 구 하나. 서로 다른 구가 나오면 None"""
         hits = set()

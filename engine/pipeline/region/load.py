@@ -5,10 +5,12 @@ python -m pipeline.region.load --db --extract <JSONL> [--mentions <JSONL>]
 - 기본은 시험 실행: 같은 트랜잭션에서 넣고 세어 본 뒤 되돌린다. --apply 일 때만 커밋
 - 적재(--extract): 기사마다 고치기(checks.fix_row) → 여러 지역(regions) → 검사(checks.violations).
   보류(지역을 못 정함) · 위반 · 정제 기사 없음은 넣지 않고 이유별로 센다.
-  이미 있는 기사는 요약을 null 로 덮지 않는다(기사 계약 v0.3). 위치는 아직 정하지 않는다(MR 2b-2)
-  — 새 기사는 위치 none · place_id null, 이미 있는 행의 위치 칸은 그대로
+  이미 있는 기사는 요약을 null 로 덮지 않는다(기사 계약 v0.3). 새 위치가 none 이면 이미 있는
+  행의 위치 칸은 그대로
 - 장소 확인: 적재 전에 장소 주소(JUSO)로 지역을 바로잡는다(place_check — 구추측 · SIDO → NAT).
   .env 에 JUSO_SEARCH_KEY 가 없으면 건너뛰고 place_check.off 에 남긴다
+- 위치: 장소 도로명주소 → 건물 좌표, 못 찾으면 행정 구역 중심 · 시도 대표점(locate, SGIS).
+  .env 에 SGIS_KEY · SGIS_SECRET 이 없으면 건너뛰고(위치 none) locate.off 에 남긴다
 - 본문 지우기(--delete-bodies): news_event 요약이 checks.good_summary 인 기사만
   raw_record 본문 3칸을 null, storage_scope = metadata (기사 계약 v0.3 「본문 지우기」).
   정제 표의 본문은 다음 refine 이 지운다
@@ -27,11 +29,12 @@ from psycopg.types.json import Jsonb
 
 from pipeline.collect.lofin import connect_from_env
 
-from . import place_check
+from . import locate, place_check
 from .checks import COPIED_PREFIX, SUMMARY_LENGTH, fix_row, good_summary, violations
 from .juso import Juso
 from .labels import split_region
 from .regions import regions
+from .sgis import Sgis
 
 ARTICLES = """
 SELECT DISTINCT ON (news_id) news_id, title, body, published_at
@@ -48,14 +51,29 @@ ORDER BY news_id, refined_at DESC, id DESC
 """
 UPSERT = """
 INSERT INTO news_event (news_id, summary, event_start, event_end, time_precision,
-                        location_precision, sido, sigun, gu, regions)
+                        place_name, address, geometry, location_precision, place_id,
+                        sido, sigun, gu, regions)
 VALUES (%(news_id)s, %(summary)s, %(event_start)s, %(event_end)s, %(time_precision)s,
-        %(location_precision)s, %(sido)s, %(sigun)s, %(gu)s, %(regions)s)
+        %(place_name)s, %(address)s,
+        ST_SetSRID(ST_MakePoint(%(lon)s::float8, %(lat)s::float8), 4326)::geography,
+        %(location_precision)s, %(place_id)s, %(sido)s, %(sigun)s, %(gu)s, %(regions)s)
 ON CONFLICT (news_id) DO UPDATE SET
     summary = COALESCE(EXCLUDED.summary, news_event.summary),
     event_start = EXCLUDED.event_start, event_end = EXCLUDED.event_end,
     time_precision = EXCLUDED.time_precision,
-    sido = EXCLUDED.sido, sigun = EXCLUDED.sigun, gu = EXCLUDED.gu, regions = EXCLUDED.regions
+    sido = EXCLUDED.sido, sigun = EXCLUDED.sigun, gu = EXCLUDED.gu, regions = EXCLUDED.regions,
+    -- 새 위치를 못 정했으면(none · 키 없음) 이미 있는 위치를 지우지 않는다
+    place_name = CASE WHEN EXCLUDED.location_precision = 'none'
+                      THEN news_event.place_name ELSE EXCLUDED.place_name END,
+    address = CASE WHEN EXCLUDED.location_precision = 'none'
+                   THEN news_event.address ELSE EXCLUDED.address END,
+    geometry = CASE WHEN EXCLUDED.location_precision = 'none'
+                    THEN news_event.geometry ELSE EXCLUDED.geometry END,
+    place_id = CASE WHEN EXCLUDED.location_precision = 'none'
+                    THEN news_event.place_id ELSE EXCLUDED.place_id END,
+    location_precision = CASE WHEN EXCLUDED.location_precision = 'none'
+                              THEN news_event.location_precision
+                              ELSE EXCLUDED.location_precision END
 RETURNING (xmax = 0) AS inserted
 """
 # 본문 칸이 하나라도 남은 기사 원본과 그 기사의 P3 요약(없으면 null)
@@ -97,7 +115,7 @@ def event_row(extracted: dict, title: str, body: str | None, published_at: str |
         "event_start": extracted.get("event_start"),
         "event_end": extracted.get("event_end") or None,
         "time_precision": extracted.get("time_precision"),
-        "location_precision": "none",
+        **(extracted.get("location") or vars(locate.NONE)),
         "sido": sido,
         "sigun": sigun,
         "gu": gu,
@@ -150,7 +168,7 @@ def merge_mentions(extracted: list[dict], mentions: list[dict]) -> list[dict]:
     return [e if "mentions" in e else e | {"mentions": by_id.get(e["id"], [])} for e in extracted]
 
 
-def main(argv=None, connect=connect_from_env, juso=Juso.from_env) -> int:
+def main(argv=None, connect=connect_from_env, juso=Juso.from_env, sgis_client=Sgis.from_env) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--db", action="store_true", required=True)
     p.add_argument("--extract", type=Path)
@@ -169,6 +187,12 @@ def main(argv=None, connect=connect_from_env, juso=Juso.from_env) -> int:
             client = juso()
             lookup = place_check.PlaceLookup(client) if client else None
             extracted, result["place_check"] = place_check.apply(extracted, lookup)
+            sgis = sgis_client()
+            locator = None
+            if sgis:
+                with connect() as conn:
+                    locator = locate.Locator(sgis, locate.read_refs(conn), lookup)
+            extracted, result["locate"] = locate.locate_all(extracted, locator)
         with connect() as conn, conn.transaction(force_rollback=not args.apply):
             if args.extract:
                 result["load"] = load(conn, extracted)
