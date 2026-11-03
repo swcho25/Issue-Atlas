@@ -4,6 +4,8 @@
 !engine/uv.lock
 !engine/pipeline
 !engine/pipeline/**
+!engine/ai
+!engine/ai/**
 !contracts
 !contracts/**
 **/.env*

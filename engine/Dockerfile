@@ -10,6 +10,7 @@ ENV PATH="/app/.venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app/engine
 COPY --from=dependencies /app/.venv /app/.venv
 COPY --chown=10001:10001 engine/pipeline ./pipeline
+COPY --chown=10001:10001 engine/ai ./ai
 COPY --chown=10001:10001 contracts /app/contracts
 USER 10001:10001
 ENTRYPOINT ["python", "-m", "pipeline.collect"]

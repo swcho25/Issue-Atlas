@@ -97,6 +97,12 @@ sudo issueatlas-collect region-load --delete-bodies
 sudo issueatlas-collect region-load --delete-bodies --apply
 sudo issueatlas-collect refine
 
+# P4 기사 임베딩·카드 1차 분류(개발 DB에 새 표 배포 후, 순서대로)
+# /etc/issueatlas/collector.env 에 GMS_API_KEY 가 있어야 한다.
+sudo issueatlas-collect embed-docs --apply
+sudo issueatlas-collect embed-cards --apply
+sudo issueatlas-collect score --apply
+
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
 sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023
 
