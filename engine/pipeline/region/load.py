@@ -55,16 +55,21 @@ ORDER BY news_id, refined_at DESC, id DESC
 UPSERT = """
 INSERT INTO news_event (news_id, summary, event_start, event_end, time_precision,
                         place_name, address, geometry, location_precision, place_id,
-                        sido, sigun, gu, regions)
+                        sido, sigun, gu, regions, prompt_version, summary_version, model)
 VALUES (%(news_id)s, %(summary)s, %(event_start)s, %(event_end)s, %(time_precision)s,
         %(place_name)s, %(address)s,
         ST_SetSRID(ST_MakePoint(%(lon)s::float8, %(lat)s::float8), 4326)::geography,
-        %(location_precision)s, %(place_id)s, %(sido)s, %(sigun)s, %(gu)s, %(regions)s)
+        %(location_precision)s, %(place_id)s, %(sido)s, %(sigun)s, %(gu)s, %(regions)s,
+        %(prompt_version)s, %(summary_version)s, %(model)s)
 ON CONFLICT (news_id) DO UPDATE SET
     summary = COALESCE(EXCLUDED.summary, news_event.summary),
     event_start = EXCLUDED.event_start, event_end = EXCLUDED.event_end,
     time_precision = EXCLUDED.time_precision,
     sido = EXCLUDED.sido, sigun = EXCLUDED.sigun, gu = EXCLUDED.gu, regions = EXCLUDED.regions,
+    -- 만든 판: 판을 모르는 추출 결과(옛 파일)로 다시 넣으면 있던 판을 지우지 않는다
+    prompt_version = COALESCE(EXCLUDED.prompt_version, news_event.prompt_version),
+    summary_version = COALESCE(EXCLUDED.summary_version, news_event.summary_version),
+    model = COALESCE(EXCLUDED.model, news_event.model),
     -- 새 위치를 못 정했으면(none · 키 없음) 이미 있는 위치를 지우지 않는다
     place_name = CASE WHEN EXCLUDED.location_precision = 'none'
                       THEN news_event.place_name ELSE EXCLUDED.place_name END,
@@ -123,6 +128,10 @@ def event_row(extracted: dict, title: str, body: str | None, published_at: str |
         "sigun": sigun,
         "gu": gu,
         "regions": labels,
+        # 만든 판(V0037) — region-extract 결과 칸. 없으면 null
+        "prompt_version": extracted.get("prompt_version") or None,
+        "summary_version": extracted.get("summary_version") or None,
+        "model": extracted.get("model") or None,
     }
     fix_row(row, published_at)
     if problems := violations(row):

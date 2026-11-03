@@ -32,6 +32,7 @@ def region_db(postgis):
             "V0009__store_air_monthly_only.sql",
             "V0016__create_news_event.sql",
             "V0020__add_news_event_regions.sql",
+            "V0037__add_news_event_versions.sql",
         ),
     )
 
@@ -234,3 +235,14 @@ def test_relocate_moves_legal_dong_ids_only_when_applied(region_db, capsys):
     assert load.main(run, sgis_client=lambda: None, **keys) == 0
     off = json.loads(capsys.readouterr().out)["relocate"]
     assert off == {"off": "SGIS_KEY · SGIS_SECRET 없음"}
+
+
+def test_versions_are_stored_and_kept_without_new_ones(region_db):
+    conn, _ = region_db
+    articles(conn, ("a",))
+    made = {"prompt_version": "p9.1", "summary_version": "s1.1", "model": "qwen-test"}
+    load.load(conn, [extracted("a", **made)])
+    versions = "SELECT prompt_version, summary_version, model FROM news_event WHERE news_id = 'a'"
+    assert conn.execute(versions).fetchone() == ("p9.1", "s1.1", "qwen-test")
+    load.load(conn, [extracted("a")])  # 판 칸이 없는 옛 추출 결과로 다시 넣어도 지우지 않는다
+    assert conn.execute(versions).fetchone() == ("p9.1", "s1.1", "qwen-test")
