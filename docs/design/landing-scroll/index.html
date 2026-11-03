@@ -20,9 +20,11 @@
   #ground { width: 100%; height: 100%; display: block; visibility: hidden; }
 
   /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치).
-     지구 중심(--gx, --gy) · 반지름(--gr). 위에 큰 Issue Atlas 가 깔리도록 지구를 아래로 내렸다(스크립트의 GX · GY · GR 과 같은 값) */
+     지구 중심(--gx, --gy) · 반지름(--gr) 은 스크립트의 GX · GY · GR 과 같은 값. 석상 폭(--sw)은 반지름에 비례(225 일 때 280).
+     큰 이름(--mf) · 지구 · 석상 · 부제 한 덩어리가 틀 높이의 3/4 쯤을 차지하고, 헤더 아래와 화면 바닥에 비슷한 여백이 남는다
+     (틀이 화면을 꽉 채우는 1.8:1 화면에서도 글자가 헤더에 붙거나 부제가 바닥에 붙지 않게) */
   .frame { --fw: 1684; --fh: 934; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
-    --gx: 845; --gy: 444; --gr: 225; --sx: 705; --sy: 622; --sw: 280;
+    --gx: 845; --gy: 446; --gr: 196; --sx: 723; --sy: 601; --sw: 243.9; --mf: 227;
     position: absolute; left: 50%; top: 50%; width: calc(var(--fw) * var(--u)); height: calc(var(--fh) * var(--u)); transform: translate(-50%, -50%); pointer-events: none; }
   .at { position: absolute; }
   #atlas { will-change: transform; }   /* 지구를 따라 옮기고 키운다(매 프레임 transform 만 바꾼다) */
@@ -42,12 +44,12 @@
     border: 1px solid rgb(17 19 24 / .14); box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .3); }
   @media (max-width: 1279px) { .site { padding: 0 max(32px, calc((100% - 1200px) / 2)); } }
   @media (max-width: 767px) { .site { padding: 0 20px; } }
-  /* 큰 Issue Atlas: 지구 캔버스 뒤에 깔려 지구 윗부분이 글자 아랫부분을 가린다(잡지 표지 제호처럼).
-     글자 줄 가운데가 지구 꼭대기보다 21 아래. 1440 화면에서 220px */
-  .mast { left: 0; right: 0; top: calc((var(--gy) - var(--gr) + 21) * var(--u)); transform: translateY(-50%); margin: 0; text-align: center; white-space: nowrap;
-    font: 900 calc(257 * var(--u)) / 1 "Gothic A1", sans-serif; letter-spacing: -0.05em; color: var(--ink); }
-  /* 석상 아래 회색 부제 한 줄: 위 큰 글자와 맞서지 않게 작고 가볍게. 석상 바닥(--gy + 402)에서 30 아래, 1440 화면에서 22px */
-  .sub { left: 0; right: 0; top: calc((var(--gy) + 432) * var(--u)); margin: 0; text-align: center; white-space: nowrap;
+  /* 큰 Issue Atlas: 지구 캔버스 뒤에 깔려 지구 윗부분이 글자 아랫부분을 가린다(잡지 표지 제호처럼, 글자 높이의 약 44%).
+     글자 폭은 지구 지름의 약 2.8배 */
+  .mast { left: 0; right: 0; top: calc((var(--gy) - var(--gr) + 0.09 * var(--mf)) * var(--u)); transform: translateY(-50%); margin: 0; text-align: center; white-space: nowrap;
+    font: 900 calc(var(--mf) * var(--u)) / 1 "Gothic A1", sans-serif; letter-spacing: -0.05em; color: var(--ink); }
+  /* 석상 아래 회색 부제 한 줄: 위 큰 글자와 맞서지 않게 작고 가볍게. 석상 바닥(지구 중심 + 반지름 × 1.787)에서 30 아래 */
+  .sub { left: 0; right: 0; top: calc((var(--gy) + 1.787 * var(--gr) + 30) * var(--u)); margin: 0; text-align: center; white-space: nowrap;
     font: 500 max(12px, calc(25.7 * var(--u))) "Gothic A1", sans-serif; letter-spacing: -0.01em; color: #5b606d; }
 
   /* 구름 통과: 구름 알파맵을 화면 앞에 겹쳐 키우며 지나간다 */
@@ -129,7 +131,7 @@ const loadImage = (src) => new Promise((ok, no) => { const i = new Image(); i.on
 const journey = document.getElementById("journey");
 const progress = () => clamp((scrollY - journey.offsetTop) / (journey.offsetHeight - innerHeight));
 const q = new URLSearchParams(location.search);
-const GX = 845, GY = 444, GR = 225;   // 히어로 지구 중심 · 반지름(설계 프레임 단위, CSS --gx · --gy · --gr 과 같은 값)
+const GX = 845, GY = 446, GR = 196;   // 히어로 지구 중심 · 반지름(설계 프레임 단위, CSS --gx · --gy · --gr 과 같은 값)
 // ?timer: 창이 숨어 있어 화면 갱신이 멈출 때(점검용) 타이머로 대신 돈다
 const tick = q.has("timer") ? (f) => setTimeout(() => f(performance.now()), 16) : (f) => requestAnimationFrame(f);
 if (q.has("p")) tick(() => scrollTo(0, journey.offsetTop + Number(q.get("p")) * (journey.offsetHeight - innerHeight)));
@@ -184,7 +186,8 @@ async function drawStatue() {
 // 사진은 메인 스레드 밖에서 푼다. priority: 첫 화면에 보이는 것은 high, 스크롤해야 보이는 것은 low
 const loadBitmap = (src, flip = false, priority = "auto") => fetch(src, { priority }).then((r) => r.blob()).then((b) => createImageBitmap(b, flip ? { imageOrientation: "flipY" } : {}));
 async function useBakedStatue() {
-  frame.style.setProperty("--sx", 705); frame.style.setProperty("--sy", GY + 178.067);   // 구운 석상의 목은 지구 중심에서 178.067 아래
+  // 구운 석상은 반지름 225 · 폭 280 기준: 왼쪽은 지구 중심에서 140, 목은 178.067 아래. 반지름에 맞춰 같은 비율로 줄인다
+  const k = GR / 225; frame.style.setProperty("--sx", GX - 140 * k); frame.style.setProperty("--sy", GY + 178.067 * k);
   const shots = await Promise.all([loadBitmap("baked/statue-posed.webp", false, "high"), loadBitmap("baked/statue-shadow.webp", false, "high")]);
   ["statue", "shadow"].forEach((id, i) => { const c = document.getElementById(id), b = shots[i]; c.width = b.width; c.height = b.height; c.getContext("2d").drawImage(b, 0, 0); });
 }
