@@ -115,12 +115,25 @@
   .grid { display: grid; gap: 48px; justify-content: center; margin: 80px auto 0; padding: 0; max-width: 1168px; list-style: none; }
   .num { display: block; font-weight: 700; font-size: 14px; color: #9a6700; font-variant-numeric: tabular-nums; }
   .panel { position: relative; border-radius: 28px; background: #eef0f5; }
-  /* 화면 목업 셋: 그림 가장자리에 그림자가 56px 들어 있어 그만큼(카드 폭의 16.47%) 바깥으로 내민다 */
-  .mocks { grid-template-columns: repeat(3, minmax(0, 340px)); }
-  .mock { margin: 0; }
-  .mock img { display: block; width: 132.94%; height: auto; margin: -16.47%; }
-  .mock h3 { margin: 36px 0 10px; font-weight: 800; font-size: 22px; }
-  .mock p { margin: 0; font-size: 16px; line-height: 26px; color: #5b606d; }
+  /* 실제 데스크톱 화면 하나 + 아래 세 칸. 칸을 누르거나, 화면이 보이는 동안 6초마다 다음 칸으로 넘어간다(막대가 차오름).
+     휴대폰처럼 보이지 않게 세로로 자른 목업은 쓰지 않는다 — 데스크톱 서비스라 1600 × 900 화면 그대로 */
+  .tour { max-width: 1168px; margin: 80px auto 0; }
+  .screen { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 20px; background: #fff; box-shadow: 0 0 0 1px rgb(17 19 24 / .06), 0 40px 80px -40px rgb(17 19 24 / .35); }
+  .screen img { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .6s ease; }
+  .screen img.on { opacity: 1; }
+  .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; margin-top: 36px; text-align: left; }
+  .tab { display: block; padding: 0; border: 0; background: none; font: inherit; text-align: inherit; cursor: pointer; }
+  .tab:focus-visible { outline: 2px solid var(--navy); outline-offset: 6px; border-radius: 4px; }
+  .tab .bar { display: block; height: 3px; overflow: hidden; border-radius: 3px; background: rgb(17 19 24 / .1); }
+  .tab .bar i { display: block; width: 0; height: 100%; background: #111318; }
+  .tab.on .bar i { animation: fill 6s linear forwards; }
+  .tour.paused .tab.on .bar i { animation-play-state: paused; }
+  @keyframes fill { to { width: 100%; } }
+  .tab .t { display: block; margin: 18px 0 8px; font-weight: 800; font-size: 22px; color: #9aa0ac; transition: color .3s; }
+  .tab .d { display: block; font-size: 16px; line-height: 26px; color: #9aa0ac; transition: color .3s; }
+  .tab.on .t { color: #111318; }
+  .tab.on .d { color: #5b606d; }
+  @media (prefers-reduced-motion: reduce) { .tab.on .bar i { animation: none; width: 100%; } .screen img { transition: none; } }
   /* 판단 · 말하지 않는 것 */
   .feats { grid-template-columns: repeat(2, minmax(0, 560px)); text-align: left; }
   .feat .panel { height: 400px; }
@@ -175,7 +188,7 @@
   .foot small { font-size: 13px; color: #8a8f9c; }
   @media (max-width: 1199px) { .steps { grid-template-columns: repeat(2, minmax(0, 272px)); } }
   @media (max-width: 899px) {
-    .mocks { grid-template-columns: minmax(0, 340px); gap: 72px; }
+    .tabs { grid-template-columns: minmax(0, 1fr); gap: 20px; }
     .feats { grid-template-columns: minmax(0, 560px); }
     .feat .panel { height: auto; aspect-ratio: 560 / 400; }
   }
@@ -224,13 +237,17 @@
   <p class="eyebrow">우리 지역이 궁금할 때</p>
   <h2>판단보다,<br>근거부터 먼저</h2>
   <p class="lede">근거 수요표부터 논증 카드까지, 질문 하나에 필요한 걸 한 번에 확인하세요</p>
-  <div class="grid mocks">
-    <figure class="mock"><img src="baked/mock-1.webp" width="452" height="843" loading="lazy" decoding="async" alt="근거 4종과 판단이 보이는 결과 카드 화면">
-      <figcaption><h3>근거와 판단</h3><p>근거 4종이 있는지 먼저 보고,<br>판단은 그다음에 확인해요</p></figcaption></figure>
-    <figure class="mock"><img src="baked/mock-2.webp" width="452" height="843" loading="lazy" decoding="async" alt="측정소와 기사 점이 놓인 지도 화면">
-      <figcaption><h3>지도로 보기</h3><p>측정소와 기사가 놓인 지도에서<br>시점을 옮겨 가며 보세요</p></figcaption></figure>
-    <figure class="mock"><img src="baked/mock-3.webp" width="452" height="843" loading="lazy" decoding="async" alt="점을 눌러 근거와 원문을 여는 화면">
-      <figcaption><h3>원문까지</h3><p>점을 누르면 근거, 한 번 더 누르면<br>원문과 각주예요</p></figcaption></figure>
+  <div class="tour" id="tour">
+    <div class="screen">
+      <img class="on" src="baked/screen-1.webp" width="1600" height="900" loading="lazy" decoding="async" alt="여수시 청년 유출 결과 — 왼쪽 카드에 근거 4종과 판단, 지도 위에 3년 순이동 막대">
+      <img src="baked/screen-2.webp" width="1600" height="900" loading="lazy" decoding="async" alt="광주 대기질 결과 — 측정소 점이 놓인 지도와 월별 막대">
+      <img src="baked/screen-3.webp" width="1600" height="900" loading="lazy" decoding="async" alt="측정소를 누르면 열리는 상세 창 — 값의 근거 3건과 원문 · 각주 복사">
+    </div>
+    <div class="tabs" role="tablist" aria-label="결과 화면 둘러보기">
+      <button class="tab on" role="tab" aria-selected="true"><span class="bar"><i></i></span><span class="t">근거와 판단</span><span class="d">근거 4종이 있는지 먼저 보고, 판단은 그다음에 확인해요</span></button>
+      <button class="tab" role="tab" aria-selected="false"><span class="bar"><i></i></span><span class="t">지도로 보기</span><span class="d">측정소와 기사가 놓인 지도에서 시점을 옮겨 가며 보세요</span></button>
+      <button class="tab" role="tab" aria-selected="false"><span class="bar"><i></i></span><span class="t">원문까지</span><span class="d">점을 누르면 근거, 한 번 더 누르면 원문과 각주예요</span></button>
+    </div>
   </div>
 </section>
 <section class="sec">
@@ -286,6 +303,13 @@
   for (const row of document.querySelectorAll("[data-places]")) {
     const chips = row.dataset.places.split(" ").map((n) => (n[0] === "*" ? `<span class="chip open">${n.slice(1)}</span>` : `<span class="chip">${n}</span>`)).join("");
     row.innerHTML = chips + chips;
+  }
+  // 결과 화면 둘러보기: 칸을 누르면 그 화면으로. 화면이 보이는 동안만 막대가 차오르고, 다 차면 다음 칸으로 넘어간다
+  {
+    const tour = document.getElementById("tour"), shots = [...tour.querySelectorAll(".screen img")], tabs = [...tour.querySelectorAll(".tab")];
+    const show = (i) => tabs.forEach((t, k) => { t.classList.toggle("on", k === i); t.setAttribute("aria-selected", k === i); shots[k].classList.toggle("on", k === i); });
+    tabs.forEach((t, i) => { t.addEventListener("click", () => show(i)); t.querySelector(".bar i").addEventListener("animationend", () => show((i + 1) % tabs.length)); });
+    new IntersectionObserver(([e]) => tour.classList.toggle("paused", !e.isIntersecting), { threshold: 0.4 }).observe(tour);
   }
 </script>
 <div class="hud" id="hud"></div>
