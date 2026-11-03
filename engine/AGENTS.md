@@ -20,7 +20,8 @@ Python 서비스. 수집·정제·지역·시간 매핑(pipeline)과 카드 분�
 - API 키는 `.env` 에서 읽는다. 코드·로그·커밋에 남기지 않는다. 새 키는 `.env.example` 에 이름과 설명만
 - 수집 원본은 출처·수집 시각(UTC)·원문 위치를 함께 저장한다
 - LLM 판정 결과는 규칙 판정과 구분해 표시한다(논증 카드의 provenance)
-- (미정) 모델·프롬프트 위치, 비용 한도
+- 모델·프롬프트는 쓰는 모듈 안에 판 이름과 함께 둔다(예: `ai/argument/prompt.py` `PROMPT_VERSION`, `ai/argument/gms.py` `MODEL`). 결과에 판·모델을 남긴다
+- 비용 한도: 논증 문장화는 실행 한 건에 한 번 부른다. 429·5xx 만 두 번까지 다시 부르고, 검사 탈락은 다시 부르지 않는다
 
 ## 검사 (루트에서)
 - `pnpm engine:lint` (ruff check + format --check) · `pnpm engine:test` (pytest). uv 가 있어야 한다

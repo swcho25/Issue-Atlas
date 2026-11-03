@@ -1,0 +1,377 @@
+"""P5 ③ 보증 · ⑤ 반박 문장화. 모델은 가짜로 바꿔 네트워크 없이 돈다. 기사 · A3 개선 입력은 가상이다."""
+
+import copy
+import io
+import json
+from pathlib import Path
+from urllib.error import HTTPError
+
+import pytest
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
+
+from ai.argument import gms
+from ai.argument.__main__ import main
+from ai.argument.check import check
+from ai.argument.phrase import phrase
+from ai.argument.prompt import build, passages
+
+CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+C1_TERMS = ["확산", "전파", "원인", "효과", "소멸", "탈여수"]
+A3_TERMS = ["확산", "전파", "원인", "효과", "소멸", "오염 유입", "배출원"]
+
+
+def example(name):
+    return json.loads((CONTRACTS / "ai/examples" / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def c1():
+    return example("judgment-ready")
+
+
+def a3():
+    """A3 비교 불가 예시를 같은 측정소 개선(끝해 − 첫해 −3.5)으로 바꾼 가상 입력"""
+    record = example("judgment-not-comparable")
+    record["run_status"] = "ready"
+    record["comparability"]["same_boundary"] = {"passed": True, "note": "같은 측정소끼리만 비교"}
+    record["claim"] = {
+        "value": "decreasing",
+        "level": "calculated",
+        "text": "여수시의 측정소 1곳에서 2023–2025 초미세먼지(PM2.5) 연평균이 개선.",
+        "provenance": "rule",
+    }
+    for point, value in zip(record["statistics_points"], [18.6, 16.94, 15.1], strict=True):
+        point["value"] = value
+    return record
+
+
+ARTICLES = [
+    {
+        "id": "fx-001",
+        "date": "2025-03-04",
+        "place_id": "kr-12130",
+        "point": None,
+        "precision": "none",
+        "summary": "[fixture] 여수 국가산단의 한 업체가 공장 가동을 줄였다. 협력업체 직원 300여 명이 다른 지역으로 옮긴 것으로 알려졌다.",
+        "place_name": "여수시",
+        "url": "https://example.com/news/1",
+    },
+    {
+        "id": "fx-002",
+        "date": "2025-05-10",
+        "place_id": "kr-12130",
+        "point": None,
+        "precision": "none",
+        "summary": "[fixture] 여수시가 청년 월세 지원 신청을 받는다.",
+        "place_name": "여수시",
+        "url": None,
+    },
+]
+
+
+def c1_output():
+    return {
+        "claim_value": "increasing",
+        "warrant": {
+            "text": "여수시의 청년(19–39세) 순이동은 2023년 -1,850명, 2024년 -2,010명, 2025년 -2,240명으로 "
+            "해마다 순유출이 커졌다. 순이동은 정착 여부를 직접 재는 공식 지표라 정착 기반이 약해지는 신호로 본다.",
+            "citations": ["ev_kosis_net_yeosu"],
+        },
+        "rebuttals": [
+            {"id": "R1", "status": "not_found", "note": None, "citations": []},
+            {"id": "R2", "status": "needs_review", "note": None, "citations": []},
+            {
+                "id": "R3",
+                "status": "supported",
+                "note": "산단 업체 가동 축소 뒤 협력업체 직원 300여 명이 옮겼다는 보도가 있다.",
+                "citations": [
+                    {"passage": "P2", "quote": "협력업체 직원 300여 명이 다른 지역으로 옮긴"}
+                ],
+            },
+        ],
+    }
+
+
+def problems(output, judgment=None, terms=C1_TERMS):
+    return {(p.check, p.where) for p in check(build(judgment or c1(), ARTICLES, terms), output)}
+
+
+# ── 입력 ──
+
+
+def test_passages_split_summary_and_keep_source_location():
+    found = passages(ARTICLES)
+    assert [p["id"] for p in found] == ["P1", "P2", "P3"]
+    assert found[1]["text"] == "협력업체 직원 300여 명이 다른 지역으로 옮긴 것으로 알려졌다."
+    assert found[1]["locator"] == {
+        "news_id": "fx-001",
+        "field": "summary",
+        "sentence": 2,
+        "date": "2025-03-04",
+        "url": "https://example.com/news/1",
+    }
+
+
+def test_build_sends_only_undecided_rebuttals_and_fixed_judgment():
+    sent = build(a3(), ARTICLES, A3_TERMS)
+    assert [c["id"] for c in sent["rebuttal_candidates"]] == ["R1", "R2"]
+    assert sent["fixed"]["claim_value"] == "decreasing"
+    assert sent["question"]["period"] == "2023–2025"
+    assert "locator" not in sent["passages"][0]
+    assert sent["forbidden_terms"].count("원인") == 1
+
+
+def test_a3_fixture_follows_judgment_input_contract():
+    schemas = [
+        json.loads(p.read_text(encoding="utf-8"))
+        for p in [*(CONTRACTS / "c2/schemas").glob("*.json"), *(CONTRACTS / "ai").glob("*.json")]
+    ]
+    registry = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in schemas)
+    schema = next(s for s in schemas if s["$id"].endswith("judgment-input.schema.json"))
+    Draft202012Validator(schema, registry=registry).validate(a3())
+
+
+# ── 검사기 ──
+
+
+def test_valid_output_passes():
+    assert problems(c1_output()) == set()
+
+
+def test_rounded_input_number_passes_and_new_number_fails():
+    output = {
+        "claim_value": "decreasing",
+        "warrant": {
+            "text": "연평균이 18.6에서 16.9, 15.1로 낮아졌다.",
+            "citations": ["ev_air_final_yeosu"],
+        },
+        "rebuttals": [
+            {"id": "R1", "status": "not_found", "note": None, "citations": []},
+            {"id": "R2", "status": "not_found", "note": None, "citations": []},
+        ],
+    }
+    assert problems(output, a3(), A3_TERMS) == set()
+    output["warrant"]["text"] = "연평균이 3.5 낮아졌다."
+    assert problems(output, a3(), A3_TERMS) == {("number_mismatch", "warrant")}
+
+
+def test_wrong_number_is_rejected():
+    output = c1_output()
+    output["warrant"]["text"] = output["warrant"]["text"].replace("2,240", "2,300")
+    assert problems(output) == {("number_mismatch", "warrant")}
+
+
+def test_number_must_come_from_the_cited_passage():
+    output = c1_output()
+    output["rebuttals"][2]["citations"] = [
+        {"passage": "P3", "quote": "여수시가 청년 월세 지원 신청을"}
+    ]
+    assert problems(output) == {("number_mismatch", "R3")}
+
+
+def test_fake_citations_are_rejected():
+    output = c1_output()
+    output["warrant"]["citations"] = ["ev_made_up"]
+    output["rebuttals"][2]["note"] = None
+    output["rebuttals"][2]["citations"] = [
+        {"passage": "P9", "quote": "협력업체 직원 300여 명이 다른 지역으로 옮긴"},
+        {"passage": "P1", "quote": "협력업체 직원 300여 명이 다른 지역으로 옮긴"},
+    ]
+    assert problems(output) == {
+        ("unknown_citation", "warrant"),
+        ("unknown_citation", "R3"),
+        ("quote_not_in_source", "R3"),
+        ("unsupported", "R3"),
+    }
+
+
+def test_too_short_quote_is_not_a_citation():
+    output = c1_output()
+    output["rebuttals"][2]["citations"] = [{"passage": "P2", "quote": "직원"}]
+    assert ("quote_not_in_source", "R3") in problems(output)
+
+
+def test_claims_without_evidence_are_rejected():
+    output = c1_output()
+    output["warrant"]["citations"] = []
+    output["rebuttals"][0] = {"id": "R1", "status": "supported", "note": None, "citations": []}
+    assert problems(output) == {("unsupported", "warrant"), ("unsupported", "R1")}
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda o: o.update(claim_value="decreasing"),
+        lambda o: o["rebuttals"].pop(1),
+        lambda o: o["rebuttals"].append(
+            {"id": "R9", "status": "not_found", "note": None, "citations": []}
+        ),
+        lambda o: o["rebuttals"][1].update(id="R1"),
+    ],
+)
+def test_changed_judgment_is_rejected(change):
+    output = c1_output()
+    change(output)
+    assert {check for check, _ in problems(output)} == {"judgment_changed"}
+
+
+@pytest.mark.parametrize("term", ["원인", "탈여수"])
+def test_forbidden_terms_are_rejected(term):
+    output = c1_output()
+    output["rebuttals"][2]["note"] = f"산단 고용 변동이 {term}일 수 있다."
+    assert problems(output) == {("forbidden_term", "R3")}
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda o: o.pop("warrant"),
+        lambda o: o.update(qualifier="high"),
+        lambda o: o["rebuttals"][0].update(status="maybe"),
+        lambda o: o["warrant"].update(text=""),
+    ],
+)
+def test_malformed_output_is_rejected(change):
+    output = c1_output()
+    change(output)
+    assert {check for check, _ in problems(output)} == {"format"}
+
+
+# ── 문장화 · 되돌리기 ──
+
+
+def answer(output):
+    calls = []
+
+    def call(system, user):
+        calls.append(json.loads(user))
+        return json.dumps(output, ensure_ascii=False)
+
+    return call, calls
+
+
+def test_phrase_fills_warrant_and_rebuttals_with_llm_provenance():
+    call, calls = answer(c1_output())
+    result = phrase(c1(), ARTICLES, C1_TERMS, call)
+    assert (result.status, result.reason_code, result.problems) == ("done", None, [])
+    assert result.warrant == {"text": c1_output()["warrant"]["text"], "provenance": "llm_phrasing"}
+    assert [r["provenance"] for r in result.rebuttals] == ["llm_judgment"] * 3
+    assert result.rebuttals[2] == {
+        "text": "산단·대형 사업장 고용 변동에 따른 일시 전입·전출 — "
+        "산단 업체 가동 축소 뒤 협력업체 직원 300여 명이 옮겼다는 보도가 있다.",
+        "status": "supported",
+        "provenance": "llm_judgment",
+    }
+    assert result.citations["R3"][0]["locator"]["news_id"] == "fx-001"
+    assert calls[0]["fixed"]["claim_value"] == "increasing"
+
+
+def test_rule_decided_rebuttal_keeps_its_status_and_order():
+    output = {
+        "claim_value": "decreasing",
+        "warrant": {"text": "같은 측정소의 연평균이 낮아졌다.", "citations": []},
+        "rebuttals": [
+            {"id": "R1", "status": "needs_review", "note": None, "citations": []},
+            {"id": "R2", "status": "not_found", "note": None, "citations": []},
+        ],
+    }
+    result = phrase(a3(), ARTICLES, A3_TERMS, answer(output)[0])
+    assert [(r["status"], r["provenance"]) for r in result.rebuttals] == [
+        ("needs_review", "llm_judgment"),
+        ("not_found", "llm_judgment"),
+        ("supported", "rule"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("judgment", "reason"),
+    [
+        (example("judgment-insufficient"), "RUN_BLOCKED"),
+        ({**c1(), "run_status": "unsupported"}, "RUN_UNSUPPORTED"),
+        (example("judgment-not-comparable"), "NOT_JUDGED"),
+        ({**c1(), "question": {**c1()["question"], "card_id": "E1"}}, "CARD_NOT_SUPPORTED"),
+    ],
+)
+def test_skipped_runs_do_not_call_the_model(judgment, reason):
+    call, calls = answer(c1_output())
+    result = phrase(judgment, ARTICLES, C1_TERMS, call)
+    assert (result.status, result.reason_code, calls) == ("skipped", reason, [])
+    assert result.warrant == judgment["warrant"] and result.rebuttals == []
+
+
+def raises(error):
+    def call(system, user):
+        raise error
+
+    return call
+
+
+def rejected_answer():
+    output = c1_output()
+    output["warrant"]["text"] += " 2026년에는 -2,500명이 될 것이다."
+    return answer(output)[0]
+
+
+@pytest.mark.parametrize(
+    ("call", "reason", "retryable"),
+    [
+        (raises(gms.LlmTimeout("시간 초과")), "LLM_TIMEOUT", True),
+        (raises(gms.LlmError("HTTP 500")), "LLM_ERROR", True),
+        (lambda system, user: "죄송합니다", "OUTPUT_REJECTED", False),
+        (rejected_answer(), "OUTPUT_REJECTED", False),
+    ],
+)
+def test_failures_fall_back_to_card_text_with_reason(call, reason, retryable):
+    judgment = c1()
+    result = phrase(judgment, ARTICLES, C1_TERMS, call)
+    assert (result.status, result.reason_code, result.retryable) == ("failed", reason, retryable)
+    assert result.warrant == {"text": judgment["warrant"]["text"], "provenance": "card"}
+    assert result.rebuttals == [] and result.citations == {}
+    assert (reason == "OUTPUT_REJECTED") == bool(result.problems)
+
+
+def test_cli_refuses_real_judgment_input(tmp_path, capsys):
+    path = tmp_path / "judgment.json"
+    path.write_text(json.dumps({**c1(), "fixture": False}), encoding="utf-8")
+    assert main([str(path), str(path)]) == 2
+    assert "fixture" in capsys.readouterr().err
+
+
+def test_phrase_does_not_change_the_input():
+    judgment = c1()
+    before = copy.deepcopy(judgment)
+    phrase(judgment, ARTICLES, C1_TERMS, answer(c1_output())[0])
+    assert judgment == before
+
+
+# ── GMS 호출 ──
+
+
+class Response(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+def test_generate_reads_text_and_maps_errors(monkeypatch):
+    monkeypatch.setattr(gms, "api_key", lambda: "test-key")
+    body = {"candidates": [{"content": {"parts": [{"text": '{"a": '}, {"text": "1}"}]}}]}
+    monkeypatch.setattr(
+        gms, "urlopen", lambda request, timeout: Response(json.dumps(body).encode())
+    )
+    assert gms.generate("system", "user") == '{"a": 1}'
+
+    def fail(error):
+        def urlopen(request, timeout):
+            raise error
+
+        return urlopen
+
+    monkeypatch.setattr(gms, "urlopen", fail(TimeoutError()))
+    with pytest.raises(gms.LlmTimeout):
+        gms.generate("system", "user")
+    monkeypatch.setattr(gms, "urlopen", fail(HTTPError("u", 400, "bad", {}, None)))
+    with pytest.raises(gms.LlmError, match="HTTP 400"):
+        gms.generate("system", "user")
