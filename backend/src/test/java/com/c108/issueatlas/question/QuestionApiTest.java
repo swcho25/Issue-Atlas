@@ -131,6 +131,55 @@ class QuestionApiTest {
                 value);
     }
 
+    /** 질문 지역 기사 한 건을 카드 하나로 1차 분류해 둔다(V0035 표 → V0036 view 의 기사 tags). */
+    private void classifiedArticle(String newsId, String card) {
+        String hash = "sha256:news-" + newsId;
+        jdbc.update(
+                "INSERT INTO job_run(job_run_id,spec_id,collector_version,started_at)"
+                        + " VALUES ('run-q-news','airkorea_final_yeosu_gwangju','test',now())"
+                        + " ON CONFLICT DO NOTHING");
+        jdbc.update(
+                "INSERT INTO raw_record(job_run_id,spec_id,raw_url,content_hash,collected_at)"
+                        + " VALUES ('run-q-news','airkorea_final_yeosu_gwangju','https://bigkinds.or.kr',?,now())",
+                hash);
+        jdbc.update(
+                "INSERT INTO news_event(news_id,summary,event_start,time_precision,place_id,sido)"
+                        + " VALUES (?,'청년 유출 기사 요약',TIMESTAMPTZ '2024-05-01 00:00+09','day',?,"
+                        + "'전남광주통합특별시')",
+                newsId,
+                PLACE);
+        jdbc.update(
+                "INSERT INTO document_search_input(input_id,doc_id,news_id,raw_content_hash,input_version,"
+                        + "input_text,input_hash) VALUES ('dsi:' || encode(sha256(convert_to(?, 'UTF8')), 'hex'),"
+                        + "'news:' || ?,?,?,'news-title-summary-v1','요약',"
+                        + "encode(sha256(convert_to('요약', 'UTF8')), 'hex'))",
+                newsId,
+                newsId,
+                newsId,
+                hash);
+        jdbc.update(
+                "INSERT INTO document_embedding_v1(input_id,doc_id,model,embedding,is_active)"
+                        + " SELECT input_id, doc_id, 'gemini-embedding-2',"
+                        + " array_fill(0.01::real, ARRAY[1536])::vector, true"
+                        + " FROM document_search_input WHERE news_id = ?",
+                newsId);
+        jdbc.update(
+                "INSERT INTO card_search_profile(card_id,card_version,profile_version,profile_text,"
+                        + "profile_hash,model,embedding,is_active)"
+                        + " SELECT card_id, current_version, 'card-profile-v1', '이슈: ' || name,"
+                        + " encode(sha256(convert_to(card_id, 'UTF8')), 'hex'), 'gemini-embedding-2',"
+                        + " array_fill(0.01::real, ARRAY[1536])::vector, true FROM card WHERE card_id = ?",
+                card);
+        jdbc.update(
+                "INSERT INTO document_card_score(doc_id,card_id,input_id,card_version,profile_version,model,"
+                        + "cosine_similarity,threshold_version,threshold,selected)"
+                        + " SELECT d.doc_id, c.card_id, d.input_id, c.current_version, 'card-profile-v1',"
+                        + " 'gemini-embedding-2', 0.8, 'test', 0.7, true"
+                        + " FROM document_embedding_v1 d, card c WHERE d.doc_id = 'news:' || ? AND c.card_id = ?",
+                newsId,
+                card);
+    }
+
     private ResultActions ask(String body) throws Exception {
         return mvc.perform(
                 post("/v1/questions")
@@ -305,6 +354,18 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.claim.text").value("필수 근거(통계)가 없어 판단하지 않습니다."))
                 .andExpect(jsonPath("$.evidence_table[0].status").value("not_collected"))
                 .andExpect(jsonPath("$.data.statistics.length()").value(0));
+    }
+
+    @Test
+    void articleClassifiedAsC1IsInC1ArticlesOnly() throws Exception {
+        classifiedArticle("n-q-c1", "C1");
+        argument(runId(ask(body("C1", "2023-01-01", "2026-01-01"))))
+                .andExpect(jsonPath("$.articles.length()").value(1))
+                .andExpect(jsonPath("$.articles[0].id").value("n-q-c1"))
+                .andExpect(jsonPath("$.articles[0].date").value("2024-05-01"))
+                .andExpect(jsonPath("$.articles[0].summary").value("청년 유출 기사 요약"));
+        argument(runId(ask(body("A3", "2023-01-01", "2026-01-01"))))
+                .andExpect(jsonPath("$.articles.length()").value(0));
     }
 
     @Test
