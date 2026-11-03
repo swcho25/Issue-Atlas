@@ -89,7 +89,7 @@ public class CardStorageService {
                 });
     }
 
-    private void validateRule(JsonNode draft) {
+    void validateRule(JsonNode draft) {
         JsonNode items = draft.path("claim_items");
         if (!items.isArray()) badRequest();
         String main = null;

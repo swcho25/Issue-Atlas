@@ -1,5 +1,6 @@
 package com.c108.issueatlas.user.controller;
 
+import com.c108.issueatlas.user.dto.AdminUserPage;
 import com.c108.issueatlas.user.dto.CreateUserRequest;
 import com.c108.issueatlas.user.dto.UpdateUserRequest;
 import com.c108.issueatlas.user.dto.UserResponse;
@@ -7,11 +8,14 @@ import com.c108.issueatlas.user.service.UserService;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.ErrorResponseException;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,6 +27,17 @@ public class AdminUserController {
 
     public AdminUserController(UserService users) {
         this.users = users;
+    }
+
+    @GetMapping
+    public AdminUserPage list(
+            @RequestParam(defaultValue = "ADMIN") String role,
+            @RequestParam(name = "is_active", defaultValue = "true") boolean active,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        if (!"ADMIN".equals(role) || !active)
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST);
+        return users.activeAdministrators(page, size);
     }
 
     @PostMapping

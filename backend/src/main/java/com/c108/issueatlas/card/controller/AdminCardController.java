@@ -1,6 +1,7 @@
 package com.c108.issueatlas.card.controller;
 
 import com.c108.issueatlas.card.dto.CardStorageDto.*;
+import com.c108.issueatlas.card.service.CardApprovalService;
 import com.c108.issueatlas.card.service.CardStorageService;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -13,9 +14,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/v1/admin")
 public class AdminCardController {
     private final CardStorageService storage;
+    private final CardApprovalService approvals;
 
-    public AdminCardController(CardStorageService storage) {
+    public AdminCardController(CardStorageService storage, CardApprovalService approvals) {
         this.storage = storage;
+        this.approvals = approvals;
     }
 
     @PostMapping("/cards")
@@ -44,7 +47,7 @@ public class AdminCardController {
     @ResponseStatus(HttpStatus.CREATED)
     public Version approve(
             @PathVariable String id, @Valid @RequestBody Approve request, Principal actor) {
-        return storage.approve(id, request, actor.getName());
+        return approvals.approveCurrent(id, request, actor.getName());
     }
 
     @GetMapping("/cards/{id}/versions/{version}")

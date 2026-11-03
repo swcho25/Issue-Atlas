@@ -1,12 +1,16 @@
 package com.c108.issueatlas.user.service;
 
 import com.c108.issueatlas.common.exception.ResourceNotFoundException;
+import com.c108.issueatlas.user.dto.AdminUserPage;
+import com.c108.issueatlas.user.dto.UserResponse;
 import com.c108.issueatlas.user.entity.AppUser;
 import com.c108.issueatlas.user.entity.Role;
 import com.c108.issueatlas.user.repository.AppUserRepository;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,6 +34,19 @@ public class UserService {
 
     public AppUser getByEmail(String email) {
         return findByEmail(email).orElseThrow(ResourceNotFoundException::new);
+    }
+
+    public AdminUserPage activeAdministrators(int page, int size) {
+        if (page < 1 || size < 1 || size > 100)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        var result =
+                users.findByRoleAndActiveTrue(
+                        Role.ADMIN, PageRequest.of(page - 1, size, Sort.by("id")));
+        return new AdminUserPage(
+                result.stream().map(UserResponse::from).toList(),
+                page,
+                size,
+                result.getTotalElements());
     }
 
     /** {@code actorEmail} 은 계정을 만든 관리자. 첫 관리자처럼 만든 사람이 없으면 null. */
