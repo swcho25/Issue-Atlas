@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Issue Atlas · 랜딩 스크롤 시제품</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Source+Serif+4:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Source+Serif+4:wght@400&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
   :root { --ink: #111318; --word: #1e2530; --rule: rgb(16 20 27 / .35); --line: #d2d6db; --amber: #FFB000; --navy: #2E4A7D; --bg: #f7f8fc; }
   * { box-sizing: border-box; }
@@ -46,7 +46,7 @@
   .plaque { left: 0; right: 0; top: calc(var(--py) * var(--u)); display: flex; flex-direction: column; align-items: center; gap: calc(14 * var(--u)); text-align: center; }
   .plaque i { display: block; width: calc(210 * var(--u)); height: 1px; background: rgb(16 20 27 / .28); }
   .plaque b { font: 500 max(9px, calc(14 * var(--u))) "IBM Plex Mono", monospace; letter-spacing: .38em; color: var(--word); }
-  .plaque span { font: italic 400 max(13px, calc(23.4 * var(--u))) "Source Serif 4", Georgia, serif; color: #4a5160; }
+  .plaque span { font: 500 max(13px, calc(22.2 * var(--u))) "Gothic A1", sans-serif; letter-spacing: -0.01em; color: #4a5160; }
   /* 설계틀 바닥이 아니라 화면 맨 아래에 붙는다: 좁고 긴 화면에선 설계틀이 가운데에 작게 놓여, 틀 바닥에 붙이면 이름표와 겹친다 */
   .scroll { left: 50%; bottom: calc(18px - (100vh - 934 * var(--u)) / 2); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; font: 500 10px "IBM Plex Mono"; letter-spacing: .38em; color: #8a8f9c; }
   .scroll i { width: 1px; height: 34px; background: linear-gradient(#8a8f9c, transparent); }
