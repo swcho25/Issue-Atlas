@@ -27,7 +27,7 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
   /* 지구 → 구름 → 지도로 이어지는 구간. 스크롤 길이만큼 화면이 고정된 채 진행된다 */
-  /* 360vh = 화면 2.6장 분량을 스크롤하면 끝난다(광주 도착은 그중 84% 지점, 휠 약 17~20칸) */
+  /* 360vh = 화면 2.6장 분량을 스크롤하면 끝난다(도착은 그중 84% 지점, 휠 약 17~20칸) */
   #journey { position: relative; height: 360vh; }
   .stage { position: sticky; top: 0; height: 100vh; overflow: hidden;
     background: linear-gradient(180deg, #fafafe 0%, #fafafd 11%, #f9f8fd 22%, #f6f8fc 28%, #f5f6fd 36%, #f5f6fd 100%); }   /* 시안에서 잰 바탕색 */
@@ -241,7 +241,7 @@ const sun = new THREE.DirectionalLight(0xffffff, 0.6 * Math.PI); sun.position.se
 //  ① 아주 작은 전체 사진(7KB)으로 지구 모양부터 바로 띄우고
 //  ② 2K 사진을 경도 45°씩 자른 8조각(조각당 20~45KB)을 화면 정면에 가까운 순서로 받아 한 장의 텍스처에 채워 넣는다 — 뒤쪽 반구는 나중에 온다
 //  ③ 구름 · 확대용 동아시아 조각 · 지도 사진은 정면 조각이 다 온 뒤 낮은 우선순위로 받는다
-// 8K 전체 사진(3MB · GPU 180MB)은 받지 않는다. 확대해 들어가는 곳(광주 둘레)만 8K 해상도 조각으로 덧씌운다
+// 8K 전체 사진(3MB · GPU 180MB)은 받지 않는다. 확대해 들어가는 곳(동아시아)만 8K 해상도 조각으로 덧씌운다
 const bitmapTexture = (bmp) => { const t = new THREE.Texture(bmp); t.flipY = false; t.anisotropy = maxAniso; t.needsUpdate = true; return t; };
 const FRONT_LON = 131, TILES = 8, TILE_W = 2048 / TILES;   // 처음 화면 정면 경도 = 아래 globeSpin.lon 시작값
 const earthCanvas = Object.assign(document.createElement("canvas"), { width: 2048, height: 1024 }), earthCtx = earthCanvas.getContext("2d");
@@ -288,8 +288,45 @@ const rimMat = new THREE.ShaderMaterial({ uniforms: { c: { value: new THREE.Colo
 const rimMesh = new THREE.Mesh(new THREE.SphereGeometry(1.008, 64, 64), rimMat); rimMesh.renderOrder = 3; tilt.add(rimMesh);
 renderer.initTexture(tex);
 
-// 목표: 광주 한가운데
-const TARGET = { lon: 126.85, lat: 35.16 };
+// 도착 지역: 서울(기본) · 광주(?at=gwangju). 지구가 돌아갈 곳, 미리 구운 지도의 중심 · 파일 이름, 도착 카메라, 지도 위 표시를 함께 바꾼다.
+// 도착 카메라는 비스듬히 42° 기울이고 20° 돌린다(55° 는 digo 와 너무 닮았고, 18° 는 밋밋했음)
+// 측정소 위치는 대략(구청 둘레)이고, 값은 넣지 않았다(실제 수치로 바꿀 자리)
+const SITES = {
+  seoul: {
+    target: { lon: 126.978, lat: 37.566 }, center: [126.98, 37.56], tag: "seoul-",
+    final: { center: [126.999, 37.568], zoom: 10.65, pitch: 42, bearing: 20 },
+    pins: [
+      { at: [126.9976, 37.5638], kind: "측정소 25곳", text: "서울 PM2.5 연평균 2023 → 2025" },
+      ...[[126.979, 37.5735], [126.9905, 37.5326], [127.0371, 37.5633], [127.0823, 37.5385], [127.0396, 37.5744], [127.0927, 37.6066], [127.0167, 37.5894], [127.0257, 37.6396],
+        [127.0471, 37.6688], [127.0568, 37.6542], [126.9291, 37.6027], [126.9368, 37.5791], [126.9019, 37.5663], [126.8665, 37.517], [126.8495, 37.5509], [126.8874, 37.4954],
+        [126.8955, 37.4569], [126.8962, 37.5264], [126.9393, 37.5124], [126.9516, 37.4784], [127.0324, 37.4837], [127.0473, 37.5172], [127.1059, 37.5145], [127.1238, 37.5301]].map((at) => ({ at })),
+      { at: [126.978, 37.5665], doc: true }, { at: [127.028, 37.497], doc: true }, { at: [126.925, 37.524], doc: true },
+    ],
+    places: [
+      ["서울특별시", 126.978, 37.566, 6.4, 9.6, "city"],
+      ["인천", 126.705, 37.456, 8.3, 10], ["고양", 126.832, 37.658, 8.3, 10], ["성남", 127.127, 37.42, 8.3, 10], ["의정부", 127.034, 37.738, 8.3, 10], ["남양주", 127.216, 37.636, 8.3, 10], ["하남", 127.215, 37.539, 8.3, 10],
+      ["마포구", 126.908, 37.559, 9.9, 99, "gu"], ["강서구", 126.823, 37.561, 9.9, 99, "gu"], ["영등포구", 126.91, 37.522, 9.9, 99, "gu"],
+      ["강남구", 127.063, 37.497, 9.9, 99, "gu"], ["송파구", 127.115, 37.505, 9.9, 99, "gu"], ["노원구", 127.075, 37.652, 9.9, 99, "gu"], ["관악구", 126.945, 37.467, 9.9, 99, "gu"],
+    ],
+  },
+  gwangju: {
+    target: { lon: 126.85, lat: 35.16 }, center: [126.85, 35.16], tag: "",
+    final: { center: [126.86, 35.168], zoom: 11.45, pitch: 42, bearing: 20 },
+    pins: [
+      { at: [126.871, 35.153], kind: "측정소 13곳", text: "광주 PM2.5 연평균 17.0 → 14.7" },
+      { at: [126.851, 35.152] }, { at: [126.927, 35.144] }, { at: [126.901, 35.129] }, { at: [126.894, 35.088] }, { at: [126.878, 35.174] }, { at: [126.932, 35.172] },
+      { at: [126.884, 35.221] }, { at: [126.898, 35.206] }, { at: [126.793, 35.139] }, { at: [126.801, 35.201] }, { at: [126.742, 35.122] }, { at: [126.813, 35.169] },
+      { at: [126.852, 35.160], doc: true }, { at: [126.912, 35.150], doc: true }, { at: [126.822, 35.190], doc: true },
+    ],
+    places: [
+      ["광주광역시", 126.85, 35.16, 6.4, 9.6, "city"],
+      ["나주", 126.711, 35.016, 8.3, 10.8], ["담양", 126.988, 35.321, 8.3, 10.8], ["화순", 126.986, 35.064, 8.3, 10.8], ["장성", 126.785, 35.302, 8.3, 10.8], ["함평", 126.517, 35.066, 8.3, 10.4],
+      ["광산구", 126.765, 35.172, 9.9, 99, "gu"], ["북구", 126.935, 35.215, 9.9, 99, "gu"], ["서구", 126.858, 35.128, 9.9, 99, "gu"], ["남구", 126.872, 35.098, 9.9, 99, "gu"], ["동구", 126.958, 35.128, 9.9, 99, "gu"],
+    ],
+  },
+};
+const SITE = SITES[q.get("at")] || SITES.seoul;
+const TARGET = SITE.target;
 const deg = THREE.MathUtils.degToRad;
 
 // 동아시아 조각(경도 87~167°, 위도 10~60°, 8K 해상도): 같은 자리의 구 조각에 붙여 바탕 지구 위에 덧씌운다. 가장자리는 부드럽게 지운다
@@ -305,7 +342,7 @@ frontReady.then(() => loadBitmap("baked/earth-asia.webp", true, "low")).then((im
 });
 
 // 끌어서 돌리기: 실제 랜딩 globe.ts 의 spinner 와 같은 셈. 오른쪽으로 끌면 동쪽으로 돌고,
-// 놓으면 관성으로 미끄러지다 2초 뒤부터 자전으로 돌아간다. 스크롤을 시작하면 그 자세에서 광주로 돌아간다.
+// 놓으면 관성으로 미끄러지다 2초 뒤부터 자전으로 돌아간다. 스크롤을 시작하면 그 자세에서 도착 지역으로 돌아간다.
 // 손이 가리키는 자세(aim)와 화면에 그리는 자세(lon · lat)를 나눈다: 마우스 신호는 화면 갱신과 박자가 달라
 // (한 프레임에 0개 · 2개씩 들어온다) 그대로 그리면 덜컥인다. 그리는 자세는 매 프레임 aim 을 부드럽게 따라간다
 const globeSpin = { lon: 131, lat: 0, aimLon: 131, aimLat: 0, vLon: 0, vLat: 0, idle: 9, drag: false, px: 0, py: 0, trail: [], from: null };
@@ -354,7 +391,7 @@ function stepSpin(dt) {
 // 바깥(넓고 흐림) → 안쪽(좁고 선명) 순으로 겹쳐 두고, 카메라만 내려가며 기울인다
 // 위성 사진은 쓰지 않는다: OpenFreeMap 테마 지도 하나로 끝까지 내려간다(?map=liberty | bright | blue)
 const MAP = ["liberty", "bright", "blue"].includes(q.get("map")) ? q.get("map") : "liberty";
-const Z0 = 8, MAP_FOV = 36.87, CENTER = [126.85, 35.16], SIDE = 2048;
+const Z0 = 8, MAP_FOV = 36.87, CENTER = SITE.center, SIDE = 2048;
 const LEVELS = [3, 4.5, 6, 7.5, 9, 10.5, 11.5, 12.5];
 const WORLD = 512 * 2 ** Z0;   // 세계 단위 = 확대 8 단계에서의 화면 1px
 const merc = (lo, la) => [((lo + 180) / 360) * WORLD, ((1 - Math.log(Math.tan(Math.PI / 4 + deg(la) / 2)) / Math.PI) / 2) * WORLD];
@@ -375,25 +412,15 @@ LEVELS.forEach((z, i) => {
 });
 // 사진은 메인 스레드 밖에서 풀고(createImageBitmap), GPU 에는 한 프레임에 한 장씩 올린다
 const queue = [];
-earthReady.then(() => levels.forEach((L) => fetch(`baked/${MAP}-${L.z}.webp`, { priority: "low" }).then((r) => r.blob()).then((b) => createImageBitmap(b, { imageOrientation: "flipY" })).then((bmp) => {
+earthReady.then(() => levels.forEach((L) => fetch(`baked/${MAP}-${SITE.tag}${L.z}.webp`, { priority: "low" }).then((r) => r.blob()).then((b) => createImageBitmap(b, { imageOrientation: "flipY" })).then((bmp) => {
   const t = new THREE.Texture(bmp); t.flipY = false; t.anisotropy = maxAniso; t.needsUpdate = true; L.mat.map = t; L.mat.needsUpdate = true; queue.push(L);
 })));
 let groundReady = false, lastUpload = 0;
 
-// 지도 위 표시(예시 값). 점끼리 선으로 잇지 않는다 — 이동 경로처럼 읽히지 않게
-// 측정소 13곳(대략 위치) → 보도자료 3건 순으로 놓인다
-const PINS = [
-  { at: [126.871, 35.153], kind: "측정소 13곳", text: "광주 PM2.5 연평균 17.0 → 14.7" },
-  { at: [126.851, 35.152] }, { at: [126.927, 35.144] }, { at: [126.901, 35.129] }, { at: [126.894, 35.088] }, { at: [126.878, 35.174] }, { at: [126.932, 35.172] },
-  { at: [126.884, 35.221] }, { at: [126.898, 35.206] }, { at: [126.793, 35.139] }, { at: [126.801, 35.201] }, { at: [126.742, 35.122] }, { at: [126.813, 35.169] },
-  { at: [126.852, 35.160], doc: true }, { at: [126.912, 35.150], doc: true }, { at: [126.822, 35.190], doc: true },
-];
-// 지명은 확대에 따라 바뀐다: 광주광역시 → 둘레 시 · 군 → 다섯 구 [이름, 경도, 위도, 나타나는 확대, 사라지는 확대, 종류]
-const PLACES = [
-  ["광주광역시", 126.85, 35.16, 6.4, 9.6, "city"],
-  ["나주", 126.711, 35.016, 8.3, 10.8], ["담양", 126.988, 35.321, 8.3, 10.8], ["화순", 126.986, 35.064, 8.3, 10.8], ["장성", 126.785, 35.302, 8.3, 10.8], ["함평", 126.517, 35.066, 8.3, 10.4],
-  ["광산구", 126.765, 35.172, 9.9, 99, "gu"], ["북구", 126.935, 35.215, 9.9, 99, "gu"], ["서구", 126.858, 35.128, 9.9, 99, "gu"], ["남구", 126.872, 35.098, 9.9, 99, "gu"], ["동구", 126.958, 35.128, 9.9, 99, "gu"],
-];
+// 지도 위 표시(위 SITES). 점끼리 선으로 잇지 않는다 — 이동 경로처럼 읽히지 않게
+// 측정소(대략 위치) → 보도자료 3건 순으로 놓이고, 지명은 확대에 따라 시 → 둘레 시 · 군 → 구로 바뀐다
+// [이름, 경도, 위도, 나타나는 확대, 사라지는 확대, 종류]
+const PINS = SITE.pins, PLACES = SITE.places;
 const marksEl = document.getElementById("marks");
 const mark = (cls, html, at) => { const wrap = document.createElement("div"), el = document.createElement("div"); el.className = cls; el.innerHTML = html; wrap.appendChild(el); marksEl.appendChild(wrap); return { wrap, el, pos: toGround(...at) }; };
 const pins = PINS.map((p) => {
@@ -404,8 +431,7 @@ const pins = PINS.map((p) => {
 const places = PLACES.map(([n, lo, la, zin, zout, kind]) => ({ ...mark(`place ${kind || ""}`, n, [lo, la]), zin, zout }));
 
 // 카메라: MapLibre 와 같은 셈(중심 · 확대 · 기울기 · 방위)으로 판 위에 놓는다
-// 도착한 지도는 거의 위에서 내려다보고 살짝만(18°) 기울인다. 돌리지 않는다(북쪽이 위)
-const FINAL = { center: [126.845, 35.168], zoom: 11.35, pitch: 18, bearing: 0 };
+const FINAL = SITE.final;
 // 지구와 지도를 '확대 단계' 하나로 잇는다: 지구 카메라 높이 ↔ 지도 확대(화면 세로에 담기는 실제 거리가 같게).
 // 그래서 지구가 지도로 바뀌는 순간 크기 · 위치가 같아, 흰 화면으로 가리지 않고 겹쳐 바꿀 수 있다
 const EARTH_R = 6.371e6, M_PER_PX0 = (40075016 * Math.cos(deg(CENTER[1]))) / 512;
@@ -467,10 +493,10 @@ function frameLoop(now) {
   // 1) 석상 아래 글자가 사라진다(지구 뒤 큰 이름은 그대로 두고, 지구 · 지도가 덮는다)
   const fade = ease(span(p, 0.03, 0.15));
   put(hero, "opacity", String(1 - fade)); put(hero, "transform", `translate(-50%, calc(-50% + ${(fade * 14).toFixed(2)}vh))`); put(hero, "visibility", fade >= 1 ? "hidden" : "visible");
-  // 2) 지구가 광주를 향해 돌고 다가가다, 같은 축척의 지도로 서서히 바뀐다(흰 화면으로 가리지 않는다)
+  // 2) 지구가 도착 지역을 향해 돌고 다가가다, 같은 축척의 지도로 서서히 바뀐다(흰 화면으로 가리지 않는다)
   const finZoom = FINAL.zoom + Math.log2(Math.min(1, w / 1440, h / 992));   // 좁거나 낮은 화면에선 그만큼 물러나 측정소가 제목 · 캡션 사이에 든다
   const d0 = Math.sqrt(1 + ((h / 2) / (R * Math.tan(deg(FOV / 2)))) ** 2);
-  const Z = lerp(zoomOfAlt(d0 - 1, h), finZoom, ease(span(p, 0.12, 0.84)));   // 지구부터 광주까지 한 곡선
+  const Z = lerp(zoomOfAlt(d0 - 1, h), finZoom, ease(span(p, 0.12, 0.84)));   // 지구부터 도착 지역까지 한 곡선
   // 지도로 바꾸기는 지구가 화면을 모서리까지 다 덮은 뒤에 시작한다 — 그전에 바꾸면 지구 둘레로 뒤 지도가 보인다(가로로 넓은 화면일수록 늦게).
   // 화면 대각선 끝이 지구 가장자리 안쪽에 들어오는 카메라 높이를 셈하고, 대기 테두리 몫으로 조금 더 다가간다
   const halfDiag = Math.atan(Math.tan(deg(FOV / 2)) * Math.hypot(1, w / h));
@@ -494,14 +520,14 @@ function frameLoop(now) {
     let tlon = s.lon, tlat = HERO_LAT + s.lat;
     if (turn === 0) { s.from = null; stepSpin(dt); tlon = s.lon; tlat = HERO_LAT + s.lat; }
     else {
-      // 스크롤을 시작한 순간의 자세(끌어서 돌려 둔 자세 그대로)에서 가장 짧은 쪽으로 광주를 향해 돈다
+      // 스크롤을 시작한 순간의 자세(끌어서 돌려 둔 자세 그대로)에서 가장 짧은 쪽으로 도착 지역을 향해 돈다
       if (!s.from) { s.from = { lon: s.lon, lat: s.lat }; s.aimLon = s.lon; s.aimLat = s.lat; s.vLon = s.vLat = 0; s.drag = false; canvas.style.cursor = ""; }
       const d = (((TARGET.lon - s.from.lon) % 360) + 540) % 360 - 180;
       tlon = s.from.lon + d * turn; tlat = lerp(HERO_LAT + s.from.lat, TARGET.lat, turn);
     }
     spin.rotation.y = deg(-(tlon + 90));
     tilt.rotation.x = deg(tlat); tilt.rotation.z = deg(lerp(-10, 0, turn));
-    cloudDrift = (cloudDrift + 0.4 * dt * (1 - turn)) % 360;   // 초당 0.4° 흐르다 광주로 도는 동안 서서히 멈춘다
+    cloudDrift = (cloudDrift + 0.4 * dt * (1 - turn)) % 360;   // 초당 0.4° 흐르다 도착 지역으로 도는 동안 서서히 멈춘다
     cloudMesh.rotation.y = deg(cloudDrift);
     cloudMat.opacity = cloudsAt ? 0.9 * smooth(0, 700, now - cloudsAt) : 0;   // 구름은 도착하면 0.7초에 걸쳐 나타난다
     const alt = altOfZoom(Z, h);
@@ -521,7 +547,7 @@ function frameLoop(now) {
   const hold = waiting && Z > zIn;
   put(fog, "opacity", (hold ? 0.98 : 0.22 * Math.sin(Math.PI * mapIn)).toFixed(3));
   put(wait, "opacity", hold ? "1" : "0");
-  // 4) 광주로 곧장 내려가며 기울어 내려앉는다
+  // 4) 도착 지역으로 곧장 내려가며 기울고 돌아 내려앉는다
   //    확대 · 기울기 · 방위를 한 곡선으로 이어, 중간에 멈칫하는 구간이 없다
   const onGround = mapIn > 0;
   put(marksEl, "display", onGround ? "block" : "none");

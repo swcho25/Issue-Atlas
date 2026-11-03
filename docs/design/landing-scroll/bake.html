@@ -21,10 +21,11 @@
 </script>
 <script src="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"></script>
 <script>
-// 광주 한가운데를 중심으로 확대만 다르게 구운 장면들. 랜딩에서 안쪽(선명한) 장면을 바깥 장면 위에 겹쳐 그린다
-//   ?style=blue|fiord   ?z=11.5,12.5 (몇 장만 다시)
-const C = [126.85, 35.16], SIDE = 2048;
+// 도착 지역 한가운데를 중심으로 확대만 다르게 구운 장면들. 랜딩에서 안쪽(선명한) 장면을 바깥 장면 위에 겹쳐 그린다
+//   ?style=blue|fiord   ?z=11.5,12.5 (몇 장만 다시)   ?at=seoul (서울 중심, 파일 이름에 -seoul) · 없으면 광주
 const qs = new URLSearchParams(location.search), STYLE = qs.get("style") || "blue";
+const AT = { seoul: { c: [126.98, 37.56], tag: "seoul-" }, gwangju: { c: [126.85, 35.16], tag: "" } }[qs.get("at") || "gwangju"];
+const C = AT.c, SIDE = 2048;
 const LEVELS = qs.get("z") ? qs.get("z").split(",").map(Number) : [4.5, 6, 7.5, 9, 10.5, 11.5, 12.5];
 const log = (s) => (document.getElementById("log").textContent += "\n" + s);
 const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -68,7 +69,7 @@ const save = async (map, name) => { map.redraw(); const blob = await new Promise
 
 (async () => {
   const map = new maplibregl.Map({ container: "m", style: await buildStyle(), center: C, zoom: LEVELS[0], interactive: false, attributionControl: false, pixelRatio: 1, fadeDuration: 0, canvasContextAttributes: { preserveDrawingBuffer: true } });
-  for (const z of LEVELS) { map.jumpTo({ center: C, zoom: z }); await settle(map); await save(map, `${STYLE}-${z}.webp`); }
+  for (const z of LEVELS) { map.jumpTo({ center: C, zoom: z }); await settle(map); await save(map, `${STYLE}-${AT.tag}${z}.webp`); }
   log("끝");
   window.__done = true;
 })().catch((e) => { log("오류 " + e.message); window.__done = "error"; });
