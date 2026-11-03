@@ -265,7 +265,11 @@ const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(1.006, 96, 96), cloudM
 let cloudsAt = 0;
 let cloudDrift = 0;   // 구름층이 흘러간 각도(도). 매 프레임 조금씩 더한다 — 페이지를 연 뒤 흐른 시간으로 셈하면 오래 켜 둔 뒤 스크롤할 때 쌓인 회전을 한꺼번에 되감는다
 frontReady.then(() => loadBitmap("baked/clouds-2048.webp", true, "low")).then((cloudImg) => {
-  cloudMat.alphaMap = bitmapTexture(cloudImg); renderer.initTexture(cloudMat.alphaMap); cloudsAt = performance.now();
+  // 지구에 씌우는 구름은 아주 살짝 흐리게(1.2px) 한 번 굽는다: 잘게 흩어진 구름 알갱이가 돌 때 화면 픽셀 사이를 오가며 지글거리지 않게
+  const soft = Object.assign(document.createElement("canvas"), { width: cloudImg.width, height: cloudImg.height }), sg = soft.getContext("2d");
+  sg.filter = "blur(1.2px)"; sg.drawImage(cloudImg, 0, 0);
+  const softTex = new THREE.CanvasTexture(soft); softTex.flipY = false; softTex.anisotropy = maxAniso;
+  cloudMat.alphaMap = softTex; renderer.initTexture(cloudMat.alphaMap); cloudsAt = performance.now();
   // 화면 앞 구름: 알파맵(검정 = 맑음)을 흰 구름 + 투명도로 바꾸고, 흐림은 미리 한 번만 굽는다(CSS blur 는 매 프레임 비싸다)
   (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(() => { const c = document.createElement("canvas"); c.width = 1600; c.height = 800; const g = c.getContext("2d"); g.filter = "blur(3px)"; g.drawImage(cloudImg, 0, 0, c.width, c.height); g.filter = "none";
     const im = g.getImageData(0, 0, c.width, c.height), d = im.data;
@@ -494,7 +498,10 @@ function frameLoop(now) {
     cloudDrift = (cloudDrift + 0.4 * dt * (1 - turn)) % 360;   // 초당 0.4° 흐르다 광주로 도는 동안 서서히 멈춘다
     cloudMesh.rotation.y = deg(cloudDrift);
     cloudMat.opacity = cloudsAt ? 0.9 * smooth(0, 700, now - cloudsAt) : 0;   // 구름은 도착하면 0.7초에 걸쳐 나타난다
-    cam.position.set(0, 0, 1 + altOfZoom(Z, h)); cam.lookAt(0, 0, 0);   // 지도로 다 바뀔 즈음엔 8K 지구 사진이 뭉개지기 시작하지만 이미 거의 투명하다
+    const alt = altOfZoom(Z, h);
+    cam.position.set(0, 0, 1 + alt); cam.lookAt(0, 0, 0);
+    // 보이는 깊이만 담는다(가까운 면을 높이에 맞춰 멀리): 구름층(지구 + 0.006)과 지표가 깊이 값을 다투며 깜빡이지 않게
+    cam.near = Math.max(0.0005, alt * 0.5); cam.far = alt + 2.5; cam.updateProjectionMatrix();   // 지도로 다 바뀔 즈음엔 8K 지구 사진이 뭉개지기 시작하지만 이미 거의 투명하다
     cam.setViewOffset(w, h, (w / 2 - cx) * off, (h / 2 - cy) * off, w, h);
     rimMat.uniforms.o.value = 1 - span(p, 0.2, 0.35);
     renderer.render(scene, cam);
