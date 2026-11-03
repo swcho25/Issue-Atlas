@@ -1,20 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { setTheme, useTheme } from "@/shared/lib/theme";
 
 import { colorGroups } from "../model/tokens";
 import { Swatch } from "./Swatch";
 
-type Theme = "light" | "dark";
-
-// 토큰 다크 값은 <html data-theme> 로만 바뀐다(globals.css 주석). 그래서 칸을 나누지 않고 페이지 전체를 바꾼다
+// 토큰 다크 값은 <html data-theme> 로만 바뀐다(globals.css 주석). 그래서 칸을 나누지 않고 페이지 전체를 바꾼다.
+// 왼쪽 띠의 다크 모드 버튼과 같은 상태를 쓴다
 export function ColorTokens() {
-  const [theme, setTheme] = useState<Theme>("light");
-
-  const choose = (next: Theme) => {
-    document.documentElement.setAttribute("data-theme", next);
-    setTheme(next);
-  };
+  const theme = useTheme();
 
   return (
     <section className="mt-8">
@@ -24,7 +18,7 @@ export function ColorTokens() {
           <button
             key={t}
             type="button"
-            onClick={() => choose(t)}
+            onClick={() => setTheme(t)}
             aria-pressed={theme === t}
             className="rounded-full border border-border-2 px-3 py-1 text-label-13 aria-pressed:bg-surface-3"
           >

@@ -67,3 +67,24 @@ export const radii = [
   { className: "rounded-2xl", spec: "22px" },
   { className: "rounded-full", spec: "999px" },
 ] as const;
+
+// 그림자. spec 은 Figma 효과 값(x y 흐림 색 투명도)
+export const shadows = [
+  { className: "shadow-xs", spec: "IA/Shadow xs · 0 1 2 #101828 5%" },
+  { className: "shadow-sm", spec: "IA/Shadow sm · 0 1 3 6% + 0 1 2 4%" },
+  { className: "shadow-md", spec: "IA/Shadow md · 0 4 12 8% + 0 2 4 4%" },
+  { className: "shadow-drawer", spec: "IA/Shadow drawer · 0 12 32 12% + 0 4 8 4%" },
+  { className: "shadow-frame", spec: "IA/Shadow frame · 0 24 64 18%" },
+  { className: "shadow-card", spec: "결과 카드 · 0 10 36 #000 14%" },
+  { className: "shadow-legend", spec: "범례 · 0 6 20 #000 10%" },
+] as const;
+
+// 겹침 순서. 아래일수록 위에 그려진다
+export const layers = [
+  { className: "z-map", spec: "0 · 지도" },
+  { className: "z-control", spec: "10 · 유리 컨트롤 · 범례 · 시간 막대" },
+  { className: "z-panel", spec: "20 · 결과 카드" },
+  { className: "z-popover", spec: "30 · 지점 상세 창 · 메뉴 · 툴팁" },
+  { className: "z-toast", spec: "40 · 토스트" },
+  { className: "z-modal", spec: "50 · 모달 · 덮개" },
+] as const;
