@@ -11,13 +11,18 @@ def extracted(**fields):
             "time_precision": "day", "mentions": ["울산"]} | fields  # fmt: skip
 
 
-def test_row_has_regions_from_title_and_no_location_yet():
+def test_row_has_regions_from_title_and_location_when_given():
     row, reason = event_row(extracted(), "여수·울산 석화 감산", "본문", PUBLISHED)
     assert reason is None
     assert row["summary"] == "여수 석유화학 단지의 감산 소식을 전한다."
     assert (row["sido"], row["sigun"], row["gu"]) == ("전남광주통합특별시", "여수시", None)
     assert [r["sido"] for r in row["regions"]] == ["전남광주통합특별시", "울산"]
-    assert row["location_precision"] == "none" and "place_id" not in row
+    assert (row["location_precision"], row["place_id"], row["lon"]) == ("none", None, None)
+
+    yeosu = {"place_name": "여수국가산단", "address": "전남광주통합특별시 여수시 …", "lon": 127.7,
+             "lat": 34.8, "location_precision": "address", "place_id": "kr-12130560"}  # fmt: skip
+    row, reason = event_row(extracted(location=yeosu), "여수 석화 감산", "본문", PUBLISHED)
+    assert reason is None and row["place_id"] == "kr-12130560" and row["lat"] == 34.8
 
 
 def test_out_of_window_falls_back_to_published_day():

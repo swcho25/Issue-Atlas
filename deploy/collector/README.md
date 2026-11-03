@@ -89,6 +89,7 @@ sudo issueatlas-collect region-extract --input /inputs/articles.jsonl
 sudo issueatlas-collect region-extract --input /inputs/articles.jsonl --done /inputs/extract_1.jsonl
 # ③ 추출 결과를 input 에 넣고 적재. 기본은 시험 실행(건수만, 되돌림) → 확인 뒤 --apply. mentions 는 추출 결과에 들어 있다.
 #    collector.env 에 JUSO_SEARCH_KEY 가 있으면 적재 전에 장소 주소로 지역을 바로잡는다(결과의 place_check — 없으면 off)
+#    SGIS_KEY · SGIS_SECRET 이 있으면 기사 위치(건물 좌표 · 행정동)도 정한다(결과의 locate — 없으면 off, 이미 있는 위치는 그대로)
 sudo issueatlas-collect region-load --extract /inputs/extract.jsonl
 sudo issueatlas-collect region-load --extract /inputs/extract.jsonl --apply
 # ④ 요약이 제대로 생긴 기사의 본문 지우기(기사 계약 v0.3). 시험 실행으로 건수를 본 뒤 --apply, 이어서 refine(전체)

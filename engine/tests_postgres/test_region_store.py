@@ -5,12 +5,13 @@
 
 import json
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
 from pipeline.collect.bigkinds import NewsQuery, NewsStore, collect
 from pipeline.refine.store import refine_raw
-from pipeline.region import export, load
+from pipeline.region import export, load, locate
 from tests.test_article import LINES, Web
 from tests.test_collect_bigkinds import Search, news, options
 from tests_postgres.conftest import fresh_schema
@@ -122,15 +123,71 @@ def test_main_is_dry_run_unless_apply(region_db, tmp_path, capsys):
     path = tmp_path / "extract.jsonl"
     path.write_text(json.dumps(extracted("a"), ensure_ascii=False) + "\n", encoding="utf-8")
     args = ["--db", "--extract", str(path), "--delete-bodies"]
-    assert load.main(args, connect=connect, juso=lambda: None) == 0
+    assert load.main(args, connect=connect, juso=lambda: None, sgis_client=lambda: None) == 0
     dry = json.loads(capsys.readouterr().out)
     assert dry["apply"] is False and dry["load"]["inserted"] == 1
     assert dry["place_check"] == {"off": "JUSO_SEARCH_KEY 없음"}
+    assert dry["locate"] == {"off": "SGIS_KEY · SGIS_SECRET 없음"}
     assert dry["delete_bodies"]["deleted"] == 1
     assert conn.execute("SELECT count(*) FROM news_event").fetchone() == (0,)
 
-    assert load.main([*args, "--apply"], connect=connect, juso=lambda: None) == 0
+    assert (
+        load.main([*args, "--apply"], connect=connect, juso=lambda: None, sgis_client=lambda: None)
+        == 0
+    )
     assert conn.execute("SELECT count(*) FROM news_event").fetchone() == (1,)
     assert conn.execute(
         "SELECT count(*) FROM raw_record WHERE c1_record #> '{document,body}' = 'null'"
     ).fetchone() == (1,)
+
+
+YEOSU_POINT = {"place_name": "여수세계박람회장", "address": "전남광주통합특별시 여수시 박람회길 1",
+               "lon": 127.746, "lat": 34.751, "location_precision": "address",
+               "place_id": "kr-12130310"}  # fmt: skip
+
+
+def test_location_is_stored_and_kept_when_new_one_is_none(region_db):
+    conn, _ = region_db
+    articles(conn, ("a",))
+    assert load.load(conn, [extracted("a", location=YEOSU_POINT)])["inserted"] == 1
+    stored = conn.execute(
+        "SELECT place_name, location_precision, place_id,"
+        " round(ST_X(geometry::geometry)::numeric, 3), round(ST_Y(geometry::geometry)::numeric, 3)"
+        " FROM news_event WHERE news_id = 'a'"
+    ).fetchone()
+    assert stored == (
+        "여수세계박람회장",
+        "address",
+        "kr-12130310",
+        Decimal("127.746"),
+        Decimal("34.751"),
+    )
+    # 다시 넣을 때 위치를 못 정했으면(키 없음 · none) 이미 있는 위치를 지우지 않는다
+    load.load(conn, [extracted("a", summary=None)])
+    assert conn.execute(
+        "SELECT location_precision, place_id FROM news_event WHERE news_id = 'a'"
+    ).fetchone() == ("address", "kr-12130310")
+
+
+@pytest.fixture
+def place_db(postgis):
+    yield from fresh_schema(
+        postgis,
+        (
+            "V0002__collection_place_foundation.sql",
+            "V0011__seed_places.sql",
+            "V0018__seed_region_code_maps.sql",
+            "V0019__seed_emd_places.sql",
+        ),
+    )
+
+
+def test_refs_read_sido_points_and_sgis_codes(place_db):
+    conn, _ = place_db
+    refs = locate.read_refs(conn)
+    assert refs["sido"]["광주권"].place_id == "kr-29" and refs["sido"]["SIDO"].place_id == "kr-12"
+    assert refs["sido"]["OUT:충남"].place_id == "kr-44"
+    assert refs["sido"]["OUT:충남"].location_precision == "admin_centroid"
+    # 같은 행정동이 통합 전(광주 24) · 뒤(12) SGIS 코드 둘 다로 잡힌다
+    donggu = {code for code, pid in refs["sgis"].items() if pid == "kr-12210560"}
+    assert {c[:2] for c in donggu} == {"12", "24"}

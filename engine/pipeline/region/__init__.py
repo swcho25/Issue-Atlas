@@ -15,4 +15,6 @@
   (수집기 region-extract, S15P31C108-197)
 - load: 추출 결과 → news_event, 본문 지우기 (수집기 region-load, S15P31C108-195)
 - juso · place_check: 적재 전 장소 주소로 기사 지역 확인(구추측 · SIDO → NAT, S15P31C108-203)
+- sgis · locate: 적재 때 기사 위치(건물 좌표 · 행정 구역 중심 · 시도 대표점)와
+  행정동 place_id (S15P31C108-206)
 """
