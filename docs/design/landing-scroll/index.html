@@ -47,7 +47,7 @@
   .statue { left: calc(var(--sx) * var(--u)); top: calc(var(--sy) * var(--u)); width: calc(var(--sw) * var(--u)); height: auto; }
   .shadow { left: calc((var(--sx) - 2300 * var(--sw) / 1402) * var(--u)); top: calc((var(--sy) + 605 * var(--sw) / 1402) * var(--u)); width: calc(6000 * var(--sw) / 1402 * var(--u)); height: calc(900 * var(--sw) / 1402 * var(--u));
     mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent), linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-composite: intersect; }
-  /* 헤더: 스크롤해도 늘 맨 위, 모양은 그대로. 띠 없이 로고 마크와 유리 로그인만 뜬다(이름은 히어로의 큰 글자가 맡는다).
+  /* 헤더: 스크롤해도 늘 맨 위, 모양은 그대로. 띠 없이 로고와 유리 로그인만 뜬다. 로고는 맨 위에선 축약형(마크만, 이름은 히어로의 큰 글자가 맡음), 스크롤하면 전체형(마크 + 워드마크).
      시안대로 높이 78px, 본문 폭(로고~로그인) 1036px 를 가운데에. 좁은 화면에선 양옆 여백이 최소 40px(태블릿 32 · 휴대폰 20) */
   .site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 78px;
     padding: 0 max(40px, calc((100% - 1036px) / 2)); display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
