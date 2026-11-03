@@ -21,12 +21,12 @@
 
   /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치).
      지구 중심(--gx, --gy) · 반지름(--gr) 은 스크립트의 GX · GY · GR 과 같은 값. 석상 폭(--sw)은 반지름에 비례(225 일 때 280).
-     큰 이름(--mf) · 지구 · 석상 · 부제 한 덩어리가 틀 높이의 3/4 쯤을 차지하고, 헤더 아래와 화면 바닥에 비슷한 여백이 남는다
-     (틀이 화면을 꽉 채우는 1.8:1 화면에서도 글자가 헤더에 붙거나 부제가 바닥에 붙지 않게).
+     지구 · 석상은 처음 크기(반지름 225). 큰 이름 · 지구 · 석상 · 부제 덩어리를 헤더 아래와 화면 바닥 사이 가운데에 둔다
+     (틀이 화면을 꽉 채우는 1.8:1 화면에선 위아래 여백이 20px 남짓으로 빠듯하다).
      큰 이름 글자 크기(--mfs)만 따로 막는다: 글자 폭(글자 크기 × 4.88)이 본문 폭(로고~로그인, 최대 1200px)의 80% 를 넘지 않게.
      지구 · 석상 · 부제는 그대로 화면에 맞춰 커진다 */
   .frame { --fw: 1684; --fh: 934; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
-    --gx: 845; --gy: 446; --gr: 196; --sx: 723; --sy: 601; --sw: 243.9; --mf: 227;
+    --gx: 845; --gy: 448; --gr: 225; --sx: 705; --sy: 626; --sw: 280; --mf: 227;
     --mfs: min(calc(var(--mf) * var(--u)), calc(min(1200px, 100vw - 80px) * 0.8 / 4.88));
     position: absolute; left: 50%; top: 50%; width: calc(var(--fw) * var(--u)); height: calc(var(--fh) * var(--u)); transform: translate(-50%, -50%); pointer-events: none; }
   .at { position: absolute; }
@@ -135,7 +135,7 @@ const loadImage = (src) => new Promise((ok, no) => { const i = new Image(); i.on
 const journey = document.getElementById("journey");
 const progress = () => clamp((scrollY - journey.offsetTop) / (journey.offsetHeight - innerHeight));
 const q = new URLSearchParams(location.search);
-const GX = 845, GY = 446, GR = 196;   // 히어로 지구 중심 · 반지름(설계 프레임 단위, CSS --gx · --gy · --gr 과 같은 값)
+const GX = 845, GY = 448, GR = 225;   // 히어로 지구 중심 · 반지름(설계 프레임 단위, CSS --gx · --gy · --gr 과 같은 값)
 const heroUnit = (w = innerWidth, h = innerHeight) => Math.min(w / 1684, h / 934);   // 히어로 설계틀 배율(CSS --u 와 같은 셈)
 // ?timer: 창이 숨어 있어 화면 갱신이 멈출 때(점검용) 타이머로 대신 돈다
 const tick = q.has("timer") ? (f) => setTimeout(() => f(performance.now()), 16) : (f) => requestAnimationFrame(f);
