@@ -230,8 +230,7 @@ class ReviewIntegrationTest {
     }
 
     @Test
-    void unsupportedDataWritesAndBulkScopesAreRejectedAtomically()
-            throws Exception {
+    void unsupportedDataWritesAndBulkScopesAreRejectedAtomically() throws Exception {
         String id = request("news_event", "review-news");
         for (String patch :
                 new String[] {
