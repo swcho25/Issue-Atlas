@@ -1,6 +1,6 @@
 # feat/source-list-api — 출처 목록 API
 
-- Jira: (생성 대기 — [P7] 출처 목록 API 추가) · PRD: 8장 보조 API `GET /v1/sources` · FR-E2 · 묶음/단위: P7 (L2)
+- Jira: S15P31C108-157 · PRD: 8장 보조 API `GET /v1/sources` · FR-E2 · 묶음/단위: P7 (L2)
 
 ## 완료 조건
 - [x] GET /v1/sources 가 출처마다 이름·기관·이용허락·저장 범위·출처 등급을 돌려준다
