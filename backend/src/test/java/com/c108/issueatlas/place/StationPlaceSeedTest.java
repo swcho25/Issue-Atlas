@@ -15,8 +15,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * V0017 이 넣은 측정소 22곳 · 시군구 6곳 위치와 contracts/p3 「지역 맞추기」 쿼리를 확인한다. FoundationMigrationTest 는 place 를
- * 비우므로 PlaceApiTest 와 같이 {@code @AutoConfigureMockMvc} 를 두어 같은 컨텍스트(DB)를 쓰지 않는다.
+ * V0017 이 넣은 측정소 22곳(V0032 부터 kr-<시군구>-s<코드>) · 시군구 6곳 위치와 contracts/p3 「지역 맞추기」 쿼리를 확인한다.
+ * FoundationMigrationTest 는 place 를 비우므로 PlaceApiTest 와 같이 {@code @AutoConfigureMockMvc} 를 두어 같은
+ * 컨텍스트(DB)를 쓰지 않는다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -45,7 +46,7 @@ class StationPlaceSeedTest {
                 jdbc
                         .queryForList(
                                 "SELECT parent_id, count(*) AS n FROM place"
-                                        + " WHERE starts_with(place_id, 'plc_stn_') GROUP BY parent_id")
+                                        + " WHERE level = 'station' GROUP BY parent_id")
                         .stream()
                         .collect(
                                 Collectors.toMap(
@@ -65,16 +66,16 @@ class StationPlaceSeedTest {
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM place s"
                                         + " JOIN place_code_map c ON c.place_id = s.place_id AND c.code_system = 'airkorea_station'"
-                                        + " WHERE starts_with(s.place_id, 'plc_stn_') AND s.level = 'station'"
+                                        + " WHERE s.level = 'station'"
                                         + " AND s.location_precision = 'exact' AND s.geometry_role = 'station'"
-                                        + " AND s.geometry IS NOT NULL AND s.place_id = 'plc_stn_' || c.place_code"
+                                        + " AND s.geometry IS NOT NULL AND s.place_id = s.parent_id || '-s' || c.place_code"
                                         + " AND c.valid_from IS NULL AND c.valid_to IS NULL",
                                 Integer.class))
                 .isEqualTo(22);
         assertThat(
                         jdbc.queryForList(
                                 "SELECT ST_X(geometry::geometry) AS lon, ST_Y(geometry::geometry) AS lat,"
-                                        + " attrs ->> 'address' AS address FROM place WHERE place_id = 'plc_stn_336121'"))
+                                        + " attrs ->> 'address' AS address FROM place WHERE place_id = 'kr-12130-s336121'"))
                 .containsExactly(
                         Map.of(
                                 "lon", 127.725967,

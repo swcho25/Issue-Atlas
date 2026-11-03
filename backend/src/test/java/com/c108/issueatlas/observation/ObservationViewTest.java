@@ -127,7 +127,7 @@ class ObservationViewTest {
                                 "air_pm25",
                                 "kr-12130",
                                 "-",
-                                "plc_stn_336121",
+                                "kr-12130-s336121",
                                 "A3",
                                 "not_published"));
         assertThat(jdbc.queryForList(ROW, "news_event"))

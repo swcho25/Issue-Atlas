@@ -52,12 +52,12 @@ class PlaceParentsTest {
     }
 
     @Test
-    void 시군구_ID는_KOSIS_새_코드이고_옛_plc_ID가_남지_않는다() {
-        // V0024: 시군구 plc_* → kr-<KOSIS 새 5자리>. 측정소 plc_stn_* 은 아직 그대로
+    void 시군구_측정소_ID는_kr_형식이고_옛_plc_ID가_남지_않는다() {
+        // V0024: 시군구 plc_* → kr-<KOSIS 새 5자리>. 측정소는 V0032 에서 kr-<시군구>-s<코드>
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT count(*) FROM place WHERE (starts_with(place_id, 'plc_')"
-                                        + " AND level <> 'station') OR starts_with(parent_id, 'plc_')",
+                                "SELECT count(*) FROM place WHERE starts_with(place_id, 'plc_')"
+                                        + " OR starts_with(parent_id, 'plc_')",
                                 Integer.class))
                 .isZero();
         assertThat(
