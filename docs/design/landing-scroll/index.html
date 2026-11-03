@@ -53,7 +53,14 @@
     padding: 0 max(40px, calc((100% - 1036px) / 2)); display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
   .site a { pointer-events: auto; color: var(--ink); text-decoration: none; }
   .brand { display: flex; align-items: center; }
-  .brand img { width: 28px; }
+  .brand img { width: 28px; position: relative; z-index: 1; }
+  /* 스크롤을 시작하면 이름 글자가 마크 뒤에서 오른쪽으로 튀어나온다(조금 지나쳤다 돌아옴). 맨 위로 돌아오면 마크 뒤로 들어간다.
+     글꼴은 큰 「Issue Atlas」 와 같은 Gothic A1 — 스크롤 초반엔 둘이 함께 보여서. 왼쪽만 잘라 마크 뒤에서 나오는 것처럼 보이게 한다 */
+  .wm { clip-path: inset(-12px -40px -12px 0); }
+  .wm span { display: block; padding-left: 9px; font: 800 19px / 1 "Gothic A1", sans-serif; letter-spacing: -0.02em; color: #050608; white-space: nowrap;
+    transform: translateX(-104%); opacity: 0; transition: transform .28s cubic-bezier(.5, 0, .9, .4), opacity .18s .1s; }
+  .site.scrolled .wm span { transform: none; opacity: 1; transition: transform .62s cubic-bezier(.3, 1.6, .55, 1), opacity .16s; }
+  @media (prefers-reduced-motion: reduce) { .wm span, .site.scrolled .wm span { transition: opacity .2s; transform: none; } }
   /* 투명 유리 로그인: 흰빛 10% · 위 왼쪽이 밝은 테두리 · 그림자 없음. 밝은 바탕에서도 보이게 옅은 회색 테두리 한 줄 */
   .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 13px var(--sans);
     background: rgb(255 255 255 / .10); -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
@@ -107,7 +114,7 @@
 </style>
 </head>
 <body>
-<header class="site"><a class="brand" href="#" aria-label="Issue Atlas"><img src="mark.svg" alt=""></a><a class="glass-btn" href="#">로그인</a></header>
+<header class="site"><a class="brand" href="#" aria-label="Issue Atlas"><img src="mark.svg" alt=""><span class="wm" aria-hidden="true"><span>Issue Atlas</span></span></a><a class="glass-btn" href="#">로그인</a></header>
 <section id="journey">
   <div class="stage">
     <!-- 큰 이름은 맨 뒤에 둔다: 스크롤해도 사라지지 않고 제자리에 있고, 다가오는 지구가 글자를 덮고,
@@ -156,7 +163,8 @@ const loadImage = (src) => new Promise((ok, no) => { const i = new Image(); i.on
 const journey = document.getElementById("journey");
 const progress = () => clamp((scrollY - journey.offsetTop) / (journey.offsetHeight - innerHeight));
 const q = new URLSearchParams(location.search);
-const FW = 1586, FH = 992;            // 히어로 설계틀(= 시안 화면, CSS --fw · --fh)
+const site = document.querySelector(".site");
+const FW = 1586, FH = 992;           // 히어로 설계틀(= 시안 화면, CSS --fw · --fh)
 const GX = 793, GY = 425.5, GR = 205; // 히어로 지구 중심 · 반지름(설계틀 단위, CSS --gx · --gy · --gr 과 같은 값)
 const HERO_LAT = -12;                 // 히어로에서 화면 가운데에 오는 위도(시안처럼 오스트레일리아 · 남반구 쪽이 보인다)
 const heroUnit = (w = innerWidth, h = innerHeight) => Math.min(w / FW, h / FH);   // 히어로 설계틀 배율(CSS --u 와 같은 셈)
@@ -476,6 +484,7 @@ function frameLoop(now) {
   if (queue.length && !globeSpin.drag && now - lastUpload > 150) { const L = queue.shift(); gRenderer.initTexture(L.mat.map); L.ready = true; lastUpload = now;
     if (levels.every((l) => l.ready)) { groundReady = true; gRenderer.compile(ground, gcam); dirty = true; } }
   // 휠 한 칸씩 끊겨 들어오는 스크롤을 부드럽게 따라간다(새로고침 · 큰 점프는 바로 맞춘다)
+  site.classList.toggle("scrolled", scrollY > 4);   // 조금이라도 내리면 헤더 로고 옆에 이름 글자가 튀어나온다(CSS .site.scrolled)
   const target = reduced ? (progress() > 0.05 ? 1 : 0) : progress();
   if (pS === null || Math.abs(target - pS) > 0.2) pS = target; else pS += (target - pS) * (1 - Math.exp(-dt * 9));
   if (Math.abs(target - pS) < 0.00005) pS = target;
