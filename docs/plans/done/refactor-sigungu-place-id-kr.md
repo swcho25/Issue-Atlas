@@ -1,6 +1,6 @@
 # refactor/sigungu-place-id-kr — 시군구 place_id plc_ → kr- 전환
 
-- Jira: 미정(Atlassian 인증 전, 「[P7] place_id plc_ → kr- 전환」) · PRD: 7.6 · 묶음/단위: P7 · 마감 11/05
+- Jira: S15P31C108-175 · PRD: 7.6 · 묶음/단위: P7 · 마감 11/05
 
 ## 완료 조건
 - [x] V0024 가 시군구 6곳을 `kr-<KOSIS 새 시군구 5자리>` 로 바꾸고, 참조(`place.parent_id` · `place_code_map` · `card_evidence_status` · `existing_response` · `question` · 저장된 실행 결과)를 함께 옮긴다

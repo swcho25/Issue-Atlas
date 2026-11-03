@@ -1,6 +1,6 @@
 # feat/collector-responses-mode — 서버 실행 명령에 기존 대응 추출 추가
 
-- Jira: 미정(Atlassian 인증 전) · 앞선 작업: S15P31C108-136(!72) · 묶음/단위: P8
+- Jira: S15P31C108-170 · 앞선 작업: S15P31C108-136(!72) · 묶음/단위: P8
 
 ## 완료 조건
 - [x] `issueatlas-collect responses` 가 `python -m pipeline.responses --db` 를 돌린다(결과 파일 없음, 수집과 같은 잠금)

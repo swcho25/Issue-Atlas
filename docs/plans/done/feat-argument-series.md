@@ -1,6 +1,6 @@
 # feat/argument-series — 질문 응답에 series[] · 근거 기사 목록
 
-- Jira: 미정(「[P7] C2 응답 series[] · 근거 기사 목록 반영, 지도 점 · 근거 상세 API 마무리」) · 기준: Notion 「시공간 표시 개발 명세」 5 · 6 · 7절 · 앞선 작업: !81(observation view)
+- Jira: S15P31C108-177 · 기준: Notion 「시공간 표시 개발 명세」 5 · 6 · 7절 · 앞선 작업: !81(observation view)
 
 ## 완료 조건
 - [x] argument 응답에 `series[]`(통계 · 이동 · 기사 건수)와 `articles[]` 가 실리고 C2 스키마 · 예시가 그 모양을 검사한다

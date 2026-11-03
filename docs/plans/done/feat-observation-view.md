@@ -1,6 +1,6 @@
 # feat/observation-view — 관측 행 view observation (SP10 연령 지표 ID 포함)
 
-- Jira: 미정(「[P1] SP10 연령 코드 22개 → 지표 ID」 · 「[P7] C2 응답 series[] · 근거 기사 목록」의 바탕) · 기준: Notion 「시공간 표시 개발 명세」 2 · 3절 · 앞선 작업: !79(시군구 kr-)
+- Jira: S15P31C108-176 · 기준: Notion 「시공간 표시 개발 명세」 2 · 3절 · 앞선 작업: !79(시군구 kr-)
 
 ## 완료 조건
 - [x] V0025 view `observation` 이 SP01 · SP02 · SP10 · `air_monthly` · `news_event` 를 명세 칸(what · when · where · value · status)으로 읽는다

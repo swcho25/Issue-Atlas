@@ -1,6 +1,6 @@
 # test/c2-contract-tests — API 계약 테스트 자동화 (FR-J1)
 
-- Jira: (생성 대기 — [P7] API 계약 테스트 자동화) · PRD: FR-J1 「Swagger 문서와 계약 테스트」 · 인수 기준 6 · 묶음/단위: P7 (L2)
+- Jira: S15P31C108-158 · PRD: FR-J1 「Swagger 문서와 계약 테스트」 · 인수 기준 6 · 묶음/단위: P7 (L2)
 
 ## 완료 조건
 - [x] 백엔드 테스트가 API 응답을 C2 JSON 스키마로 검증한다 (지역 · 카드 목록 · 근거 · 지도 점 · 수집 이력)
