@@ -38,12 +38,14 @@
     background: rgb(255 255 255 / .10); -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
     border: 1px solid rgb(17 19 24 / .14); box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .3); }
   @media (max-width: 720px) { .site { padding: 0 16px; } }
-  /* 받침대 이름표: 석상 아래 가는 선 + 이름 + 한 줄(스크롤하면 다른 히어로 글자처럼 사라진다) */
-  .plaque { left: 0; right: 0; top: calc(var(--py) * var(--u)); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
-  .plaque i { display: block; width: 180px; height: 1px; background: rgb(16 20 27 / .28); }
-  .plaque b { font: 500 12px "IBM Plex Mono", monospace; letter-spacing: .38em; color: var(--word); }
-  .plaque span { font: italic 400 20px "Source Serif 4", Georgia, serif; color: #4a5160; }
-  .scroll { left: 50%; bottom: calc(18 * var(--u)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; font: 500 10px "IBM Plex Mono"; letter-spacing: .38em; color: #8a8f9c; }
+  /* 받침대 이름표: 석상 아래 가는 선 + 이름 + 한 줄(스크롤하면 다른 히어로 글자처럼 사라진다).
+     석상과 같은 비율(--u)로 줄어든다 — 고정 크기면 좁은 화면에서 아래 SCROLL 과 겹친다. 1440 화면에서 이름 12px · 한 줄 20px */
+  .plaque { left: 0; right: 0; top: calc(var(--py) * var(--u)); display: flex; flex-direction: column; align-items: center; gap: calc(14 * var(--u)); text-align: center; }
+  .plaque i { display: block; width: calc(210 * var(--u)); height: 1px; background: rgb(16 20 27 / .28); }
+  .plaque b { font: 500 max(9px, calc(14 * var(--u))) "IBM Plex Mono", monospace; letter-spacing: .38em; color: var(--word); }
+  .plaque span { font: italic 400 max(13px, calc(23.4 * var(--u))) "Source Serif 4", Georgia, serif; color: #4a5160; }
+  /* 설계틀 바닥이 아니라 화면 맨 아래에 붙는다: 좁고 긴 화면에선 설계틀이 가운데에 작게 놓여, 틀 바닥에 붙이면 이름표와 겹친다 */
+  .scroll { left: 50%; bottom: calc(18px - (100vh - 934 * var(--u)) / 2); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; font: 500 10px "IBM Plex Mono"; letter-spacing: .38em; color: #8a8f9c; }
   .scroll i { width: 1px; height: 34px; background: linear-gradient(#8a8f9c, transparent); }
 
   /* 구름 통과: 구름 알파맵을 화면 앞에 겹쳐 키우며 지나간다 */
