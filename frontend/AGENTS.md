@@ -14,6 +14,7 @@ Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced 
 
 ## 폴더
 - `app/` — Next 라우팅만. `page.tsx` 는 `src/pages/<slice>` 를 다시 내보내기만 한다
+- 왼쪽 띠가 있는 앱 화면은 `app/(app)/` 안에, 랜딩처럼 띠가 없는 화면은 그 밖에 둔다. 메뉴 주소는 `src/widgets/app-rail/model/menu.ts` 한 곳
 - `pages/` — 비워 둔다(README 만). Next 가 `src/pages` 를 Pages Router 로 읽지 않게 막는 용도
 - `src/` — FSD 레이어: `app` → `pages` → `widgets` → `features` → `entities` → `shared`
 

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ColorTokens } from "./ColorTokens";
 import { FontSamples } from "./FontSamples";
+import { RailPreview } from "./RailPreview";
 import { TypeAndShape } from "./TypeAndShape";
 
 // 디자인 토큰 · 공통 컴포넌트 견본. Figma 와 나란히 놓고 비교하는 개발용 화면이라 배포본에서는 404
@@ -16,6 +17,7 @@ export function UiCatalogPage() {
       </p>
       <ColorTokens />
       <TypeAndShape />
+      <RailPreview />
       <FontSamples />
     </main>
   );
