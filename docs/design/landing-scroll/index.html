@@ -66,12 +66,14 @@
   .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 13px var(--sans);
     background: rgb(255 255 255 / .10); -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
     border: 1px solid rgb(17 19 24 / .14); box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .3);
-    transition: transform .5s cubic-bezier(.3, 1.6, .55, 1), background-color .3s, border-color .3s, box-shadow .3s; -webkit-tap-highlight-color: transparent; }
-  /* 누르는 동안: 토글 손잡이처럼 옆으로 더 늘어나며(가로 16% · 세로 8%) 맑은 유리 방울로 — 흰빛 35%, 왼쪽 위 · 오른쪽 아래가 밝은 테두리, 옅은 그림자.
-     놓으면 조금 지나쳤다 돌아온다. 움직임 줄이기면 크기는 그대로 두고 재질만 바뀐다 */
-  .glass-btn.press { transform: scale(1.16, 1.08); transition-duration: .16s; transition-timing-function: cubic-bezier(.2, .8, .2, 1);
-    background: rgb(255 255 255 / .35); -webkit-backdrop-filter: blur(10px) saturate(1.9); backdrop-filter: blur(10px) saturate(1.9); border-color: rgb(255 255 255 / .2);
-    box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .75), 0 3px 8px rgb(0 0 0 / .16); }
+    position: relative; overflow: hidden; isolation: isolate; --mx: 50%; --my: 50%; --glow: 0;
+    transition: transform .35s cubic-bezier(.3, 1.4, .5, 1), box-shadow .3s; -webkit-tap-highlight-color: transparent; }
+  /* 빛 따라오기: 커서 · 손가락 자리에 반사광이 맺혀 따라다닌다. 누르면 살짝 눌리며(0.96) 빛과 테두리가 진해지고, 놓으면 조금 지나쳤다 돌아온다 */
+  .glass-btn::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .25s;
+    background: radial-gradient(80px circle at var(--mx) var(--my), rgb(255 255 255 / calc(.45 + var(--glow) * .35)), transparent 60%); }
+  .glass-btn:hover::before, .glass-btn.press::before { opacity: 1; }
+  .glass-btn.press { --glow: 1; transform: scale(.96); transition-duration: .12s;
+    box-shadow: inset 1px 1px 0 rgb(255 255 255 / 1), inset -1px -1px 0 rgb(255 255 255 / .6), 0 3px 10px rgb(17 19 24 / .14); }
   @media (prefers-reduced-motion: reduce) { .glass-btn, .glass-btn.press { transform: none; } }
   @media (max-width: 1279px) { .site { padding: 0 max(32px, calc((100% - 1036px) / 2)); } }
   @media (max-width: 767px) { .site { padding: 0 20px; } }
@@ -204,6 +206,36 @@
     .feat .panel { aspect-ratio: auto; height: 400px; }
     .foot { flex-direction: column; align-items: flex-start; }
   }
+  /* 로그인 창(Figma 「② 로그인 창 (랜딩 위)」): 어두운 막 32% 위에 흰 카드 400, 모서리 22, 그림자 0 24 64.
+     헤더 「로그인」 · 맨 아래 OPEN THE ATLAS 로 열고, 닫기 · 바깥 · Esc 로 닫는다. 가입은 없다(계정은 관리자가 만든다) */
+  .login { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; visibility: hidden; pointer-events: none; }
+  .login.open { visibility: visible; pointer-events: auto; }
+  .login .scrim { position: absolute; inset: 0; background: rgb(14 16 22 / .32); opacity: 0; transition: opacity .25s; }
+  .login.open .scrim { opacity: 1; }
+  .sheet { position: relative; display: flex; flex-direction: column; gap: 20px; width: min(400px, 100%); padding: 32px 36px; border-radius: 22px; background: #fff; box-shadow: 0 24px 64px rgb(13 15 26 / .22);
+    opacity: 0; transform: translateY(10px) scale(.97); transition: opacity .25s, transform .4s cubic-bezier(.3, 1.3, .5, 1); }
+  .login.open .sheet { opacity: 1; transform: none; }
+  .sheet .lock { display: flex; align-items: center; gap: 6.7px; font: 400 19.1px / 1 "Source Serif 4", serif; letter-spacing: -0.02em; color: #252624; }
+  .sheet .lock img { width: 25px; }
+  .sheet h2 { margin: 2px 0 -8px; font-weight: 700; font-size: 24px; color: #252624; }
+  .sheet .lead2 { margin: 0; font-size: 14px; line-height: 22px; color: #50524c; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field span { font-weight: 500; font-size: 12px; color: #50524c; }
+  .field input { height: 44px; padding: 0 14px; border: 1px solid #d6d6cf; border-radius: 8px; font: 400 14px var(--sans); color: #252624; outline: none; transition: border-color .15s, box-shadow .15s; }
+  .field input:focus { border-color: #e69e00; box-shadow: 0 0 0 3px rgb(255 176 0 / .22); }
+  .field input[aria-invalid="true"] { border-color: #c2412a; }
+  .sheet .note { margin: -8px 0 0; font-size: 12px; line-height: 18px; color: #c2412a; }
+  .sheet .note.ok { color: #50524c; }
+  .primary { height: 36px; border: 0; border-radius: 999px; background: var(--amber); color: #252624; font: 500 13px var(--sans); cursor: pointer;
+    box-shadow: inset 0 0 4px rgb(255 255 255 / .16), inset 1px 1px 0 rgb(255 255 255 / .5), 0 2px 6px rgb(0 0 0 / .14); transition: background-color .15s, transform .15s; }
+  .primary:hover { background: #e69e00; }
+  .primary:active { transform: scale(.98); }
+  .primary:disabled { cursor: progress; opacity: .7; }
+  .sheet .help { margin: 0; font-size: 12px; color: #8a8c85; }
+  .sheet .x { position: absolute; right: 16px; top: 16px; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: #f1f2f5; cursor: pointer; }
+  .sheet .x:hover { background: #e6e8ee; }
+  .sheet :focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .sheet, .login .scrim { transition: none; } }
   .hud { position: fixed; right: 12px; bottom: 12px; font: 500 11px "IBM Plex Mono"; color: #8a8f9c; z-index: 9; }
 </style>
 </head>
@@ -305,17 +337,59 @@
   </div>
 </section>
 <footer class="foot"><a class="lock" href="#" aria-label="Issue Atlas"><img src="mark.svg" alt="">Issue Atlas</a><small>SSAFY 15기 광주 C108 × 스테디윈스 · 2026</small></footer>
+<div class="login" id="login" aria-hidden="true">
+  <div class="scrim" data-close></div>
+  <form class="sheet" role="dialog" aria-modal="true" aria-labelledby="login-title" novalidate>
+    <button type="button" class="x" data-close aria-label="닫기"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="#17181c" stroke-width="1.46" stroke-linecap="round"/></svg></button>
+    <div class="lock"><img src="mark.svg" alt="">Issue Atlas</div>
+    <h2 id="login-title">로그인</h2>
+    <p class="lead2">팀 계정으로 들어와요. 계정은 관리자가 만들어 드려요.</p>
+    <label class="field"><span>아이디</span><input name="id" autocomplete="username" placeholder="hoseong@issue-atlas" spellcheck="false"></label>
+    <label class="field"><span>비밀번호</span><input name="pw" type="password" autocomplete="current-password"></label>
+    <p class="note" role="status" hidden></p>
+    <button class="primary" type="submit">로그인</button>
+    <p class="help">비밀번호를 잊었나요? 관리자에게 초기화를 요청하세요.</p>
+  </form>
+</div>
 <script>
   // 지역 줄: 「*」 가 붙은 곳만 열린 곳. 끊김 없이 돌도록 같은 줄을 두 번 이어 붙인다
   for (const row of document.querySelectorAll("[data-places]")) {
     const chips = row.dataset.places.split(" ").map((n) => (n[0] === "*" ? `<span class="chip open">${n.slice(1)}</span>` : `<span class="chip">${n}</span>`)).join("");
     row.innerHTML = chips + chips;
   }
-  // 유리 버튼 누름: 누르고 있는 동안만 .press(손가락 · 마우스 · Space/Enter 모두). 손을 떼거나 버튼 밖으로 나가면 돌아온다
+  // 유리 버튼: 반사광이 커서 · 손가락을 따라오고(--mx · --my), 누르고 있는 동안만 .press(손가락 · 마우스 · Space/Enter 모두)
   for (const b of document.querySelectorAll(".glass-btn")) {
     const on = () => b.classList.add("press"), off = () => b.classList.remove("press");
+    b.addEventListener("pointermove", (e) => { const r = b.getBoundingClientRect(); b.style.setProperty("--mx", e.clientX - r.left + "px"); b.style.setProperty("--my", e.clientY - r.top + "px"); });
     b.addEventListener("pointerdown", on); for (const e of ["pointerup", "pointerleave", "pointercancel", "blur"]) b.addEventListener(e, off);
     b.addEventListener("keydown", (e) => { if (e.key === " " || e.key === "Enter") on(); }); b.addEventListener("keyup", off);
+  }
+  // 로그인 창: 헤더 「로그인」 · OPEN THE ATLAS 로 연다. 닫기 · 바깥 · Esc 로 닫고, 연 버튼으로 초점을 돌려준다. Tab 은 창 안에서만 돈다.
+  // 시제품이라 실제 로그인은 없다 — 빈 칸만 확인하고, 서비스에서는 로그인하면 바로 「새 질문」 으로 간다는 안내를 보여 준다
+  {
+    const box = document.getElementById("login"), form = box.querySelector("form"), note = form.querySelector(".note"), submit = form.querySelector(".primary");
+    const fields = [...form.querySelectorAll("input")];
+    let opener = null;
+    const say = (text, ok) => { note.hidden = !text; note.textContent = text || ""; note.classList.toggle("ok", !!ok); };
+    const open = (e) => { e.preventDefault(); opener = e.currentTarget; box.classList.add("open"); box.setAttribute("aria-hidden", "false"); document.documentElement.style.overflow = "hidden"; setTimeout(() => fields[0].focus(), 50); };
+    const close = () => { if (!box.classList.contains("open")) return; box.classList.remove("open"); box.setAttribute("aria-hidden", "true"); document.documentElement.style.overflow = ""; say(""); fields.forEach((f) => f.removeAttribute("aria-invalid")); if (opener) opener.focus(); };
+    for (const t of document.querySelectorAll(".glass-btn, .start")) t.addEventListener("click", open);
+    for (const c of box.querySelectorAll("[data-close]")) c.addEventListener("click", close);
+    document.addEventListener("keydown", (e) => {
+      if (!box.classList.contains("open")) return;
+      if (e.key === "Escape") close();
+      if (e.key === "Tab") { const f = [...form.querySelectorAll("button, input")], first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }
+    });
+    fields.forEach((f) => f.addEventListener("input", () => { f.removeAttribute("aria-invalid"); say(""); }));
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const empty = fields.filter((f) => !f.value.trim());
+      fields.forEach((f) => (empty.includes(f) ? f.setAttribute("aria-invalid", "true") : f.removeAttribute("aria-invalid")));
+      if (empty.length) { say(empty.length === 2 ? "아이디와 비밀번호를 입력해 주세요" : empty[0].name === "id" ? "아이디를 입력해 주세요" : "비밀번호를 입력해 주세요"); empty[0].focus(); return; }
+      submit.disabled = true; submit.textContent = "로그인 중…";
+      setTimeout(() => { submit.disabled = false; submit.textContent = "로그인"; say("시제품이라 실제 로그인은 연결되어 있지 않아요. 서비스에서는 로그인하면 바로 「새 질문」 으로 가요", true); }, 900);
+    });
   }
   // 결과 화면 둘러보기: 칸을 누르면 그 화면으로. 화면이 보이는 동안만 막대가 차오르고, 다 차면 다음 칸으로 넘어간다
   {
