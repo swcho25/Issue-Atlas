@@ -125,3 +125,62 @@ def not_a_place(name: str) -> bool:
         and _DEPT.search(_key(words[-1]))
         and (is_admin_name(head) or head.endswith(("청", "의회")))
     )
+
+
+# 2026-07 통합 전 법정동 코드 앞 5자리(광주 29 · 전남 46) → 통합 뒤(12). 뒤 5자리(읍면동 · 리)는
+# 그대로다(법정동 코드 파일의 폐지 · 존재 행 3,176쌍, 2026-11-03). 주소 API 가 옛 코드를 줄 때 쓴다
+OLD_SGG = {
+    "29110": "12210", "29140": "12240", "29155": "12270", "29170": "12300", "29200": "12330",
+    "46110": "12110", "46130": "12130", "46150": "12150", "46170": "12170", "46230": "12190",
+    "46710": "12710", "46720": "12720", "46730": "12730", "46770": "12740", "46780": "12750",
+    "46790": "12760", "46800": "12770", "46810": "12780", "46820": "12790", "46830": "12800",
+    "46840": "12810", "46860": "12820", "46870": "12830", "46880": "12840", "46890": "12850",
+    "46900": "12860", "46910": "12870",
+}  # fmt: skip
+# 장소 이름 앞 시군구를 믿을 수 있는 구역 · 시설 끝말
+# (붙여 쓴 이름에만. 「순천향대」 · 「목포대」는 그 시군구에 없다)
+_AREA_END = (
+    "산단", "산업단지", "농공단지", "지구", "공원", "IC", "나들목", "교차로", "항", "역",
+    "해수욕장", "댐", "저수지", "터미널", "시장", "문화홀", "체육관", "도서관", "섬",
+)  # fmt: skip
+
+
+@cache
+def _by_code() -> dict[str, tuple[str, str]]:
+    p = load()
+    out = {code: (sgg, "") for sgg, code in p.sgg_code.items()}
+    for entries in p.emd.values():
+        for e in entries:
+            out.setdefault(e.code, (e.sgg, e.emd))
+    return out
+
+
+def by_code(code: str) -> tuple[str, str]:
+    """법정동 코드 10자리 → (시군구, 읍면동). 리는 상위 읍면.
+    우리 통합시 밖이거나 모르면 ('', '')"""
+    code = str(code or "")
+    code = OLD_SGG.get(code[:5], code[:5]) + code[5:]
+    return _by_code().get(code) or (_by_code().get(code[:5] + "00000", ("", ""))[0], "")
+
+
+def region_of_prefix(name: str) -> str:
+    """이름 앞에 붙은 시군구: 「보성 조성농공단지」 → 보성군,
+    「광주 북구 용봉동 행정복지센터」 → 광주 북구.
+    붙여 쓴 이름(「여수화양농공단지」)은 끝말이 구역 · 시설일 때만. 못 찾으면 ''"""
+    p, words = load(), str(name).split()
+    if len(words) >= 2:
+        if words[0] in ("광주", "광주광역시") and words[1] in GJ_GU:
+            return f"광주 {words[1]}"
+        head = words[0] if words[0] in p.sgg else words[0].removesuffix("시").removesuffix("군")
+        if head in p.sgg:
+            return p.sgg[head]
+    k = _key(name)
+    for short, full in p.sgg.items():
+        if (
+            len(short) >= 2
+            and k.startswith(short)
+            and len(k) > len(short) + 1
+            and k.endswith(_AREA_END)
+        ):
+            return full
+    return ""

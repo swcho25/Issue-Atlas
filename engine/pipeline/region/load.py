@@ -5,8 +5,10 @@ python -m pipeline.region.load --db --extract <JSONL> [--mentions <JSONL>]
 - 기본은 시험 실행: 같은 트랜잭션에서 넣고 세어 본 뒤 되돌린다. --apply 일 때만 커밋
 - 적재(--extract): 기사마다 고치기(checks.fix_row) → 여러 지역(regions) → 검사(checks.violations).
   보류(지역을 못 정함) · 위반 · 정제 기사 없음은 넣지 않고 이유별로 센다.
-  이미 있는 기사는 요약을 null 로 덮지 않는다(기사 계약 v0.3). 위치는 아직 정하지 않는다(MR 2b)
+  이미 있는 기사는 요약을 null 로 덮지 않는다(기사 계약 v0.3). 위치는 아직 정하지 않는다(MR 2b-2)
   — 새 기사는 위치 none · place_id null, 이미 있는 행의 위치 칸은 그대로
+- 장소 확인: 적재 전에 장소 주소(JUSO)로 지역을 바로잡는다(place_check — 구추측 · SIDO → NAT).
+  .env 에 JUSO_SEARCH_KEY 가 없으면 건너뛰고 place_check.off 에 남긴다
 - 본문 지우기(--delete-bodies): news_event 요약이 checks.good_summary 인 기사만
   raw_record 본문 3칸을 null, storage_scope = metadata (기사 계약 v0.3 「본문 지우기」).
   정제 표의 본문은 다음 refine 이 지운다
@@ -25,7 +27,9 @@ from psycopg.types.json import Jsonb
 
 from pipeline.collect.lofin import connect_from_env
 
+from . import place_check
 from .checks import COPIED_PREFIX, SUMMARY_LENGTH, fix_row, good_summary, violations
+from .juso import Juso
 from .labels import split_region
 from .regions import regions
 
@@ -146,7 +150,7 @@ def merge_mentions(extracted: list[dict], mentions: list[dict]) -> list[dict]:
     return [e if "mentions" in e else e | {"mentions": by_id.get(e["id"], [])} for e in extracted]
 
 
-def main(argv=None, connect=connect_from_env) -> int:
+def main(argv=None, connect=connect_from_env, juso=Juso.from_env) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--db", action="store_true", required=True)
     p.add_argument("--extract", type=Path)
@@ -161,6 +165,10 @@ def main(argv=None, connect=connect_from_env) -> int:
         if args.mentions:
             extracted = merge_mentions(extracted, read_jsonl(args.mentions))
         result = {"apply": args.apply}
+        if extracted:  # 주소 API 는 DB 트랜잭션 밖에서 부른다
+            client = juso()
+            lookup = place_check.PlaceLookup(client) if client else None
+            extracted, result["place_check"] = place_check.apply(extracted, lookup)
         with connect() as conn, conn.transaction(force_rollback=not args.apply):
             if args.extract:
                 result["load"] = load(conn, extracted)
