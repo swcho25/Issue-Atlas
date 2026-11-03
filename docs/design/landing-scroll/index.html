@@ -233,13 +233,13 @@ if (q.has("bakestatue")) drawStatue(); else useBakedStatue();
 // ---------- 지구(three) ----------
 THREE.ColorManagement.enabled = false;
 const canvas = document.getElementById("globe");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance", preserveDrawingBuffer: q.has("capture") });   // ?capture: Figma 로 옮길 그림을 뽑을 때 캔버스를 읽을 수 있게
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setPixelRatio(Math.min(1.5, devicePixelRatio || 1));
 const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 // 지도는 따로 그린다: 지구 캔버스를 위에 두고 투명도만 내려 지도와 겹쳐 바꾼다(흰 화면으로 가리지 않는다)
 const groundCanvas = document.getElementById("ground");
-const gRenderer = new THREE.WebGLRenderer({ canvas: groundCanvas, antialias: true, powerPreference: "high-performance" });
+const gRenderer = new THREE.WebGLRenderer({ canvas: groundCanvas, antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: q.has("capture") });
 gRenderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 gRenderer.setPixelRatio(Math.min(1.5, devicePixelRatio || 1));
 const scene = new THREE.Scene();
@@ -385,6 +385,7 @@ canvas.addEventListener("pointerup", release);
 canvas.addEventListener("pointercancel", release);
 function stepSpin(dt) {
   const s = globeSpin;
+  if (q.has("capture")) return;   // 그림을 뽑을 때는 처음 자세(오스트레일리아 정면)에 멈춘다
   if (!s.drag) {
     s.idle += dt;
     s.aimLon += s.vLon * dt; s.vLon *= Math.pow(0.04, dt);

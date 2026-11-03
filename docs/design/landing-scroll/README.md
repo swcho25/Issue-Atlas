@@ -18,6 +18,7 @@ http://localhost:5199/ — 오른쪽 아래에 진행률(p) · fps · 받은 지
 | `?at=gwangju` | 서울 대신 광주로 도착한다(지역마다 중심 · 구운 지도 · 도착 카메라 · 점 · 지명은 `index.html` 의 `SITES`) |
 | `?map=bright` · `?map=blue` | 다른 지도 테마(먼저 `bake.html?style=bright` 처럼 구워야 한다. 저장소엔 liberty 만 있다) |
 | `?bakestatue` | 석상을 실제로 계산해 그린다(미리 구운 `baked/statue-*.webp` 를 다시 만들 때) |
+| `?capture` | Figma 로 옮길 그림을 뽑을 때. 캔버스를 읽을 수 있게 하고 히어로 지구를 처음 자세(오스트레일리아 정면)에 멈춘다 |
 | `?timer` | 점검용. 창이 숨어 화면 갱신(requestAnimationFrame)이 멈출 때 타이머로 돈다 |
 
 느린 인터넷 흉내: `node docs/design/landing-scroll/serve.js docs/design/landing-scroll 5201 400` — 모든 응답이 합쳐서 초당 400KB.
