@@ -225,6 +225,7 @@ const noClouds = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); no
 const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, alphaMap: noClouds, transparent: true, opacity: 0, depthWrite: false });
 const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(1.006, 96, 96), cloudMat); cloudMesh.renderOrder = 2; spin.add(cloudMesh);
 let cloudsAt = 0;
+let cloudDrift = 0;   // 구름층이 흘러간 각도(도). 매 프레임 조금씩 더한다 — 페이지를 연 뒤 흐른 시간으로 셈하면 오래 켜 둔 뒤 스크롤할 때 쌓인 회전을 한꺼번에 되감는다
 frontReady.then(() => loadBitmap("baked/clouds-2048.webp", true, "low")).then((cloudImg) => {
   cloudMat.alphaMap = bitmapTexture(cloudImg); renderer.initTexture(cloudMat.alphaMap); cloudsAt = performance.now();
   // 화면 앞 구름: 알파맵(검정 = 맑음)을 흰 구름 + 투명도로 바꾸고, 흐림은 미리 한 번만 굽는다(CSS blur 는 매 프레임 비싸다)
@@ -453,7 +454,8 @@ function frameLoop(now) {
     }
     spin.rotation.y = deg(-(tlon + 90));
     tilt.rotation.x = deg(tlat); tilt.rotation.z = deg(lerp(-10, 0, turn));
-    cloudMesh.rotation.y = deg(now * 0.0004 * (1 - turn));
+    cloudDrift = (cloudDrift + 0.4 * dt * (1 - turn)) % 360;   // 초당 0.4° 흐르다 광주로 도는 동안 서서히 멈춘다
+    cloudMesh.rotation.y = deg(cloudDrift);
     cloudMat.opacity = cloudsAt ? 0.9 * smooth(0, 700, now - cloudsAt) : 0;   // 구름은 도착하면 0.7초에 걸쳐 나타난다
     cam.position.set(0, 0, 1 + altOfZoom(Z, h)); cam.lookAt(0, 0, 0);   // 지도로 다 바뀔 즈음엔 8K 지구 사진이 뭉개지기 시작하지만 이미 거의 투명하다
     cam.setViewOffset(w, h, (w / 2 - cx) * off, (h / 2 - cy) * off, w, h);
