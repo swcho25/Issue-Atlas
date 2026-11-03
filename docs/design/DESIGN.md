@@ -636,7 +636,9 @@ Figma Components 페이지의 v5 섹션 네 개가 기준이다. 숫자는 노�
   - `Button/랜딩 시작` 글자(`#111318`)
   - 랜딩의 차가운 회색들
 - 간격 · 모서리 변수는 아직 「IA v3 · Size」 컬렉션에만 있다. v5 컴포넌트는 숫자를 직접 쓴다.
-- 글자 스타일 `IA5/` 15개는 아직 Gothic A1 이다. 위 YAML 은 결정대로 Pretendard 로 적었다. Figma 에 Pretendard 를 설치하거나 팀 글꼴로 올린 뒤 스타일 글꼴을 바꾼다(영문 맞춤은 Figma 글자 스타일로는 표현할 수 없어 이 문서의 표를 따른다).
+- 글자 스타일 `IA5/` 15개는 2026-11-03 Pretendard 로 바꿨다. Pretendard 는 Google Fonts 에 없어 팀원 각자 PC 에 설치한다(static OTF, 「모든 사용자용으로 설치」). 설치하지 않으면 Figma 에 「없는 글꼴」이 뜬다.
+  - Figma MCP 는 Figma 서버에서 돌아 PC 글꼴을 못 불러온다. Pretendard 가 든 글자는 Chrome 의 Figma 에서 Scripter 플러그인으로 고친다.
+  - 영문 맞춤은 글자 스타일로는 표현할 수 없어 이 문서의 표를 따른다. 랜딩처럼 꼭 맞춰야 하는 글자만 영문 · 숫자 구간을 Gothic A1 로 따로 맞춰 두었다.
 
 ### 랜딩 결정(시제품 → Figma)
 
