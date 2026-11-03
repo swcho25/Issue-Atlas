@@ -122,13 +122,14 @@ def test_main_is_dry_run_unless_apply(region_db, tmp_path, capsys):
     path = tmp_path / "extract.jsonl"
     path.write_text(json.dumps(extracted("a"), ensure_ascii=False) + "\n", encoding="utf-8")
     args = ["--db", "--extract", str(path), "--delete-bodies"]
-    assert load.main(args, connect=connect) == 0
+    assert load.main(args, connect=connect, juso=lambda: None) == 0
     dry = json.loads(capsys.readouterr().out)
     assert dry["apply"] is False and dry["load"]["inserted"] == 1
+    assert dry["place_check"] == {"off": "JUSO_SEARCH_KEY 없음"}
     assert dry["delete_bodies"]["deleted"] == 1
     assert conn.execute("SELECT count(*) FROM news_event").fetchone() == (0,)
 
-    assert load.main([*args, "--apply"], connect=connect) == 0
+    assert load.main([*args, "--apply"], connect=connect, juso=lambda: None) == 0
     assert conn.execute("SELECT count(*) FROM news_event").fetchone() == (1,)
     assert conn.execute(
         "SELECT count(*) FROM raw_record WHERE c1_record #> '{document,body}' = 'null'"

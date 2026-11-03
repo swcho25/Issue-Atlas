@@ -14,4 +14,5 @@
 - llm · answer_region · answer_summary · extract: 모델 서버에 지역 · 요약 질문
   (수집기 region-extract, S15P31C108-197)
 - load: 추출 결과 → news_event, 본문 지우기 (수집기 region-load, S15P31C108-195)
+- juso · place_check: 적재 전 장소 주소로 기사 지역 확인(구추측 · SIDO → NAT, S15P31C108-203)
 """
