@@ -32,7 +32,7 @@ def region_db(postgis):
             "V0009__store_air_monthly_only.sql",
             "V0016__create_news_event.sql",
             "V0020__add_news_event_regions.sql",
-            "V0037__add_news_event_versions.sql",
+            "V0038__add_news_event_versions.sql",
         ),
     )
 
