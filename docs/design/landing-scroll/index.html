@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Issue Atlas · 랜딩 스크롤 시제품</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Source+Serif+4:wght@400&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Source+Serif+4:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
   :root { --ink: #111318; --word: #1e2530; --rule: rgb(16 20 27 / .35); --line: #d2d6db; --amber: #FFB000; --navy: #2E4A7D; --bg: #f7f8fc; }
   * { box-sizing: border-box; }
@@ -21,24 +21,28 @@
 
   /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치) */
   .frame { --fw: 1684; --fh: 934; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
-    --gx: 845; --gy: 288; --gr: 225; --sx: 705; --sy: 470; --sw: 280; --ly: 745; --by: 814;
+    --gx: 845; --gy: 288; --gr: 225; --sx: 705; --sy: 470; --sw: 280; --py: 722;
     position: absolute; left: 50%; top: 50%; width: calc(var(--fw) * var(--u)); height: calc(var(--fh) * var(--u)); transform: translate(-50%, -50%); pointer-events: none; }
   .at { position: absolute; }
   #atlas { will-change: transform; }   /* 지구를 따라 옮기고 키운다(매 프레임 transform 만 바꾼다) */
-  .px { font-size: calc(var(--fs) * var(--u)); }
   .statue { left: calc(var(--sx) * var(--u)); top: calc(var(--sy) * var(--u)); width: calc(var(--sw) * var(--u)); height: auto; }
   .shadow { left: calc((var(--sx) - 2300 * var(--sw) / 1402) * var(--u)); top: calc((var(--sy) + 605 * var(--sw) / 1402) * var(--u)); width: calc(6000 * var(--sw) / 1402 * var(--u)); height: calc(900 * var(--sw) / 1402 * var(--u));
     mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent), linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-composite: intersect; }
-  .nav { left: calc(297 * var(--u)); right: calc(295 * var(--u)); top: calc(24 * var(--u)); height: calc(48 * var(--u)); display: flex; align-items: center; justify-content: space-between; pointer-events: auto; }
-  .brand { display: flex; align-items: center; gap: .35em; font: 400 calc(22.3 * var(--u)) "Source Serif 4", Georgia, serif; letter-spacing: -0.02em; }
-  .brand img { width: 1.3em; }
-  .login { --fs: 16; height: calc(48 * var(--u)); padding: 0 calc(28 * var(--u)); border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #222; font-family: inherit; }
-  .word { --fs: 14; top: calc(var(--gy) * var(--u)); transform: translateY(-50%); display: flex; align-items: center; gap: calc(16 * var(--u)); font: 500 calc(14 * var(--u)) "IBM Plex Mono", monospace; letter-spacing: .38em; text-transform: uppercase; color: var(--word); }
-  .word i { display: block; width: calc(90 * var(--u)); height: 1px; background: var(--rule); }
-  .wordLeft { right: calc((var(--fw) - var(--gx) + var(--gr) + 28) * var(--u)); }
-  .wordRight { left: calc((var(--gx) + var(--gr) + 28) * var(--u)); }
-  .line { --fs: 37; left: 0; right: 0; top: calc(var(--ly) * var(--u)); margin: 0; text-align: center; font-weight: 700; letter-spacing: -0.02em; }
-  .cta { --fs: 16; left: 50%; top: calc(var(--by) * var(--u)); transform: translateX(-50%); display: inline-flex; gap: .9em; align-items: center; padding: calc(16 * var(--u)) calc(30 * var(--u)); border: 0; border-radius: 999px; background: var(--amber); color: var(--ink); font: 800 calc(16 * var(--u)) "Gothic A1"; letter-spacing: .06em; box-shadow: 0 8px 24px -6px rgb(153 102 0 / .35); pointer-events: auto; cursor: pointer; }
+  /* 헤더: 스크롤해도 늘 맨 위. 좌우 120px 고정(1440 화면에서 본문 1200px), 띠 없이 로고와 유리 로그인만 뜬다 */
+  .site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 92px; padding: 0 120px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+  .site a { pointer-events: auto; color: var(--ink); text-decoration: none; }
+  .brand { display: flex; align-items: center; gap: 10px; font: 400 22px "Source Serif 4", Georgia, serif; letter-spacing: -0.02em; }
+  .brand img { width: 30px; }
+  /* 투명 유리 로그인: 흰빛 10% · 위 왼쪽이 밝은 테두리 · 그림자 없음. 밝은 바탕에서도 보이게 옅은 회색 테두리 한 줄 */
+  .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 14px "Gothic A1", sans-serif;
+    background: rgb(255 255 255 / .10); -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
+    border: 1px solid rgb(17 19 24 / .14); box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .3); }
+  @media (max-width: 720px) { .site { padding: 0 16px; } }
+  /* 받침대 이름표: 석상 아래 가는 선 + 이름 + 한 줄(스크롤하면 다른 히어로 글자처럼 사라진다) */
+  .plaque { left: 0; right: 0; top: calc(var(--py) * var(--u)); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+  .plaque i { display: block; width: 180px; height: 1px; background: rgb(16 20 27 / .28); }
+  .plaque b { font: 500 12px "IBM Plex Mono", monospace; letter-spacing: .38em; color: var(--word); }
+  .plaque span { font: italic 400 20px "Source Serif 4", Georgia, serif; color: #4a5160; }
   .scroll { left: 50%; bottom: calc(18 * var(--u)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; font: 500 10px "IBM Plex Mono"; letter-spacing: .38em; color: #8a8f9c; }
   .scroll i { width: 1px; height: 34px; background: linear-gradient(#8a8f9c, transparent); }
 
@@ -77,6 +81,7 @@
 </style>
 </head>
 <body>
+<header class="site"><a class="brand" href="#"><img src="mark.svg" alt="">Issue Atlas</a><a class="glass-btn" href="#">로그인</a></header>
 <section id="journey">
   <div class="stage">
     <canvas class="layer" id="ground" aria-hidden="true"></canvas>
@@ -88,11 +93,7 @@
     </div>
     <div class="layer marks" id="marks"></div>
     <div class="frame" id="hero">
-      <span class="at word wordLeft" aria-hidden="true">Issue<i></i></span>
-      <span class="at word wordRight" aria-hidden="true"><i></i>Atlas</span>
-      <nav class="at nav"><span class="brand"><img src="mark.svg" alt="">Issue Atlas</span><button class="login px">로그인</button></nav>
-      <h1 class="at px line">우리 지역에 이 문제가 정말 있는가?</h1>
-      <button class="at cta">OPEN THE ATLAS <span>→</span></button>
+      <div class="at plaque"><i aria-hidden="true"></i><b>ISSUE ATLAS</b><span>공식 통계 · 보도자료 · 정책 문서로 읽는 지역 문제</span></div>
       <div class="at scroll" aria-hidden="true">SCROLL<i></i></div>
     </div>
     <div class="layer clouds" id="clouds">
