@@ -267,6 +267,26 @@ public class QuestionRepository {
                 .update();
     }
 
+    /** 같은 지역 × 카드 × 기간의 가장 최근 실행(재실행 로그의 앞 실행). 카드 없는 질문은 card_id 가 null 끼리 같다. */
+    public Optional<PreviousRun> previousRun(
+            String placeId, String cardId, LocalDate start, LocalDate end) {
+        return jdbc.sql(
+                        """
+                        SELECT r.run_id, r.filled_cells, r.duration_ms
+                        FROM argument_run r JOIN question q ON q.question_id = r.question_id
+                        WHERE q.place_id = :place AND q.card_id IS NOT DISTINCT FROM :card
+                          AND q.period_start = :start AND q.period_end = :end
+                        ORDER BY r.created_at DESC, r.run_id DESC
+                        LIMIT 1
+                        """)
+                .param("place", placeId)
+                .param("card", cardId)
+                .param("start", start)
+                .param("end", end)
+                .query(PreviousRun.class)
+                .optional();
+    }
+
     public void insertRun(
             String runId,
             String questionId,
@@ -275,11 +295,15 @@ public class QuestionRepository {
             String formulaVersion,
             String taxonomyVersion,
             String result,
-            OffsetDateTime createdAt) {
+            OffsetDateTime createdAt,
+            String previousRunId,
+            int filledCells,
+            int durationMs) {
         jdbc.sql(
                         "INSERT INTO argument_run (run_id, question_id, run_status, card_version,"
-                                + " formula_version, taxonomy_version, result, created_at)"
-                                + " VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?)")
+                                + " formula_version, taxonomy_version, result, created_at,"
+                                + " previous_run_id, filled_cells, duration_ms)"
+                                + " VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?)")
                 .params(
                         runId,
                         questionId,
@@ -288,7 +312,10 @@ public class QuestionRepository {
                         formulaVersion,
                         taxonomyVersion,
                         result,
-                        createdAt)
+                        createdAt,
+                        previousRunId,
+                        filledCells,
+                        durationMs)
                 .update();
     }
 
@@ -373,6 +400,9 @@ public class QuestionRepository {
             String stationId, String whenUnit, String period, BigDecimal value, String status) {}
 
     public record MatchedResponse(String responseId, String evidenceId) {}
+
+    /** 재실행 로그의 앞 실행. 칸이 생기기 전(V0032) 실행은 지표가 null */
+    public record PreviousRun(String runId, Integer filledCells, Integer durationMs) {}
 
     public record SeriesRow(
             String whatId,

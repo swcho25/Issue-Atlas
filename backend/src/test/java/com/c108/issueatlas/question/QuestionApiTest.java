@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -268,6 +269,31 @@ class QuestionApiTest {
                 .isEqualTo(before);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM question", Integer.class))
                 .isEqualTo(2);
+    }
+
+    @Test
+    void rerunPointsToPreviousRunOfSameQuestionAndKeepsMetrics() throws Exception {
+        String first = runId(ask(body("C1", "2023-01-01", "2026-01-01")));
+        String second = runId(ask(body("C1", "2023-01-01", "2026-01-01")));
+        String other = runId(ask(body("C1", "2024-01-01", "2026-01-01")));
+
+        Map<String, Object> a = metrics(first);
+        Map<String, Object> b = metrics(second);
+        assertThat(a.get("previous_run_id")).isNull();
+        assertThat(b.get("previous_run_id")).isEqualTo(first);
+        assertThat(metrics(other).get("previous_run_id")).isNull(); // 기간이 다르면 다른 질문
+        // 통계 없는 C1: 판단 · 근거 · 반박은 비고 보증 · 한정어 · 상한선만 찬다
+        assertThat(a.get("filled_cells")).isEqualTo(3);
+        assertThat(b.get("filled_cells")).isEqualTo(3);
+        assertThat(a.get("edit_count")).isNull(); // 검수 기능 전
+        assertThat((Integer) b.get("duration_ms")).isNotNegative();
+    }
+
+    private Map<String, Object> metrics(String runId) {
+        return jdbc.queryForMap(
+                "SELECT previous_run_id, filled_cells::int AS filled_cells, edit_count, duration_ms"
+                        + " FROM argument_run WHERE run_id = ?",
+                runId);
     }
 
     @Test
