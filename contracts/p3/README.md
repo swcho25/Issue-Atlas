@@ -1,4 +1,4 @@
-# P3 지역 · 시간 v0.6 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place`
+# P3 지역 · 시간 v0.7 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place`
 
 지역 · 시간(P3)이 P2 정제 결과([P2 계약](../p2/README.md))에 붙이는 것. 기사에는 요약 · 사건 시간대 · 위치를, 통계에는 지역 코드가 가리키는 위치를 붙인다.
 **통계 값은 다시 저장하지 않는다.** 서비스는 요청 때 `normalized_ready` · `air_monthly` 를 지역 코드로 걸러 읽는다. 표는 Flyway [V0016](../../backend/src/main/resources/db/migration/V0016__create_news_event.sql) · [V0017](../../backend/src/main/resources/db/migration/V0017__seed_station_places.sql) · [V0020](../../backend/src/main/resources/db/migration/V0020__add_news_event_regions.sql).
@@ -64,6 +64,40 @@ WHERE EXISTS (
 - 측정소 코드는 `place_code_map(code_system = airkorea_station)`. `air_monthly.station_code` 와 같은 값이다. 코드 변경 이력을 아직 몰라 유효 기간은 비운다
 - **시군구 6곳**(V0011): `geometry` = 행정 중심, `location_precision = admin_centroid`, `attrs` = `{sido, sigun, gu}`(여수시는 `gu` null)
 - 측정소가 생기거나 옮기면 새 마이그레이션으로 고친다. 이미 적용된 V0017 은 고치지 않는다
+- 측정소 `place_id` 를 `kr-` 형식으로 바꾸는 **제안**은 아래 「측정소 ID 제안」(v0.7, 받는 쪽 리뷰 전)
+
+## 측정소 ID 제안 — `kr-<시군구 5자리>-s<측정소 코드>` (v0.7, 리뷰 전)
+
+11/4 동결 문서(`contracts/freeze-2026-11-04.md`)의 「측정소 place_id `kr-` 형식 — P3 가 11/6 전 제안」. 아직 바꾸지 않는다. 받는 쪽이 동의하면 마이그레이션 MR 하나로 바꾼다.
+
+| | 지금 | 제안 |
+| --- | --- | --- |
+| 형식 | `plc_stn_<에어코리아 측정소 코드 6자리>` | `kr-<부모 시군구 KOSIS 5자리>-s<에어코리아 측정소 코드 6자리>` |
+| 예 | `plc_stn_336121`(여수 서강동) · `plc_stn_324115`(광주 동구 서석동) | `kr-12130-s336121` · `kr-12210-s324115` |
+
+- **만드는 법:** 지금 DB 값만 쓴다 — 부모 시군구(`place.parent_id`, V0024 뒤 `kr-<5>`)와 측정소 코드(`place_code_map` `airkorea_station`). 새 외부 자료가 필요 없다
+- **앞자리로 고르기:** `starts_with(place_id, 'kr-12130')` 이 여수시와 여수 측정소 9곳을 함께 잡는다. 시도 · 시군구 · 행정동 ID 와 같은 「앞자리 = 상위 지역」 규칙이다
+- **겹치지 않음:** `-s` 가 있어 숫자만인 지역 ID(`kr-<2 · 5 · 8 · 10자리>`)와 같은 값이 나올 수 없다. 받는 쪽은 ID 길이 · 자리 수로 뜻을 읽지 않는다(동결 문서 1절) — 측정소인지는 `level = station` 으로 본다
+- **행정동을 넣지 않은 까닭:** 측정소가 있는 행정동(`kr-<8자리>-s…`)까지 담으면 명세(측정소 행 = 읍면동)에 더 가깝지만, 22곳의 행정동을 SGIS 역지오코딩으로 새로 정해야 하고 경계 자료(아래 「아직 없는 것」)도 없다. 시군구까지만 담는다(정우현 2026-11-03)
+- **옮기면:** 측정소가 다른 시군구로 옮기면 ID 가 바뀐다. 지금 측정소 이전 이력이 없어(동결 문서 「아직 안 정한 것」) A3 는 같은 `station_id` 끼리만 비교한다 — 이전 이력이 생기면 같은 측정소의 옛 · 새 ID 를 그 이력으로 잇는다
+
+바꿀 때(마이그레이션 MR, V0024 와 같은 방법 — FK 에 ON UPDATE CASCADE 가 없어 새 ID 로 행 복사 → 참조 옮김 → 옛 행 지움):
+
+| 바뀌는 곳 | 무엇 |
+| --- | --- |
+| DB | `place` 측정소 22행, `place_code_map`(`airkorea_station` · `airkorea_station_name`)의 `place_id`, 저장된 실행 결과(`argument_run` 의 `series[].station_id`). `observation` 의 `station_id` 는 view 라 따라 바뀐다. `air_monthly.station_code` 는 에어코리아 코드 그대로 |
+| 계약 · 예시 | `contracts/c2/examples/observations-a3-yeosu.json` · `argument-a3-not-comparable.json`, `contracts/ai/examples/judgment-not-comparable.json`, observation · database · freeze 문서의 `plc_stn_` |
+| backend 테스트 | `StationPlaceSeedTest` · `ObservationApiTest` · `ObservationViewTest` · `QuestionApiTest` · `PlaceParentsTest` |
+| 받는 쪽 리뷰 | 장성우(P1 에어코리아 · P7 응답) · P5(A3 판정) · frontend(측정소 지도 `series[].station_id`) |
+
+| 측정소 | 지금 | 제안 |
+| --- | --- | --- |
+| 여수 9곳 | `plc_stn_336121` · `336124` · `336125` · `336127` · `336128` · `336221` · `336222` · `336223` · `336903` | `kr-12130-s336121` … |
+| 광주 동구 1곳 | `plc_stn_324115` | `kr-12210-s324115` |
+| 광주 서구 3곳 | `plc_stn_324121` · `324123` · `324125` | `kr-12240-s324121` … |
+| 광주 남구 2곳 | `plc_stn_324124` · `324155` | `kr-12270-s324124` … |
+| 광주 북구 4곳 | `plc_stn_324133` · `324134` · `324135` · `324136` | `kr-12300-s324133` … |
+| 광주 광산구 3곳 | `plc_stn_324142` · `324143` · `324148` | `kr-12330-s324142` … |
 
 ## 시도 · 코드 연결 — `place` · `place_code_map` (V0018)
 
@@ -147,3 +181,4 @@ PRD FR-A1(지역 계층 시 → 구·군 → 읍·면·동)의 읍·면·동. **
 | v0.4 | 2026-11-01 | 기사 지역 배열 `news_event.regions`(V0020, jsonb · GIN): 여러 지역을 다룬 기사는 지역을 모두 두고 첫 원소가 대표 지역(`sido` · `sigun` · `gu` 칸과 같음), 전국 · 지역 없음은 `전국` 한 원소, `[]` 는 보류만. 「지역 맞추기」를 원소 하나라도 맞으면 고르도록 바꿈. 기존 행은 지역 칸 하나로 채움 (S15P31C108-168) |
 | v0.5 | 2026-11-01 | 시군구 상위 지역(V0021): 광주 5개 구 → `kr-29`, 여수시 → `kr-46`. 고른 지역과 상위 지역 코드로 자료를 찾는 법(재귀 SQL) — 광주 본청 세출 · 광주시 보도자료가 구에서 「상위 지역 자료」로 잡힌다 (S15P31C108-169) |
 | v0.6 | 2026-11-02 | 시군구 6곳 `place_id` 를 `plc_*` → `kr-<KOSIS 새 시군구 5자리>` 로 바꿈(V0024): 광주 동구 `kr-12210` · 서구 `kr-12240` · 남구 `kr-12270` · 북구 `kr-12300` · 광산구 `kr-12330` · 여수시 `kr-12130`. 참조 표(`place.parent_id` · `place_code_map` · `card_evidence_status` · `existing_response` · `question` · 저장된 실행 결과)를 함께 옮긴다. 측정소 `plc_stn_*` 은 형식을 정한 뒤 바꾼다 |
+| v0.7 | 2026-11-03 | **제안(리뷰 전):** 측정소 `place_id` 를 `kr-<부모 시군구 5자리>-s<에어코리아 측정소 코드>` 로(「측정소 ID 제안」). 아직 바꾸지 않는다 — 받는 쪽이 동의하면 마이그레이션 MR 로 |
