@@ -16,8 +16,8 @@ public class EvidenceController {
         this.evidence = evidence;
     }
 
-    @GetMapping("/{evidenceId}")
-    public EvidenceResponse get(@PathVariable String evidenceId) {
+    @GetMapping("/{evidence_id}")
+    public EvidenceResponse get(@PathVariable("evidence_id") String evidenceId) {
         return evidence.get(evidenceId);
     }
 }

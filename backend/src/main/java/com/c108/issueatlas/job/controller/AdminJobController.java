@@ -28,8 +28,8 @@ public class AdminJobController {
         return jobs.list(status, sourceId, specId, page, size);
     }
 
-    @GetMapping("/{jobRunId}")
-    public JobResponse.Single get(@PathVariable String jobRunId) {
+    @GetMapping("/{job_run_id}")
+    public JobResponse.Single get(@PathVariable("job_run_id") String jobRunId) {
         return jobs.get(jobRunId);
     }
 }

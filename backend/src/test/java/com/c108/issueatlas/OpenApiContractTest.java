@@ -66,6 +66,6 @@ class OpenApiContractTest {
     }
 
     private static String operation(String method, String path) {
-        return method.toUpperCase() + " " + path.replaceAll("\\{[^}]+}", "{}");
+        return method.toUpperCase() + " " + path;
     }
 }
