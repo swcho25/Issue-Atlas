@@ -22,8 +22,9 @@
   /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치).
      지구 중심(--gx, --gy) · 반지름(--gr) 은 스크립트의 GX · GY · GR 과 같은 값. 석상 폭(--sw)은 반지름에 비례(225 일 때 280).
      큰 이름(--mf) · 지구 · 석상 · 부제 한 덩어리가 틀 높이의 3/4 쯤을 차지하고, 헤더 아래와 화면 바닥에 비슷한 여백이 남는다
-     (틀이 화면을 꽉 채우는 1.8:1 화면에서도 글자가 헤더에 붙거나 부제가 바닥에 붙지 않게) */
-  .frame { --fw: 1684; --fh: 934; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
+     (틀이 화면을 꽉 채우는 1.8:1 화면에서도 글자가 헤더에 붙거나 부제가 바닥에 붙지 않게).
+     넓은 화면에서도 더 커지지 않는다(--u 최대 0.8665): 큰 이름 폭(227 × 4.88 = 1108)이 본문 폭 1200 의 80%(960px)를 넘지 않게. 스크립트의 U_MAX 와 같은 값 */
+  .frame { --fw: 1684; --fh: 934; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)), 0.8665px);
     --gx: 845; --gy: 446; --gr: 196; --sx: 723; --sy: 601; --sw: 243.9; --mf: 227;
     position: absolute; left: 50%; top: 50%; width: calc(var(--fw) * var(--u)); height: calc(var(--fh) * var(--u)); transform: translate(-50%, -50%); pointer-events: none; }
   .at { position: absolute; }
@@ -132,6 +133,8 @@ const journey = document.getElementById("journey");
 const progress = () => clamp((scrollY - journey.offsetTop) / (journey.offsetHeight - innerHeight));
 const q = new URLSearchParams(location.search);
 const GX = 845, GY = 446, GR = 196;   // 히어로 지구 중심 · 반지름(설계 프레임 단위, CSS --gx · --gy · --gr 과 같은 값)
+const U_MAX = 0.8665;                 // 히어로 배율 최대(CSS --u 와 같은 값): 큰 이름이 본문 폭 1200 의 80% 를 넘지 않게
+const heroUnit = (w = innerWidth, h = innerHeight) => Math.min(w / 1684, h / 934, U_MAX);
 // ?timer: 창이 숨어 있어 화면 갱신이 멈출 때(점검용) 타이머로 대신 돈다
 const tick = q.has("timer") ? (f) => setTimeout(() => f(performance.now()), 16) : (f) => requestAnimationFrame(f);
 if (q.has("p")) tick(() => scrollTo(0, journey.offsetTop + Number(q.get("p")) * (journey.offsetHeight - innerHeight)));
@@ -273,7 +276,6 @@ frontReady.then(() => loadBitmap("baked/earth-asia.webp", true, "low")).then((im
 // (한 프레임에 0개 · 2개씩 들어온다) 그대로 그리면 덜컥인다. 그리는 자세는 매 프레임 aim 을 부드럽게 따라간다
 const globeSpin = { lon: 127.5, lat: 0, aimLon: 127.5, aimLat: 0, vLon: 0, vLat: 0, idle: 9, drag: false, px: 0, py: 0, trail: [], from: null };
 const LAT_RANGE = [-40, 50], AUTO_SPIN = reduced ? 0 : 6;
-const heroUnit = () => Math.min(innerWidth / 1684, innerHeight / 934);
 const onGlobe = (e) => { const u = heroUnit(), cx = (innerWidth - 1684 * u) / 2 + GX * u, cy = (innerHeight - 934 * u) / 2 + GY * u;
   return progress() < 0.03 && Math.hypot(e.clientX - cx, e.clientY - cy) < GR * u; };
 canvas.addEventListener("pointerdown", (e) => {
@@ -425,7 +427,7 @@ function frameLoop(now) {
   if (hudText !== hud.textContent) hud.textContent = hudText;   // 같은 글자를 매 프레임 다시 쓰지 않는다
   if (!changed && !heroIdle) return;
   const w = innerWidth, h = innerHeight;
-  const u = Math.min(w / 1684, h / 934), fx = (w - 1684 * u) / 2, fy = (h - 934 * u) / 2;
+  const u = heroUnit(w, h), fx = (w - 1684 * u) / 2, fy = (h - 934 * u) / 2;
   const cx = fx + GX * u, cy = fy + GY * u, R = GR * u;
   // 1) 히어로 글자(지구 뒤 큰 이름 · 석상 아래 부제)가 사라진다
   const fade = ease(span(p, 0.03, 0.15));
