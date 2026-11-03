@@ -344,7 +344,7 @@
     <div class="lock"><img src="mark.svg" alt="">Issue Atlas</div>
     <h2 id="login-title">로그인</h2>
     <p class="lead2">팀 계정으로 들어와요. 계정은 관리자가 만들어 드려요.</p>
-    <label class="field"><span>아이디</span><input name="id" autocomplete="username" placeholder="hoseong@issue-atlas" spellcheck="false"></label>
+    <label class="field"><span>이메일</span><input name="id" type="email" inputmode="email" autocomplete="username" placeholder="name@example.com" spellcheck="false"></label>
     <label class="field"><span>비밀번호</span><input name="pw" type="password" autocomplete="current-password"></label>
     <p class="note" role="status" hidden></p>
     <button class="primary" type="submit">로그인</button>
@@ -386,7 +386,7 @@
       e.preventDefault();
       const empty = fields.filter((f) => !f.value.trim());
       fields.forEach((f) => (empty.includes(f) ? f.setAttribute("aria-invalid", "true") : f.removeAttribute("aria-invalid")));
-      if (empty.length) { say(empty.length === 2 ? "아이디와 비밀번호를 입력해 주세요" : empty[0].name === "id" ? "아이디를 입력해 주세요" : "비밀번호를 입력해 주세요"); empty[0].focus(); return; }
+      if (empty.length) { say(empty.length === 2 ? "이메일과 비밀번호를 입력해 주세요" : empty[0].name === "id" ? "이메일을 입력해 주세요" : "비밀번호를 입력해 주세요"); empty[0].focus(); return; }
       submit.disabled = true; submit.textContent = "로그인 중…";
       setTimeout(() => { submit.disabled = false; submit.textContent = "로그인"; say("시제품이라 실제 로그인은 연결되어 있지 않아요. 서비스에서는 로그인하면 바로 「새 질문」 으로 가요", true); }, 900);
     });
