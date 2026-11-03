@@ -117,15 +117,15 @@ class ObservationApiTest {
                         jsonPath("$.features[*].properties.place_id")
                                 .value(
                                         contains(
-                                                "plc_stn_336121",
-                                                "plc_stn_336124",
-                                                "plc_stn_336125",
-                                                "plc_stn_336127",
-                                                "plc_stn_336128",
-                                                "plc_stn_336221",
-                                                "plc_stn_336222",
-                                                "plc_stn_336223",
-                                                "plc_stn_336903")))
+                                                "kr-12130-s336121",
+                                                "kr-12130-s336124",
+                                                "kr-12130-s336125",
+                                                "kr-12130-s336127",
+                                                "kr-12130-s336128",
+                                                "kr-12130-s336221",
+                                                "kr-12130-s336222",
+                                                "kr-12130-s336223",
+                                                "kr-12130-s336903")))
                 .andExpect(
                         jsonPath("$.features[0].geometry.coordinates")
                                 .value(contains(127.725967, 34.741301)))
