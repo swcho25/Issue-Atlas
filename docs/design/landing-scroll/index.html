@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Issue Atlas · 랜딩 스크롤 시제품</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800;900&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800;900&family=IBM+Plex+Mono:wght@500&family=Source+Serif+4:wght@400&display=swap">
 <!-- 한글은 Pretendard(쓰는 글자만 나눠 받는 판), 영문 · 숫자는 Gothic A1 — 아래 --sans 참고 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <style>
@@ -55,9 +55,10 @@
   .brand { display: flex; align-items: center; }
   .brand img { width: 28px; position: relative; z-index: 1; }
   /* 스크롤을 시작하면 이름 글자가 마크 뒤에서 오른쪽으로 튀어나온다(조금 지나쳤다 돌아옴). 맨 위로 돌아오면 마크 뒤로 들어간다.
-     글꼴은 큰 「Issue Atlas」 와 같은 Gothic A1 — 스크롤 초반엔 둘이 함께 보여서. 왼쪽만 잘라 마크 뒤에서 나오는 것처럼 보이게 한다 */
+     Figma Logo/Lockup(가로형: 마크 44 · 간격 12 · Source Serif 4 Regular 34px · 자간 -2% · #252624)을 마크 28px 에 맞춰 줄인 크기.
+     왼쪽만 잘라 마크 뒤에서 나오는 것처럼 보이게 한다 */
   .wm { clip-path: inset(-12px -40px -12px 0); }
-  .wm span { display: block; padding-left: 9px; font: 800 19px / 1 "Gothic A1", sans-serif; letter-spacing: -0.02em; color: #050608; white-space: nowrap;
+  .wm span { display: block; padding-left: 7.6px; font: 400 21.6px / 1 "Source Serif 4", serif; letter-spacing: -0.02em; color: #252624; white-space: nowrap;
     transform: translateX(-104%); opacity: 0; transition: transform .28s cubic-bezier(.5, 0, .9, .4), opacity .18s .1s; }
   .site.scrolled .wm span { transform: none; opacity: 1; transition: transform .62s cubic-bezier(.3, 1.6, .55, 1), opacity .16s; }
   @media (prefers-reduced-motion: reduce) { .wm span, .site.scrolled .wm span { transition: opacity .2s; transform: none; } }
