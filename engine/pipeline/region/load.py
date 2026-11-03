@@ -1,4 +1,4 @@
-"""주피터 추출 결과 → news_event, 요약이 제대로 생긴 기사의 본문 지우기.
+"""추출 결과(region-extract) → news_event, 요약이 제대로 생긴 기사의 본문 지우기.
 
 python -m pipeline.region.load --db --extract <JSONL> [--mentions <JSONL>]
                                 [--delete-bodies] [--apply]          → 건수 JSON (stdout)

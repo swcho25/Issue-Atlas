@@ -92,6 +92,10 @@ class CollectorRunnerTests(unittest.TestCase):
             ["--output", "/app/outputs/T/articles.jsonl"],
         )
         self.assertEqual(
+            runner.run_arguments("region-extract", ["--input", "/inputs/a.jsonl"], "T"),
+            ["--input", "/inputs/a.jsonl", "--output", "/app/outputs/T/extract.jsonl"],
+        )
+        self.assertEqual(
             runner.run_arguments("youth-policy", ["--regions", "12130"], "T"),
             ["--regions", "12130", "--output", "/app/outputs/T/c1.json"],
         )
