@@ -1,4 +1,4 @@
-# C3 카드 저장·승인 계약 v0.1 초안
+# C3 카드 저장·승인 계약 v0.2 초안
 
 작성(P5 최동준, S15P31C108-174 / -180~-184) → backend(P7 장성우) · 카드 계약(P2 박준우, -171) · 관리자 화면 담당. 받는 쪽 리뷰 전 초안이다.
 
@@ -95,7 +95,7 @@ develop에 병합된 #171 계약([contracts/cards](../cards/README.md), S15P31C1
 
 ## 관리자 API
 
-기계 명세: [openapi.json](openapi.json). 기존 세션 인증·ADMIN·CSRF 정책을 사용한다. 승인자는 요청 필드가 아닌 Principal이며 대표 전용 역할은 이번 범위에 없다. 경로 파라미터 `{id}`는 카드 또는 지표 ID다.
+기계 명세: [openapi.json](openapi.json). 기존 세션 인증·ADMIN·CSRF 정책을 사용한다. 최종 처리자는 Principal로 확인하고 요청에 지정된 활성 ADMIN과 일치해야 한다. 대표 전용 역할은 없고 자기 승인도 허용한다. 기존 경로의 `{id}`는 카드 또는 지표 ID다.
 
 | 메서드·경로 | 입력/결과 |
 | --- | --- |
@@ -103,13 +103,57 @@ develop에 병합된 #171 계약([contracts/cards](../cards/README.md), S15P31C1
 | GET /v1/admin/cards/{id}/draft | card_id/status/card_version/current_version/draft_revision/draft_spec |
 | PUT /v1/admin/cards/{id}/draft | expected_revision + spec 객체 → 저장 후 초안 |
 | GET /v1/admin/cards/{id}/checks | draft_revision/valid/checks[] |
-| POST /v1/admin/cards/{id}/approvals | expected_revision + reason → 승인 버전(201) |
+| POST /v1/admin/cards/{id}/approvals | expected_revision + reason → 승인 버전(201). 열린 요청·지정 승인자 필수 |
 | GET /v1/admin/cards/{id}/versions/{version} | card_id/version/spec/draft_revision/approved_by/approved_at |
 | GET /v1/admin/cards/{id}/revisions | revision_id/from_version/to_version/reason/approved_by/created_at 배열 |
 | GET /v1/admin/indicators/{id} | 지표 정의·규칙·버전·의존성·검증 상태 |
 | PUT /v1/admin/indicators/{id} | expected_rule_version(최초 0), definition, rule?, 분자/분모/base?, added_by_card?, verified → 저장한 지표 |
 
 초안의 expected_revision은 마지막 조회 값이며 저장 때마다 증가한다. 지표는 마지막 조회 rule_version을 전달한다. 오래된 수정 번호, 같은 초안 재승인, 중복 ID는 409 HTTP_ERROR다. JSON 구조/사전 정의/승인 조건 위반은 400 INVALID_REQUEST, 없는 리소스는 404 RESOURCE_NOT_FOUND다. 기존 [공통 오류 계약](../http-errors/README.md)의 problem+json을 사용하고 SQL 내용은 노출하지 않는다. 체크 결과는 완성도 검사이며 승인 시 다시 검사한다.
+
+### 승인 요청·담당자 처리 (S15P31C108-205)
+
+V0034 후보(미병합·서버 미적용)는 `card_approval_request`와 `card_approval_decision`을 추가한다.
+V0033은 질문 실행 기록 브랜치에서 사용 중이므로 병합 전 번호·순서를 담당자와 조율한다.
+공개 카드의 `status/current_version`과 요청 상태를 분리하여 대기·보류 중에도 기존 승인본을 유지한다.
+
+| 메서드·경로 | 입력/결과 |
+| --- | --- |
+| GET /v1/admin/users | role=ADMIN, is_active=true(고정), page=1, size=20 → items(UserResponse)·page·size·total |
+| POST /v1/admin/cards/{id}/approval-requests | expected_revision(초안 번호), approver_id, reason → ApprovalRequest(201) |
+| GET /v1/admin/approval-requests | status?, card_id?, approver_id?, requested_by?, page=1, size=20 → ApprovalPage |
+| GET /v1/admin/approval-requests/{id} | request + draft_spec(요청 당시) + indicator_versions + current_version + decisions[] |
+| POST /v1/admin/approval-requests/{id}/decisions | expected_revision(요청 번호), decision(approve/reject/hold), reason → 처리된 ApprovalRequest(200) |
+
+목록 size는 1~100. 사용자 목록은 ID 오름차순, 요청 목록은 생성 시각 내림차순·요청 ID 보조 정렬.
+JSON은 실제 응답 기준 snake_case다. 활성 사용자 목록은 비밀번호·해시를 포함하지 않는다.
+
+ApprovalRequest: request_id, card_id, draft_revision, requested_by, requester_name, approver_id,
+approver_name, status, reason, revision, created_at, decided_by?, decided_at?, decision_reason?, approved_version?.
+요청자는 세션에서 얻고 승인자는 실제 `app_user.id`다. 결정 이력은 decision_id·actor_id·decision·reason·created_at이다.
+
+- `pending → approved/rejected/on_hold`, `on_hold → approved/rejected`. 보류 반복 및 종료 후 재처리는 409.
+- 지정된 활성 ADMIN만 처리한다. 다른 관리자와 비활성 승인자는 403. 요청 시 조회자·비활성·없는 승인자 지정은 400.
+- 모든 요청·처리 사유는 필수(공백 제외, 최대 2000자). 요청·초안·카드 버전은 서로 다른 번호다.
+- 요청 생성 시 완성 검사·실행 가능한 규칙 검증을 통과해야 한다. 승인한 초안을 수정하지 않고 다시 요청하면 409.
+- 카드별 열린 요청(pending/on_hold)은 하나다. 해당 초안 수정은 DB 트리거로 409 차단한다.
+- 반려하면 해당 요청은 종료된다. 이후 초안을 수정하고 새 요청 ID로 재요청한다. 보류는 같은 요청을 재검토한다.
+- 요청 당시 초안과 재귀 의존 지표의 규칙 버전을 고정한다. 승인 시 바뀌었으면 409. 담당자는 반려 후 새 검토를 요청할 수 있다.
+- 요청 상태·처리 이력·승인본·카드 변경 이력은 같은 트랜잭션이다. 실패하면 모두 롤백한다.
+- 기존 `/cards/{id}/approvals`도 같은 처리 서비스를 사용한다. 열린 요청 없으면 409, 지정 승인자 아니면 403.
+- 승인자 교체·요청 취소는 이번 범위에 없다. 담당자가 비활성화되면 다른 관리자가 계정을 재활성화한 뒤 처리해야 한다.
+- SQL seed의 `approve_card()`는 서버 운영자용 기존 경로로 유지한다. HTTP 승인 요청 권한 검증을 SQL 수동 seed가 대신하지 않는다.
+
+요청 예시:
+```json
+{"expected_revision":1,"approver_id":2,"reason":"카드 검토 요청"}
+```
+처리 예시(위 초안 수정 번호가 아니라 요청의 revision 사용):
+```json
+{"expected_revision":0,"decision":"hold","reason":"근거 자료 추가 확인 필요"}
+```
+
+프론트·백엔드 수신 측 리뷰가 필요하다. 기존 승인 API의 요청 형식은 유지하지만 바로 승인할 수 있던 동작이 변경된다.
 
 ## 테스트 예시와 후속 연결
 
@@ -124,4 +168,5 @@ develop에 병합된 #171 계약([contracts/cards](../cards/README.md), S15P31C1
 ## 변경 이력
 
 - v0.1 (2026-11-02): 초안.
+- v0.2 (2026-11-03, #205): 지정 승인자 요청·처리, 활성 ADMIN 목록, 초안 잠금, 기존 HTTP 직접 승인 우회 차단. V0034 후보, 수신 측 리뷰 대기.
 - v0.1.1 (2026-11-02, V0030): #171 리뷰(박준우) 반영. target 선택 칸, 연령은 지표 ID 기준, place_level을 #171과 통일(sigungu_pair 제외), 금지어에 카드 forbidden_terms, 검사 9 지도 표현 · 범례, 규칙 indicator_id · otherwise 검사, max_claim_level에서 insufficient_evidence 제외, none_reason 대신 null + note, 저장 승인 기록을 card_approval로 분리. 지표 1–3개 상한은 양식 B2 근거로 유지.

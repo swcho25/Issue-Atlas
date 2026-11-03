@@ -342,6 +342,20 @@ class CardStorageIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(true))
                 .andExpect(C3Contract.matches("Validation"));
+        jdbc.update(
+                "INSERT INTO app_user(email,password_hash,name,role) VALUES ('writer','test-only','writer','ADMIN'),('approver','test-only','approver','ADMIN')");
+        long approverId =
+                jdbc.queryForObject("SELECT id FROM app_user WHERE email='approver'", Long.class);
+        mvc.perform(
+                        post("/v1/admin/cards/C1/approval-requests")
+                                .with(user("writer").roles("ADMIN"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"expected_revision\":2,\"approver_id\":"
+                                                + approverId
+                                                + ",\"reason\":\"검토 요청\"}"))
+                .andExpect(status().isCreated());
         mvc.perform(
                         post("/v1/admin/cards/C1/approvals")
                                 .with(user("approver").roles("ADMIN"))
@@ -359,15 +373,15 @@ class CardStorageIntegrationTest {
     }
 
     @Test
-    void adminApiRejectsUnsupportedRuleBeforeApproval() throws Exception {
+    void adminApiRejectsDirectApprovalWithoutRequest() throws Exception {
         mvc.perform(
                         post("/v1/admin/cards/C1/approvals")
                                 .with(user("approver").roles("ADMIN"))
                                 .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"expected_revision\":1,\"reason\":\"검토 완료\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("HTTP_ERROR"));
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM card_version WHERE card_id = 'C1'",
