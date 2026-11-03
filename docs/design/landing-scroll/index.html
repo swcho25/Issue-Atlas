@@ -6,12 +6,20 @@
 <title>Issue Atlas · 랜딩 스크롤 시제품</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800;900&family=IBM+Plex+Mono:wght@500&display=swap">
-<!-- 석상 아래 두 줄은 시안처럼 Pretendard(쓰는 글자만 나눠 받는 판) -->
+<!-- 한글은 Pretendard(쓰는 글자만 나눠 받는 판), 영문 · 숫자는 Gothic A1 — 아래 --sans 참고 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <style>
-  :root { --ink: #111318; --word: #1e2530; --rule: rgb(16 20 27 / .35); --line: #d2d6db; --amber: #FFB000; --navy: #2E4A7D; --bg: #f7f8fc; }
+  /* 글꼴 한 벌: 영문 · 숫자는 Gothic A1, 한글 · 문장부호는 Pretendard.
+     Gothic A1 의 라틴 글꼴 파일만 「IA Latin」 으로 다시 이름 붙이고 영문 · 숫자 · 띄어쓰기 범위만 맡긴다 → 나머지 글자는 다음 글꼴(Pretendard)로 넘어간다 */
+  @font-face { font-family: "IA Latin"; font-weight: 400; font-display: swap; src: url(https://fonts.gstatic.com/s/gothica1/v18/CSR94z5ZnPydRjlCCwlKa8cv.woff2) format("woff2"); unicode-range: U+0020, U+0030-0039, U+0041-005A, U+0061-007A, U+00C0-00D6, U+00D8-00F6, U+00F8-00FF; }
+  @font-face { font-family: "IA Latin"; font-weight: 500; font-display: swap; src: url(https://fonts.gstatic.com/s/gothica1/v18/CSR44z5ZnPydRjlCCwlCmOQ6T_N7.woff2) format("woff2"); unicode-range: U+0020, U+0030-0039, U+0041-005A, U+0061-007A, U+00C0-00D6, U+00D8-00F6, U+00F8-00FF; }
+  @font-face { font-family: "IA Latin"; font-weight: 700; font-display: swap; src: url(https://fonts.gstatic.com/s/gothica1/v18/CSR44z5ZnPydRjlCCwlC0OI6T_N7.woff2) format("woff2"); unicode-range: U+0020, U+0030-0039, U+0041-005A, U+0061-007A, U+00C0-00D6, U+00D8-00F6, U+00F8-00FF; }
+  @font-face { font-family: "IA Latin"; font-weight: 800; font-display: swap; src: url(https://fonts.gstatic.com/s/gothica1/v18/CSR44z5ZnPydRjlCCwlCzOE6T_N7.woff2) format("woff2"); unicode-range: U+0020, U+0030-0039, U+0041-005A, U+0061-007A, U+00C0-00D6, U+00D8-00F6, U+00F8-00FF; }
+  @font-face { font-family: "IA Latin"; font-weight: 900; font-display: swap; src: url(https://fonts.gstatic.com/s/gothica1/v18/CSR44z5ZnPydRjlCCwlC6OA6T_N7.woff2) format("woff2"); unicode-range: U+0020, U+0030-0039, U+0041-005A, U+0061-007A, U+00C0-00D6, U+00D8-00F6, U+00F8-00FF; }
+  :root { --ink: #111318; --word: #1e2530; --rule: rgb(16 20 27 / .35); --line: #d2d6db; --amber: #FFB000; --navy: #2E4A7D; --bg: #f7f8fc;
+    --sans: "IA Latin", "Pretendard", "Gothic A1", system-ui, sans-serif; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Gothic A1", system-ui, sans-serif; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
   /* 지구 → 구름 → 지도로 이어지는 구간. 스크롤 길이만큼 화면이 고정된 채 진행된다 */
   /* 360vh = 화면 2.6장 분량을 스크롤하면 끝난다(광주 도착은 그중 84% 지점, 휠 약 17~20칸) */
   #journey { position: relative; height: 360vh; }
@@ -41,7 +49,7 @@
   .brand { display: flex; align-items: center; }
   .brand img { width: 28px; }
   /* 투명 유리 로그인: 흰빛 10% · 위 왼쪽이 밝은 테두리 · 그림자 없음. 밝은 바탕에서도 보이게 옅은 회색 테두리 한 줄 */
-  .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 13px "Gothic A1", sans-serif;
+  .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 13px var(--sans);
     background: rgb(255 255 255 / .10); -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
     border: 1px solid rgb(17 19 24 / .14); box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .3); }
   @media (max-width: 1279px) { .site { padding: 0 max(32px, calc((100% - 1036px) / 2)); } }
@@ -50,12 +58,12 @@
      글자 줄 가운데를 지구 꼭대기에 맞춰(시안에선 2px 위), 글자 크기와 상관없이 지구가 글자 높이의 약 1/3 만 가린다.
      시안 화면에서 166px, 넓은 화면에선 본문 폭 80% 에서 멈춘다 */
   .mast { left: 0; right: 0; top: calc((var(--gy) - var(--gr)) * var(--u) - 0.012 * var(--mfs)); transform: translate(-0.04em, -50%);   /* 왼쪽으로 0.04em: 마지막 글자 뒤 자간 몫 · 좌우 여백 차이만큼 잉크가 오른쪽에 치우쳐 보이는 것을 바로잡는다 */ margin: 0; text-align: center; white-space: nowrap;
-    font: 900 var(--mfs) / 1 "Gothic A1", sans-serif; letter-spacing: -0.056em; color: #050608; }
+    font: 900 var(--mfs) / 1 var(--sans); letter-spacing: -0.056em; color: #050608; }
   /* 석상 아래: 굵은 한 줄 + 회색 부제 + 아래로 내리라는 꺾쇠. 시안대로 Pretendard(600 · 40.45px, 500 · 20.22px, 자간을 조금 벌림), 꺾쇠 21 × 12.
      위아래로 흘러 놓여 좁은 화면에서 최소 글자 크기가 걸려도 서로 겹치지 않는다 */
   .tag { left: 0; right: 0; top: calc((var(--gy) + 400.5) * var(--u)); display: flex; flex-direction: column; align-items: center; text-align: center; }
-  .lead { margin: 0; white-space: nowrap; font: 600 max(16px, calc(40.45 * var(--u))) / 1.2 "Pretendard", "Gothic A1", sans-serif; letter-spacing: 0.032em; color: #15181f; }
-  .sub { margin: calc(9 * var(--u)) 0 0; white-space: nowrap; font: 500 max(12px, calc(20.22 * var(--u))) / 1.2 "Pretendard", "Gothic A1", sans-serif; letter-spacing: 0.076em; color: #5a5f6b; }
+  .lead { margin: 0; white-space: nowrap; font: 600 max(16px, calc(40.45 * var(--u))) / 1.2 var(--sans); letter-spacing: 0.032em; color: #15181f; }
+  .sub { margin: calc(9 * var(--u)) 0 0; white-space: nowrap; font: 500 max(12px, calc(20.22 * var(--u))) / 1.2 var(--sans); letter-spacing: 0.076em; color: #5a5f6b; }
   .cue { margin-top: calc(36.2 * var(--u)); width: max(14px, calc(21 * var(--u))); height: auto; color: #7b7f88; }
 
   /* 구름 통과: 구름 알파맵을 화면 앞에 겹쳐 키우며 지나간다 */
