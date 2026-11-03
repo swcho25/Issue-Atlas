@@ -2,7 +2,7 @@
 
 import pytest
 
-from pipeline.region.locate import NONE, Location, Locator, locate_all
+from pipeline.region.locate import NONE, Location, Locator, locate_all, relocate_ids
 from pipeline.region.sgis import Point, Sgis, SgisError, address_candidates
 
 REFS = {
@@ -120,3 +120,29 @@ def test_address_candidates_and_from_env(tmp_path):
     env = tmp_path / ".env"
     env.write_text("SGIS_KEY=a\nSGIS_SECRET=\n", encoding="utf-8")
     assert Sgis.from_env(env) is None
+
+
+def test_relocate_ids_moves_legal_dong_to_administrative_dong():
+    sgis = FakeSgis(areas={
+        "여수시 박람회길 1": [EXPO],  # 건물 주소 → 행정동 place 가 있는 코드
+        "전남광주통합특별시 여수시 소라면": [Point(127.6, 34.8, "4", "12130310", "36030999")],
+    })  # fmt: skip
+    rows = [("a", "전남광주통합특별시 여수시 박람회길 1"), ("b", "전남광주통합특별시 여수시 소라면"),
+            ("c", "어디에도 없는 주소")]  # fmt: skip
+    moves, stats = relocate_ids(rows, Locator(sgis, REFS))
+    assert moves == [("kr-12130310", "a"), ("kr-12130", "b")]
+    assert stats == {"candidates": 3, "행정동": 1, "시군구": 1, "못 찾음": 1}
+
+    _, stats = relocate_ids(rows, Locator(FakeSgis(error="SGIS_-401"), REFS))
+    assert stats["못 찾음"] == 3
+
+
+class DownSgis(FakeSgis):
+    def search(self, query):
+        raise SgisError("SGIS_-401")
+
+
+def test_relocate_stops_on_key_error():
+    moves, stats = relocate_ids([("a", "여수시 박람회길 1"), ("b", "여수시 박람회길 1")],
+                                Locator(DownSgis(), REFS))  # fmt: skip
+    assert moves == [] and stats["off"] == "SGIS_-401" and stats["못 찾음"] == 2

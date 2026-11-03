@@ -95,6 +95,9 @@ sudo issueatlas-collect region-load --extract /inputs/extract.jsonl --apply
 # ④ 요약이 제대로 생긴 기사의 본문 지우기(기사 계약 v0.3). 시험 실행으로 건수를 본 뒤 --apply, 이어서 refine(전체)
 sudo issueatlas-collect region-load --delete-bodies
 sudo issueatlas-collect region-load --delete-bodies --apply
+# 이미 넣은 기사 위치의 법정동 place_id(kr-<10자리>)를 행정동으로(SGIS 키 필요, 좌표 · 주소는 그대로). 시험 실행 → --apply
+sudo issueatlas-collect region-load --relocate
+sudo issueatlas-collect region-load --relocate --apply
 sudo issueatlas-collect refine
 
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
