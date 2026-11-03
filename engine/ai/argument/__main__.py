@@ -4,9 +4,10 @@ DB 에 쓰지 않는다.
 
     uv --directory engine run python -m ai.argument <판정 입력> <기사> [--card <카드>]
 
-판정 입력은 contracts/ai judgment-input, 기사는 C2 articles[] 배열. 금지어는 카드 파일(기본
-contracts/cards/<card_id>.json)의 forbidden_terms. 실제 기사를 외부 모델로 보내도 되는지 확인 전이라
-(contracts/ai 「열린 문제」) fixture 가 아닌 판정 입력은 멈춘다.
+판정 입력은 contracts/ai judgment-input, 기사는 C2 articles[] 배열.
+카드 승인본은 카드 파일(기본 contracts/cards/<card_id>.json, 판정 입력과 같은 판).
+실제 기사를 외부 모델로 보내도 되는지 확인 전이라(contracts/ai 「열린 문제」)
+fixture 가 아닌 판정 입력은 멈춘다.
 """
 
 import argparse
@@ -16,6 +17,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .phrase import phrase
+from .prompt import article_sources
 
 CARDS = Path(__file__).resolve().parents[3] / "contracts" / "cards"
 
@@ -35,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         print("가상 판정 입력(fixture: true)만 외부 모델로 보냅니다", file=sys.stderr)
         return 2
     card = read(args.card or CARDS / f"{judgment['question']['card_id']}.json")
-    result = phrase(judgment, read(args.articles), card.get("forbidden_terms", []))
+    result = phrase(judgment, article_sources(read(args.articles)), card)
     report = {**asdict(result), "retryable": result.retryable}
     sys.stdout.reconfigure(encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))

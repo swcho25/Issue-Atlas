@@ -5,7 +5,7 @@
 | status | reason_code | 언제 |
 | skipped | RUN_BLOCKED · RUN_UNSUPPORTED | 실행이 blocked · unsupported |
 | skipped | NOT_JUDGED | 판단이 insufficient · not_comparable |
-| skipped | CARD_NOT_SUPPORTED | C1 · A3 가 아닌 카드 (첫 판 범위) |
+| failed | INPUT_INVALID | 카드 승인본이 그 실행의 카드 · 판이 아님 |
 | failed | LLM_TIMEOUT · LLM_ERROR | 모델 호출 실패. 다시 돌릴 수 있다 |
 | failed | OUTPUT_REJECTED | JSON 아님 · 검사 탈락(problems). 다시 돌리지 않고 검수로 |
 """
@@ -17,8 +17,6 @@ from dataclasses import dataclass, field
 from . import gms
 from .check import Problem, check
 from .prompt import PROMPT_VERSION, SYSTEM, build, passages, rebuttal_ids
-
-SUPPORTED_CARDS = ("C1", "A3")
 
 
 @dataclass(frozen=True)
@@ -44,44 +42,54 @@ class Phrasing:
 
 
 def skip_reason(judgment: dict) -> str | None:
+    """승인본으로 판정을 끝낸 실행만 부른다.
+
+    카드 목록은 두지 않는다. 승인본 없는 카드는 실행이 unsupported 라 여기서 걸린다.
+    """
     if judgment["run_status"] in ("blocked", "unsupported"):
         return f"RUN_{judgment['run_status'].upper()}"
     if judgment["claim"]["value"] in ("insufficient", "not_comparable"):
         return "NOT_JUDGED"
-    if judgment["question"]["card_id"] not in SUPPORTED_CARDS:
-        return "CARD_NOT_SUPPORTED"
     return None
 
 
 def phrase(
     judgment: dict,
-    articles: list[dict],
-    forbidden_terms: list[str],
+    sources: list[dict],
+    card: dict,
     call: Callable[[str, str], str] = gms.generate,
 ) -> Phrasing:
-    """judgment = contracts/ai judgment-input, articles = C2 articles[] (요약 · 날짜 · 링크)"""
+    """judgment = contracts/ai judgment-input, sources = 근거 자료(prompt 「source」 모양),
+    card = 그 실행이 쓴 카드 승인본(DB card_version.spec)
+    """
     run_id, model = judgment["run_id"], gms.MODEL
-    card = dict(judgment["warrant"])
+    fallback = dict(judgment["warrant"])
     reason = skip_reason(judgment)
     if reason:
-        return Phrasing(run_id, "skipped", reason, card, [])
-    sent = build(judgment, articles, forbidden_terms)
+        return Phrasing(run_id, "skipped", reason, fallback, [])
+    # 승인본 판이 판정과 다르면 금지어 · 경쟁 설명이 다른 판의 것이 된다
+    if (card.get("card_id"), card.get("card_version")) != (
+        judgment["question"]["card_id"],
+        judgment["card_version"],
+    ):
+        return Phrasing(run_id, "failed", "INPUT_INVALID", fallback, [])
+    sent = build(judgment, sources, card)
     try:
         raw = call(SYSTEM, json.dumps(sent, ensure_ascii=False))
     except gms.LlmTimeout:
-        return Phrasing(run_id, "failed", "LLM_TIMEOUT", card, [], model=model)
+        return Phrasing(run_id, "failed", "LLM_TIMEOUT", fallback, [], model=model)
     except gms.LlmError:
-        return Phrasing(run_id, "failed", "LLM_ERROR", card, [], model=model)
+        return Phrasing(run_id, "failed", "LLM_ERROR", fallback, [], model=model)
     try:
         output = json.loads(raw)
     except ValueError:
         output = None
     problems = check(sent, output)
     if problems:
-        return Phrasing(run_id, "failed", "OUTPUT_REJECTED", card, [], {}, problems, model)
+        return Phrasing(run_id, "failed", "OUTPUT_REJECTED", fallback, [], {}, problems, model)
 
     by_id = {r["id"]: r for r in output["rebuttals"]}
-    locators = {p["id"]: p["locator"] for p in passages(articles)}
+    locators = {p["id"]: p["locator"] for p in passages(sources)}
     rebuttals = []
     citations = {"warrant": output["warrant"]["citations"]}
     candidates = judgment["rebuttal_candidates"]

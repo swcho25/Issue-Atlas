@@ -1,5 +1,8 @@
-"""모델에 보낼 입력 판. 판정 입력(contracts/ai judgment-input) + 기사 요약 구절 → 문장화 입력.
+"""모델에 보낼 입력 판. 판정 입력(contracts/ai judgment-input) + 근거 자료 구절 → 문장화 입력.
 
+근거 자료는 종류와 상관없이 같은 모양(source)으로 받는다:
+{kind, source_id, field, text, date, url}.
+종류마다 이 모양으로 바꾸는 함수만 둔다(예: article_sources).
 검사기도 이 입력만 보고 인용 · 수치를 맞춘다.
 원문 위치(locator)는 모델에 보내지 않고 결과에만 붙인다.
 """
@@ -7,8 +10,8 @@
 import re
 from datetime import date, timedelta
 
-PROMPT_VERSION = "argument-phrasing-v1"
-MAX_ARTICLES = 40
+PROMPT_VERSION = "argument-phrasing-v2"
+MAX_SOURCES = 40
 STATUSES = ("supported", "not_found", "needs_review")
 # C2 「공통 규칙」: 문구에 쓰지 않는다. 카드 금지어와 합친다
 COMMON_FORBIDDEN = ("확산", "전파", "원인", "효과")
@@ -37,23 +40,39 @@ SYSTEM = "\n".join(
 )
 
 
-def passages(articles: list[dict]) -> list[dict]:
-    """기사 요약을 문장 하나씩 구절로 나눈다.
+def article_sources(articles: list[dict]) -> list[dict]:
+    """C2 articles[] → source. 기사는 요약만 쓴다(본문은 요약 뒤 지움)"""
+    return [
+        {
+            "kind": "article",
+            "source_id": a["id"],
+            "field": "summary",
+            "text": a.get("summary") or "",
+            "date": a["date"],
+            "url": a.get("url"),
+        }
+        for a in articles
+    ]
 
-    원문 위치 = 기사 ID · 요약의 몇 번째 문장 · 날짜 · 링크
+
+def passages(sources: list[dict]) -> list[dict]:
+    """자료 글을 문장 하나씩 구절로 나눈다.
+
+    원문 위치 = 자료 종류 · 원천 ID · 칸 · 몇 번째 문장 · 날짜 · 링크
     """
     found = []
-    for article in articles[:MAX_ARTICLES]:
-        sentences = re.split(r"(?<=[.!?])\s+", (article.get("summary") or "").strip())
+    for source in sources[:MAX_SOURCES]:
+        sentences = re.split(r"(?<=[.!?])\s+", source["text"].strip())
         for n, sentence in enumerate((s for s in sentences if s), 1):
-            locator = {
-                "news_id": article["id"],
-                "field": "summary",
-                "sentence": n,
-                "date": article["date"],
-                "url": article.get("url"),
-            }
-            found.append({"id": f"P{len(found) + 1}", "text": sentence, "locator": locator})
+            locator = {k: source[k] for k in ("kind", "source_id", "field", "date", "url")}
+            found.append(
+                {
+                    "id": f"P{len(found) + 1}",
+                    "kind": source["kind"],
+                    "text": sentence,
+                    "locator": {**locator, "sentence": n},
+                }
+            )
     return found
 
 
@@ -80,7 +99,11 @@ def period(start: str, end: str) -> str:
     return f"{first}~{last}"
 
 
-def build(judgment: dict, articles: list[dict], forbidden_terms: list[str]) -> dict:
+def build(judgment: dict, sources: list[dict], card: dict) -> dict:
+    """card = 그 실행이 쓴 카드 승인본(DB card_version.spec).
+
+    카드마다 다른 설정은 여기서만 읽는다.
+    """
     question = judgment["question"]
     candidates = judgment["rebuttal_candidates"]
     return {
@@ -125,7 +148,11 @@ def build(judgment: dict, articles: list[dict], forbidden_terms: list[str]) -> d
             for rid, c in zip(rebuttal_ids(candidates), candidates, strict=True)
             if rid
         ],
-        "passages": [{"id": p["id"], "text": p["text"]} for p in passages(articles)],
+        "passages": [
+            {"id": p["id"], "kind": p["kind"], "text": p["text"]} for p in passages(sources)
+        ],
         "ceiling": judgment["ceiling"]["items"],
-        "forbidden_terms": list(dict.fromkeys([*COMMON_FORBIDDEN, *forbidden_terms])),
+        "forbidden_terms": list(
+            dict.fromkeys([*COMMON_FORBIDDEN, *card.get("forbidden_terms", [])])
+        ),
     }

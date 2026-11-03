@@ -14,11 +14,20 @@ from ai.argument import gms
 from ai.argument.__main__ import main
 from ai.argument.check import check
 from ai.argument.phrase import phrase
-from ai.argument.prompt import build, passages
+from ai.argument.prompt import article_sources, build, passages
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
-C1_TERMS = ["확산", "전파", "원인", "효과", "소멸", "탈여수"]
-A3_TERMS = ["확산", "전파", "원인", "효과", "소멸", "오염 유입", "배출원"]
+# 카드 승인본(card_version.spec) 중 문장화가 읽는 칸만
+C1_CARD = {
+    "card_id": "C1",
+    "card_version": 1,
+    "forbidden_terms": ["확산", "전파", "원인", "효과", "소멸", "탈여수"],
+}
+A3_CARD = {
+    "card_id": "A3",
+    "card_version": 1,
+    "forbidden_terms": ["확산", "전파", "원인", "효과", "소멸", "오염 유입", "배출원"],
+}
 
 
 def example(name):
@@ -67,6 +76,7 @@ ARTICLES = [
         "url": None,
     },
 ]
+SOURCES = article_sources(ARTICLES)
 
 
 def c1_output():
@@ -92,19 +102,20 @@ def c1_output():
     }
 
 
-def problems(output, judgment=None, terms=C1_TERMS):
-    return {(p.check, p.where) for p in check(build(judgment or c1(), ARTICLES, terms), output)}
+def problems(output, judgment=None, card=C1_CARD):
+    return {(p.check, p.where) for p in check(build(judgment or c1(), SOURCES, card), output)}
 
 
 # ── 입력 ──
 
 
-def test_passages_split_summary_and_keep_source_location():
-    found = passages(ARTICLES)
+def test_passages_split_text_and_keep_source_location():
+    found = passages(SOURCES)
     assert [p["id"] for p in found] == ["P1", "P2", "P3"]
     assert found[1]["text"] == "협력업체 직원 300여 명이 다른 지역으로 옮긴 것으로 알려졌다."
     assert found[1]["locator"] == {
-        "news_id": "fx-001",
+        "kind": "article",
+        "source_id": "fx-001",
         "field": "summary",
         "sentence": 2,
         "date": "2025-03-04",
@@ -112,13 +123,33 @@ def test_passages_split_summary_and_keep_source_location():
     }
 
 
+def test_other_source_kinds_use_the_same_passages():
+    """보도자료 · 정책 문서도 source 모양으로만 바꾸면 같은 구절 · 원문 위치가 된다(-161)"""
+    press = {
+        "kind": "press_release",
+        "source_id": "press:1",
+        "field": "title",
+        "text": "여수시, 청년 정착 지원 확대",
+        "date": "2025-03-01",
+        "url": None,
+    }
+    found = passages([*SOURCES, press])
+    assert found[-1]["kind"] == "press_release"
+    assert found[-1]["locator"]["source_id"] == "press:1"
+
+
 def test_build_sends_only_undecided_rebuttals_and_fixed_judgment():
-    sent = build(a3(), ARTICLES, A3_TERMS)
+    sent = build(a3(), SOURCES, A3_CARD)
     assert [c["id"] for c in sent["rebuttal_candidates"]] == ["R1", "R2"]
     assert sent["fixed"]["claim_value"] == "decreasing"
     assert sent["question"]["period"] == "2023–2025"
-    assert "locator" not in sent["passages"][0]
+    assert sent["passages"][0] == {
+        "id": "P1",
+        "kind": "article",
+        "text": "[fixture] 여수 국가산단의 한 업체가 공장 가동을 줄였다.",
+    }
     assert sent["forbidden_terms"].count("원인") == 1
+    assert "배출원" in sent["forbidden_terms"]
 
 
 def test_a3_fixture_follows_judgment_input_contract():
@@ -150,9 +181,9 @@ def test_rounded_input_number_passes_and_new_number_fails():
             {"id": "R2", "status": "not_found", "note": None, "citations": []},
         ],
     }
-    assert problems(output, a3(), A3_TERMS) == set()
+    assert problems(output, a3(), A3_CARD) == set()
     output["warrant"]["text"] = "연평균이 3.5 낮아졌다."
-    assert problems(output, a3(), A3_TERMS) == {("number_mismatch", "warrant")}
+    assert problems(output, a3(), A3_CARD) == {("number_mismatch", "warrant")}
 
 
 def test_wrong_number_is_rejected():
@@ -252,7 +283,7 @@ def answer(output):
 
 def test_phrase_fills_warrant_and_rebuttals_with_llm_provenance():
     call, calls = answer(c1_output())
-    result = phrase(c1(), ARTICLES, C1_TERMS, call)
+    result = phrase(c1(), SOURCES, C1_CARD, call)
     assert (result.status, result.reason_code, result.problems) == ("done", None, [])
     assert result.warrant == {"text": c1_output()["warrant"]["text"], "provenance": "llm_phrasing"}
     assert [r["provenance"] for r in result.rebuttals] == ["llm_judgment"] * 3
@@ -262,7 +293,7 @@ def test_phrase_fills_warrant_and_rebuttals_with_llm_provenance():
         "status": "supported",
         "provenance": "llm_judgment",
     }
-    assert result.citations["R3"][0]["locator"]["news_id"] == "fx-001"
+    assert result.citations["R3"][0]["locator"]["source_id"] == "fx-001"
     assert calls[0]["fixed"]["claim_value"] == "increasing"
 
 
@@ -275,7 +306,7 @@ def test_rule_decided_rebuttal_keeps_its_status_and_order():
             {"id": "R2", "status": "not_found", "note": None, "citations": []},
         ],
     }
-    result = phrase(a3(), ARTICLES, A3_TERMS, answer(output)[0])
+    result = phrase(a3(), SOURCES, A3_CARD, answer(output)[0])
     assert [(r["status"], r["provenance"]) for r in result.rebuttals] == [
         ("needs_review", "llm_judgment"),
         ("not_found", "llm_judgment"),
@@ -289,14 +320,37 @@ def test_rule_decided_rebuttal_keeps_its_status_and_order():
         (example("judgment-insufficient"), "RUN_BLOCKED"),
         ({**c1(), "run_status": "unsupported"}, "RUN_UNSUPPORTED"),
         (example("judgment-not-comparable"), "NOT_JUDGED"),
-        ({**c1(), "question": {**c1()["question"], "card_id": "E1"}}, "CARD_NOT_SUPPORTED"),
     ],
 )
 def test_skipped_runs_do_not_call_the_model(judgment, reason):
     call, calls = answer(c1_output())
-    result = phrase(judgment, ARTICLES, C1_TERMS, call)
+    result = phrase(judgment, SOURCES, C1_CARD, call)
     assert (result.status, result.reason_code, calls) == ("skipped", reason, [])
     assert result.warrant == judgment["warrant"] and result.rebuttals == []
+
+
+def test_new_approved_card_needs_no_code_change():
+    judgment = c1()
+    judgment["question"]["card_id"] = "E1"
+    card = {"card_id": "E1", "card_version": 1, "forbidden_terms": ["무상"]}
+    call, calls = answer(c1_output())
+    assert phrase(judgment, SOURCES, card, call).status == "done"
+    assert "무상" in calls[0]["forbidden_terms"]
+
+
+@pytest.mark.parametrize(
+    "card", [{**C1_CARD, "card_version": 2}, {**C1_CARD, "card_id": "A3"}, {"forbidden_terms": []}]
+)
+def test_card_from_another_version_is_refused(card):
+    call, calls = answer(c1_output())
+    result = phrase(c1(), SOURCES, card, call)
+    assert (result.status, result.reason_code, result.retryable, calls) == (
+        "failed",
+        "INPUT_INVALID",
+        False,
+        [],
+    )
+    assert result.warrant == c1()["warrant"] and result.rebuttals == []
 
 
 def raises(error):
@@ -323,7 +377,7 @@ def rejected_answer():
 )
 def test_failures_fall_back_to_card_text_with_reason(call, reason, retryable):
     judgment = c1()
-    result = phrase(judgment, ARTICLES, C1_TERMS, call)
+    result = phrase(judgment, SOURCES, C1_CARD, call)
     assert (result.status, result.reason_code, result.retryable) == ("failed", reason, retryable)
     assert result.warrant == {"text": judgment["warrant"]["text"], "provenance": "card"}
     assert result.rebuttals == [] and result.citations == {}
@@ -340,7 +394,7 @@ def test_cli_refuses_real_judgment_input(tmp_path, capsys):
 def test_phrase_does_not_change_the_input():
     judgment = c1()
     before = copy.deepcopy(judgment)
-    phrase(judgment, ARTICLES, C1_TERMS, answer(c1_output())[0])
+    phrase(judgment, SOURCES, C1_CARD, answer(c1_output())[0])
     assert judgment == before
 
 

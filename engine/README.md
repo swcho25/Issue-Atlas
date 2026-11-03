@@ -52,5 +52,5 @@ uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 | `pipeline/region/` | 정우현 | P3 지역 · 시간 — 기사 지역 · 여러 지역 · 위치 · 사건 시간대 · 요약 → `news_event`, 요약 뒤 본문 지우기. 규칙(이름 체계 · 지명 사전 · 본문 정리 · 여러 지역 · 적재 검사)과 서버 명령(`export` · `extract` · `load`). 추출은 OpenAI 호환 모델 서버(.env `P3_LLM_*`), 적재 전 장소 확인은 주소 API(.env `JUSO_SEARCH_KEY`), 위치 좌표는 SGIS(.env `SGIS_KEY` · `SGIS_SECRET`) ([계약](../contracts/p3/)) |
 | `pipeline/responses/` | 장성우 | P8 카드 근거 ③ 「기존 대응」 후보 — 온통청년 정책 · 세출에서 규칙으로 골라 `existing_response` 에 저장 ([계약](../contracts/existing-response/)) |
 | `ai/classify/` | 최동준 | P4 기사 제목·요약 → C1·A3 승인 카드 프로필 임베딩·cosine 점수 ([계약](../contracts/article-card-search/README.md)) |
-| `ai/argument/` | 최동준 | P5 논증 카드 ③ 보증(`llm_phrasing`) · ⑤ 반박(`llm_judgment`) 문장화와 출력 검사(인용 · 원문 위치 · 수치 · 판정 고정 · 금지어). 탈락하면 카드 문구 · 빈 반박. 입력은 [판정 입력](../contracts/ai/) + 기사 요약 구절, C1·A3 만 |
+| `ai/argument/` | 최동준 | P5 논증 카드 ③ 보증(`llm_phrasing`) · ⑤ 반박(`llm_judgment`) 문장화와 출력 검사(인용 · 원문 위치 · 수치 · 판정 고정 · 금지어). 탈락하면 카드 문구 · 빈 반박. 입력은 [판정 입력](../contracts/ai/) + 그 실행의 카드 승인본 + 근거 자료 구절(자료 종류 공통 모양, 지금은 기사 요약). 카드 목록 없이 승인본으로 판정한 실행이면 부른다 |
 | `api/` | (미정) | FastAPI HTTP 입구 — pipeline 함수를 부르기만 한다 |
