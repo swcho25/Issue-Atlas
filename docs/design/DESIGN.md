@@ -48,91 +48,91 @@ colors:
   scrim: "rgba(14, 15, 19, 0.32)"
 typography:
   display-56:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 56px
     fontWeight: 700
     lineHeight: 64px
     letterSpacing: -0.02em
   display-40:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 40px
     fontWeight: 700
     lineHeight: 48px
     letterSpacing: -0.02em
   heading-24:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 24px
     fontWeight: 700
     lineHeight: 32px
     letterSpacing: -0.01em
   heading-20:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 20px
     fontWeight: 700
     lineHeight: 28px
     letterSpacing: -0.005em
   heading-16:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 16px
     fontWeight: 700
     lineHeight: 24px
     letterSpacing: -0.003em
   title-14:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 14px
     fontWeight: 500
     lineHeight: 20px
     letterSpacing: -0.002em
   body-14:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 14px
     fontWeight: 400
     lineHeight: 22px
     letterSpacing: -0.002em
   body-13:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 13px
     fontWeight: 400
     lineHeight: 20px
     letterSpacing: -0.001em
   label-13:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 13px
     fontWeight: 500
     lineHeight: 18px
     letterSpacing: -0.001em
   label-12:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 12px
     fontWeight: 500
     lineHeight: 16px
     letterSpacing: 0em
   caption-12:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 12px
     fontWeight: 400
     lineHeight: 16px
     letterSpacing: 0em
   caption-11:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 11px
     fontWeight: 400
     lineHeight: 14px
     letterSpacing: 0em
   number-32:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 32px
     fontWeight: 700
     lineHeight: 36px
     letterSpacing: -0.02em
   number-20:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 20px
     fontWeight: 700
     lineHeight: 24px
     letterSpacing: -0.01em
   number-14:
-    fontFamily: Gothic A1
+    fontFamily: Pretendard
     fontSize: 14px
     fontWeight: 600
     lineHeight: 18px
@@ -275,7 +275,7 @@ components:
 
 - 페이지: 「Design notes v5」
 - 변수: 컬렉션 IA v5(Light · Dark)
-- 글자: 스타일 `IA5/`
+- 글자: 스타일 `IA5/` (글꼴은 2026-11-03 결정이 Figma 보다 앞서 있다 — 「Typography」)
 - 컴포넌트: Components 페이지의 「v5 · …」 섹션
 
 Figma 와 이 파일이 다르면 Figma 를 따르고, 이 파일을 고친다. 맨 아래 「Figma 와 맞출 것」에 아직 어긋난 곳을 적어 두었다.
@@ -364,13 +364,55 @@ Figma 와 이 파일이 다르면 Figma 를 따르고, 이 파일을 고친다. 
 
 ## Typography
 
-세 글꼴만 쓴다.
+네 글꼴을 쓴다. 한 문장 안에서도 글자 종류에 따라 글꼴이 나뉜다.
 
 | 글꼴 | 쓰는 곳 |
 | --- | --- |
-| **Gothic A1** | 기본. 한글이 들어가는 모든 글자: 본문 · 제목 · 버튼 · 숫자 |
-| **Source Serif 4** Regular, 자간 -2% | 워드마크 「Issue Atlas」 영문만. 한글이 없는 글꼴이라 한글을 넣으면 기기마다 다른 대체 글꼴로 보인다 |
-| **IBM Plex Mono** Medium | 짧은 영문 대문자 라벨(「ISSUE ATLAS」, 「SCROLL」). 자간을 넓게(약 0.38em) 띄운다 |
+| **Pretendard** | 기본. 한글과 문장부호(쉼표 · 마침표 · 가운뎃점 · 화살표) |
+| **Gothic A1** | 영문 · 숫자 · 띄어쓰기. 한글과 섞이면 아래 「한영 섞어 쓰기」대로 크기와 굵기를 맞춘다. 영문뿐인 큰 글자(랜딩의 「Issue Atlas」)는 맞추지 않은 Gothic A1 을 쓴다 |
+| **Source Serif 4** Regular, 자간 -2% | 로고 옆 워드마크 「Issue Atlas」 영문만. 한글이 없는 글꼴이라 한글을 넣으면 기기마다 다른 대체 글꼴로 보인다 |
+| **IBM Plex Mono** Medium | 짧은 영문 대문자 라벨(「ISSUE ATLAS」). 자간을 넓게(약 0.38em) 띄운다 |
+
+### 한영 섞어 쓰기
+
+한글은 Pretendard 가, 영문은 Gothic A1 이 더 예뻐서 둘을 섞는다(2026-11-03 결정, 비교는 캔버스 S · T · U 보드).
+
+그대로 섞으면 굵은 글씨에서 영문이 튄다. 1000px 에서 잰 값은 아래와 같다.
+
+- **크기**: Gothic A1 영문 대문자 높이는 굵을수록 커진다(글자 크기의 70% → 81%). Pretendard 영문 대문자는 굵기와 상관없이 71.9% 다.
+- **굵기**: 같은 굵기 번호에서 Gothic A1 영문 획과 Pretendard 한글 세로획은 거의 같다(400 에서 7.4 · 7.6, 900 에서 15.6 · 15.6).
+
+그래서 영문 · 숫자는 대문자 높이를 Pretendard 에 맞춰 줄이고, 줄어서 얇아진 획은 한 단계 굵은 파일로 채운다.
+
+| 화면 굵기 | 쓰는 Gothic A1 파일 | 크기(size-adjust) |
+| --- | --- | --- |
+| 100 · 200 | 같은 굵기 | 102.2% |
+| 300 | 300 | 100% |
+| 400 | 400 | 97.9% |
+| 500 | 500 | 95.8% |
+| 600 | 700 | 92% |
+| 700 | 800 | 90.2% |
+| 800 · 900 | 900 | 88.5% |
+
+900 은 더 굵은 Gothic A1 파일이 없어 한글보다 조금 얇다.
+
+웹에서는 Gothic A1 의 라틴 글꼴 파일을 「IA Latin」 이라는 이름으로 영문 · 숫자 · 띄어쓰기 범위에만 붙이고, 그 뒤에 Pretendard 를 둔다. 범위 밖 글자(한글 · 문장부호)는 다음 글꼴로 넘어간다.
+
+```css
+@font-face {
+  font-family: "IA Latin";
+  font-weight: 600;                       /* 화면 굵기 */
+  src: url(/* Gothic A1 700 라틴 woff2 */) format("woff2");
+  size-adjust: 92%;
+  unicode-range: U+0020, U+0030-0039, U+0041-005A, U+0061-007A, U+00C0-00D6, U+00D8-00F6, U+00F8-00FF;
+}
+/* 굵기마다 위 표대로 하나씩 */
+:root { --sans: "IA Latin", "Pretendard", "Gothic A1", system-ui, sans-serif; }
+```
+
+구현 예는 랜딩 스크롤 시제품 `docs/design/landing-scroll/index.html`(브랜치 `docs/landing-scroll-prototype`)이다. 프론트(Next.js)는 아직 Gothic A1 하나만 쓴다.
+
+Figma 는 Pretendard 를 불러올 수 없어(Google Fonts 에 없음) 글자 스타일이 아직 Gothic A1 이다. 아래 「Figma 와 맞출 것」을 본다.
 
 글자 스타일은 `IA5/` 15개다. 크기와 줄 높이는 위 YAML 에 있다.
 
@@ -556,7 +598,7 @@ Figma Components 페이지의 v5 섹션 네 개가 기준이다. 숫자는 노�
 - 앰버는 누르는 것 · 고른 것에만 쓰고, 화면마다 아껴 쓴다.
 - 데이터(막대 · 점 · 지역 테두리)는 남색으로 그린다.
 - 앰버 위 글자는 먹색 `#252624` 으로 쓴다. 흰 바탕 위 앰버 글자 · 아이콘은 `#9A6700` 이다.
-- 한글은 전부 Gothic A1 로 쓴다.
+- 한글은 Pretendard, 영문 · 숫자는 Gothic A1 로 쓴다. 섞이면 「한영 섞어 쓰기」의 크기 · 굵기 맞춤을 따른다.
 - 상태는 UI 자체로 보여 준다. 예를 들어 고른 지역은 유리 바에 이미 채워져 있으면 된다.
 - 지도 위 점은 실제 땅 위, 그 지역 경계 안에 둔다.
 - 범례는 지도 위에 둔다.
@@ -590,14 +632,20 @@ Figma Components 페이지의 v5 섹션 네 개가 기준이다. 숫자는 노�
   - `Button/랜딩 시작` 글자(`#111318`)
   - 랜딩의 차가운 회색들
 - 간격 · 모서리 변수는 아직 「IA v3 · Size」 컬렉션에만 있다. v5 컴포넌트는 숫자를 직접 쓴다.
+- 글자 스타일 `IA5/` 15개는 아직 Gothic A1 이다. 위 YAML 은 결정대로 Pretendard 로 적었다. Figma 에 Pretendard 를 설치하거나 팀 글꼴로 올린 뒤 스타일 글꼴을 바꾼다(영문 맞춤은 Figma 글자 스타일로는 표현할 수 없어 이 문서의 표를 따른다).
 
 ### Figma 보다 앞선 랜딩 결정
 
-2026-11-03 랜딩 스크롤 시제품(`docs/design/landing-scroll/`, 브랜치 `docs/landing-scroll-prototype`)에서 정한 것이다. Figma 랜딩 프레임에는 아직 없다.
+2026-11-03 랜딩 스크롤 시제품(`docs/design/landing-scroll/`, 브랜치 `docs/landing-scroll-prototype`)에서 정한 것이다. Figma 랜딩 프레임에는 아직 없다. 히어로는 받은 시안(1586 × 992)을 픽셀로 재어 맞췄고, 그 화면 크기를 설계틀로 쓴다.
 
 - 헤더:
-  - 로고와 로그인 사이 폭 1200, 높이 92, 스크롤해도 고정이고 줄어들지 않는다.
-  - 버튼은 거의 투명한 유리 「로그인」 하나만 둔다. 노란 「시작하기」는 두지 않는다.
-- 히어로:
-  - 「우리 지역에 이 문제가 정말 있는가?」 문장과 큰 시작 버튼을 뺀다.
-  - 대신 받침대 이름표를 둔다: 선 + 「ISSUE ATLAS」(IBM Plex Mono) + 「공식 통계 · 보도자료 · 정책 문서로 읽는 지역 문제」(Gothic A1 500, 자간 -0.01em).
+  - 높이 78, 로고 마크(28px)와 로그인 사이 폭 1036. 스크롤해도 고정이고 줄어들지 않는다.
+  - 워드마크 글자는 두지 않는다(이름은 히어로의 큰 글자가 맡는다).
+  - 버튼은 거의 투명한 유리 「로그인」 하나만 둔다(13px). 노란 「시작하기」는 두지 않는다.
+- 히어로(위에서 아래로):
+  - 큰 「Issue Atlas」: Gothic A1 900, 시안 화면에서 166px, 자간 -0.056em. 지구 뒤에 깔려 지구 윗부분이 글자 높이의 약 1/3 을 가린다(잡지 표지 제호처럼). 본문 폭의 80% 를 넘지 않는다.
+  - 지구(반지름 205)를 받친 아틀라스 석상. 처음 지구는 남반구(오스트레일리아) 쪽이 정면이다.
+  - 「지역의 문제를, 근거로 읽다.」: Pretendard 600, 40.45px, 자간 +0.032em.
+  - 「공식 통계 · 보도자료로 연결하는 지역의 맥락」: Pretendard 500, 20.22px, 자간 +0.076em, `#5A5F6B`.
+  - 아래로 내리라는 꺾쇠(21 × 12, `#7B7F88`).
+  - 물음 문장, 큰 시작 버튼, 받침대 이름표, 「SCROLL」 표시는 두지 않는다.
