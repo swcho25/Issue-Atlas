@@ -6,6 +6,8 @@
 <title>Issue Atlas · 랜딩 스크롤 시제품</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800;900&family=IBM+Plex+Mono:wght@500&display=swap">
+<!-- 석상 아래 두 줄은 시안처럼 Pretendard(쓰는 글자만 나눠 받는 판) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <style>
   :root { --ink: #111318; --word: #1e2530; --rule: rgb(16 20 27 / .35); --line: #d2d6db; --amber: #FFB000; --navy: #2E4A7D; --bg: #f7f8fc; }
   * { box-sizing: border-box; }
@@ -49,12 +51,12 @@
      시안 화면에서 166px, 넓은 화면에선 본문 폭 80% 에서 멈춘다 */
   .mast { left: 0; right: 0; top: calc((var(--gy) - var(--gr)) * var(--u) - 0.012 * var(--mfs)); transform: translate(-0.04em, -50%);   /* 왼쪽으로 0.04em: 마지막 글자 뒤 자간 몫 · 좌우 여백 차이만큼 잉크가 오른쪽에 치우쳐 보이는 것을 바로잡는다 */ margin: 0; text-align: center; white-space: nowrap;
     font: 900 var(--mfs) / 1 "Gothic A1", sans-serif; letter-spacing: -0.056em; color: #050608; }
-  /* 석상 아래: 굵은 한 줄 + 회색 부제 + 아래로 내리라는 꺾쇠. 시안 화면에서 38.2px · 20.65px, 꺾쇠 21 × 12.
+  /* 석상 아래: 굵은 한 줄 + 회색 부제 + 아래로 내리라는 꺾쇠. 시안대로 Pretendard(600 · 40.45px, 500 · 20.22px, 자간을 조금 벌림), 꺾쇠 21 × 12.
      위아래로 흘러 놓여 좁은 화면에서 최소 글자 크기가 걸려도 서로 겹치지 않는다 */
-  .tag { left: 0; right: 0; top: calc((var(--gy) + 405) * var(--u)); display: flex; flex-direction: column; align-items: center; text-align: center; }
-  .lead { margin: 0; white-space: nowrap; font: 700 max(16px, calc(38.2 * var(--u))) / 1.2 "Gothic A1", sans-serif; letter-spacing: -0.031em; color: #15181f; }
-  .sub { margin: calc(9 * var(--u)) 0 0; white-space: nowrap; font: 400 max(12px, calc(20.65 * var(--u))) / 1.2 "Gothic A1", sans-serif; letter-spacing: -0.021em; color: #5a5f6b; }
-  .cue { margin-top: calc(33.9 * var(--u)); width: max(14px, calc(21 * var(--u))); height: auto; color: #7b7f88; }
+  .tag { left: 0; right: 0; top: calc((var(--gy) + 400.5) * var(--u)); display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .lead { margin: 0; white-space: nowrap; font: 600 max(16px, calc(40.45 * var(--u))) / 1.2 "Pretendard", "Gothic A1", sans-serif; letter-spacing: 0.032em; color: #15181f; }
+  .sub { margin: calc(9 * var(--u)) 0 0; white-space: nowrap; font: 500 max(12px, calc(20.22 * var(--u))) / 1.2 "Pretendard", "Gothic A1", sans-serif; letter-spacing: 0.076em; color: #5a5f6b; }
+  .cue { margin-top: calc(36.2 * var(--u)); width: max(14px, calc(21 * var(--u))); height: auto; color: #7b7f88; }
 
   /* 구름 통과: 구름 알파맵을 화면 앞에 겹쳐 키우며 지나간다 */
   .clouds { pointer-events: none; opacity: 0; visibility: hidden; will-change: opacity; }
