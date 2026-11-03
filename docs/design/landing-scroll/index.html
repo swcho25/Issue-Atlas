@@ -107,10 +107,83 @@
   .title2 h2 { margin: 0; font-weight: 800; font-size: clamp(32px, 4vw, 56px); letter-spacing: -0.03em; line-height: 1.28; }
   .attrib { left: 12px; bottom: 8px; font-size: 10px; color: #8a8f9c; opacity: 0; }
 
-  /* 다음 섹션(이어지는 느낌만) */
-  .next { padding: 22vh 20px 30vh; text-align: center; }
-  .next p { margin: 0 0 16px; font-weight: 700; font-size: 18px; color: #8a8f9c; }
-  .next h2 { margin: 0; font-weight: 800; font-size: clamp(32px, 4vw, 56px); letter-spacing: -0.03em; line-height: 1.28; }
+  /* 지도 다음 설명 섹션: 상황 한 줄 + 큰 제목 두 줄 + 한 줄 설명 → 그림. 넓은 화면 폭 1168(Figma 「02 · 로그인 · 랜딩」), 좁으면 한 줄씩 쌓인다 */
+  .sec { padding: clamp(120px, 14vw, 220px) 20px 0; text-align: center; }
+  .eyebrow { margin: 0 0 16px; font-weight: 700; font-size: 18px; color: #8a8f9c; }
+  .sec h2 { margin: 0; font-weight: 800; font-size: clamp(34px, 3.6vw, 56px); letter-spacing: -0.03em; line-height: 1.28; color: #111318; }
+  .lede { margin: 22px auto 0; max-width: 900px; font-size: clamp(16px, 1.25vw, 19px); line-height: 1.6; color: #5b606d; }
+  .grid { display: grid; gap: 48px; justify-content: center; margin: 80px auto 0; padding: 0; max-width: 1168px; list-style: none; }
+  .num { display: block; font-weight: 700; font-size: 14px; color: #9a6700; font-variant-numeric: tabular-nums; }
+  .panel { position: relative; border-radius: 28px; background: #eef0f5; }
+  /* 화면 목업 셋: 그림 가장자리에 그림자가 56px 들어 있어 그만큼(카드 폭의 16.47%) 바깥으로 내민다 */
+  .mocks { grid-template-columns: repeat(3, minmax(0, 340px)); }
+  .mock { margin: 0; }
+  .mock img { display: block; width: 132.94%; height: auto; margin: -16.47%; }
+  .mock h3 { margin: 36px 0 10px; font-weight: 800; font-size: 22px; }
+  .mock p { margin: 0; font-size: 16px; line-height: 26px; color: #5b606d; }
+  /* 판단 · 말하지 않는 것 */
+  .feats { grid-template-columns: repeat(2, minmax(0, 560px)); text-align: left; }
+  .feat .panel { height: 400px; }
+  .feat .num { margin-top: 36px; }
+  .feat h3 { margin: 8px 0 10px; font-weight: 800; font-size: 26px; letter-spacing: -0.02em; line-height: 34px; }
+  .feat p { margin: 0; font-size: 17px; line-height: 28px; color: #5b606d; }
+  .years { position: absolute; left: 48px; top: 42px; margin: 0; display: grid; grid-template-columns: 72px auto; row-gap: 7px; align-items: center; }
+  .years dt { font-weight: 500; font-size: 13px; color: #8a8f9c; }
+  .years dd { margin: 0; font-size: 52px; line-height: 71px; letter-spacing: -0.02em; color: #5b606d; font-variant-numeric: tabular-nums; }
+  .years dd.now { color: #111318; }
+  .verdict { position: absolute; right: 48px; bottom: 48px; display: inline-flex; align-items: center; gap: 8px; height: 47px; padding: 0 18px; border-radius: 999px; background: var(--amber); color: #111318; }
+  .verdict b { font-size: 14px; }
+  .verdict strong { font-weight: 800; font-size: 18px; }
+  .notsay { position: absolute; left: 48px; right: 48px; top: 56px; padding: 18px 28px 8px; border-radius: 20px; background: #fff; }
+  .notsay h4 { margin: 0; font-weight: 700; font-size: 15px; color: #8a8f9c; }
+  .notsay ul { margin: 0; padding: 0; list-style: none; }
+  .notsay li { display: flex; align-items: center; gap: 12px; min-height: 57px; padding: 6px 0; box-sizing: border-box; border-bottom: 1px solid #e4e6ec; font-weight: 700; font-size: 19px; color: #111318; }
+  .notsay li:last-child { border-bottom: 0; }
+  .notsay li::before { content: "✕"; font-size: 16px; color: #c2412a; }
+  /* 원문까지 네 단계 */
+  .steps { grid-template-columns: repeat(4, minmax(0, 272px)); gap: 24px; text-align: left; }
+  .step .panel { height: 220px; display: flex; align-items: center; padding: 22px; }
+  .slip { width: 100%; padding: 14px 16px; border-radius: 14px; background: #fff; }
+  .slip small { display: block; font-weight: 700; font-size: 12px; color: #8a8f9c; }
+  .slip strong { display: block; margin-top: 6px; font-weight: 700; font-size: 16px; line-height: 1.25; color: #111318; }
+  .slip.pick { box-shadow: inset 0 0 0 2px var(--amber); }
+  .slip .link { color: var(--navy); }
+  .slip.note p { margin: 0; font-weight: 500; font-size: 12px; line-height: 20px; color: #111318; }
+  .slip.note em { display: block; margin-top: 28px; font-style: normal; font-weight: 700; font-size: 13px; color: #9a6700; }
+  .step .num { margin-top: 28px; }
+  .step h3 { margin: 6px 0 8px; font-weight: 800; font-size: 21px; }
+  .step p { margin: 0; font-size: 15px; line-height: 24px; color: #5b606d; }
+  /* 어느 지역부터 + 시작 버튼 + 지역 줄. 열린 곳(광주 · 여수)만 테두리 + 앰버 점 */
+  .ask h2 { font-size: clamp(40px, 4.2vw, 64px); line-height: 1.25; }
+  .start { display: inline-flex; align-items: center; gap: 14px; height: 55px; margin-top: 40px; padding: 0 26px 0 30px; border-radius: 999px; background: var(--amber); color: #111318; text-decoration: none; font: 800 16px "Gothic A1", sans-serif; }   /* 영문뿐인 글자: 맞추지 않은 Gothic A1 */
+  .start span { font-weight: 700; font-size: 18px; }
+  .places { position: relative; display: grid; gap: 18px; margin-top: 68px; overflow: hidden; }
+  .places::before, .places::after { content: ""; position: absolute; top: 0; bottom: 0; z-index: 1; width: min(200px, 15vw); pointer-events: none; }
+  .places::before { left: 0; background: linear-gradient(90deg, var(--bg), rgb(247 248 252 / 0)); }
+  .places::after { right: 0; background: linear-gradient(270deg, var(--bg), rgb(247 248 252 / 0)); }
+  .row { display: flex; gap: 12px; width: max-content; animation: drift 70s linear infinite; }
+  .row.rev { animation-direction: reverse; }
+  @keyframes drift { to { transform: translateX(calc(-50% - 6px)); } }
+  .chip { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 999px; background: #f1f3f7; color: #7c8494; font-weight: 700; font-size: 16px; white-space: nowrap; }
+  .chip.open { background: #fff; color: #111318; box-shadow: inset 0 0 0 1px #111318; }
+  .chip.open::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+  @media (prefers-reduced-motion: reduce) { .row { animation: none; } }
+  /* 푸터: 로고 전체형(헤더와 같은 비율, 심벌 25) + 만든 곳 */
+  .foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; max-width: 1036px; margin: 145px auto 0; padding: 32px 20px 64px; border-top: 1px solid rgb(17 19 24 / .08); box-sizing: content-box; }
+  .foot .lock { display: flex; align-items: center; gap: 7px; color: #252624; text-decoration: none; font: 400 19.7px / 1 "Source Serif 4", serif; letter-spacing: -0.02em; }
+  .foot .lock img { width: 25px; }
+  .foot small { font-size: 13px; color: #8a8f9c; }
+  @media (max-width: 1199px) { .steps { grid-template-columns: repeat(2, minmax(0, 272px)); } }
+  @media (max-width: 899px) {
+    .mocks { grid-template-columns: minmax(0, 340px); gap: 72px; }
+    .feats { grid-template-columns: minmax(0, 560px); }
+    .feat .panel { height: auto; aspect-ratio: 560 / 400; }
+  }
+  @media (max-width: 599px) {
+    .steps { grid-template-columns: minmax(0, 340px); }
+    .feat .panel { aspect-ratio: auto; height: 400px; }
+    .foot { flex-direction: column; align-items: flex-start; }
+  }
   .hud { position: fixed; right: 12px; bottom: 12px; font: 500 11px "IBM Plex Mono"; color: #8a8f9c; z-index: 9; }
 </style>
 </head>
@@ -147,7 +220,74 @@
     <div class="at attrib" id="attrib">지도 © OpenStreetMap, OpenFreeMap · 지형 Terrain Tiles(AWS)</div>
   </div>
 </section>
-<section class="next"><p>우리 지역이 궁금할 때</p><h2>판단보다,<br>근거부터 먼저</h2></section>
+<section class="sec">
+  <p class="eyebrow">우리 지역이 궁금할 때</p>
+  <h2>판단보다,<br>근거부터 먼저</h2>
+  <p class="lede">근거 수요표부터 논증 카드까지, 질문 하나에 필요한 걸 한 번에 확인하세요</p>
+  <div class="grid mocks">
+    <figure class="mock"><img src="baked/mock-1.webp" width="452" height="843" loading="lazy" decoding="async" alt="근거 4종과 판단이 보이는 결과 카드 화면">
+      <figcaption><h3>근거와 판단</h3><p>근거 4종이 있는지 먼저 보고,<br>판단은 그다음에 확인해요</p></figcaption></figure>
+    <figure class="mock"><img src="baked/mock-2.webp" width="452" height="843" loading="lazy" decoding="async" alt="측정소와 기사 점이 놓인 지도 화면">
+      <figcaption><h3>지도로 보기</h3><p>측정소와 기사가 놓인 지도에서<br>시점을 옮겨 가며 보세요</p></figcaption></figure>
+    <figure class="mock"><img src="baked/mock-3.webp" width="452" height="843" loading="lazy" decoding="async" alt="점을 눌러 근거와 원문을 여는 화면">
+      <figcaption><h3>원문까지</h3><p>점을 누르면 근거, 한 번 더 누르면<br>원문과 각주예요</p></figcaption></figure>
+  </div>
+</section>
+<section class="sec">
+  <p class="eyebrow">결과가 나오면</p>
+  <h2>말할 수 있는 만큼만,<br>분명하게</h2>
+  <p class="lede">판단은 정해진 이름 하나로 끝나요. 근거로 말할 수 없는 건 따로 적어 둬요</p>
+  <div class="grid feats">
+    <article class="feat">
+      <div class="panel" aria-hidden="true">
+        <dl class="years"><dt>2023</dt><dd>−1,537</dd><dt>2024</dt><dd>−1,935</dd><dt>2025</dt><dd class="now">−2,262</dd></dl>
+        <span class="verdict"><b>판단</b><strong>청년 순유출 확대</strong></span>
+      </div>
+      <span class="num">01</span>
+      <h3>정해진 이름으로 판단해요</h3>
+      <p>확대 · 축소 · 불분명 · 근거 부족 · 비교 불가처럼 카드에 정해 둔 이름으로만 말해요. 같은 자료로 다시 물어도 같은 판단이 나와요.</p>
+    </article>
+    <article class="feat">
+      <div class="panel" aria-hidden="true">
+        <div class="notsay"><h4>이 판단으로 말하지 않는 것</h4><ul><li>청년이 여수를 떠나는 원인</li><li>청년 유출과 고령화의 인과</li><li>청년만의 이동 경로</li></ul></div>
+      </div>
+      <span class="num">02</span>
+      <h3>말하지 않는 것도 적어 둬요</h3>
+      <p>원인, 정책의 효과, 앞으로의 예측은 판단하지 않아요. 판단 옆에 무엇을 말하지 않는지 함께 보여 줘요.</p>
+    </article>
+  </div>
+</section>
+<section class="sec">
+  <p class="eyebrow">보고서를 쓸 때</p>
+  <h2>원문까지 두 번,<br>각주는 그대로</h2>
+  <p class="lede">판단의 어느 칸이든 원문까지 이어져 있어요</p>
+  <ol class="grid steps">
+    <li class="step"><div class="panel" aria-hidden="true"><div class="slip pick"><small>판단</small><strong>청년 순유출 확대</strong></div></div>
+      <span class="num">1</span><h3>칸을 눌러요</h3><p>판단 · 근거 · 반박 어느 칸이든 눌러요</p></li>
+    <li class="step"><div class="panel" aria-hidden="true"><div class="slip"><small>근거</small><strong>KOSIS 순이동 · A등급 · 2023–2025</strong></div></div>
+      <span class="num">2</span><h3>근거가 열려요</h3><p>출처 등급 · 시점 · 이용 조건이 함께 보여요</p></li>
+    <li class="step"><div class="panel" aria-hidden="true"><div class="slip"><small>원문</small><strong class="link">kosis.kr ↗</strong></div></div>
+      <span class="num">3</span><h3>원문으로 가요</h3><p>한 번 더 누르면 KOSIS · 보도자료 원문이에요</p></li>
+    <li class="step"><div class="panel" aria-hidden="true"><div class="slip note"><p>KOSIS · 시군구/성/연령(5세)별<br>이동자수 · 2023–2025<br>출처 등급 A · 조회일 2026-10-21</p><em>각주 복사</em></div></div>
+      <span class="num">4</span><h3>각주를 복사해요</h3><p>출처 · 자료명 · 시점 · 조회일까지 그대로</p></li>
+  </ol>
+</section>
+<section class="sec ask">
+  <h2>어느 지역부터<br>볼까요?</h2>
+  <a class="start" href="#">OPEN THE ATLAS <span aria-hidden="true">→</span></a>
+  <div class="places" role="img" aria-label="지금 볼 수 있는 곳: 광주 · 여수">
+    <div class="row" data-places="도쿄 서울 타이베이 부산 오사카 *광주 제주 *여수 홍콩 싱가포르 하노이 방콕 시드니 뭄바이 두바이"></div>
+    <div class="row rev" data-places="이스탄불 베를린 파리 런던 암스테르담 스톡홀름 나이로비 뉴욕 토론토 샌프란시스코 멕시코시티 상파울루 부에노스아이레스 케이프타운 오클랜드"></div>
+  </div>
+</section>
+<footer class="foot"><a class="lock" href="#" aria-label="Issue Atlas"><img src="mark.svg" alt="">Issue Atlas</a><small>SSAFY 15기 광주 C108 × 스테디윈스 · 2026</small></footer>
+<script>
+  // 지역 줄: 「*」 가 붙은 곳만 열린 곳. 끊김 없이 돌도록 같은 줄을 두 번 이어 붙인다
+  for (const row of document.querySelectorAll("[data-places]")) {
+    const chips = row.dataset.places.split(" ").map((n) => (n[0] === "*" ? `<span class="chip open">${n.slice(1)}</span>` : `<span class="chip">${n}</span>`)).join("");
+    row.innerHTML = chips + chips;
+  }
+</script>
 <div class="hud" id="hud"></div>
 
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js" } }</script>
