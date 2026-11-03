@@ -1,0 +1,22 @@
+import { notFound } from "next/navigation";
+
+import { ColorTokens } from "./ColorTokens";
+import { FontSamples } from "./FontSamples";
+import { TypeAndShape } from "./TypeAndShape";
+
+// 디자인 토큰 · 공통 컴포넌트 견본. Figma 와 나란히 놓고 비교하는 개발용 화면이라 배포본에서는 404
+export function UiCatalogPage() {
+  if (process.env.NODE_ENV === "production") notFound();
+
+  return (
+    <main className="mx-auto max-w-6xl p-8">
+      <h1 className="text-heading-24">UI 견본</h1>
+      <p className="mt-1 text-body-13 text-text-2">
+        기준: Figma 변수 IA v5 · docs/design/DESIGN.md
+      </p>
+      <ColorTokens />
+      <TypeAndShape />
+      <FontSamples />
+    </main>
+  );
+}
