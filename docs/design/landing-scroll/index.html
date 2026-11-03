@@ -217,8 +217,7 @@
   .login.open .sheet { opacity: 1; transform: none; }
   .sheet .lock { display: flex; align-items: center; gap: 6.7px; font: 400 19.1px / 1 "Source Serif 4", serif; letter-spacing: -0.02em; color: #252624; }
   .sheet .lock img { width: 25px; }
-  .sheet h2 { margin: 2px 0 -8px; font-weight: 700; font-size: 24px; color: #252624; }
-  .sheet .lead2 { margin: 0; font-size: 14px; line-height: 22px; color: #50524c; }
+  .sheet h2 { margin: 2px 0 0; font-weight: 700; font-size: 24px; color: #252624; }
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field span { font-weight: 500; font-size: 12px; color: #50524c; }
   .field input { height: 44px; padding: 0 14px; border: 1px solid #d6d6cf; border-radius: 8px; font: 400 14px var(--sans); color: #252624; outline: none; transition: border-color .15s, box-shadow .15s; }
@@ -232,7 +231,8 @@
   .primary:active { transform: scale(.98); }
   .primary:disabled { cursor: progress; opacity: .7; }
   .sheet .help { margin: 0; font-size: 12px; color: #8a8c85; }
-  .sheet .x { position: absolute; right: 16px; top: 16px; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: #f1f2f5; cursor: pointer; }
+  /* 닫기: 원의 오른쪽 끝은 내용 오른쪽 끝(옆 여백 36)에, 세로 가운데는 로고 줄(위 32 · 높이 23) 가운데에 */
+  .sheet .x { position: absolute; right: 36px; top: 27.5px; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: #f1f2f5; cursor: pointer; }
   .sheet .x:hover { background: #e6e8ee; }
   .sheet :focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .sheet, .login .scrim { transition: none; } }
@@ -343,7 +343,6 @@
     <button type="button" class="x" data-close aria-label="닫기"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="#17181c" stroke-width="1.46" stroke-linecap="round"/></svg></button>
     <div class="lock"><img src="mark.svg" alt="">Issue Atlas</div>
     <h2 id="login-title">로그인</h2>
-    <p class="lead2">팀 계정으로 들어와요. 계정은 관리자가 만들어 드려요.</p>
     <label class="field"><span>이메일</span><input name="id" type="email" inputmode="email" autocomplete="username" placeholder="name@example.com" spellcheck="false"></label>
     <label class="field"><span>비밀번호</span><input name="pw" type="password" autocomplete="current-password"></label>
     <p class="note" role="status" hidden></p>
