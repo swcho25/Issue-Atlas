@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Issue Atlas · 랜딩 스크롤 시제품</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Source+Serif+4:wght@400&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800;900&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
   :root { --ink: #111318; --word: #1e2530; --rule: rgb(16 20 27 / .35); --line: #d2d6db; --amber: #FFB000; --navy: #2E4A7D; --bg: #f7f8fc; }
   * { box-sizing: border-box; }
@@ -19,21 +19,22 @@
   #globe { width: 100%; height: 100%; display: block; touch-action: pan-y; }   /* 세로로 밀면 스크롤, 가로로 끌면 지구가 돈다 */
   #ground { width: 100%; height: 100%; display: block; visibility: hidden; }
 
-  /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치) */
+  /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치).
+     지구 중심(--gx, --gy) · 반지름(--gr). 위에 큰 Issue Atlas 가 깔리도록 지구를 아래로 내렸다(스크립트의 GX · GY · GR 과 같은 값) */
   .frame { --fw: 1684; --fh: 934; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
-    --gx: 845; --gy: 288; --gr: 225; --sx: 705; --sy: 470; --sw: 280; --py: 722;
+    --gx: 845; --gy: 444; --gr: 225; --sx: 705; --sy: 622; --sw: 280;
     position: absolute; left: 50%; top: 50%; width: calc(var(--fw) * var(--u)); height: calc(var(--fh) * var(--u)); transform: translate(-50%, -50%); pointer-events: none; }
   .at { position: absolute; }
   #atlas { will-change: transform; }   /* 지구를 따라 옮기고 키운다(매 프레임 transform 만 바꾼다) */
   .statue { left: calc(var(--sx) * var(--u)); top: calc(var(--sy) * var(--u)); width: calc(var(--sw) * var(--u)); height: auto; }
   .shadow { left: calc((var(--sx) - 2300 * var(--sw) / 1402) * var(--u)); top: calc((var(--sy) + 605 * var(--sw) / 1402) * var(--u)); width: calc(6000 * var(--sw) / 1402 * var(--u)); height: calc(900 * var(--sw) / 1402 * var(--u));
     mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent), linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-composite: intersect; }
-  /* 헤더: 스크롤해도 늘 맨 위, 모양은 그대로. 띠 없이 로고와 유리 로그인만 뜬다.
+  /* 헤더: 스크롤해도 늘 맨 위, 모양은 그대로. 띠 없이 로고 마크와 유리 로그인만 뜬다(이름은 히어로의 큰 글자가 맡는다).
      본문 폭(로고~로그인) 1200px 를 가운데에(1440 화면에서 양옆 여백 120px). 좁은 화면에선 양옆 여백이 최소 40px(태블릿 32 · 휴대폰 20) */
   .site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 92px;
     padding: 0 max(40px, calc((100% - 1200px) / 2)); display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
   .site a { pointer-events: auto; color: var(--ink); text-decoration: none; }
-  .brand { display: flex; align-items: center; gap: 10px; font: 400 22px "Source Serif 4", Georgia, serif; letter-spacing: -0.02em; }
+  .brand { display: flex; align-items: center; }
   .brand img { width: 30px; }
   /* 투명 유리 로그인: 흰빛 10% · 위 왼쪽이 밝은 테두리 · 그림자 없음. 밝은 바탕에서도 보이게 옅은 회색 테두리 한 줄 */
   .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 14px "Gothic A1", sans-serif;
@@ -41,15 +42,13 @@
     border: 1px solid rgb(17 19 24 / .14); box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .3); }
   @media (max-width: 1279px) { .site { padding: 0 max(32px, calc((100% - 1200px) / 2)); } }
   @media (max-width: 767px) { .site { padding: 0 20px; } }
-  /* 받침대 이름표: 석상 아래 가는 선 + 이름 + 한 줄(스크롤하면 다른 히어로 글자처럼 사라진다).
-     석상과 같은 비율(--u)로 줄어든다 — 고정 크기면 좁은 화면에서 아래 SCROLL 과 겹친다. 1440 화면에서 이름 12px · 한 줄 20px */
-  .plaque { left: 0; right: 0; top: calc(var(--py) * var(--u)); display: flex; flex-direction: column; align-items: center; gap: calc(14 * var(--u)); text-align: center; }
-  .plaque i { display: block; width: calc(210 * var(--u)); height: 1px; background: rgb(16 20 27 / .28); }
-  .plaque b { font: 500 max(9px, calc(14 * var(--u))) "IBM Plex Mono", monospace; letter-spacing: .38em; color: var(--word); }
-  .plaque span { font: 500 max(13px, calc(22.2 * var(--u))) "Gothic A1", sans-serif; letter-spacing: -0.01em; color: #4a5160; }
-  /* 설계틀 바닥이 아니라 화면 맨 아래에 붙는다: 좁고 긴 화면에선 설계틀이 가운데에 작게 놓여, 틀 바닥에 붙이면 이름표와 겹친다 */
-  .scroll { left: 50%; bottom: calc(18px - (100vh - 934 * var(--u)) / 2); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; font: 500 10px "IBM Plex Mono"; letter-spacing: .38em; color: #8a8f9c; }
-  .scroll i { width: 1px; height: 34px; background: linear-gradient(#8a8f9c, transparent); }
+  /* 큰 Issue Atlas: 지구 캔버스 뒤에 깔려 지구 윗부분이 글자 아랫부분을 가린다(잡지 표지 제호처럼).
+     글자 줄 가운데가 지구 꼭대기보다 21 아래. 1440 화면에서 220px */
+  .mast { left: 0; right: 0; top: calc((var(--gy) - var(--gr) + 21) * var(--u)); transform: translateY(-50%); margin: 0; text-align: center; white-space: nowrap;
+    font: 900 calc(257 * var(--u)) / 1 "Gothic A1", sans-serif; letter-spacing: -0.05em; color: var(--ink); }
+  /* 석상 아래 회색 부제 한 줄: 위 큰 글자와 맞서지 않게 작고 가볍게. 석상 바닥(--gy + 402)에서 30 아래, 1440 화면에서 22px */
+  .sub { left: 0; right: 0; top: calc((var(--gy) + 432) * var(--u)); margin: 0; text-align: center; white-space: nowrap;
+    font: 500 max(12px, calc(25.7 * var(--u))) "Gothic A1", sans-serif; letter-spacing: -0.01em; color: #5b606d; }
 
   /* 구름 통과: 구름 알파맵을 화면 앞에 겹쳐 키우며 지나간다 */
   .clouds { pointer-events: none; opacity: 0; visibility: hidden; will-change: opacity; }
@@ -86,10 +85,12 @@
 </style>
 </head>
 <body>
-<header class="site"><a class="brand" href="#"><img src="mark.svg" alt="">Issue Atlas</a><a class="glass-btn" href="#">로그인</a></header>
+<header class="site"><a class="brand" href="#" aria-label="Issue Atlas"><img src="mark.svg" alt=""></a><a class="glass-btn" href="#">로그인</a></header>
 <section id="journey">
   <div class="stage">
     <canvas class="layer" id="ground" aria-hidden="true"></canvas>
+    <!-- 큰 이름은 지구 캔버스보다 먼저 둔다: 투명한 지구 캔버스 뒤에 깔려 지구가 글자를 가린다 -->
+    <div class="frame" id="mast"><h1 class="at mast">Issue Atlas</h1></div>
     <canvas class="layer" id="globe" aria-label="아틀라스가 받친 지구"></canvas>
     <!-- 석상 · 그림자는 히어로 글자와 따로 둔다: 스크롤하면 글자는 사라지고, 석상은 지구를 받친 채 함께 움직이고 커진다 -->
     <div class="frame" id="atlas" aria-hidden="true">
@@ -98,8 +99,7 @@
     </div>
     <div class="layer marks" id="marks"></div>
     <div class="frame" id="hero">
-      <div class="at plaque"><i aria-hidden="true"></i><b>ISSUE ATLAS</b><span>공식 통계 · 보도자료 · 정책 문서로 읽는 지역 문제</span></div>
-      <div class="at scroll" aria-hidden="true">SCROLL<i></i></div>
+      <p class="at sub">공식 통계 · 보도자료로 읽는 지역 문제</p>
     </div>
     <div class="layer clouds" id="clouds">
       <div class="cloud" style="background-position: 30% 40%"></div>
@@ -129,6 +129,7 @@ const loadImage = (src) => new Promise((ok, no) => { const i = new Image(); i.on
 const journey = document.getElementById("journey");
 const progress = () => clamp((scrollY - journey.offsetTop) / (journey.offsetHeight - innerHeight));
 const q = new URLSearchParams(location.search);
+const GX = 845, GY = 444, GR = 225;   // 히어로 지구 중심 · 반지름(설계 프레임 단위, CSS --gx · --gy · --gr 과 같은 값)
 // ?timer: 창이 숨어 있어 화면 갱신이 멈출 때(점검용) 타이머로 대신 돈다
 const tick = q.has("timer") ? (f) => setTimeout(() => f(performance.now()), 16) : (f) => requestAnimationFrame(f);
 if (q.has("p")) tick(() => scrollTo(0, journey.offsetTop + Number(q.get("p")) * (journey.offsetHeight - innerHeight)));
@@ -183,7 +184,7 @@ async function drawStatue() {
 // 사진은 메인 스레드 밖에서 푼다. priority: 첫 화면에 보이는 것은 high, 스크롤해야 보이는 것은 low
 const loadBitmap = (src, flip = false, priority = "auto") => fetch(src, { priority }).then((r) => r.blob()).then((b) => createImageBitmap(b, flip ? { imageOrientation: "flipY" } : {}));
 async function useBakedStatue() {
-  frame.style.setProperty("--sx", 705); frame.style.setProperty("--sy", 466.067);
+  frame.style.setProperty("--sx", 705); frame.style.setProperty("--sy", GY + 178.067);   // 구운 석상의 목은 지구 중심에서 178.067 아래
   const shots = await Promise.all([loadBitmap("baked/statue-posed.webp", false, "high"), loadBitmap("baked/statue-shadow.webp", false, "high")]);
   ["statue", "shadow"].forEach((id, i) => { const c = document.getElementById(id), b = shots[i]; c.width = b.width; c.height = b.height; c.getContext("2d").drawImage(b, 0, 0); });
 }
@@ -270,8 +271,8 @@ frontReady.then(() => loadBitmap("baked/earth-asia.webp", true, "low")).then((im
 const globeSpin = { lon: 127.5, lat: 0, aimLon: 127.5, aimLat: 0, vLon: 0, vLat: 0, idle: 9, drag: false, px: 0, py: 0, trail: [], from: null };
 const LAT_RANGE = [-40, 50], AUTO_SPIN = reduced ? 0 : 6;
 const heroUnit = () => Math.min(innerWidth / 1684, innerHeight / 934);
-const onGlobe = (e) => { const u = heroUnit(), cx = (innerWidth - 1684 * u) / 2 + 845 * u, cy = (innerHeight - 934 * u) / 2 + 288 * u;
-  return progress() < 0.03 && Math.hypot(e.clientX - cx, e.clientY - cy) < 225 * u; };
+const onGlobe = (e) => { const u = heroUnit(), cx = (innerWidth - 1684 * u) / 2 + GX * u, cy = (innerHeight - 934 * u) / 2 + GY * u;
+  return progress() < 0.03 && Math.hypot(e.clientX - cx, e.clientY - cy) < GR * u; };
 canvas.addEventListener("pointerdown", (e) => {
   if (!onGlobe(e)) return;
   Object.assign(globeSpin, { drag: true, px: e.clientX, py: e.clientY, vLon: 0, vLat: 0, trail: [] });
@@ -280,7 +281,7 @@ canvas.addEventListener("pointerdown", (e) => {
 canvas.addEventListener("pointermove", (e) => {
   const s = globeSpin;
   if (!s.drag) { canvas.style.cursor = onGlobe(e) ? "grab" : ""; return; }
-  const k = 0.3 / ((2.2 * 225 * heroUnit()) / 600), dx = e.clientX - s.px, dy = e.clientY - s.py;
+  const k = 0.3 / ((2.2 * GR * heroUnit()) / 600), dx = e.clientX - s.px, dy = e.clientY - s.py;
   s.px = e.clientX; s.py = e.clientY;
   s.aimLon -= dx * k; s.aimLat = clamp(s.aimLat + dy * k, ...LAT_RANGE);
   s.trail.push([e.timeStamp, s.aimLon, s.aimLat]); while (s.trail.length > 2 && e.timeStamp - s.trail[0][0] > 100) s.trail.shift();
@@ -391,7 +392,7 @@ function project(m, w, h, anchor) {
 }
 
 // ---------- 스크롤 → 장면 ----------
-const hero = document.getElementById("hero"), atlas = document.getElementById("atlas"), clouds = document.getElementById("clouds"), cloudEls = [...clouds.children], fog = document.getElementById("fog"), wait = document.getElementById("wait"),
+const hero = document.getElementById("hero"), mast = document.getElementById("mast"), atlas = document.getElementById("atlas"), clouds = document.getElementById("clouds"), cloudEls = [...clouds.children], fog = document.getElementById("fog"), wait = document.getElementById("wait"),
   caption = document.getElementById("caption"), title2 = document.getElementById("title2"), attrib = document.getElementById("attrib"), hud = document.getElementById("hud");
 let dirty = true;
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); gRenderer.setSize(w, h, false); cam.aspect = gcam.aspect = w / h; cam.updateProjectionMatrix(); dirty = true; }
@@ -422,10 +423,10 @@ function frameLoop(now) {
   if (!changed && !heroIdle) return;
   const w = innerWidth, h = innerHeight;
   const u = Math.min(w / 1684, h / 934), fx = (w - 1684 * u) / 2, fy = (h - 934 * u) / 2;
-  const cx = fx + 845 * u, cy = fy + 288 * u, R = 225 * u;
-  // 1) 히어로가 사라진다
+  const cx = fx + GX * u, cy = fy + GY * u, R = GR * u;
+  // 1) 히어로 글자(지구 뒤 큰 이름 · 석상 아래 부제)가 사라진다
   const fade = ease(span(p, 0.03, 0.15));
-  put(hero, "opacity", String(1 - fade)); put(hero, "transform", `translate(-50%, calc(-50% + ${(fade * 14).toFixed(2)}vh))`); put(hero, "visibility", fade >= 1 ? "hidden" : "visible");
+  for (const el of [hero, mast]) { put(el, "opacity", String(1 - fade)); put(el, "transform", `translate(-50%, calc(-50% + ${(fade * 14).toFixed(2)}vh))`); put(el, "visibility", fade >= 1 ? "hidden" : "visible"); }
   // 2) 지구가 광주를 향해 돌고 다가가다, 같은 축척의 지도로 서서히 바뀐다(흰 화면으로 가리지 않는다)
   const finZoom = FINAL.zoom + Math.log2(Math.min(1, w / 1440));
   const d0 = Math.sqrt(1 + ((h / 2) / (R * Math.tan(deg(FOV / 2)))) ** 2);
@@ -445,7 +446,7 @@ function frameLoop(now) {
   const atlasOn = mapIn < 1 && gcy + gR * 0.8 < h;
   put(atlas, "visibility", atlasOn ? "visible" : "hidden");
   if (atlasOn) {
-    put(atlas, "transformOrigin", `${(845 * u).toFixed(1)}px ${(288 * u).toFixed(1)}px`);
+    put(atlas, "transformOrigin", `${(GX * u).toFixed(1)}px ${(GY * u).toFixed(1)}px`);
     put(atlas, "transform", `translate(-50%, -50%) translate(${(gcx - cx).toFixed(1)}px, ${(gcy - cy).toFixed(1)}px) scale(${(gR / R).toFixed(4)})`);
   }
   if (mapIn < 1) {
