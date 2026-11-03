@@ -128,7 +128,7 @@ def event_row(extracted: dict, title: str, body: str | None, published_at: str |
         "sigun": sigun,
         "gu": gu,
         "regions": labels,
-        # 만든 판(V0037) — region-extract 결과 칸. 없으면 null
+        # 만든 판(V0038) — region-extract 결과 칸. 없으면 null
         "prompt_version": extracted.get("prompt_version") or None,
         "summary_version": extracted.get("summary_version") or None,
         "model": extracted.get("model") or None,
