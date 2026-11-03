@@ -3,6 +3,8 @@ package com.c108.issueatlas.observation;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.c108.issueatlas.TestcontainersConfiguration;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -140,6 +142,108 @@ class ObservationViewTest {
                                         + " FROM observation",
                                 Boolean.class))
                 .isTrue();
+    }
+
+    @Test
+    void 기사_태그는_활성_입력과_활성_카드_프로필로_기준을_넘은_카드만이다() throws Exception {
+        // C1 · A3 승인본(card_version)이 있어야 카드 프로필을 넣을 수 있다
+        jdbc.queryForObject(
+                "SELECT set_config('issue_atlas.approver', ?, true)",
+                String.class,
+                "admin@seed.test");
+        jdbc.execute(Files.readString(Path.of("db/seed/cards-c1-a3.sql")));
+        profile("C1", "card-profile-v0", false);
+        profile("C1", "card-profile-v1", true);
+        profile("A3", "card-profile-v1", true);
+        for (String id : List.of("n-both", "n-c1", "n-stale", "n-old-card", "n-none")) {
+            article(id);
+        }
+        String both = input("n-both", "요약", true);
+        score("n-both", both, "C1", "card-profile-v1", 0.8);
+        score("n-both", both, "A3", "card-profile-v1", 0.75);
+        String c1 = input("n-c1", "요약", true);
+        score("n-c1", c1, "C1", "card-profile-v1", 0.8);
+        score("n-c1", c1, "A3", "card-profile-v1", 0.6);
+        // 요약이 바뀌어 새 입력이 활성이 됐는데 score 를 다시 돌리지 않았다
+        score("n-stale", input("n-stale", "옛 요약", false), "C1", "card-profile-v1", 0.9);
+        input("n-stale", "새 요약", true);
+        // 카드 프로필이 바뀌기 전에 낸 점수
+        score("n-old-card", input("n-old-card", "요약", true), "C1", "card-profile-v0", 0.9);
+        input("n-none", "요약", true);
+
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT what_id || ' ' || coalesce(nullif(array_to_string(tags, ','), ''), '-')"
+                                        + " FROM observation WHERE source_table = 'news_event' ORDER BY what_id",
+                                String.class))
+                .containsExactly(
+                        "n-both A3,C1", "n-c1 C1", "n-none -", "n-old-card -", "n-stale -");
+    }
+
+    /** 기사 한 건: 원본 · 사건 행. 원본 해시는 분류 입력이 가리킨다. */
+    private void article(String newsId) {
+        jdbc.update(
+                "INSERT INTO raw_record(job_run_id,spec_id,raw_url,content_hash,collected_at)"
+                        + " VALUES ('run-obs-SP01','SP01','https://bigkinds.or.kr',?,now())",
+                "sha256:news-" + newsId);
+        jdbc.update(
+                "INSERT INTO news_event(news_id,event_start,time_precision,sido)"
+                        + " VALUES (?,TIMESTAMPTZ '2024-01-09 00:00+09','day','전남광주통합특별시')",
+                newsId);
+    }
+
+    /** 분류 입력 판 하나와 그 벡터. 돌려주는 값은 input_id. */
+    private String input(String newsId, String text, boolean active) {
+        String id =
+                jdbc.queryForObject(
+                        "SELECT 'dsi:' || encode(sha256(convert_to(?, 'UTF8')), 'hex')",
+                        String.class,
+                        newsId + "|" + text);
+        jdbc.update(
+                "INSERT INTO document_search_input(input_id,doc_id,news_id,raw_content_hash,input_version,"
+                        + "input_text,input_hash) VALUES (?,'news:' || ?,?,?,'news-title-summary-v1',?,"
+                        + "encode(sha256(convert_to(?, 'UTF8')), 'hex'))",
+                id,
+                newsId,
+                newsId,
+                "sha256:news-" + newsId,
+                text,
+                text);
+        jdbc.update(
+                "INSERT INTO document_embedding_v1(input_id,doc_id,model,embedding,is_active)"
+                        + " VALUES (?,'news:' || ?,'gemini-embedding-2',"
+                        + "array_fill(0.01::real, ARRAY[1536])::vector,?)",
+                id,
+                newsId,
+                active);
+        return id;
+    }
+
+    private void profile(String card, String version, boolean active) {
+        jdbc.update(
+                "INSERT INTO card_search_profile(card_id,card_version,profile_version,profile_text,"
+                        + "profile_hash,model,embedding,is_active)"
+                        + " SELECT card_id, current_version, ?, '이슈: ' || name,"
+                        + " encode(sha256(convert_to(card_id || ?, 'UTF8')), 'hex'), 'gemini-embedding-2',"
+                        + " array_fill(0.01::real, ARRAY[1536])::vector, ? FROM card WHERE card_id = ?",
+                version,
+                version,
+                active,
+                card);
+    }
+
+    private void score(String newsId, String inputId, String card, String profile, double sim) {
+        jdbc.update(
+                "INSERT INTO document_card_score(doc_id,card_id,input_id,card_version,profile_version,model,"
+                        + "cosine_similarity,threshold_version,threshold,selected)"
+                        + " SELECT 'news:' || ?, card_id, ?, current_version, ?, 'gemini-embedding-2',"
+                        + " ?, 'test', 0.7, ? >= 0.7 FROM card WHERE card_id = ?",
+                newsId,
+                inputId,
+                profile,
+                sim,
+                sim,
+                card);
     }
 
     private void stat(String spec, String indicator, String code, String locator) {

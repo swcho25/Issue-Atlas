@@ -15,10 +15,85 @@
   }
 }
 
-/* 디자인 토큰. Figma 변수 컬렉션(Theme · Theme Dark)이 확정되면 값을 여기서 바꾼다. */
+/*
+ * light-dark() 는 color-scheme 을 따른다. 위 dark 변형과 같은 규칙(OS 설정, data-theme 로 강제).
+ * Tailwind(LightningCSS)가 light-dark() 를 :root 에서 정해지는 변수로 바꿔 내보내므로
+ * 다크는 페이지 전체로만 바뀐다. 요소 하나에 color-scheme: dark 를 걸어도 토큰 색은 그대로다.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/*
+ * 디자인 토큰: Figma 변수 컬렉션 IA v5 (Light · Dark). 이름은 Figma 이름의 / 를 - 로 바꾼 것.
+ * 쓰는 법은 docs/design/DESIGN.md. 값을 바꿀 때는 Figma 를 먼저 고친다.
+ * brand/* 는 쓰는 곳이 없어 넣지 않았다. key/amber 는 primary-base 와 같다.
+ */
+:root {
+  --bg-app: light-dark(#ffffff, #121311);
+  --bg-sidebar: light-dark(#fafaf8, #161714);
+  --bg-canvas: light-dark(#f3f3f0, #1b1c19);
+
+  --surface-1: light-dark(#ffffff, #1a1b18);
+  --surface-2: light-dark(#f6f6f3, #22231f);
+  --surface-3: light-dark(#ecece8, #2b2c28);
+
+  --border-1: light-dark(#e7e7e2, #2e2f2a);
+  --border-2: light-dark(#d6d6cf, #3d3e38);
+
+  --text-1: light-dark(#252624, #f2efe7);
+  --text-2: light-dark(#50524c, #bdbbb3);
+  --text-3: light-dark(#8a8c85, #83857e);
+  --text-on-primary: #252624;
+
+  /* 앰버 = 누르는 것 · 고른 것 */
+  --primary-base: #ffb000;
+  --primary-hover: light-dark(#e69e00, #ffc233);
+  --primary-strong: light-dark(#e69e00, #ffc233);
+  --primary-soft: light-dark(#fff4d6, #3a2c08);
+  --primary-line: light-dark(#f5d27a, #6b5216);
+  --primary-text: light-dark(#9a6700, #ffc233);
+  --key-amber-80: rgb(255 176 0 / 0.8);
+
+  /* 남색 = 읽는 것(데이터) */
+  --data-navy: light-dark(#2e4a7d, #8faee0);
+  --map-region: light-dark(#2e4a7d, #8faee0);
+  --map-region-fill: light-dark(rgb(46 74 125 / 0.08), rgb(143 174 224 / 0.14));
+  --map-boundary: light-dark(#9aa0b4, #5a6070);
+  --map-annot: light-dark(#2e4a7d, #8faee0);
+
+  --status-green: light-dark(#16a34a, #3dd07a);
+  --status-green-soft: light-dark(#e8f7ee, #13301f);
+  --status-red: light-dark(#e5484d, #ff6b6f);
+  --status-red-soft: light-dark(#fdecec, #3a1719);
+  --status-amber: light-dark(#d97706, #f5a524);
+  --status-amber-soft: light-dark(#fef3dc, #33260f);
+  --status-blue: light-dark(#2f6feb, #5b8dff);
+  --status-blue-soft: light-dark(#e8f0fe, #152544);
+  --status-gray: light-dark(#8b90a0, #7d8291);
+  --status-gray-soft: light-dark(#f0f1f5, #23252d);
+
+  /* 출처 배지: 규칙 · 카드 · AI · 검수 */
+  --prov-rule: light-dark(#2f6feb, #5b8dff);
+  --prov-card: light-dark(#0e9f8e, #2cc7b4);
+  --prov-ai: light-dark(#9a6700, #f0b84a);
+  --prov-human: light-dark(#c2410c, #ff8a4c);
+
+  /* 대기질 등급: 좋음 · 보통 · 나쁨 · 매우 나쁨 */
+  --aq-good: light-dark(#2f6feb, #5b8dff);
+  --aq-moderate: light-dark(#16a34a, #3dd07a);
+  --aq-bad: light-dark(#f59e0b, #f5a524);
+  --aq-very-bad: light-dark(#e5484d, #ff6b6f);
+
+  --scrim: light-dark(rgb(14 15 19 / 0.32), rgb(0 0 0 / 0.55));
 }
 
 /* 로고 색(docs/design/logo.md). 잉크는 밝은 바탕, 종이는 어두운 바탕용. 클레이는 위→아래 그라데이션 세 점 */
@@ -57,22 +132,134 @@
   --cta-foreground: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/*
+ * 글자 · 모서리 · 간격 토큰. Tailwind 기본 크기(text-sm …) · 모서리(rounded-3xl …)는 지우고 Figma 이름만 남긴다.
+ */
+@theme {
+  /* 글자 스타일 IA5/ 15개. text-body-14 하나가 크기 · 줄 높이 · 자간 · 굵기를 함께 건다 */
+  --text-*: initial;
+  --text-display-56: 56px;
+  --text-display-56--line-height: 64px;
+  --text-display-56--letter-spacing: -0.02em;
+  --text-display-56--font-weight: 700;
+  --text-display-40: 40px;
+  --text-display-40--line-height: 48px;
+  --text-display-40--letter-spacing: -0.02em;
+  --text-display-40--font-weight: 700;
+  --text-heading-24: 24px;
+  --text-heading-24--line-height: 32px;
+  --text-heading-24--letter-spacing: -0.01em;
+  --text-heading-24--font-weight: 700;
+  --text-heading-20: 20px;
+  --text-heading-20--line-height: 28px;
+  --text-heading-20--letter-spacing: -0.005em;
+  --text-heading-20--font-weight: 700;
+  --text-heading-16: 16px;
+  --text-heading-16--line-height: 24px;
+  --text-heading-16--letter-spacing: -0.003em;
+  --text-heading-16--font-weight: 700;
+  --text-title-14: 14px;
+  --text-title-14--line-height: 20px;
+  --text-title-14--letter-spacing: -0.002em;
+  --text-title-14--font-weight: 500;
+  --text-body-14: 14px;
+  --text-body-14--line-height: 22px;
+  --text-body-14--letter-spacing: -0.002em;
+  --text-body-14--font-weight: 400;
+  --text-body-13: 13px;
+  --text-body-13--line-height: 20px;
+  --text-body-13--letter-spacing: -0.001em;
+  --text-body-13--font-weight: 400;
+  --text-label-13: 13px;
+  --text-label-13--line-height: 18px;
+  --text-label-13--letter-spacing: -0.001em;
+  --text-label-13--font-weight: 500;
+  --text-label-12: 12px;
+  --text-label-12--line-height: 16px;
+  --text-label-12--letter-spacing: 0em;
+  --text-label-12--font-weight: 500;
+  --text-caption-12: 12px;
+  --text-caption-12--line-height: 16px;
+  --text-caption-12--letter-spacing: 0em;
+  --text-caption-12--font-weight: 400;
+  --text-caption-11: 11px;
+  --text-caption-11--line-height: 14px;
+  --text-caption-11--letter-spacing: 0em;
+  --text-caption-11--font-weight: 400;
+  --text-number-32: 32px;
+  --text-number-32--line-height: 36px;
+  --text-number-32--letter-spacing: -0.02em;
+  --text-number-32--font-weight: 700;
+  --text-number-20: 20px;
+  --text-number-20--line-height: 24px;
+  --text-number-20--letter-spacing: -0.01em;
+  --text-number-20--font-weight: 700;
+  --text-number-14: 14px;
+  --text-number-14--line-height: 18px;
+  --text-number-14--letter-spacing: -0.005em;
+  --text-number-14--font-weight: 600;
+
+  /*
+   * 모서리. 2xl 은 v5 결과 카드 값 22 (옛 변수 IA v3 · Size 의 24 가 아니다).
+   * 14(왼쪽 띠 메뉴 칸) · 18(지점 상세 창)은 토큰이 없어 그 컴포넌트에서만 숫자로 쓴다. 알약은 rounded-full
+   */
+  --radius-*: initial;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 22px;
+
+  /* 간격은 4px 단위(p-1 = 4px … p-8 = 32px). 컴포넌트 안 6 · 10 · 14 는 p-1.5 · p-2.5 · p-3.5 */
+  --spacing: 4px;
 }
 
-:root[data-theme="dark"] {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-}
-
-/* 토큰을 Tailwind 유틸리티로 노출한다: bg-background, text-foreground … */
+/* 토큰을 Tailwind 유틸리티로 노출한다: bg-surface-1, text-text-2, border-border-1 … */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg-app: var(--bg-app);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-canvas: var(--bg-canvas);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border-1: var(--border-1);
+  --color-border-2: var(--border-2);
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-text-on-primary: var(--text-on-primary);
+  --color-primary-base: var(--primary-base);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-line: var(--primary-line);
+  --color-primary-text: var(--primary-text);
+  --color-key-amber-80: var(--key-amber-80);
+  --color-data-navy: var(--data-navy);
+  --color-map-region: var(--map-region);
+  --color-map-region-fill: var(--map-region-fill);
+  --color-map-boundary: var(--map-boundary);
+  --color-map-annot: var(--map-annot);
+  --color-status-green: var(--status-green);
+  --color-status-green-soft: var(--status-green-soft);
+  --color-status-red: var(--status-red);
+  --color-status-red-soft: var(--status-red-soft);
+  --color-status-amber: var(--status-amber);
+  --color-status-amber-soft: var(--status-amber-soft);
+  --color-status-blue: var(--status-blue);
+  --color-status-blue-soft: var(--status-blue-soft);
+  --color-status-gray: var(--status-gray);
+  --color-status-gray-soft: var(--status-gray-soft);
+  --color-prov-rule: var(--prov-rule);
+  --color-prov-card: var(--prov-card);
+  --color-prov-ai: var(--prov-ai);
+  --color-prov-human: var(--prov-human);
+  --color-aq-good: var(--aq-good);
+  --color-aq-moderate: var(--aq-moderate);
+  --color-aq-bad: var(--aq-bad);
+  --color-aq-very-bad: var(--aq-very-bad);
+  --color-scrim: var(--scrim);
+
   --color-logo-ink: var(--logo-ink);
   --color-logo-paper: var(--logo-paper);
   --color-landing-ink: var(--landing-ink);
@@ -83,13 +270,17 @@
   --color-landing-surface: var(--landing-surface);
   --color-cta: var(--cta);
   --color-cta-foreground: var(--cta-foreground);
-  /* 글꼴 변수는 src/app/styles/fonts.ts(next/font)가 <html> 에 건다. 못 받으면 뒤의 시스템 글꼴로 */
+  /*
+   * 본문: 영문 · 숫자 · 띄어쓰기는 IA Latin, 나머지(한글 · 문장부호)는 Pretendard. 둘 다 fonts.ts 에서 불러온다.
+   * --font-gothic-a1 · serif · mono 변수는 fonts.ts(next/font)가 <html> 에 건다. 못 받으면 뒤의 시스템 글꼴로
+   */
   --font-sans:
-    var(--font-gothic-a1), system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+    "IA Latin", "Pretendard Variable", var(--font-gothic-a1), system-ui, -apple-system, "Segoe UI",
+    "Malgun Gothic", sans-serif;
   --font-serif: var(--font-source-serif-4), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-ibm-plex-mono), ui-monospace, Consolas, monospace;
 }
 
 body {
-  @apply bg-background font-sans text-foreground antialiased;
+  @apply bg-bg-app font-sans text-text-1 antialiased;
 }

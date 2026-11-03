@@ -35,8 +35,12 @@ Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced 
 - 서버 상태를 `useState`·전역 스토어에 복사하지 않는다
 
 ## 스타일
-- Tailwind 유틸리티 우선. 색·글꼴은 `src/app/styles/globals.css` 의 토큰(`bg-background` 등)으로만
-- 다크 모드는 `dark:` 변형. 하드코딩 색을 쓰지 않는다
+- 디자인 기준은 `docs/design/DESIGN.md`(Figma v5). 값이 다르면 Figma 를 따른다
+- Tailwind 유틸리티 우선. 색·글꼴은 `src/app/styles/globals.css` 의 토큰(`bg-surface-1` · `text-text-2` · `border-border-1` 등, Figma 변수 IA v5 이름)으로만
+- 색 토큰은 `light-dark()` 로 다크 값을 이미 갖는다. 토큰 색에 `dark:` 를 덧붙이지 않는다. 하드코딩 색을 쓰지 않는다
+- 글자는 Figma 글자 스타일 `IA5/` 이름(`text-body-14` · `text-label-13` …, 크기 · 줄 높이 · 자간 · 굵기를 함께 건다), 모서리는 `rounded-sm|md|lg|xl|2xl|full`. Tailwind 기본 `text-sm` · `rounded-3xl` 등은 지워 두어 쓰면 스타일이 안 먹는다
+- 견본은 개발 서버의 `/dev/ui`. 토큰 · 공통 컴포넌트를 바꾸면 여기서 Figma 와 비교한다
+- 다크 전환은 페이지 전체(`<html data-theme>`)로만 된다. 요소 하나에 `color-scheme`·`scheme-dark` 를 걸어도 토큰 색은 안 바뀐다
 
 ## 테스트
 - 작성·실행은 `test` 스킬. 단위(스키마·변환)·컴포넌트(상태 있는 것만)는 필요할 때, 페이지(Playwright)는 페이지 완성 시 1~3개
