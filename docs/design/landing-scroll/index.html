@@ -28,8 +28,8 @@
   .statue { left: calc(var(--sx) * var(--u)); top: calc(var(--sy) * var(--u)); width: calc(var(--sw) * var(--u)); height: auto; }
   .shadow { left: calc((var(--sx) - 2300 * var(--sw) / 1402) * var(--u)); top: calc((var(--sy) + 605 * var(--sw) / 1402) * var(--u)); width: calc(6000 * var(--sw) / 1402 * var(--u)); height: calc(900 * var(--sw) / 1402 * var(--u));
     mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent), linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-composite: intersect; }
-  /* 헤더: 스크롤해도 늘 맨 위. 좌우 120px 고정(1440 화면에서 본문 1200px), 띠 없이 로고와 유리 로그인만 뜬다 */
-  .site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 92px; padding: 0 120px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+  /* 헤더: 스크롤해도 늘 맨 위. 띠 없이 로고와 유리 로그인만 뜬다. 좌우 여백은 흔히 쓰는 값(8의 배수): 데스크톱 40 · 태블릿 32 · 휴대폰 20px */
+  .site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 92px; padding: 0 40px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
   .site a { pointer-events: auto; color: var(--ink); text-decoration: none; }
   .brand { display: flex; align-items: center; gap: 10px; font: 400 22px "Source Serif 4", Georgia, serif; letter-spacing: -0.02em; }
   .brand img { width: 30px; }
@@ -37,7 +37,8 @@
   .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 14px "Gothic A1", sans-serif;
     background: rgb(255 255 255 / .10); -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
     border: 1px solid rgb(17 19 24 / .14); box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .3); }
-  @media (max-width: 720px) { .site { padding: 0 16px; } }
+  @media (max-width: 1279px) { .site { padding: 0 32px; } }
+  @media (max-width: 767px) { .site { padding: 0 20px; } }
   /* 받침대 이름표: 석상 아래 가는 선 + 이름 + 한 줄(스크롤하면 다른 히어로 글자처럼 사라진다).
      석상과 같은 비율(--u)로 줄어든다 — 고정 크기면 좁은 화면에서 아래 SCROLL 과 겹친다. 1440 화면에서 이름 12px · 한 줄 20px */
   .plaque { left: 0; right: 0; top: calc(var(--py) * var(--u)); display: flex; flex-direction: column; align-items: center; gap: calc(14 * var(--u)); text-align: center; }
