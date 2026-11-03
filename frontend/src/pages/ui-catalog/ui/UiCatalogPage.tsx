@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 
 import { ColorTokens } from "./ColorTokens";
+import { Effects } from "./Effects";
 import { FontSamples } from "./FontSamples";
+import { GlassPreview } from "./GlassPreview";
 import { RailPreview } from "./RailPreview";
 import { TypeAndShape } from "./TypeAndShape";
 
@@ -17,6 +19,8 @@ export function UiCatalogPage() {
       </p>
       <ColorTokens />
       <TypeAndShape />
+      <Effects />
+      <GlassPreview />
       <RailPreview />
       <FontSamples />
     </main>
