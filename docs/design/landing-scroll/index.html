@@ -261,15 +261,20 @@ spin.add(new THREE.Mesh(new THREE.SphereGeometry(1, 96, 96), new THREE.MeshPhong
 // 구름은 정면 조각이 다 온 뒤에 받아 서서히 나타낸다(그전엔 빈 알파맵 · 투명)
 const noClouds = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); noClouds.needsUpdate = true;
 const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, alphaMap: noClouds, transparent: true, opacity: 0, depthWrite: false });
+// 구름 알파맵은 픽셀마다 네 곳을 찍어 평균 낸다(픽셀 한 칸 안을 2 × 2 로 나눠 보는 것과 같다).
+// 사진을 흐리게 하지 않고도, 잘게 흩어진 구름 알갱이가 돌 때 픽셀 사이를 오가며 지글거리는 것을 줄인다
+cloudMat.onBeforeCompile = (sh) => {
+  sh.fragmentShader = sh.fragmentShader.replace("#include <alphamap_fragment>", `#ifdef USE_ALPHAMAP
+  vec2 sdx = dFdx(vAlphaMapUv) * 0.25, sdy = dFdy(vAlphaMapUv) * 0.25;
+  diffuseColor.a *= 0.25 * (texture2D(alphaMap, vAlphaMapUv + sdx + sdy).g + texture2D(alphaMap, vAlphaMapUv - sdx - sdy).g
+    + texture2D(alphaMap, vAlphaMapUv + sdx - sdy).g + texture2D(alphaMap, vAlphaMapUv - sdx + sdy).g);
+#endif`);
+};
 const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(1.006, 96, 96), cloudMat); cloudMesh.renderOrder = 2; spin.add(cloudMesh);
 let cloudsAt = 0;
 let cloudDrift = 0;   // 구름층이 흘러간 각도(도). 매 프레임 조금씩 더한다 — 페이지를 연 뒤 흐른 시간으로 셈하면 오래 켜 둔 뒤 스크롤할 때 쌓인 회전을 한꺼번에 되감는다
 frontReady.then(() => loadBitmap("baked/clouds-2048.webp", true, "low")).then((cloudImg) => {
-  // 지구에 씌우는 구름은 아주 살짝 흐리게(1.2px) 한 번 굽는다: 잘게 흩어진 구름 알갱이가 돌 때 화면 픽셀 사이를 오가며 지글거리지 않게
-  const soft = Object.assign(document.createElement("canvas"), { width: cloudImg.width, height: cloudImg.height }), sg = soft.getContext("2d");
-  sg.filter = "blur(1.2px)"; sg.drawImage(cloudImg, 0, 0);
-  const softTex = new THREE.CanvasTexture(soft); softTex.flipY = false; softTex.anisotropy = maxAniso;
-  cloudMat.alphaMap = softTex; renderer.initTexture(cloudMat.alphaMap); cloudsAt = performance.now();
+  cloudMat.alphaMap = bitmapTexture(cloudImg); renderer.initTexture(cloudMat.alphaMap); cloudsAt = performance.now();
   // 화면 앞 구름: 알파맵(검정 = 맑음)을 흰 구름 + 투명도로 바꾸고, 흐림은 미리 한 번만 굽는다(CSS blur 는 매 프레임 비싸다)
   (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(() => { const c = document.createElement("canvas"); c.width = 1600; c.height = 800; const g = c.getContext("2d"); g.filter = "blur(3px)"; g.drawImage(cloudImg, 0, 0, c.width, c.height); g.filter = "none";
     const im = g.getImageData(0, 0, c.width, c.height), d = im.data;
