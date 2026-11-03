@@ -66,15 +66,11 @@
   .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 13px var(--sans);
     background: rgb(255 255 255 / .10); -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
     border: 1px solid rgb(17 19 24 / .14); box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .3);
-    position: relative; overflow: hidden; isolation: isolate; --mx: 50%; --my: 50%; --glow: 0;
-    transition: transform .35s cubic-bezier(.3, 1.4, .5, 1), box-shadow .3s; -webkit-tap-highlight-color: transparent; }
-  /* 빛 따라오기: 커서 · 손가락 자리에 반사광이 맺혀 따라다닌다. 누르면 살짝 눌리며(0.96) 빛과 테두리가 진해지고, 놓으면 조금 지나쳤다 돌아온다 */
+    position: relative; overflow: hidden; isolation: isolate; --mx: 50%; --my: 50%; -webkit-tap-highlight-color: transparent; }
+  /* 빛 따라오기: 커서 자리에 반사광이 맺혀 따라다닌다(호버만). 누르면 바로 로그인 창이 덮어 보이지 않으므로 누름 움직임은 두지 않는다 */
   .glass-btn::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .25s;
-    background: radial-gradient(80px circle at var(--mx) var(--my), rgb(255 255 255 / calc(.45 + var(--glow) * .35)), transparent 60%); }
-  .glass-btn:hover::before, .glass-btn.press::before { opacity: 1; }
-  .glass-btn.press { --glow: 1; transform: scale(.96); transition-duration: .12s;
-    box-shadow: inset 1px 1px 0 rgb(255 255 255 / 1), inset -1px -1px 0 rgb(255 255 255 / .6), 0 3px 10px rgb(17 19 24 / .14); }
-  @media (prefers-reduced-motion: reduce) { .glass-btn, .glass-btn.press { transform: none; } }
+    background: radial-gradient(80px circle at var(--mx) var(--my), rgb(255 255 255 / .45), transparent 60%); }
+  .glass-btn:hover::before { opacity: 1; }
   @media (max-width: 1279px) { .site { padding: 0 max(32px, calc((100% - 1036px) / 2)); } }
   @media (max-width: 767px) { .site { padding: 0 20px; } }
   /* 큰 Issue Atlas: 지구 캔버스 뒤에 깔려 지구 윗부분이 글자 아랫부분을 가린다(잡지 표지 제호처럼).
@@ -226,13 +222,14 @@
   .sheet .note { margin: -8px 0 0; font-size: 12px; line-height: 18px; color: #c2412a; }
   .sheet .note.ok { color: #50524c; }
   .primary { height: 36px; border: 0; border-radius: 999px; background: var(--amber); color: #252624; font: 500 13px var(--sans); cursor: pointer;
-    box-shadow: inset 0 0 4px rgb(255 255 255 / .16), inset 1px 1px 0 rgb(255 255 255 / .5), 0 2px 6px rgb(0 0 0 / .14); transition: background-color .15s, transform .15s; }
+    box-shadow: inset 0 0 4px rgb(255 255 255 / .16), inset 1px 1px 0 rgb(255 255 255 / .5), 0 2px 6px rgb(0 0 0 / .14); transition: background-color .15s; }
   .primary:hover { background: #e69e00; }
-  .primary:active { transform: scale(.98); }
   .primary:disabled { cursor: progress; opacity: .7; }
   .sheet .help { margin: 0; font-size: 12px; color: #8a8c85; }
-  /* 닫기: 헤더 「로그인」 과 같은 유리 버튼(높이 36 · 빛 따라오기 · 누름)을 동그랗게. 오른쪽 끝은 내용 오른쪽 끝(여백 28)에, 세로 가운데는 로고 줄(위 28 · 높이 23) 가운데에 */
-  .sheet .x { position: absolute; right: 28px; top: 21.5px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%; cursor: pointer; }
+  /* 닫기: 헤더 「로그인」 과 같은 테두리의 지름 36 원. 흰 카드 위라 유리 빛은 없고, 호버 때 바탕만 옅은 회색. 누르면 창이 닫히므로 누름 움직임은 없다
+     오른쪽 끝은 내용 오른쪽 끝(여백 28)에, 세로 가운데는 로고 줄(위 28 · 높이 23) 가운데에 */
+  .sheet .x { position: absolute; right: 28px; top: 21.5px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid rgb(17 19 24 / .14); border-radius: 50%; background: none; cursor: pointer; transition: background-color .15s; }
+  .sheet .x:hover { background: #f1f2f5; }
   .sheet :focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .sheet, .login .scrim { transition: none; } }
   .hud { position: fixed; right: 12px; bottom: 12px; font: 500 11px "IBM Plex Mono"; color: #8a8f9c; z-index: 9; }
@@ -339,7 +336,7 @@
 <div class="login" id="login" aria-hidden="true">
   <div class="scrim" data-close></div>
   <form class="sheet" role="dialog" aria-modal="true" aria-labelledby="login-title" novalidate>
-    <button type="button" class="x glass-btn" data-close aria-label="닫기"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="#17181c" stroke-width="1.46" stroke-linecap="round"/></svg></button>
+    <button type="button" class="x" data-close aria-label="닫기"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="#17181c" stroke-width="1.46" stroke-linecap="round"/></svg></button>
     <div class="lock"><img src="mark.svg" alt="">Issue Atlas</div>
     <h2 id="login-title">로그인</h2>
     <label class="field"><span>이메일</span><input name="id" type="email" inputmode="email" autocomplete="username" placeholder="name@example.com" spellcheck="false"></label>
@@ -355,12 +352,9 @@
     const chips = row.dataset.places.split(" ").map((n) => (n[0] === "*" ? `<span class="chip open">${n.slice(1)}</span>` : `<span class="chip">${n}</span>`)).join("");
     row.innerHTML = chips + chips;
   }
-  // 유리 버튼: 반사광이 커서 · 손가락을 따라오고(--mx · --my), 누르고 있는 동안만 .press(손가락 · 마우스 · Space/Enter 모두)
+  // 유리 버튼: 반사광이 커서를 따라온다(--mx · --my)
   for (const b of document.querySelectorAll(".glass-btn")) {
-    const on = () => b.classList.add("press"), off = () => b.classList.remove("press");
     b.addEventListener("pointermove", (e) => { const r = b.getBoundingClientRect(); b.style.setProperty("--mx", e.clientX - r.left + "px"); b.style.setProperty("--my", e.clientY - r.top + "px"); });
-    b.addEventListener("pointerdown", on); for (const e of ["pointerup", "pointerleave", "pointercancel", "blur"]) b.addEventListener(e, off);
-    b.addEventListener("keydown", (e) => { if (e.key === " " || e.key === "Enter") on(); }); b.addEventListener("keyup", off);
   }
   // 로그인 창: 헤더 「로그인」 · OPEN THE ATLAS 로 연다. 닫기 · 바깥 · Esc 로 닫고, 연 버튼으로 초점을 돌려준다. Tab 은 창 안에서만 돈다.
   // 시제품이라 실제 로그인은 없다 — 빈 칸만 확인하고, 서비스에서는 로그인하면 바로 「새 질문」 으로 간다는 안내를 보여 준다
