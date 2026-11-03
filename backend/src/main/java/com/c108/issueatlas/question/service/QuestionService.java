@@ -22,6 +22,7 @@ import com.c108.issueatlas.question.repository.QuestionRepository;
 import com.c108.issueatlas.question.repository.QuestionRepository.CardRow;
 import com.c108.issueatlas.question.repository.QuestionRepository.EvidenceRef;
 import com.c108.issueatlas.question.repository.QuestionRepository.MatchedResponse;
+import com.c108.issueatlas.question.repository.QuestionRepository.PreviousRun;
 import com.c108.issueatlas.question.service.CardJudge.Judgment;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -35,6 +36,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +51,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Service
 public class QuestionService {
+    private static final Logger log = LoggerFactory.getLogger(QuestionService.class);
     static final String SCHEMA_VERSION = "c2-0.1";
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final List<String> KINDS =
@@ -80,6 +84,7 @@ public class QuestionService {
 
     @Transactional
     public QuestionCreateResponse create(QuestionCreateRequest request) {
+        long started = System.nanoTime();
         LocalDate start = request.periodStart();
         LocalDate end = request.periodEnd();
         if (!start.isBefore(end)) {
@@ -159,6 +164,10 @@ public class QuestionService {
                         card == null
                                 ? List.of()
                                 : series.articles(card.cardId(), request.placeId(), start, end));
+        PreviousRun previous =
+                questions.previousRun(request.placeId(), request.cardId(), start, end).orElse(null);
+        int filled = filledCells(result);
+        int durationMs = (int) ((System.nanoTime() - started) / 1_000_000);
         questions.insertRun(
                 runId,
                 questionId,
@@ -167,7 +176,18 @@ public class QuestionService {
                 result.formulaVersion(),
                 result.taxonomyVersion(),
                 json.writeValueAsString(result),
-                result.createdAt());
+                result.createdAt(),
+                previous == null ? null : previous.runId(),
+                filled,
+                durationMs);
+        log.info(
+                "argument_run {} prev {} filled {}/6 ({}) edits - duration {}ms ({})",
+                runId,
+                previous == null ? "-" : previous.runId(),
+                filled,
+                diff(filled, previous == null ? null : previous.filledCells()),
+                durationMs,
+                diff(durationMs, previous == null ? null : previous.durationMs()));
         run.refs()
                 .forEach(
                         (kind, refs) ->
@@ -187,6 +207,32 @@ public class QuestionService {
     @Transactional(readOnly = true)
     public String argument(String runId) {
         return questions.result(runId).orElseThrow(ResourceNotFoundException::new);
+    }
+
+    /** 재실행 로그 「자동 채움」: 6칸 중 내용이 찬 칸. 판단은 근거 부족 · 비교 불가가 아닌 문장이 있을 때만 찬 것으로 본다. */
+    static int filledCells(ArgumentResponse r) {
+        Data d = r.data();
+        boolean[] cells = {
+            r.claim().text() != null
+                    && !List.of("insufficient", "not_comparable").contains(r.claim().value()),
+            !(d.statistics().isEmpty()
+                    && d.documents().isEmpty()
+                    && d.existingResponses().isEmpty()
+                    && d.denominators().isEmpty()),
+            r.warrant().text() != null && !r.warrant().text().isBlank(),
+            r.qualifier().grade() != null,
+            !r.rebuttals().isEmpty(),
+            !r.ceiling().items().isEmpty()
+        };
+        int n = 0;
+        for (boolean c : cells) {
+            n += c ? 1 : 0;
+        }
+        return n;
+    }
+
+    private static String diff(int now, Integer before) {
+        return before == null ? "-" : String.format("%+d", now - before);
     }
 
     private Run candidate(Question question) {

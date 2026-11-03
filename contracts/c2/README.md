@@ -37,6 +37,8 @@
 
 `POST /v1/questions` 는 요청마다 질문 하나와 실행 하나를 저장하고 새 `run_id` 를 준다(같은 질문을 다시 보내도 새 실행). 결과는 실행 때 한 번 만들어 `argument_run.result` 에 저장하고, `GET /v1/arguments/{run_id}` 는 그 값을 그대로 준다 — 지난 실행을 다시 계산하거나 덮어쓰지 않는다. 잘못된 기간(시작 ≥ 끝 · 날짜 형식) · 빠진 칸은 `400 INVALID_REQUEST`, 없는 지역 · 카드 · 실행은 `404 RESOURCE_NOT_FOUND`.
 
+재실행 로그: 실행마다 같은 지역 × 카드 × 기간의 앞 실행과 2회차 지표 3종(자동 채움 칸 수 · 수정 건수 · 실행 시간)을 `argument_run` 칸과 서버 로그에 남긴다([DB](../database/README.md) v0.1.27). 응답 칸은 그대로다.
+
 | 경우 | `run_status` | 판단 ① 문장 |
 | --- | --- | --- |
 | `card_id = null` (목록에 없는 질문) | `unsupported`, `candidate: true`, `card_version` · `formula_version` null | 신규 카드 후보로 저장했습니다. 판단하지 않습니다 |
