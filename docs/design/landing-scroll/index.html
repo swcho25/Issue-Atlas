@@ -404,7 +404,8 @@ const pins = PINS.map((p) => {
 const places = PLACES.map(([n, lo, la, zin, zout, kind]) => ({ ...mark(`place ${kind || ""}`, n, [lo, la]), zin, zout }));
 
 // 카메라: MapLibre 와 같은 셈(중심 · 확대 · 기울기 · 방위)으로 판 위에 놓는다
-const FINAL = { center: [126.855, 35.15], zoom: 11.7, pitch: 55, bearing: 18 };
+// 도착한 지도는 거의 위에서 내려다보고 살짝만(18°) 기울인다. 돌리지 않는다(북쪽이 위)
+const FINAL = { center: [126.845, 35.168], zoom: 11.35, pitch: 18, bearing: 0 };
 // 지구와 지도를 '확대 단계' 하나로 잇는다: 지구 카메라 높이 ↔ 지도 확대(화면 세로에 담기는 실제 거리가 같게).
 // 그래서 지구가 지도로 바뀌는 순간 크기 · 위치가 같아, 흰 화면으로 가리지 않고 겹쳐 바꿀 수 있다
 const EARTH_R = 6.371e6, M_PER_PX0 = (40075016 * Math.cos(deg(CENTER[1]))) / 512;
@@ -467,7 +468,7 @@ function frameLoop(now) {
   const fade = ease(span(p, 0.03, 0.15));
   put(hero, "opacity", String(1 - fade)); put(hero, "transform", `translate(-50%, calc(-50% + ${(fade * 14).toFixed(2)}vh))`); put(hero, "visibility", fade >= 1 ? "hidden" : "visible");
   // 2) 지구가 광주를 향해 돌고 다가가다, 같은 축척의 지도로 서서히 바뀐다(흰 화면으로 가리지 않는다)
-  const finZoom = FINAL.zoom + Math.log2(Math.min(1, w / 1440));
+  const finZoom = FINAL.zoom + Math.log2(Math.min(1, w / 1440, h / 992));   // 좁거나 낮은 화면에선 그만큼 물러나 측정소가 제목 · 캡션 사이에 든다
   const d0 = Math.sqrt(1 + ((h / 2) / (R * Math.tan(deg(FOV / 2)))) ** 2);
   const Z = lerp(zoomOfAlt(d0 - 1, h), finZoom, ease(span(p, 0.12, 0.84)));   // 지구부터 광주까지 한 곡선
   // 지도로 바꾸기는 지구가 화면을 모서리까지 다 덮은 뒤에 시작한다 — 그전에 바꾸면 지구 둘레로 뒤 지도가 보인다(가로로 넓은 화면일수록 늦게).
