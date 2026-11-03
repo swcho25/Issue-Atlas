@@ -27,9 +27,13 @@ MODES = {
     "region-extract": ("pipeline.region.extract",),
     # P3: 추출 결과(/inputs) → news_event, --delete-bodies 로 요약된 기사 본문 지우기. 기본 시험 실행
     "region-load": ("pipeline.region.load", "--db"),
+    # P4: 승인 카드와 최신 정제 기사만 분류. 세 모드 모두 --apply에서만 DB 저장
+    "embed-docs": ("ai.classify", "embed-docs", "--db"),
+    "embed-cards": ("ai.classify", "embed-cards", "--db"),
+    "score": ("ai.classify", "score", "--db"),
 }
 # 결과 파일이 없는 모드. --output 을 붙이면 사용법 오류로 끝난다
-NO_OUTPUT = {"refine", "responses", "region-load"}
+NO_OUTPUT = {"refine", "responses", "region-load", "embed-docs", "embed-cards", "score"}
 # 결과 파일이 C1 이 아닌 모드의 파일 이름
 OUTPUT_NAME = {"region-export": "articles.jsonl", "region-extract": "extract.jsonl"}
 # 원본 장부(raw_record)에 쓰는 수집 모드. 성공하면 같은 잠금 안에서 바뀐 출처만 정제한다.

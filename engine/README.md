@@ -27,6 +27,12 @@ uv --directory engine run python -m pipeline.responses --db
 uv --directory engine run python -m pipeline.region.export --db --output <저장소 밖 경로>.jsonl
 uv --directory engine run python -m pipeline.region.extract --input <내보낸 JSONL> --output <저장소 밖 경로>.jsonl   # .env 의 P3_LLM_*
 uv --directory engine run python -m pipeline.region.load --db --extract <추출 결과 JSONL> [--apply]
+# P4 기사→카드 1차 분류: C1·A3 승인본과 최신 정제 기사 제목·요약 사용
+# 기본은 시험 실행, --apply에서만 저장. 로컬 별도 DB는 --database issue_atlas_p4
+uv --directory engine run python -m ai.classify embed-docs --db [--apply]
+uv --directory engine run python -m ai.classify embed-cards --db [--apply]
+uv --directory engine run python -m ai.classify score --db [--apply]
+uv --directory engine run python -m ai.classify sample --db --output <저장소 밖 경로>.csv
 # PostGIS 통합 테스트 (Docker 필요, pnpm engine:test 에는 안 들어감)
 uv --directory engine run pytest tests_postgres
 
@@ -43,4 +49,5 @@ uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 | `pipeline/collect/` | 장성우 | P1 KOSIS·에어코리아 수집·원천 저장·C1 출력 ([KOSIS](pipeline/collect/README.md), [에어코리아](pipeline/collect/AIRKOREA.md)) |
 | `pipeline/region/` | 정우현 | P3 지역 · 시간 — 기사 지역 · 여러 지역 · 위치 · 사건 시간대 · 요약 → `news_event`, 요약 뒤 본문 지우기. 규칙(이름 체계 · 지명 사전 · 본문 정리 · 여러 지역 · 적재 검사)과 서버 명령(`export` · `extract` · `load`). 추출은 OpenAI 호환 모델 서버(.env `P3_LLM_*`), 적재 전 장소 확인은 주소 API(.env `JUSO_SEARCH_KEY`), 위치 좌표는 SGIS(.env `SGIS_KEY` · `SGIS_SECRET`) ([계약](../contracts/p3/)) |
 | `pipeline/responses/` | 장성우 | P8 카드 근거 ③ 「기존 대응」 후보 — 온통청년 정책 · 세출에서 규칙으로 골라 `existing_response` 에 저장 ([계약](../contracts/existing-response/)) |
+| `ai/classify/` | 최동준 | P4 기사 제목·요약 → C1·A3 승인 카드 프로필 임베딩·cosine 점수 ([계약](../contracts/article-card-search/README.md)) |
 | `api/` | (미정) | FastAPI HTTP 입구 — pipeline 함수를 부르기만 한다 |
