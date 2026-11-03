@@ -401,7 +401,7 @@ public class QuestionRepository {
 
     public record MatchedResponse(String responseId, String evidenceId) {}
 
-    /** 재실행 로그의 앞 실행. 칸이 생기기 전(V0032) 실행은 지표가 null */
+    /** 재실행 로그의 앞 실행. 칸이 생기기 전(V0033) 실행은 지표가 null */
     public record PreviousRun(String runId, Integer filledCells, Integer durationMs) {}
 
     public record SeriesRow(

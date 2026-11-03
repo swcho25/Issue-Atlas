@@ -8,6 +8,7 @@
 
 | 칸 | 명세 | 값 |
 | --- | --- | --- |
+| v0.3 | 2026-11-03 | 측정소 `station_id` 가 `kr-<부모 시군구 5자리>-s<에어코리아 코드>` 로 바뀜(V0032, view 는 그대로 — `place` 를 읽는다) |
 | `obs_id` | `id` | `obs:` + sha256. 통계는 P2 `obs_key`, 대기는 `air_monthly\|<측정소 코드>\|<지표>\|<달 첫날 YYYY-MM-DD(한국)>`, 기사는 `news_event\|<news_id>` |
 | `what_type` · `what_id` · `what_kind` · `tags` | `what` | `indicator`(통계) · `document`(글) / 지표 ID 또는 `news_id` / 글 종류(`news`) / 근거가 되는 카드(`{C1}` · `{A3}`, 없으면 빈 배열) |
 | `when_start` · `when_end` · `when_unit` · `when_precision` | `when` | timestamptz, 끝은 미포함. 통계는 `when_unit`(`M` · `Y`), 글은 `when_precision`(`day` · `minute` · `month` · `published`) |
@@ -35,7 +36,7 @@
 
 - **측정소 행의 `place_id`**: 명세는 측정소가 있는 읍면동이지만, 측정소 → 읍면동 연결이 DB 에 없어 시군구로 둔다. 질문 고르기(「앞자리가 같은 것」)는 시군구로도 같다
 - **기사 `tags`**: 명세는 수집 검색 분류(대기오염 → A3, 청년인구 → C1)지만, 지금 빅카인즈 수집은 검색어 하나(「여수 OR 광주」)라 분류가 없다. 기사 분류(P4)가 생기기 전까지 빈 배열
-- **측정소 `station_id`**: 측정소 `place_id`(`plc_stn_<코드>`). 측정소 ID 의 `kr-` 형식이 정해지면 따라 바뀐다
+- **측정소 `station_id`**: 측정소 `place_id`(`kr-<부모 시군구 5자리>-s<코드>`, V0032). 앞자리가 그 측정소 행의 `place_id`(시군구)와 같다
 
 ## 실데이터 확인 (2026-11-02, 로컬 DB)
 

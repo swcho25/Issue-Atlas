@@ -37,7 +37,7 @@
 
 `POST /v1/questions` 는 요청마다 질문 하나와 실행 하나를 저장하고 새 `run_id` 를 준다(같은 질문을 다시 보내도 새 실행). 결과는 실행 때 한 번 만들어 `argument_run.result` 에 저장하고, `GET /v1/arguments/{run_id}` 는 그 값을 그대로 준다 — 지난 실행을 다시 계산하거나 덮어쓰지 않는다. 잘못된 기간(시작 ≥ 끝 · 날짜 형식) · 빠진 칸은 `400 INVALID_REQUEST`, 없는 지역 · 카드 · 실행은 `404 RESOURCE_NOT_FOUND`.
 
-재실행 로그: 실행마다 같은 지역 × 카드 × 기간의 앞 실행과 2회차 지표 3종(자동 채움 칸 수 · 수정 건수 · 실행 시간)을 `argument_run` 칸과 서버 로그에 남긴다([DB](../database/README.md) v0.1.26). 응답 칸은 그대로다.
+재실행 로그: 실행마다 같은 지역 × 카드 × 기간의 앞 실행과 2회차 지표 3종(자동 채움 칸 수 · 수정 건수 · 실행 시간)을 `argument_run` 칸과 서버 로그에 남긴다([DB](../database/README.md) v0.1.27). 응답 칸은 그대로다.
 
 | 경우 | `run_status` | 판단 ① 문장 |
 | --- | --- | --- |
@@ -186,6 +186,7 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-01): 지역 목록의 시군구 `parent_id` 가 상위 지역(광주 5개 구 `kr-29`, 여수시 `kr-46`)으로 나간다(V0021). 시도는 목록에 없으니 화면은 시군구를 맨 위로 둔다. 예시 `place-list.json` 갱신(S15P31C108-169).
 - v0.1 (2026-11-01): 질문 · 실행 구현(S15P31C108-133). argument 의 `question.card_id` · `card_name` · `card_version` · `formula_version` 을 null 허용으로 바꾼다 — 목록에 없는 질문(FR-A3)과 판정 규칙이 없는 카드. `card_id` 가 null 이면 `run_status = unsupported` · `card_version = null` 을 스키마가 검사한다. 예시 `argument-unsupported.json` 추가.
 - v0.1 (2026-11-02): 시군구 `place_id` 가 `kr-<KOSIS 새 시군구 5자리>` 로 바뀐다(V0024): 광주 동구 `kr-12210` · 서구 `kr-12240` · 남구 `kr-12270` · 북구 `kr-12300` · 광산구 `kr-12330` · 여수시 `kr-12130`. 옛 `plc_*` 는 404. 예시를 모두 새 ID 로 바꿨다. 측정소 `plc_stn_*` 은 그대로.
+- v0.1 (2026-11-03): 측정소 ID(`series[].station_id` · 관측 행 `station_id`)가 `kr-<부모 시군구 5자리>-s<에어코리아 코드>` 로 바뀐다(V0032): `plc_stn_336121` → `kr-12130-s336121`. 예시를 새 ID 로 바꿨다. 옛 `plc_stn_*` 는 404
 - v0.1 (2026-11-02): argument 에 `series[]`(그림 자료: 통계 · 이동 · 기사 건수 세 모양) · `articles[]`(근거 기사)를 더한다 — 「시공간 표시 개발 명세」 5 · 6절. 둘 다 필수 칸이고 카드가 없으면 빈 배열. 예시 4개에 추가(여수 C1 · A3 는 로컬 실데이터 값).
 - v0.1 (2026-11-02): `articles[]` 에 `url`(원문 링크, null 허용)을 더한다 — 데모 「근거 기사 2클릭 → 원문」. C1 예시 문구의 청년 연령을 카드 계약(contracts/cards, 대표 결정 2026-11-01)대로 15–39세 → 19–39세.
 - v0.1 (2026-11-02): C1 판정 규칙 연결(`c1-net-migration-0.1`, 대표 결정 2026-11-01). 통계 상태가 등록되지 않았으면 관측 행으로 정하고, 통계 근거를 실행 때 만든다. 판단 문장은 카드 결과 이름(`rule.outcomes[].label`)을 쓴다.

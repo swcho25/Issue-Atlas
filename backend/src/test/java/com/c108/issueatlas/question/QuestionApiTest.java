@@ -251,7 +251,7 @@ class QuestionApiTest {
                 """;
         argument(runId(ask(body)))
                 .andExpect(jsonPath("$.series.length()").value(1))
-                .andExpect(jsonPath("$.series[0].station_id").value("plc_stn_336121"))
+                .andExpect(jsonPath("$.series[0].station_id").value("kr-12130-s336121"))
                 .andExpect(jsonPath("$.series[0].name").value("서강동"))
                 .andExpect(jsonPath("$.series[0].coordinates.length()").value(2))
                 .andExpect(jsonPath("$.series[0].values[0]").value(15.3))
