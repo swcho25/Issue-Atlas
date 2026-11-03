@@ -12,6 +12,7 @@ import pytest
 from pipeline.collect.bigkinds import NewsQuery, NewsStore, collect
 from pipeline.refine.store import refine_raw
 from pipeline.region import export, load, locate
+from pipeline.region.sgis import Point
 from tests.test_article import LINES, Web
 from tests.test_collect_bigkinds import Search, news, options
 from tests_postgres.conftest import fresh_schema
@@ -191,3 +192,45 @@ def test_refs_read_sido_points_and_sgis_codes(place_db):
     # 같은 행정동이 통합 전(광주 24) · 뒤(12) SGIS 코드 둘 다로 잡힌다
     donggu = {code for code, pid in refs["sgis"].items() if pid == "kr-12210560"}
     assert {c[:2] for c in donggu} == {"12", "24"}
+
+
+class AreaSgis:
+    """주소 → 점 하나. 행정동 코드는 refs 에 없어(이 스키마에 V0019 없음) 시군구 kr-<5> 로 간다"""
+
+    def search(self, query):
+        if query == "전남광주통합특별시 여수시 소라면":
+            return [Point(127.6, 34.8, "4", "12130310", "36030999")]
+        return []
+
+
+def test_relocate_moves_legal_dong_ids_only_when_applied(region_db, capsys):
+    conn, connect = region_db
+    point = "ST_SetSRID(ST_MakePoint(127.6, 34.8), 4326)::geography"
+    conn.execute(
+        "INSERT INTO news_event (news_id, event_start, time_precision, place_name, address,"
+        " geometry, location_precision, place_id, sido, sigun, regions) VALUES"
+        f" ('a', '2025-01-01', 'day', '소라면', '전남광주통합특별시 여수시 소라면', {point},"
+        "  'admin_centroid', 'kr-1213031000', '전남광주통합특별시', '여수시', '[]'),"
+        f" ('b', '2025-01-01', 'day', '모름', '없는 주소', {point},"
+        "  'admin_centroid', 'kr-1213099999', '전남광주통합특별시', '여수시', '[]'),"
+        " ('c', '2025-01-01', 'day', NULL, NULL, NULL,"
+        "  'none', 'kr-12130', '전남광주통합특별시', '여수시', '[]')"
+    )
+    run, keys = ["--db", "--relocate"], {"connect": connect, "juso": lambda: None}
+    ids = "SELECT news_id, place_id FROM news_event ORDER BY 1"
+
+    assert load.main(run, sgis_client=AreaSgis, **keys) == 0
+    dry = json.loads(capsys.readouterr().out)["relocate"]
+    assert dry == {"candidates": 2, "행정동": 0, "시군구": 1, "못 찾음": 1, "updated": 1}
+    assert conn.execute(ids).fetchall()[0] == ("a", "kr-1213031000")  # 시험 실행은 되돌림
+
+    assert load.main([*run, "--apply"], sgis_client=AreaSgis, **keys) == 0
+    capsys.readouterr()
+    after = conn.execute(ids).fetchall()
+    assert after == [("a", "kr-12130"), ("b", "kr-1213099999"), ("c", "kr-12130")]
+    x = "SELECT round(ST_X(geometry::geometry)::numeric, 1) FROM news_event WHERE news_id = 'a'"
+    assert conn.execute(x).fetchone() == (Decimal("127.6"),)  # 좌표는 그대로
+
+    assert load.main(run, sgis_client=lambda: None, **keys) == 0
+    off = json.loads(capsys.readouterr().out)["relocate"]
+    assert off == {"off": "SGIS_KEY · SGIS_SECRET 없음"}

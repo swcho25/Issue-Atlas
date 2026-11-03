@@ -1,7 +1,7 @@
 """추출 결과(region-extract) → news_event, 요약이 제대로 생긴 기사의 본문 지우기.
 
 python -m pipeline.region.load --db --extract <JSONL> [--mentions <JSONL>]
-                                [--delete-bodies] [--apply]          → 건수 JSON (stdout)
+                                [--delete-bodies] [--relocate] [--apply]   → 건수 JSON
 - 기본은 시험 실행: 같은 트랜잭션에서 넣고 세어 본 뒤 되돌린다. --apply 일 때만 커밋
 - 적재(--extract): 기사마다 고치기(checks.fix_row) → 여러 지역(regions) → 검사(checks.violations).
   보류(지역을 못 정함) · 위반 · 정제 기사 없음은 넣지 않고 이유별로 센다.
@@ -11,6 +11,9 @@ python -m pipeline.region.load --db --extract <JSONL> [--mentions <JSONL>]
   .env 에 JUSO_SEARCH_KEY 가 없으면 건너뛰고 place_check.off 에 남긴다
 - 위치: 장소 도로명주소 → 건물 좌표, 못 찾으면 행정 구역 중심 · 시도 대표점(locate, SGIS).
   .env 에 SGIS_KEY · SGIS_SECRET 이 없으면 건너뛰고(위치 none) locate.off 에 남긴다
+- 위치 다시 정하기(--relocate): place_id 가 법정동 kr-<10> 인 기사(2026-11-01 lab 적재)를
+  저장된 주소로 SGIS 에 다시 찍어 그 점이 든 행정동 kr-<8>(없으면 시군구 kr-<5>)로.
+  좌표 · 주소는 그대로
 - 본문 지우기(--delete-bodies): news_event 요약이 checks.good_summary 인 기사만
   raw_record 본문 3칸을 null, storage_scope = metadata (기사 계약 v0.3 「본문 지우기」).
   정제 표의 본문은 다음 refine 이 지운다
@@ -174,10 +177,11 @@ def main(argv=None, connect=connect_from_env, juso=Juso.from_env, sgis_client=Sg
     p.add_argument("--extract", type=Path)
     p.add_argument("--mentions", type=Path)
     p.add_argument("--delete-bodies", action="store_true")
+    p.add_argument("--relocate", action="store_true", help="법정동 place_id 를 행정동으로(SGIS)")
     p.add_argument("--apply", action="store_true", help="없으면 시험 실행(되돌림)")
     args = p.parse_args(argv)
-    if not args.extract and not args.delete_bodies:
-        p.error("--extract 나 --delete-bodies 중 하나는 있어야 한다")
+    if not (args.extract or args.delete_bodies or args.relocate):
+        p.error("--extract · --delete-bodies · --relocate 중 하나는 있어야 한다")
     try:
         extracted = read_jsonl(args.extract) if args.extract else []
         if args.mentions:
@@ -193,9 +197,23 @@ def main(argv=None, connect=connect_from_env, juso=Juso.from_env, sgis_client=Sg
                 with connect() as conn:
                     locator = locate.Locator(sgis, locate.read_refs(conn), lookup)
             extracted, result["locate"] = locate.locate_all(extracted, locator)
+        moves = []
+        if args.relocate:  # SGIS 도 트랜잭션 밖에서
+            sgis = sgis_client()
+            if not sgis:
+                result["relocate"] = {"off": "SGIS_KEY · SGIS_SECRET 없음"}
+            else:
+                with connect() as conn:
+                    rows = conn.execute(locate.OLD_PLACE_IDS).fetchall()
+                    locator = locate.Locator(sgis, locate.read_refs(conn))
+                moves, result["relocate"] = locate.relocate_ids(rows, locator)
         with connect() as conn, conn.transaction(force_rollback=not args.apply):
             if args.extract:
                 result["load"] = load(conn, extracted)
+            if moves:
+                with conn.cursor() as cur:
+                    cur.executemany(locate.SET_PLACE_ID, moves)
+                    result["relocate"]["updated"] = cur.rowcount
             if args.delete_bodies:
                 result["delete_bodies"] = delete_bodies(conn)
         print(json.dumps(result, ensure_ascii=False))

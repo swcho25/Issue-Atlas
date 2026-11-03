@@ -16,7 +16,7 @@ from dataclasses import dataclass, replace
 
 from .labels import SIDO
 from .places import by_code, load
-from .sgis import Point, SgisError
+from .sgis import Point, SgisError, address_candidates
 
 CENTROID_TYPES = {"2", "3", "4", "5"}  # 시군구 ~ 읍면동 중심. 시도 중심(1)은 쓰지 않는다
 REFS = """
@@ -88,6 +88,21 @@ class Locator:
         sgg = by_code(leg)[0]
         return f"kr-{load().sgg_code[sgg][:5]}" if sgg else None
 
+    def point_of(self, address: str) -> Point | None:
+        """주소(건물 주소 · 행정 주소) → SGIS 첫 결과 점. 주소 그대로 먼저(행정 주소는 시도를 붙여야
+        찾는다), 그다음 건물 주소 검색어 후보를 차례로"""
+        for query in dict.fromkeys([address, *address_candidates(address)]):
+            key = (
+                "point|" + query
+            )  # 위치 정하기의 중심 찾기(검색어 그대로가 키)와 거르는 기준이 다르다
+            if key not in self.cache:
+                points = self.sgis.search(query)
+                first = points[0] if points else None
+                self.cache[key] = first if first and in_korea(first.lon, first.lat) else None
+            if self.cache[key]:
+                return self.cache[key]
+        return None
+
     def _building(self, road_addr: str) -> Point | None:
         key = "building|" + road_addr
         if key not in self.cache:
@@ -156,3 +171,36 @@ def locate_all(rows: list[dict], locator: Locator | None) -> tuple[list[dict], d
     if error:
         stats["off"] = error
     return out, stats
+
+
+# 이미 넣은 기사 중 place_id 가 법정동 kr-<10>(2026-11-01 lab 적재)인 것.
+# 주소는 건물 주소 · 행정 주소
+OLD_PLACE_IDS = """
+SELECT news_id, address FROM news_event
+WHERE place_id ~ '^kr-[0-9]{10}$' AND address IS NOT NULL
+ORDER BY news_id
+"""
+SET_PLACE_ID = """
+UPDATE news_event SET place_id = %s WHERE news_id = %s AND place_id ~ '^kr-[0-9]{10}$'
+"""
+
+
+def relocate_ids(rows: list[tuple[str, str]], locator: Locator) -> tuple[list[tuple], dict]:
+    """(news_id, 주소)마다 주소를 SGIS 로 다시 찍어 그 점이 든 행정동 kr-<8>(없으면 시군구 kr-<5>).
+    좌표 · 주소는 바꾸지 않는다 — lab 적재도 같은 SGIS 로 찍은 점이다. 못 찾으면 그대로 둔다"""
+    updates, counts, error = [], {"행정동": 0, "시군구": 0, "못 찾음": 0}, ""
+    for news_id, address in rows:
+        try:
+            point = None if error else locator.point_of(address)
+        except SgisError as exc:
+            error, point = str(exc), None
+        place_id = locator.place_id(point) if point else None
+        if not place_id:
+            counts["못 찾음"] += 1
+            continue
+        counts["행정동" if len(place_id) == len("kr-12210560") else "시군구"] += 1
+        updates.append((place_id, news_id))
+    stats = {"candidates": len(rows), **counts}
+    if error:
+        stats["off"] = error
+    return updates, stats
