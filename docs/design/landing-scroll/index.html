@@ -14,20 +14,17 @@
   /* 360vh = 화면 2.6장 분량을 스크롤하면 끝난다(광주 도착은 그중 84% 지점, 휠 약 17~20칸) */
   #journey { position: relative; height: 360vh; }
   .stage { position: sticky; top: 0; height: 100vh; overflow: hidden;
-    background: linear-gradient(180deg, #fefefe 0%, #fcfdfe 13%, #f7f8fc 30%, #f6f8fd 56%, #f7f8fc 70%, #f6f8fb 100%); }
+    background: linear-gradient(180deg, #fafafe 0%, #fafafd 11%, #f9f8fd 22%, #f6f8fc 28%, #f5f6fd 36%, #f5f6fd 100%); }   /* 시안에서 잰 바탕색 */
   .layer { position: absolute; inset: 0; }
   #globe { width: 100%; height: 100%; display: block; touch-action: pan-y; }   /* 세로로 밀면 스크롤, 가로로 끌면 지구가 돈다 */
   #ground { width: 100%; height: 100%; display: block; visibility: hidden; }
 
-  /* 히어로: 1684 × 934 설계 프레임을 화면에 맞춰 키우고 줄인다(실제 랜딩과 같은 배치).
+  /* 히어로: 설계틀 = 1586 × 992 시안 화면 그대로(그 화면에서 배율 1, 다른 화면은 이 틀을 키우고 줄인다).
      지구 중심(--gx, --gy) · 반지름(--gr) 은 스크립트의 GX · GY · GR 과 같은 값. 석상 폭(--sw)은 반지름에 비례(225 일 때 280).
-     지구 · 석상은 처음 크기(반지름 225). 큰 이름 · 지구 · 석상 · 부제 덩어리를 헤더 아래와 화면 바닥 사이 가운데에 둔다
-     (틀이 화면을 꽉 채우는 1.8:1 화면에선 위아래 여백이 20px 남짓으로 빠듯하다).
-     큰 이름 글자 크기(--mfs)만 따로 막는다: 글자 폭(글자 크기 × 4.88)이 본문 폭(로고~로그인, 최대 1200px)의 80% 를 넘지 않게.
-     지구 · 석상 · 부제는 그대로 화면에 맞춰 커진다 */
-  .frame { --fw: 1684; --fh: 934; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
-    --gx: 845; --gy: 448; --gr: 225; --sx: 705; --sy: 626; --sw: 280; --mf: 227;
-    --mfs: min(calc(var(--mf) * var(--u)), calc(min(1200px, 100vw - 80px) * 0.8 / 4.88));
+     큰 이름 글자 크기(--mfs)만 따로 막는다: 글자 폭(글자 크기 × 4.814)이 본문 폭(로고~로그인, 최대 1036px)의 80% 를 넘지 않게 */
+  .frame { --fw: 1586; --fh: 992; --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
+    --gx: 793; --gy: 425.5; --gr: 205; --sx: 665.44; --sy: 587.74; --sw: 255.11; --mf: 166;
+    --mfs: min(calc(var(--mf) * var(--u)), calc(min(1036px, 100vw - 80px) * 0.8 / 4.814));
     position: absolute; left: 50%; top: 50%; width: calc(var(--fw) * var(--u)); height: calc(var(--fh) * var(--u)); transform: translate(-50%, -50%); pointer-events: none; }
   .at { position: absolute; }
   #atlas { will-change: transform; }   /* 지구를 따라 옮기고 키운다(매 프레임 transform 만 바꾼다) */
@@ -35,26 +32,29 @@
   .shadow { left: calc((var(--sx) - 2300 * var(--sw) / 1402) * var(--u)); top: calc((var(--sy) + 605 * var(--sw) / 1402) * var(--u)); width: calc(6000 * var(--sw) / 1402 * var(--u)); height: calc(900 * var(--sw) / 1402 * var(--u));
     mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent), linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-composite: intersect; }
   /* 헤더: 스크롤해도 늘 맨 위, 모양은 그대로. 띠 없이 로고 마크와 유리 로그인만 뜬다(이름은 히어로의 큰 글자가 맡는다).
-     본문 폭(로고~로그인) 1200px 를 가운데에(1440 화면에서 양옆 여백 120px). 좁은 화면에선 양옆 여백이 최소 40px(태블릿 32 · 휴대폰 20) */
-  .site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 92px;
-    padding: 0 max(40px, calc((100% - 1200px) / 2)); display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+     시안대로 높이 78px, 본문 폭(로고~로그인) 1036px 를 가운데에. 좁은 화면에선 양옆 여백이 최소 40px(태블릿 32 · 휴대폰 20) */
+  .site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 78px;
+    padding: 0 max(40px, calc((100% - 1036px) / 2)); display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
   .site a { pointer-events: auto; color: var(--ink); text-decoration: none; }
   .brand { display: flex; align-items: center; }
-  .brand img { width: 30px; }
+  .brand img { width: 28px; }
   /* 투명 유리 로그인: 흰빛 10% · 위 왼쪽이 밝은 테두리 · 그림자 없음. 밝은 바탕에서도 보이게 옅은 회색 테두리 한 줄 */
-  .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 14px "Gothic A1", sans-serif;
+  .glass-btn { height: 36px; padding: 0 18px; display: inline-flex; align-items: center; border-radius: 999px; font: 700 13px "Gothic A1", sans-serif;
     background: rgb(255 255 255 / .10); -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
     border: 1px solid rgb(17 19 24 / .14); box-shadow: inset 1px 1px 0 rgb(255 255 255 / .95), inset -1px -1px 0 rgb(255 255 255 / .3); }
-  @media (max-width: 1279px) { .site { padding: 0 max(32px, calc((100% - 1200px) / 2)); } }
+  @media (max-width: 1279px) { .site { padding: 0 max(32px, calc((100% - 1036px) / 2)); } }
   @media (max-width: 767px) { .site { padding: 0 20px; } }
   /* 큰 Issue Atlas: 지구 캔버스 뒤에 깔려 지구 윗부분이 글자 아랫부분을 가린다(잡지 표지 제호처럼).
-     글자 줄 가운데를 지구 꼭대기에 맞춰, 글자 크기와 상관없이 지구가 글자 높이의 약 1/3 만 가린다.
-     글자 폭은 보통 지구 지름의 약 2.8배, 넓은 화면에선 본문 폭 80% 에서 멈춘다 */
-  .mast { left: 0; right: 0; top: calc((var(--gy) - var(--gr)) * var(--u)); transform: translateY(-50%); margin: 0; text-align: center; white-space: nowrap;
-    font: 900 var(--mfs) / 1 "Gothic A1", sans-serif; letter-spacing: -0.05em; color: var(--ink); }
-  /* 석상 아래 회색 부제 한 줄: 위 큰 글자와 맞서지 않게 작고 가볍게. 석상 바닥(지구 중심 + 반지름 × 1.787)에서 30 아래 */
-  .sub { left: 0; right: 0; top: calc((var(--gy) + 1.787 * var(--gr) + 30) * var(--u)); margin: 0; text-align: center; white-space: nowrap;
-    font: 500 max(12px, calc(25.7 * var(--u))) "Gothic A1", sans-serif; letter-spacing: -0.01em; color: #5b606d; }
+     글자 줄 가운데를 지구 꼭대기에 맞춰(시안에선 2px 위), 글자 크기와 상관없이 지구가 글자 높이의 약 1/3 만 가린다.
+     시안 화면에서 166px, 넓은 화면에선 본문 폭 80% 에서 멈춘다 */
+  .mast { left: 0; right: 0; top: calc((var(--gy) - var(--gr)) * var(--u) - 0.012 * var(--mfs)); transform: translate(-0.04em, -50%);   /* 왼쪽으로 0.04em: 마지막 글자 뒤 자간 몫 · 좌우 여백 차이만큼 잉크가 오른쪽에 치우쳐 보이는 것을 바로잡는다 */ margin: 0; text-align: center; white-space: nowrap;
+    font: 900 var(--mfs) / 1 "Gothic A1", sans-serif; letter-spacing: -0.056em; color: #050608; }
+  /* 석상 아래: 굵은 한 줄 + 회색 부제 + 아래로 내리라는 꺾쇠. 시안 화면에서 38.2px · 20.65px, 꺾쇠 21 × 12.
+     위아래로 흘러 놓여 좁은 화면에서 최소 글자 크기가 걸려도 서로 겹치지 않는다 */
+  .tag { left: 0; right: 0; top: calc((var(--gy) + 405) * var(--u)); display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .lead { margin: 0; white-space: nowrap; font: 700 max(16px, calc(38.2 * var(--u))) / 1.2 "Gothic A1", sans-serif; letter-spacing: -0.031em; color: #15181f; }
+  .sub { margin: calc(9 * var(--u)) 0 0; white-space: nowrap; font: 400 max(12px, calc(20.65 * var(--u))) / 1.2 "Gothic A1", sans-serif; letter-spacing: -0.021em; color: #5a5f6b; }
+  .cue { margin-top: calc(33.9 * var(--u)); width: max(14px, calc(21 * var(--u))); height: auto; color: #7b7f88; }
 
   /* 구름 통과: 구름 알파맵을 화면 앞에 겹쳐 키우며 지나간다 */
   .clouds { pointer-events: none; opacity: 0; visibility: hidden; will-change: opacity; }
@@ -105,7 +105,11 @@
     </div>
     <div class="layer marks" id="marks"></div>
     <div class="frame" id="hero">
-      <p class="at sub">공식 통계 · 보도자료로 읽는 지역 문제</p>
+      <div class="at tag">
+        <h2 class="lead">지역의 문제를, 근거로 읽다.</h2>
+        <p class="sub">공식 통계 · 보도자료로 연결하는 지역의 맥락</p>
+        <svg class="cue" viewBox="0 0 21 12" aria-hidden="true"><path d="M1.2 1.2 10.5 10.5 19.8 1.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
     </div>
     <div class="layer clouds" id="clouds">
       <div class="cloud" style="background-position: 30% 40%"></div>
@@ -135,8 +139,10 @@ const loadImage = (src) => new Promise((ok, no) => { const i = new Image(); i.on
 const journey = document.getElementById("journey");
 const progress = () => clamp((scrollY - journey.offsetTop) / (journey.offsetHeight - innerHeight));
 const q = new URLSearchParams(location.search);
-const GX = 845, GY = 448, GR = 225;   // 히어로 지구 중심 · 반지름(설계 프레임 단위, CSS --gx · --gy · --gr 과 같은 값)
-const heroUnit = (w = innerWidth, h = innerHeight) => Math.min(w / 1684, h / 934);   // 히어로 설계틀 배율(CSS --u 와 같은 셈)
+const FW = 1586, FH = 992;            // 히어로 설계틀(= 시안 화면, CSS --fw · --fh)
+const GX = 793, GY = 425.5, GR = 205; // 히어로 지구 중심 · 반지름(설계틀 단위, CSS --gx · --gy · --gr 과 같은 값)
+const HERO_LAT = -12;                 // 히어로에서 화면 가운데에 오는 위도(시안처럼 오스트레일리아 · 남반구 쪽이 보인다)
+const heroUnit = (w = innerWidth, h = innerHeight) => Math.min(w / FW, h / FH);   // 히어로 설계틀 배율(CSS --u 와 같은 셈)
 // ?timer: 창이 숨어 있어 화면 갱신이 멈출 때(점검용) 타이머로 대신 돈다
 const tick = q.has("timer") ? (f) => setTimeout(() => f(performance.now()), 16) : (f) => requestAnimationFrame(f);
 if (q.has("p")) tick(() => scrollTo(0, journey.offsetTop + Number(q.get("p")) * (journey.offsetHeight - innerHeight)));
@@ -220,7 +226,7 @@ const sun = new THREE.DirectionalLight(0xffffff, 0.6 * Math.PI); sun.position.se
 //  ③ 구름 · 확대용 동아시아 조각 · 지도 사진은 정면 조각이 다 온 뒤 낮은 우선순위로 받는다
 // 8K 전체 사진(3MB · GPU 180MB)은 받지 않는다. 확대해 들어가는 곳(광주 둘레)만 8K 해상도 조각으로 덧씌운다
 const bitmapTexture = (bmp) => { const t = new THREE.Texture(bmp); t.flipY = false; t.anisotropy = maxAniso; t.needsUpdate = true; return t; };
-const FRONT_LON = 127.5, TILES = 8, TILE_W = 2048 / TILES;   // 처음 화면 정면 경도 = 아래 globeSpin.lon 시작값
+const FRONT_LON = 131, TILES = 8, TILE_W = 2048 / TILES;   // 처음 화면 정면 경도 = 아래 globeSpin.lon 시작값
 const earthCanvas = Object.assign(document.createElement("canvas"), { width: 2048, height: 1024 }), earthCtx = earthCanvas.getContext("2d");
 const tex = new THREE.CanvasTexture(earthCanvas); tex.anisotropy = maxAniso;
 const baseDrawn = loadBitmap("baked/earth-base.webp", false, "high").then((b) => { earthCtx.drawImage(b, 0, 0, 2048, 1024); tex.needsUpdate = true; });
@@ -276,9 +282,9 @@ frontReady.then(() => loadBitmap("baked/earth-asia.webp", true, "low")).then((im
 // 놓으면 관성으로 미끄러지다 2초 뒤부터 자전으로 돌아간다. 스크롤을 시작하면 그 자세에서 광주로 돌아간다.
 // 손이 가리키는 자세(aim)와 화면에 그리는 자세(lon · lat)를 나눈다: 마우스 신호는 화면 갱신과 박자가 달라
 // (한 프레임에 0개 · 2개씩 들어온다) 그대로 그리면 덜컥인다. 그리는 자세는 매 프레임 aim 을 부드럽게 따라간다
-const globeSpin = { lon: 127.5, lat: 0, aimLon: 127.5, aimLat: 0, vLon: 0, vLat: 0, idle: 9, drag: false, px: 0, py: 0, trail: [], from: null };
+const globeSpin = { lon: 131, lat: 0, aimLon: 131, aimLat: 0, vLon: 0, vLat: 0, idle: 9, drag: false, px: 0, py: 0, trail: [], from: null };
 const LAT_RANGE = [-40, 50], AUTO_SPIN = reduced ? 0 : 6;
-const onGlobe = (e) => { const u = heroUnit(), cx = (innerWidth - 1684 * u) / 2 + GX * u, cy = (innerHeight - 934 * u) / 2 + GY * u;
+const onGlobe = (e) => { const u = heroUnit(), cx = (innerWidth - FW * u) / 2 + GX * u, cy = (innerHeight - FH * u) / 2 + GY * u;
   return progress() < 0.03 && Math.hypot(e.clientX - cx, e.clientY - cy) < GR * u; };
 canvas.addEventListener("pointerdown", (e) => {
   if (!onGlobe(e)) return;
@@ -429,7 +435,7 @@ function frameLoop(now) {
   if (hudText !== hud.textContent) hud.textContent = hudText;   // 같은 글자를 매 프레임 다시 쓰지 않는다
   if (!changed && !heroIdle) return;
   const w = innerWidth, h = innerHeight;
-  const u = heroUnit(w, h), fx = (w - 1684 * u) / 2, fy = (h - 934 * u) / 2;
+  const u = heroUnit(w, h), fx = (w - FW * u) / 2, fy = (h - FH * u) / 2;
   const cx = fx + GX * u, cy = fy + GY * u, R = GR * u;
   // 1) 히어로 글자(지구 뒤 큰 이름 · 석상 아래 부제)가 사라진다
   const fade = ease(span(p, 0.03, 0.15));
@@ -458,13 +464,13 @@ function frameLoop(now) {
   }
   if (mapIn < 1) {
     const turn = ease(span(p, 0.04, 0.26)), s = globeSpin;
-    let tlon = s.lon, tlat = 24 + s.lat;
-    if (turn === 0) { s.from = null; stepSpin(dt); tlon = s.lon; tlat = 24 + s.lat; }
+    let tlon = s.lon, tlat = HERO_LAT + s.lat;
+    if (turn === 0) { s.from = null; stepSpin(dt); tlon = s.lon; tlat = HERO_LAT + s.lat; }
     else {
       // 스크롤을 시작한 순간의 자세(끌어서 돌려 둔 자세 그대로)에서 가장 짧은 쪽으로 광주를 향해 돈다
       if (!s.from) { s.from = { lon: s.lon, lat: s.lat }; s.aimLon = s.lon; s.aimLat = s.lat; s.vLon = s.vLat = 0; s.drag = false; canvas.style.cursor = ""; }
       const d = (((TARGET.lon - s.from.lon) % 360) + 540) % 360 - 180;
-      tlon = s.from.lon + d * turn; tlat = lerp(24 + s.from.lat, TARGET.lat, turn);
+      tlon = s.from.lon + d * turn; tlat = lerp(HERO_LAT + s.from.lat, TARGET.lat, turn);
     }
     spin.rotation.y = deg(-(tlon + 90));
     tilt.rotation.x = deg(tlat); tilt.rotation.z = deg(lerp(-10, 0, turn));
