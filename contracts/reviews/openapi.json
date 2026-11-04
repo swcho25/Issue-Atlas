@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "IssueAtlas review API",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "S15P31C108-216. 자료·소스 수정은 제안 보관만 지원. 기존 데이터에 반영하지 않음. ADMIN 경로는 ADMIN, 모든 쓰기는 X-XSRF-TOKEN 필수. 카드 수정은 C3 지정 승인 요청으로 연결."
   },
   "security": [
@@ -164,7 +164,6 @@
               "enum": [
                 "news_event",
                 "normalized_record",
-                "press_release",
                 "source",
                 "card"
               ]
@@ -362,7 +361,6 @@
               "enum": [
                 "news_event",
                 "normalized_record",
-                "press_release",
                 "source",
                 "card"
               ]
@@ -515,7 +513,6 @@
             "enum": [
               "news_event",
               "normalized_record",
-              "press_release",
               "source",
               "card"
             ]
@@ -591,7 +588,6 @@
             "enum": [
               "news_event",
               "normalized_record",
-              "press_release",
               "source",
               "card"
             ]
@@ -812,7 +808,6 @@
             "enum": [
               "news_event",
               "normalized_record",
-              "press_release",
               "source",
               "card"
             ]

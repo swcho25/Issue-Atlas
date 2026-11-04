@@ -1,4 +1,4 @@
-# 관리자 검수 API v0.1 초안 — S15P31C108-216
+# 관리자 검수 API v0.1.1 초안 — S15P31C108-216 · 237
 
 관리자 API 작성 → 프론트 · 데이터 담당자 리뷰 필요. 기계 명세는 [openapi.json](openapi.json).
 
@@ -9,12 +9,20 @@
 | 대상 `target_type` | `target_id` | 현재 값 조회 | 처리 |
 | --- | --- | --- | --- |
 | news_event | news_id | 요약·사건 시각·지역·좌표 (본문 없음) | 현재 값 확정 / 보류 / 반려 |
-| normalized_record | id(양의 정수 문자열) | 출처·명세·지표·지역 코드·값·정제 상태 (record/payload 본문 없음) | 동일 |
-| press_release | press_id | 제목·부서·분류·지역 코드·발행일·링크·이용 조건 | 동일 |
+| normalized_record | id(양의 정수 문자열) | 출처·명세·지표·지역 코드·값·정제 상태. 보도자료는 아래 문서 메타데이터 포함 (record/payload 본문 없음) | 동일 |
 | source | source_id | 출처명·기관·이용 조건·등급·robots 상태 | 동일. `scope=source`는 출처 **메타데이터 자체**이며 소스 전체 자료 일괄 수정이 아님 |
 | card | card_id | 현재 초안·수정 번호·공개 버전 | 위 처리 + 초안 수정·지정 승인자 요청 연결 |
 
 `global` 및 기사에서 `scope=source/card`로 바꾸는 일괄 처리는 지원하지 않는다(400). 자료·소스의 `correct`는 409이고 요청 상태·원본·이력 모두 바뀌지 않는다. 프론트는 상세의 `supported_actions`, `editable_fields`를 기준으로 버튼을 비활성화한다. 제안 가능한 필드는 `proposable_fields`로 별도 표시한다. 보류는 자동 재실행되지 않는다.
+
+### 보도자료 연결 변경 (237번)
+
+- 새 보도자료도 `target_type=normalized_record`, `target_id=normalized_record.id`로 등록한다. `press_release` 대상 종류는 신규 요청과 목록·이력 필터에서 제거한다(400). 옛 테이블 삭제는 데이터 담당자의 별도 작업이다.
+- `current_value`의 보도자료 메타데이터: `press_id`, `document.{kind,title,publisher,categories,link}`, `published_at`, `collected_at`, `license_type`, `storage_scope`, `department`. 문서는 `record`에서 허용 키만 추출하며 본문·발췌·fetch는 반환하지 않는다. 부서는 C1에 없어 같은 content_hash의 raw_record.payload에서 부서명만 읽고, 없으면 null이다.
+- 통계 등 다른 normalized_record의 현재 값 형식은 유지한다. 보도자료 제목·분류·담당부서 수정 제안은 기존처럼 `proposed_value.{title,category,department}`에 보관할 수 있고 실제 자료에는 적용하지 않는다.
+- V0043이 기존 press_release 검수의 locator.press_id를 정제 행과 연결한다. 요청 당시 제목·분류·부서·발행일·링크가 모두 일치하는 원본 판을 우선하고, 없으면 통과/보정된 최신 판·수정 시각·ID 순으로 선택한다. 연결 대상은 press_yeosu/press_gwangju의 press_release 문서만이다.
+- 요청 ID·제출 당시 값·제안·상태·생성 시각·처리 이력은 유지하고 target_type/target_id를 이전한다. revision은 1 증가하므로 기존 화면은 다시 상세 조회 후 처리해야 한다. 이력의 원래 전후 스냅샷은 변환하지 않는다.
+- 대응되는 정제 행이 없는 기존 검수가 있으면 migration이 중단되고 기존 요청은 보존된다. 해당 자료의 정제 이관을 먼저 완료한 후 배포한다. V0043 배포·검증 후에 데이터 담당자가 옛 테이블을 삭제할 수 있다.
 
 ## 경로
 
@@ -52,7 +60,7 @@ action=confirm/correct/reject/hold. pending → resolved/rejected/on_hold, on_ho
 ```
 위 빈 객체는 구조 예시다. 실제로는 조회한 현재 값과 완성도 검사를 통과하는 전체 카드 초안을 보낸다. `after.draft_spec`을 기존 초안 저장 API와 동일하게 검증·저장하고, 205번 승인 요청을 생성한다. 본인 지정도 허용한다. 공개 버전은 이 시점에 바뀌지 않는다. 실패하면 초안·요청 상태·승인 요청·검수 이력을 전부 롤백한다.
 
-생성된 `approval_request_id`는 [C3 승인 API](../c3/)에서 지정 승인자가 처리한다. 이후 검수 API로 중복 처리할 수 없다. 검수 목록/상세의 status는 실제 승인 상태를 반영한다: 승인 대기→approval_pending, 보류→on_hold, 승인→resolved, 반려→rejected. 상세 approval_status와 ID로 화면을 연결하며, 이 단계의 `supported_actions`는 빈 배열이다. 검수 revision은 검수 결정 횟수이며 카드 승인 쪽 revision과 다르다.
+생성된 `approval_request_id`는 [C3 승인 API](../c3/)에서 지정 승인자가 처리한다. 이후 검수 API로 중복 처리할 수 없다. 검수 목록/상세의 status는 실제 승인 상태를 반영한다: 승인 대기→approval_pending, 보류→on_hold, 승인→resolved, 반려→rejected. 상세 approval_status와 ID로 화면을 연결하며, 이 단계의 `supported_actions`는 빈 배열이다. 검수 revision은 동시 수정 방지 번호이며 대상 이전 시에도 증가한다. 카드 승인 쪽 revision과 다르다.
 
 ## 이력과 자료 보존
 
@@ -61,4 +69,4 @@ action=confirm/correct/reject/hold. pending → resolved/rejected/on_hold, on_ho
 - 변경 ID는 `review_change:<UUID>` 또는 `card_revision:<숫자>`. 최종 승인 이력은 과거 계정과 연결할 수 없으면 actor_id=null이고 기존 approved_by 이메일을 actor_email로 유지한다.
 - GET /changes 필터: target_type/target_id/scope/action/actor_id/from/to/page/size. 기간은 [from,to), 오프셋 포함 ISO 8601. 역전 기간 400. 이력은 읽기 전용이며 과거 카드 승인 이력도 새 테이블로 복제하지 않는다.
 - 저장된 질문 결과를 재실행하거나 소급 변경하지 않는다. 자료 수정·소스/전체 규칙 일괄 반영은 담당자와 원천·미래 적재·오버라이드 우선순위를 정한 다음 별도 구현한다.
-- migration은 V0037이다. 기사 카드 꼬리표 작업의 V0036과 최신 develop을 반영한 뒤 병합한다. 다른 진행 중 MR의 번호도 병합 전에 확인한다.
+- 최초 검수 표는 V0037, 보도자료 검수 대상 이전은 V0043이다. 다른 진행 중 MR의 번호도 병합 전에 확인한다.

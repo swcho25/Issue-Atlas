@@ -9,7 +9,7 @@ public final class ReviewDto {
     private ReviewDto() {}
 
     public record Submit(
-            @NotBlank @Pattern(regexp = "news_event|normalized_record|press_release|source|card")
+            @NotBlank @Pattern(regexp = "news_event|normalized_record|source|card")
                     String targetType,
             @NotBlank @Size(max = 200) String targetId,
             @NotBlank

@@ -8,7 +8,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.c108.issueatlas.TestcontainersConfiguration;
 import com.c108.issueatlas.card.service.CardStorageService;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -328,21 +327,16 @@ class ReviewIntegrationTest {
                 jdbc.queryForObject(
                         "INSERT INTO normalized_record(content_hash,source_id,spec_id,validation_status,issues,rule_version,record) VALUES('review-hash','review-source','review-spec','held','[]','p2-test','{\"private_body\":\"DO_NOT_EXPOSE\"}') RETURNING id",
                         Long.class);
-        jdbc.update(
-                "INSERT INTO press_release(press_id,site,org,place_code_raw,title,published_on,url,license_type,storage_scope,collected_at,collector) VALUES('review-press','yeosu','기관','46130','제목','2025-04-08','https://example.org','test','metadata',now(),'test')");
-        for (var target :
-                Map.of("normalized_record", row.toString(), "press_release", "review-press")
-                        .entrySet()) {
-            String id = request(target.getKey(), target.getValue());
-            assertThat(detail(id).toString()).doesNotContain("DO_NOT_EXPOSE");
-            decide(id, decision(id, "confirm")).andExpect(status().isOk());
-        }
+        String id = request("normalized_record", row.toString());
+        assertThat(detail(id).toString()).doesNotContain("DO_NOT_EXPOSE");
+        decide(id, decision(id, "confirm")).andExpect(status().isOk());
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT record->>'private_body' FROM normalized_record WHERE id=?",
                                 String.class,
                                 row))
                 .isEqualTo("DO_NOT_EXPOSE");
+        submit(submission("press_release", "yeosu:237"), true).andExpect(status().isBadRequest());
         submit(submission("normalized_record", "invalid"), true).andExpect(status().isBadRequest());
     }
 

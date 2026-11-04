@@ -22,7 +22,7 @@ import tools.jackson.databind.JsonNode;
 @Transactional(readOnly = true)
 public class ReviewService {
     private static final Set<String> TYPES =
-            Set.of("news_event", "normalized_record", "press_release", "source", "card");
+            Set.of("news_event", "normalized_record", "source", "card");
     private static final Set<String> ISSUES =
             Set.of(
                     "location",
@@ -186,8 +186,15 @@ public class ReviewService {
                             "location_precision",
                             "card_ids");
             case "normalized_record" ->
-                    List.of("value", "unit", "indicator_id", "place_code_system", "place_code_raw");
-            case "press_release" -> List.of("title", "category", "department", "place_code_raw");
+                    List.of(
+                            "value",
+                            "unit",
+                            "indicator_id",
+                            "place_code_system",
+                            "place_code_raw",
+                            "title",
+                            "category",
+                            "department");
             case "source" ->
                     List.of(
                             "name",
