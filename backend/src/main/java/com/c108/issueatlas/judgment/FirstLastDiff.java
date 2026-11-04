@@ -73,9 +73,9 @@ public class FirstLastDiff implements RuleType {
         }
         int first = stationsByYear.firstKey();
         int last = stationsByYear.lastKey();
-        BigDecimal diff =
-                average(values.bySeries(), common, last)
-                        .subtract(average(values.bySeries(), common, first));
+        BigDecimal firstMean = average(values.bySeries(), common, first);
+        BigDecimal lastMean = average(values.bySeries(), common, last);
+        BigDecimal diff = lastMean.subtract(firstMean);
         Set<String> holds =
                 diff.compareTo(decimal(rule.path("thresholds").path("worse"))) >= 0
                         ? Set.of("diff_at_least_worse")
@@ -85,13 +85,22 @@ public class FirstLastDiff implements RuleType {
         return new Evaluation(
                 holds,
                 true,
+                // firstMean · lastMean: 시군구 연 값(공통 측정소 연평균의 평균). 문장화가 숫자로 쓴다
                 Map.of(
                         "yearCount",
                         yearCount,
                         "commonStationCount",
                         common.size(),
                         "difference",
-                        diff));
+                        diff,
+                        "firstYear",
+                        first,
+                        "lastYear",
+                        last,
+                        "firstMean",
+                        firstMean,
+                        "lastMean",
+                        lastMean));
     }
 
     private static BigDecimal average(

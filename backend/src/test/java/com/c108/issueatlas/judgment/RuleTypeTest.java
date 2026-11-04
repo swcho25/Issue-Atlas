@@ -102,6 +102,12 @@ class RuleTypeTest {
         assertThat(result.sameBoundary()).isTrue();
         assertThat(result.facts()).containsEntry("commonStationCount", 1);
         assertThat(result.facts()).containsEntry("difference", new BigDecimal("3"));
+        // 문장화가 그대로 쓰는 시군구 연 값: 공통 측정소의 첫해 · 끝해 평균
+        assertThat(result.facts())
+                .containsEntry("firstYear", 2023)
+                .containsEntry("firstMean", new BigDecimal("10"))
+                .containsEntry("lastYear", 2025)
+                .containsEntry("lastMean", new BigDecimal("13"));
 
         Evaluation better =
                 difference.evaluate(

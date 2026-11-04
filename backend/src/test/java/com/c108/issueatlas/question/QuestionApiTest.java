@@ -816,8 +816,17 @@ class QuestionApiTest {
                 runId(ask(body("A3", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
         String sent = ENGINE_REQUESTS.getLast();
         C2Contract.assertAiMatches("phrasing-request", sent);
+        // 측정소 연 값 3개 + 규칙이 계산한 시군구 연 값(공통 측정소 첫해 · 끝해 평균) 2개
         List<String> places = JsonPath.read(sent, "$.judgment.statistics_points[*].place_id");
-        assertThat(places).hasSize(3).allMatch(id -> id.endsWith("336121"));
+        assertThat(places)
+                .containsExactly(
+                        "kr-12130-s336121",
+                        "kr-12130-s336121",
+                        "kr-12130-s336121",
+                        "kr-12130",
+                        "kr-12130");
+        List<Number> values = JsonPath.read(sent, "$.judgment.statistics_points[3:].value");
+        assertThat(values).extracting(Number::intValue).containsExactly(10, 13);
         assertThat(phrasing(runId).get("reason_code")).isEqualTo("ENGINE_ERROR");
     }
 

@@ -95,6 +95,8 @@ def base_numbers(sent: dict) -> set[Decimal]:
         *sent["question"].values(),
         fixed["claim_text"],
         *fixed["comparability"].values(),
+        fixed.get("rule_meaning"),
+        *(f"{o['label']} {o['meaning']}" for o in fixed.get("rule_outcomes", [])),
         sent["card_warrant"],
         *(s["period"] for s in sent["statistics"]),
         *(e["title"] for e in sent["evidence"]),

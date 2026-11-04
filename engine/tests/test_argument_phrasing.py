@@ -505,3 +505,46 @@ def test_api_skips_blocked_run_without_model(monkeypatch):
         "/v1/argument/phrase", json=request(example("judgment-insufficient"))
     )
     assert response.json()["reason_code"] == "RUN_BLOCKED" and calls == []
+
+
+# ── 프롬프트 v3: 판정 이유는 규칙 결과 뜻으로, 보증에 연 값 ──
+
+
+def card(name):
+    return json.loads((CONTRACTS / "cards" / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def test_rule_meaning_is_the_outcome_the_rule_chose():
+    judgment = c1()
+    judgment["claim"]["text"] = "여수시에서 2023–2025 청년(19–39세) 순이동이 청년 순유출 확대."
+    fixed = build(judgment, SOURCES, card("C1"))["fixed"]
+    assert fixed["rule_meaning"].startswith("모든 해가 음수이고 절대값이 해마다 커짐")
+    assert {o["label"] for o in fixed["rule_outcomes"]} >= {"청년 순유출 확대", "불분명"}
+    # 승인본에 규칙이 없거나 판단 문장에 결과 이름이 없으면 뜻을 붙이지 않는다
+    assert build(c1(), SOURCES, C1_CARD)["fixed"]["rule_meaning"] is None
+
+
+def test_statistics_say_whether_a_value_is_the_place_or_a_station():
+    judgment = a3()
+    judgment["statistics_points"].append(
+        {**judgment["statistics_points"][0], "place_id": "kr-12130", "value": 17.25}
+    )
+    places = [s["place"] for s in build(judgment, SOURCES, card("A3"))["statistics"]]
+    assert places == ["kr-12130-s336127"] * 3 + ["여수시"]
+
+
+def test_numbers_in_the_rule_meaning_may_be_used():
+    judgment = a3()
+    output = {
+        "claim_value": "decreasing",
+        "warrant": {
+            "text": "여수시 측정소의 PM2.5 연평균은 2023년 18.6에서 2025년 15.1이 되어 "
+            "끝해 − 첫해가 −3µg/m³ 이하라 개선으로 판정했다.",
+            "citations": ["ev_air_final_yeosu"],
+        },
+        "rebuttals": [
+            {"id": "R1", "status": "not_found", "note": None, "citations": []},
+            {"id": "R2", "status": "not_found", "note": None, "citations": []},
+        ],
+    }
+    assert problems(output, judgment, card("A3")) == set()

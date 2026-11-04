@@ -85,7 +85,7 @@ AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지, bac
 | --- | --- | --- |
 | `run_id` · `question` · `card_version` · `formula_version` · `taxonomy_version` · `run_status` | C2 와 같음 | |
 | `evidence_table` · `comparability` · `claim` · `qualifier` · `data` · `warrant` · `ceiling` | C2 와 같음 | C2 의 스키마 규칙(blocked → insufficient, 증가 · 감소면 비교 조건 모두 통과, 한정어 등급 규칙표)을 그대로 검사 |
-| `statistics_points[]` | `{evidence_id, indicator_id, unit, place_id, period_start, period_end, value, missing_reason, is_provisional}` | 값이 null 이면 `missing_reason` 필수, 값이 있으면 null. 0 으로 채우지 않는다. 필수 근거가 없으면 빈 배열 |
+| `statistics_points[]` | `{evidence_id, indicator_id, unit, place_id, period_start, period_end, value, missing_reason, is_provisional}` | 값이 null 이면 `missing_reason` 필수, 값이 있으면 null. 0 으로 채우지 않는다. 필수 근거가 없으면 빈 배열. 판정에 쓴 연 값(측정소 지표는 측정소마다, `place_id` = 측정소). 규칙이 시군구 연 값을 따로 계산하면(A3 공통 측정소 첫해 · 끝해 평균) 그 값도 `place_id` = 질문 지역으로 넣는다(v0.2) — AI 는 계산하지 않고 이 값을 그대로 쓴다 |
 | `excluded_provisional[]` | 판단에서 뺀 잠정값의 식별자(관측값은 C1 `dedup_key`) | 상한선에 적는다 |
 | `rebuttal_candidates[]` | `{id?, text, decided_by_rule}` | 카드가 정한 경쟁 설명. `decided_by_rule` 이 null 인 것만 AI 가 문서로 근거 유무를 본다. `id` 는 카드 승인본 `rebuttals.items[].id`(v0.2, 없으면 AI 가 R1 … 을 붙인다) |
 
@@ -114,6 +114,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | 결과 | `{schema_version, run_id, status, reason_code, retryable, warrant, rebuttals, citations, problems, model, prompt_version}` | `warrant` · `rebuttals` 는 C2 칸 모양. `done` 이면 backend 가 응답 칸을 바꿔 끼우고, 아니면 카드 보증 문구 · `rebuttals = []`(지금 응답과 같음) |
 | 계약 위반 | HTTP 422 `{reason_code: "INPUT_INVALID", problems}` | `problems` 는 어긴 칸 경로와 규칙 이름만. 값은 돌려주지 않는다 |
 
+- 보증 ③ 은 두 문장 이내: 첫 문장에 판정에 쓴 연 값(질문 지역 값이 있으면 그것, 첫해 · 끝해는 꼭)과 판정 이유. 판정 이유는 카드 승인본 `rule.outcomes[]` 중 고른 결과의 `meaning` 으로만 말한다(v3, 지어낸 이유 방지). 둘째 문장은 카드 보증의 논리
 - `provenance`: 보증은 `llm_phrasing`, 모델이 근거 유무를 정한 반박은 `llm_judgment`, 규칙이 정한 반박(`decided_by_rule`)은 `rule`. 반박 문장은 카드 경쟁 설명 그대로(+ 모델이 쓴 한 문장 `note`)
 - 근거 구절: 기사 요약을 문장 하나씩 나눈 P1 … (앞 40건). 원문 위치 = `{kind, source_id, field, sentence, date, url}`. 보도자료 · 정책 문서도 같은 모양으로 넣는다(-161)
 - `citations` 는 C2 응답에 나가지 않는다. backend 가 실행마다 따로 남긴다([DB 계약](../database/README.md) `argument_phrasing`)
@@ -139,7 +140,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | engine → 모델(GMS Gemini 2.5 Flash) | 한 번에 30초. 429 · 5xx 만 두 번까지 다시 부른다 → `LLM_TIMEOUT` · `LLM_ERROR` |
 | backend → engine | 연결 2초 · 응답 40초. 넘거나 못 닿으면 backend 가 `ENGINE_TIMEOUT` · `ENGINE_ERROR`, 주소 설정이 없으면 `ENGINE_DISABLED` 로 남기고 카드 문구로 응답 |
 
-실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v2`, 결과에 `model` · `prompt_version` 을 남긴다.
+실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v3`, 결과에 `model` · `prompt_version` 을 남긴다.
 
 ## 예시 · 샘플
 

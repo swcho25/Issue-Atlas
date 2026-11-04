@@ -8,6 +8,7 @@ import com.c108.issueatlas.question.dto.ArgumentResponse.Rebuttal;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Text;
 import com.c108.issueatlas.question.repository.QuestionRepository.PhrasingRow;
 import com.c108.issueatlas.question.service.CardJudge.Judgment;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -152,7 +153,10 @@ public class ArgumentPhraser {
         return request;
     }
 
-    /** 판정에 쓴 연 값. 계열이 측정소면 place_id 는 측정소 ID. 통계 근거가 없으면 비운다(계약: 근거 ID 필수). */
+    /**
+     * 판정에 쓴 연 값. 계열이 측정소면 place_id 는 측정소 ID. 규칙이 시군구 연 값(공통 측정소 첫해 · 끝해 평균)을 계산했으면 그 둘을 질문 지역 값으로
+     * 더한다 — 모델은 계산하지 않고 이 값을 그대로 쓴다. 통계 근거가 없으면 비운다(계약: 근거 ID 필수).
+     */
     static List<Map<String, Object>> points(Judgment judgment, String placeId) {
         if (judgment == null || judgment.statistics().isEmpty()) {
             return List.of();
@@ -162,24 +166,40 @@ public class ArgumentPhraser {
                 .forEach(
                         (series, years) ->
                                 years.forEach(
-                                        (year, value) -> {
-                                            Map<String, Object> point = new LinkedHashMap<>();
-                                            point.put("evidence_id", judgment.statistics().get(0));
-                                            point.put("indicator_id", judgment.indicatorId());
-                                            point.put("unit", judgment.unit());
-                                            point.put(
-                                                    "place_id",
-                                                    series.equals(AnnualRollup.PLACE_SERIES)
-                                                            ? placeId
-                                                            : series);
-                                            point.put("period_start", LocalDate.of(year, 1, 1));
-                                            point.put("period_end", LocalDate.of(year + 1, 1, 1));
-                                            point.put("value", value);
-                                            point.put("missing_reason", null);
-                                            point.put("is_provisional", false);
-                                            points.add(point);
-                                        }));
+                                        (year, value) ->
+                                                points.add(
+                                                        point(
+                                                                judgment,
+                                                                series.equals(
+                                                                                AnnualRollup
+                                                                                        .PLACE_SERIES)
+                                                                        ? placeId
+                                                                        : series,
+                                                                year,
+                                                                value))));
+        Map<String, Object> facts = judgment.facts();
+        for (String end : List.of("first", "last")) {
+            if (facts.get(end + "Mean") instanceof BigDecimal mean
+                    && facts.get(end + "Year") instanceof Integer year) {
+                points.add(point(judgment, placeId, year, mean));
+            }
+        }
         return points;
+    }
+
+    private static Map<String, Object> point(
+            Judgment judgment, String placeId, int year, BigDecimal value) {
+        Map<String, Object> point = new LinkedHashMap<>();
+        point.put("evidence_id", judgment.statistics().get(0));
+        point.put("indicator_id", judgment.indicatorId());
+        point.put("unit", judgment.unit());
+        point.put("place_id", placeId);
+        point.put("period_start", LocalDate.of(year, 1, 1));
+        point.put("period_end", LocalDate.of(year + 1, 1, 1));
+        point.put("value", value);
+        point.put("missing_reason", null);
+        point.put("is_provisional", false);
+        return point;
     }
 
     /** 응답에 넣을 ③ · ⑤ 와 argument_phrasing 한 행. */
