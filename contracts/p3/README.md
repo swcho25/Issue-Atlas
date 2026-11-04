@@ -1,4 +1,4 @@
-# P3 지역 · 시간 v0.13 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place` · 경계 `place_boundary`
+# P3 지역 · 시간 v0.14 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place` · 경계 `place_boundary`
 
 지역 · 시간(P3)이 P2 정제 결과([P2 계약](../p2/README.md))에 붙이는 것. 기사에는 요약 · 사건 시간대 · 위치를, 통계에는 지역 코드가 가리키는 위치를 붙인다.
 **통계 값은 다시 저장하지 않는다.** 서비스는 요청 때 `normalized_ready` · `air_monthly` 를 지역 코드로 걸러 읽는다. 표는 Flyway [V0016](../../backend/src/main/resources/db/migration/V0016__create_news_event.sql) · [V0017](../../backend/src/main/resources/db/migration/V0017__seed_station_places.sql) · [V0020](../../backend/src/main/resources/db/migration/V0020__add_news_event_regions.sql).
@@ -34,7 +34,7 @@
 | `place_id` | 위치가 든 곳. 행정동 `kr-<8자리>`(좌표의 SGIS 행정동 코드 → `place_code_map` `sgis`, 광주 5구 · 여수시) → 그 밖 통합시 시군구 `kr-<5자리>` → 시도 대표점 `kr-<2자리>`. 외래키 없는 참고 값(행정동 `place` 가 없는 시군구도 있다). v0.9 전에 넣은 기사의 법정동 `kr-<10자리>` 는 `region-load --relocate` 가 행정동으로 바꾼다 |
 | `sido` · `sigun` · `gu` | 기사 대표 지역. 정해지지 않은 단계는 null. 시도는 `전남광주통합특별시` · `전국` · 다른 시도, 시군은 `여수시` 등, 광주 5개 구는 시군 `광주` + 구 |
 | `regions` | 기사 지역 전부(V0020, jsonb 배열). 원소 `{sido, sigun, gu}` 는 위 세 칸과 같은 값이고, **첫 원소가 대표 지역**으로 `sido` · `sigun` · `gu` 와 늘 같다. 여러 지역을 다룬 기사는 모두 넣는다. 전국이라 밝혔거나 특정 지역이 없으면 `[{"sido": "전국", "sigun": null, "gu": null}]`. 빈 배열 `[]`(기본값)은 보류(지역 미정)만 |
-| `prompt_version` · `summary_version` · `model` | 만든 판(V0038): 지역 질문 프롬프트 판(`p9.1` …) · 요약 · 시간 질문 판(`s1.1` …) · 추출 모델 이름(`.env` `P3_LLM_MODEL`). `region-load` 가 추출 결과에서 채운다. **null = 판을 기록하기 전 적재**(2026-11-01 lab 적재 — p9.1 · s1 · Qwen2.5-32B-Instruct-AWQ). 다시 넣을 때 새 값이 없으면 있던 값을 지우지 않는다 |
+| `prompt_version` · `summary_version` · `model` | 만든 판(V0038): 지역 질문 프롬프트 판(`p9.1` …) · 요약 · 시간 질문 판(`s1.1` · `s1.2` …, s1.2 = 「N일」 달 보정) · 추출 모델 이름(`.env` `P3_LLM_MODEL`). `region-load` 가 추출 결과에서 채운다. **null = 판을 기록하기 전 적재**(2026-11-01 lab 적재 — p9.1 · s1 · Qwen2.5-32B-Instruct-AWQ). 다시 넣을 때 새 값이 없으면 있던 값을 지우지 않는다 |
 
 CHECK: `event_end > event_start`, 좌표가 없으면 `location_precision = none`, 좌표는 경도 124–132 · 위도 33–39, `regions` 는 JSON 배열.
 
@@ -204,3 +204,4 @@ PRD FR-A1(지역 계층 시 → 구·군 → 읍·면·동)의 읍·면·동. **
 | v0.11 | 2026-11-03 | `news_event` 에 만든 판 칸 `prompt_version` · `summary_version` · `model`(V0038, null 허용). `region-load` 가 추출 결과의 판 · 모델을 저장 — LLM 결과 출처 표시. 기존 행은 null (S15P31C108-218) |
 | v0.12 | 2026-11-04 | 시군구 6곳 · 행정동 123곳 경계 `place_boundary`(V0041 표 · V0042 시드, `geography(MultiPolygon, 4326)`). 출처 SGIS 행정구역 경계 2025, 10 m 단순화. engine `pipeline.region.boundary` 가 시드를 만든다. 화면 API 는 다음 MR (S15P31C108-230) |
 | v0.13 | 2026-11-04 | 경계를 C2 `GET /v1/places/{place_id}/boundaries` 로 내보낸다(GeoJSON, S15P31C108-238). 「아직 없는 것」에서 경계 API 를 뺀다 |
+| v0.14 | 2026-11-04 | 요약 · 시간 판 `s1.2`: 글에 달 없이 「N일」만 있는데 발행일과 15일 넘게 떨어진 사건일을 발행일에 가장 가까운 그 날로 옮긴다(「지난」은 이전 · 「오는」은 이후에서만, notes `달_고침`). 근거: 정확도 검수 v3 — 12월 1일 기사의 「30일」을 12월 30일로 잡은 것 3건. 칸은 그대로, 새로 추출하는 기사부터 (S15P31C108-247) |

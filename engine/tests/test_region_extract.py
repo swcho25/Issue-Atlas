@@ -51,7 +51,10 @@ def test_row_is_region_load_input():
     assert row["notes"]["장소아님_뺌"] == ["여수시"]  # 행정 이름은 장소가 아니다
     assert (row["event_start"], row["event_end"], row["time_precision"]) == (
         "2025-03-01T00:00:00+09:00", "2025-03-02T00:00:00+09:00", "day")  # fmt: skip
-    assert (row["prompt_version"], row["summary_version"]) == ("p9.1", "s1.1")
+    assert (row["prompt_version"], row["summary_version"]) == (
+        "p9.1",
+        answer_summary.SUMMARY_VERSION,
+    )
     assert (row["summary"], row["model"]) == (SUMMARY["summary"], "fake")
     assert "lead" not in row and BODY not in json.dumps(row, ensure_ascii=False)
     loaded, reason = event_row(row, ARTICLE["title"], BODY, ARTICLE["published_at"])

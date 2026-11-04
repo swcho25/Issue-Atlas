@@ -9,6 +9,9 @@ p3-region-lab region_lab/models/summary.py 에서 옮겼다.
 s1.1 (2026-11-02): 프롬프트는 s1 그대로. 요약 앞 60자가 본문에 그대로 있으면(checks.good_summary 가
 본문을 지우지 않는 요약) 「새로 쓰라」 덧붙임을 달아 한 번 더 묻는다 —
 s1 서버 기사 3,478건 중 47건이 본문을 옮겼다.
+s1.2 (2026-11-04): 프롬프트는 s1 그대로. 글에 달 없이 「N일」만 있는데 발행일과 15일 넘게
+떨어진 날짜를 발행일에 가장 가까운 그 날로 옮긴다(nearest_month) — 검수 v3(dev 120건)에서
+12월 1일 기사의 「30일」을 12월 30일로 잡은 것 3건(실제 11월 30일).
 """
 
 import re
@@ -18,7 +21,7 @@ from .checks import COPIED_PREFIX, KST
 from .llm import parse_json
 from .text import body_text
 
-SUMMARY_VERSION = "s1.1"
+SUMMARY_VERSION = "s1.2"
 MAX_TOKENS = 400
 BODY_CHARS = 2000
 _WEEKDAY = "월화수목금토일"
@@ -54,6 +57,10 @@ _DAY_IN_BASIS = re.compile(r"(\d{1,2})\s?(?=일|[~～-]\s?\d{1,2}\s?일)")  # �
 _YEAR_WORD = re.compile(r"\d{2,4}\s?년|지난해|작년|내년|이듬해|올해|전년|연초|연말")
 _PAST = re.compile(r"지난|어제|그제|전날|앞서")
 _AHEAD = re.compile(r"오는|다음|내달|내일|모레|예정")
+_MONTH_WORD = re.compile(
+    r"\d{1,2}\s?월|지난\s?달|이번\s?달|이달|다음\s?달|내달|전달|전월|익월|월초|월말"
+)
+MONTH_GAP = 15  # 이보다 가까우면 LLM 이 고른 달을 그대로 둔다
 
 
 def published_day(published_at: str) -> date:
@@ -116,6 +123,38 @@ def nearest_year(t0: datetime, t1: datetime | None, basis: str, pub: date):
     return t0.replace(year=t0.year + best), t1.replace(year=t1.year + best) if t1 else None, best
 
 
+def nearest_month(t0: datetime, t1: datetime | None, basis: str, pub: date):
+    """글에 달 · 연도 없이 「N일」만 있는데 발행일과 MONTH_GAP 일 넘게 떨어진 날짜 →
+    발행 달 앞뒤의 그 날 중 발행일에 가장 가까운 날로 옮긴다.
+    「지난」은 발행일 이전, 「오는 · 다음」은 이후에서만 고른다.
+    예: 발행 12월 1일 「30일」 → 11월 30일 (s1 이 12월 30일로 잡은 것, 검수 v3 3건)"""
+    days = {int(d) for d in _DAY_IN_BASIS.findall(basis)}
+    gap = abs((t0.date() - pub).days)
+    if (
+        t0.day not in days
+        or _MONTH_WORD.search(basis)
+        or _YEAR_WORD.search(basis)
+        or gap <= MONTH_GAP
+    ):
+        return t0, t1, None
+    past, ahead = _PAST.search(basis), _AHEAD.search(basis)
+    best = None
+    for k in (-1, 0, 1):
+        y, m = divmod(pub.year * 12 + pub.month - 1 + k, 12)
+        try:
+            c = t0.replace(year=y, month=m + 1)
+        except ValueError:  # 31일이 없는 달
+            continue
+        if (past and c.date() > pub) or (ahead and c.date() < pub):
+            continue
+        if (g := abs((c.date() - pub).days)) < gap:
+            best, gap = c, g
+    if best is None:
+        return t0, t1, None
+    moved = best - t0
+    return best, t1 + moved if t1 else None, moved
+
+
 def event_period(event: dict, published_at: str) -> tuple[str, str | None, str, dict]:
     """LLM 의 event → (시작, 끝(미포함) 또는 None, 정밀도, 확인 메모).
     날짜가 없거나 형식이 틀리면 발행 시각 하나(끝 없음)"""
@@ -146,6 +185,9 @@ def event_period(event: dict, published_at: str) -> tuple[str, str | None, str, 
     t0, t1, shift = nearest_year(t0, t1, basis, pub)
     if shift:
         note["연도_고침"] = f"{event.get('start')} → {t0.date().isoformat()}"
+    t0, t1, moved = nearest_month(t0, t1, basis, pub)
+    if moved:
+        note["달_고침"] = f"{event.get('start')} → {t0.date().isoformat()}"
     if abs((t0.date() - pub).days) > 3 * 366:
         note["발행일과_3년_넘게_떨어짐"] = t0.date().isoformat()
     days = {int(d) for d in _DAY_IN_BASIS.findall(basis)}
