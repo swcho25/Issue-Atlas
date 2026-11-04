@@ -179,21 +179,27 @@ async function run(
     earthCtx.drawImage(b, 0, 0, 2048, 1024);
     tex.needsUpdate = true;
   });
+  // 지구 뒷면 조각 · 구름 · 동아시아 조각 · 안쪽 지도 단계는 가장 넓은 지도 단계를 받은 뒤에 받는다(느린 회선에서도 지도가 먼저 뜨게)
+  let releaseExtras = () => {};
+  const extrasReady = new Promise<void>((ok) => (releaseExtras = ok));
   const tileGap = (i: number) =>
     Math.abs(((((-180 + (i + 0.5) * (360 / TILES) - FRONT_LON) % 360) + 540) % 360) - 180);
   const earthTiles = [...Array(TILES).keys()]
     .sort((a, b) => tileGap(a) - tileGap(b))
     .map((i, k) => {
-      const tile = loadBitmap(`earth-t${i}.webp`, false, k < 4 ? "high" : "auto");
+      const tile =
+        k < 4
+          ? loadBitmap(`earth-t${i}.webp`, false, "high")
+          : extrasReady.then(() => loadBitmap(`earth-t${i}.webp`));
       return baseDrawn
         .then(() => tile)
         .then((b) => {
           earthCtx.drawImage(b, i * TILE_W, 0);
           tex.needsUpdate = true;
-        });
+        })
+        .catch(() => undefined); // 조각 하나를 못 받으면 그 자리는 작은 전체 사진으로 남는다
     });
   const frontReady = Promise.all(earthTiles.slice(0, 4));
-  const earthReady = Promise.all(earthTiles);
   await baseDrawn;
   if (signal.aborted) return;
 
@@ -237,7 +243,7 @@ async function run(
   // 구름층이 흘러간 각도(도). 매 프레임 조금씩 더한다 — 연 뒤 흐른 시간으로 셈하면 오래 켜 둔 뒤 스크롤할 때 쌓인 회전을 한꺼번에 되감는다
   let cloudDrift = 0;
   const cloudEls = [...el.clouds.children] as HTMLElement[];
-  frontReady
+  extrasReady
     .then(() => loadBitmap("clouds-2048.webp", true, "low"))
     .then((cloudImg) => {
       if (signal.aborted) return;
@@ -290,7 +296,7 @@ async function run(
 
   // 동아시아 조각(경도 87~167°, 위도 10~60°, 8K 해상도): 같은 자리의 구 조각에 붙여 바탕 지구 위에 덧씌운다. 가장자리는 부드럽게 지운다
   const PATCH = { lon: [87, 167], lat: [10, 60] };
-  frontReady
+  extrasReady
     .then(() => loadBitmap("earth-asia.webp", true, "low"))
     .then((img) => {
       if (signal.aborted) return;
@@ -453,27 +459,39 @@ async function run(
     });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(s, s), mat);
     mesh.renderOrder = i;
+    mesh.visible = false; // 사진이 GPU 에 올라온 단계만 그린다
     ground.add(mesh);
-    return { z, mat, ready: false };
+    return { z, mat, mesh, ready: false };
   });
+  // 지도 사진(8장 · 약 4.8MB): 정면 지구 조각이 오면 가장 넓은 단계(226KB)부터 혼자 받고, 나머지는 넓은 단계부터 두 장씩 받는다.
+  // 가장 넓은 단계 한 장만 와도 지도를 보여 주고, 안쪽 단계가 오는 대로 선명해진다(지도 앱처럼).
   // 사진은 메인 스레드 밖에서 풀고(createImageBitmap), GPU 에는 한 프레임에 한 장씩 올린다
-  const queue: (typeof levels)[number][] = [];
-  earthReady
-    .then(() =>
-      levels.forEach((L) =>
-        loadBitmap(`liberty-${SITE.tag}${L.z}.webp`, true, "low")
-          .then((bmp) => {
-            const t = new THREE.Texture(bmp);
-            t.flipY = false;
-            t.anisotropy = maxAniso;
-            t.needsUpdate = true;
-            L.mat.map = t;
-            L.mat.needsUpdate = true;
-            queue.push(L);
-          })
-          .catch(() => undefined),
-      ),
-    )
+  type Level = (typeof levels)[number];
+  const queue: Level[] = [];
+  const pending = [...levels];
+  const fetchLevel = async (L: Level) => {
+    const bmp = await loadBitmap(`liberty-${SITE.tag}${L.z}.webp`, true);
+    const t = new THREE.Texture(bmp);
+    t.flipY = false;
+    t.anisotropy = maxAniso;
+    t.needsUpdate = true;
+    L.mat.map = t;
+    L.mat.needsUpdate = true;
+    queue.push(L);
+  };
+  const fetchNext = async (): Promise<void> => {
+    const L = pending.shift();
+    if (!L || signal.aborted) return;
+    await fetchLevel(L);
+    return fetchNext();
+  };
+  frontReady
+    .then(() => fetchLevel(pending.shift()!))
+    .catch(() => undefined)
+    .then(() => {
+      releaseExtras();
+      return Promise.all([fetchNext(), fetchNext()]);
+    })
     .catch(() => undefined);
   let groundReady = false,
     lastUpload = 0;
@@ -599,12 +617,12 @@ async function run(
     if (queue.length && !globeSpin.drag && now - lastUpload > 150) {
       const L = queue.shift()!;
       if (L.mat.map) gRenderer.initTexture(L.mat.map);
-      L.ready = true;
+      L.ready = L.mesh.visible = true;
       lastUpload = now;
-      if (levels.every((l) => l.ready)) {
+      dirty = true;
+      if (!groundReady && levels[0].ready) {
         groundReady = true;
         gRenderer.compile(ground, gcam);
-        dirty = true;
       }
     }
     // 휠 한 칸씩 끊겨 들어오는 스크롤을 부드럽게 따라간다(새로고침 · 큰 점프는 바로 맞춘다)
@@ -711,7 +729,7 @@ async function run(
           s = 1 + k * (1.6 + i * 0.7);
         put(c, "transform", `scale(${s.toFixed(3)}) rotate(${((i - 1) * 6 * k).toFixed(2)}deg)`);
       });
-    // 안개는 지도 사진이 아직 GPU 에 안 올라왔을 때만 잠깐 덮는다. 바뀌는 동안엔 옅은 막만 살짝
+    // 안개는 가장 넓은 지도 사진도 아직 GPU 에 안 올라왔을 때만 잠깐 덮는다. 바뀌는 동안엔 옅은 막만 살짝
     const hold = waiting && Z > zIn;
     put(el.fog, "opacity", (hold ? 0.98 : 0.22 * Math.sin(Math.PI * mapIn)).toFixed(3));
     put(el.wait, "opacity", hold ? "1" : "0");
