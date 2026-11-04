@@ -17,6 +17,10 @@ spring:
           time_zone: UTC
   flyway:
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
   jackson:
     # C2 계약과 같은 snake_case (place_id, is_active …)
     property-naming-strategy: SNAKE_CASE
