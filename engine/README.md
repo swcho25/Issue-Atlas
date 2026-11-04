@@ -38,7 +38,7 @@ uv --directory engine run python -m ai.argument <판정 입력 JSON> <기사 목
 # PostGIS 통합 테스트 (Docker 필요, pnpm engine:test 에는 안 들어감)
 uv --directory engine run pytest tests_postgres
 
-# HTTP 입구: backend 가 바로 응답을 기다리는 요청만 받는다 (지금은 GET /health)
+# HTTP 입구: backend 가 바로 응답을 기다리는 요청만 받는다. GET /health · POST /v1/argument/phrase(논증 문장화, .env 의 GMS_API_KEY)
 uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 ```
 
@@ -53,4 +53,4 @@ uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 | `pipeline/responses/` | 장성우 | P8 카드 근거 ③ 「기존 대응」 후보 — 온통청년 정책 · 세출에서 규칙으로 골라 `existing_response` 에 저장 ([계약](../contracts/existing-response/)) |
 | `ai/classify/` | 최동준 | P4 기사 제목·요약 → C1·A3 승인 카드 프로필 임베딩·cosine 점수 ([계약](../contracts/article-card-search/README.md)) |
 | `ai/argument/` | 최동준 | P5 논증 카드 ③ 보증(`llm_phrasing`) · ⑤ 반박(`llm_judgment`) 문장화와 출력 검사(인용 · 원문 위치 · 수치 · 판정 고정 · 금지어). 탈락하면 카드 문구 · 빈 반박. 입력은 [판정 입력](../contracts/ai/) + 그 실행의 카드 승인본 + 근거 자료 구절(자료 종류 공통 모양, 지금은 기사 요약). 카드 목록 없이 승인본으로 판정한 실행이면 부른다 |
-| `api/` | (미정) | FastAPI HTTP 입구 — pipeline 함수를 부르기만 한다 |
+| `api/` | 최동준 | FastAPI HTTP 입구 — pipeline · ai 함수를 부르기만 한다. `POST /v1/argument/phrase` 는 [AI 계약](../contracts/ai/) v0.2 「문장화」 |

@@ -12,11 +12,14 @@
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from . import gms
 from .check import Problem, check
 from .prompt import PROMPT_VERSION, SYSTEM, build, passages, rebuttal_ids
+
+# contracts/ai phrasing-result.schema.json
+RESULT_VERSION = "ai-phrasing-result-0.2"
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,10 @@ class Phrasing:
     def retryable(self) -> bool:
         return self.reason_code in ("LLM_TIMEOUT", "LLM_ERROR")
 
+    def result(self) -> dict:
+        """contracts/ai 문장화 결과 모양"""
+        return {"schema_version": RESULT_VERSION, **asdict(self), "retryable": self.retryable}
+
 
 def skip_reason(judgment: dict) -> str | None:
     """승인본으로 판정을 끝낸 실행만 부른다.
@@ -57,12 +64,12 @@ def phrase(
     judgment: dict,
     sources: list[dict],
     card: dict,
-    call: Callable[[str, str], str] = gms.generate,
+    call: Callable[[str, str], str] | None = None,
 ) -> Phrasing:
     """judgment = contracts/ai judgment-input, sources = 근거 자료(prompt 「source」 모양),
-    card = 그 실행이 쓴 카드 승인본(DB card_version.spec)
+    card = 그 실행이 쓴 카드 승인본(DB card_version.spec). call 이 없으면 GMS 를 부른다
     """
-    run_id, model = judgment["run_id"], gms.MODEL
+    run_id, model, call = judgment["run_id"], gms.MODEL, call or gms.generate
     fallback = dict(judgment["warrant"])
     reason = skip_reason(judgment)
     if reason:

@@ -244,3 +244,71 @@ def test_sample_requests_are_real_documents_without_body(name, count):
         assert DOC_ID.fullmatch(item["doc_id"])
         assert not {"body", "text", "content"} & item.keys()
         assert not item["title"].startswith("[fixture]")
+
+
+# v0.2 문장화 요청 · 결과 (engine POST /v1/argument/phrase)
+PHRASINGS = sorted(p.stem for p in EXAMPLES.glob("phrasing-result-*.json"))
+
+
+def phrasing_request(**changes):
+    articles = read(CONTRACTS / "c2/examples/argument-c1-ready.json")["articles"]
+    record = {
+        "judgment": example("judgment-ready"),
+        "articles": articles,
+        "card": {"card_id": "C1", "card_version": 1, "forbidden_terms": ["원인"]},
+    }
+    for path, value in changes.items():
+        *parents, key = path.split("__")
+        target = record
+        for parent in parents:
+            target = target[int(parent)] if parent.isdigit() else target[parent]
+        target[key] = value
+    return record
+
+
+def test_phrasing_examples_cover_done_and_rejected():
+    assert {example(n)["status"] for n in PHRASINGS} == {"done", "failed"}
+
+
+@pytest.mark.parametrize("name", PHRASINGS)
+def test_phrasing_result_examples_pass(name):
+    validator("phrasing-result").validate(example(name))
+
+
+def test_phrasing_request_takes_judgment_articles_and_card():
+    validator("phrasing-request").validate(phrasing_request())
+    # 카드 반박 ID 는 넣어도 되고 빼도 된다
+    validator("phrasing-request").validate(
+        phrasing_request(judgment__rebuttal_candidates__0__id="C1-R1")
+    )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"card": {"card_id": "C1"}},
+        {"judgment__claim__value": "increasing", "judgment__run_status": "blocked"},
+        {"articles": [{"id": "x"}]},
+        {"extra": 1},
+    ],
+)
+def test_phrasing_request_rejects_contract_breaks(changes):
+    assert not validator("phrasing-request").is_valid(phrasing_request(**changes))
+
+
+@pytest.mark.parametrize(
+    ("name", "changes"),
+    [
+        # done 이 아니면 반박은 비고 인용도 없다(카드 문구로 돌아감)
+        (
+            "phrasing-result-rejected",
+            {"rebuttals": [{"text": "x", "status": "supported", "provenance": "llm_judgment"}]},
+        ),
+        ("phrasing-result-rejected", {"problems": []}),
+        ("phrasing-result-done", {"reason_code": "LLM_ERROR"}),
+        ("phrasing-result-done", {"status": "skipped"}),
+        ("phrasing-result-done", {"warrant__provenance": "robot"}),
+    ],
+)
+def test_phrasing_result_rejects_contract_breaks(name, changes):
+    assert not validator("phrasing-result").is_valid(doc(name, **changes))

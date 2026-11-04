@@ -1,0 +1,77 @@
+{
+  "schema_version": "ai-phrasing-result-0.2",
+  "run_id": "run_c1_yeosu_2023_2025",
+  "status": "done",
+  "reason_code": null,
+  "warrant": {
+    "text": "여수시에서 2023년부터 2025년까지 청년 순유출이 지속적으로 커지는 현상은 청년 정착 기반이 약화되고 있음을 보여줍니다. 순이동은 청년 정착 여부를 직접적으로 측정하는 공식 지표입니다.",
+    "provenance": "llm_phrasing"
+  },
+  "rebuttals": [
+    {
+      "text": "대학 진학·군 입대 연령(19–24세)의 구조적 전출",
+      "status": "supported",
+      "provenance": "llm_judgment"
+    },
+    {
+      "text": "통계 기준 변경(2026-07 행정구역 개편, 주민등록 정비)",
+      "status": "not_found",
+      "provenance": "llm_judgment"
+    },
+    {
+      "text": "산단·대형 사업장 고용 변동에 따른 일시 전입·전출",
+      "status": "supported",
+      "provenance": "llm_judgment"
+    }
+  ],
+  "citations": {
+    "warrant": [
+      "ev_kosis_net_yeosu"
+    ],
+    "R1": [
+      {
+        "passage": "P3",
+        "quote": "여수 지역 고교 졸업생 상당수가 수도권 대학으로 진학하면서 20대 초반 전출이 많았다.",
+        "locator": {
+          "kind": "article",
+          "source_id": "fx-002",
+          "field": "summary",
+          "date": "2025-03-02",
+          "url": null,
+          "sentence": 1
+        }
+      }
+    ],
+    "R2": [],
+    "R3": [
+      {
+        "passage": "P1",
+        "quote": "여수 국가산단의 한 석유화학 업체가 설비 가동을 줄였다.",
+        "locator": {
+          "kind": "article",
+          "source_id": "fx-001",
+          "field": "summary",
+          "date": "2024-02-14",
+          "url": "https://example.com/news/1",
+          "sentence": 1
+        }
+      },
+      {
+        "passage": "P2",
+        "quote": "협력업체 직원 300여 명이 일자리를 찾아 다른 지역으로 옮긴 것으로 알려졌다.",
+        "locator": {
+          "kind": "article",
+          "source_id": "fx-001",
+          "field": "summary",
+          "date": "2024-02-14",
+          "url": "https://example.com/news/1",
+          "sentence": 2
+        }
+      }
+    ]
+  },
+  "problems": [],
+  "model": "gemini-2.5-flash",
+  "prompt_version": "argument-phrasing-v2",
+  "retryable": false
+}

@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 
 import pytest
+from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
@@ -15,6 +16,7 @@ from ai.argument.__main__ import main
 from ai.argument.check import check
 from ai.argument.phrase import phrase
 from ai.argument.prompt import article_sources, build, passages
+from api.main import app
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
 # 카드 승인본(card_version.spec) 중 문장화가 읽는 칸만
@@ -152,14 +154,34 @@ def test_build_sends_only_undecided_rebuttals_and_fixed_judgment():
     assert "배출원" in sent["forbidden_terms"]
 
 
+SCHEMAS = [
+    json.loads(p.read_text(encoding="utf-8"))
+    for p in [*(CONTRACTS / "c2/schemas").glob("*.json"), *(CONTRACTS / "ai").glob("*.json")]
+]
+REGISTRY = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in SCHEMAS)
+
+
+def contract(name):
+    schema = next(s for s in SCHEMAS if s["$id"].endswith(f"/ai/{name}.schema.json"))
+    return Draft202012Validator(schema, registry=REGISTRY)
+
+
 def test_a3_fixture_follows_judgment_input_contract():
-    schemas = [
-        json.loads(p.read_text(encoding="utf-8"))
-        for p in [*(CONTRACTS / "c2/schemas").glob("*.json"), *(CONTRACTS / "ai").glob("*.json")]
-    ]
-    registry = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in schemas)
-    schema = next(s for s in schemas if s["$id"].endswith("judgment-input.schema.json"))
-    Draft202012Validator(schema, registry=registry).validate(a3())
+    contract("judgment-input").validate(a3())
+
+
+def test_card_rebuttal_ids_replace_order_numbers():
+    judgment = c1()
+    for n, candidate in enumerate(judgment["rebuttal_candidates"], 1):
+        candidate["id"] = f"C1-R{n}"
+    contract("judgment-input").validate(judgment)
+    sent = build(judgment, SOURCES, C1_CARD)
+    assert [c["id"] for c in sent["rebuttal_candidates"]] == ["C1-R1", "C1-R2", "C1-R3"]
+    output = c1_output()
+    for n, rebuttal in enumerate(output["rebuttals"], 1):
+        rebuttal["id"] = f"C1-R{n}"
+    result = phrase(judgment, SOURCES, C1_CARD, answer(output)[0])
+    assert result.status == "done" and "C1-R3" in result.citations
 
 
 # ── 검사기 ──
@@ -382,13 +404,27 @@ def test_failures_fall_back_to_card_text_with_reason(call, reason, retryable):
     assert result.warrant == {"text": judgment["warrant"]["text"], "provenance": "card"}
     assert result.rebuttals == [] and result.citations == {}
     assert (reason == "OUTPUT_REJECTED") == bool(result.problems)
+    contract("phrasing-result").validate(result.result())
 
 
-def test_cli_refuses_real_judgment_input(tmp_path, capsys):
-    path = tmp_path / "judgment.json"
-    path.write_text(json.dumps({**c1(), "fixture": False}), encoding="utf-8")
-    assert main([str(path), str(path)]) == 2
-    assert "fixture" in capsys.readouterr().err
+def test_every_result_follows_the_phrasing_result_contract():
+    results = [
+        phrase(c1(), SOURCES, C1_CARD, answer(c1_output())[0]),
+        phrase(example("judgment-insufficient"), SOURCES, C1_CARD),
+        phrase(c1(), SOURCES, {**C1_CARD, "card_version": 9}),
+    ]
+    assert [r.status for r in results] == ["done", "skipped", "failed"]
+    for result in results:
+        contract("phrasing-result").validate(result.result())
+
+
+def test_cli_prints_the_result(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(gms, "generate", answer(c1_output())[0])
+    judgment, articles = tmp_path / "judgment.json", tmp_path / "articles.json"
+    judgment.write_text(json.dumps({**c1(), "fixture": False}), encoding="utf-8")
+    articles.write_text(json.dumps(ARTICLES), encoding="utf-8")
+    assert main([str(judgment), str(articles)]) == 0
+    contract("phrasing-result").validate(json.loads(capsys.readouterr().out))
 
 
 def test_phrase_does_not_change_the_input():
@@ -429,3 +465,43 @@ def test_generate_reads_text_and_maps_errors(monkeypatch):
     monkeypatch.setattr(gms, "urlopen", fail(HTTPError("u", 400, "bad", {}, None)))
     with pytest.raises(gms.LlmError, match="HTTP 400"):
         gms.generate("system", "user")
+
+
+# ── engine API (backend 가 부른다) ──
+
+
+def request(judgment=None, card=C1_CARD):
+    return copy.deepcopy({"judgment": judgment or c1(), "articles": ARTICLES, "card": card})
+
+
+def test_api_phrases_a_valid_request(monkeypatch):
+    call, calls = answer(c1_output())
+    monkeypatch.setattr(gms, "generate", call)
+    contract("phrasing-request").validate(request())
+    response = TestClient(app).post("/v1/argument/phrase", json=request())
+    assert response.status_code == 200
+    contract("phrasing-result").validate(response.json())
+    assert response.json()["warrant"]["provenance"] == "llm_phrasing"
+    assert len(calls) == 1
+
+
+def test_api_refuses_request_outside_the_contract_without_echoing_values(monkeypatch):
+    call, calls = answer(c1_output())
+    monkeypatch.setattr(gms, "generate", call)
+    body = request()
+    body["judgment"]["claim"]["value"] = "비밀 값"
+    del body["card"]["card_version"]
+    response = TestClient(app).post("/v1/argument/phrase", json=body)
+    assert response.status_code == 422
+    assert response.json()["reason_code"] == "INPUT_INVALID"
+    assert "비밀 값" not in response.text
+    assert calls == []
+
+
+def test_api_skips_blocked_run_without_model(monkeypatch):
+    call, calls = answer(c1_output())
+    monkeypatch.setattr(gms, "generate", call)
+    response = TestClient(app).post(
+        "/v1/argument/phrase", json=request(example("judgment-insufficient"))
+    )
+    assert response.json()["reason_code"] == "RUN_BLOCKED" and calls == []

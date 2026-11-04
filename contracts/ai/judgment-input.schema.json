@@ -37,6 +37,11 @@
       "items": {
         "type": "object",
         "properties": {
+          "id": {
+            "description": "카드 승인본 rebuttals.items[].id (예: C1-R1). 없으면 AI 가 순서 번호(R1 …)를 붙인다 (v0.2)",
+            "type": "string",
+            "minLength": 1
+          },
           "text": { "type": "string", "minLength": 1 },
           "decided_by_rule": {
             "oneOf": [{ "type": "null" }, { "$ref": "../c2/common.schema.json#/$defs/rebuttal_status" }]

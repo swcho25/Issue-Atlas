@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/ai/phrasing-request.schema.json",
+  "title": "AI 모듈 문장화 요청 v0.2 — engine POST /v1/argument/phrase 본문",
+  "description": "backend 가 질문 실행 한 건의 규칙 판정을 끝낸 뒤 보낸다. AI 는 ③ 보증 · ⑤ 반박만 쓰고 판정 · 수치는 바꾸지 않는다",
+  "type": "object",
+  "properties": {
+    "judgment": { "$ref": "judgment-input.schema.json" },
+    "articles": {
+      "description": "그 실행의 C2 articles[] 그대로. 요약 문장이 근거 구절이 된다(앞 40건)",
+      "type": "array",
+      "items": { "$ref": "../c2/argument.schema.json#/$defs/article" }
+    },
+    "card": {
+      "description": "그 실행이 쓴 카드 승인본(card_version.spec) 그대로. 문장화는 card_id · card_version · forbidden_terms 만 읽는다",
+      "type": "object",
+      "properties": {
+        "card_id": { "type": "string", "minLength": 1 },
+        "card_version": { "type": "integer", "minimum": 1 },
+        "forbidden_terms": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "required": ["card_id", "card_version"]
+    }
+  },
+  "required": ["judgment", "articles", "card"],
+  "additionalProperties": false
+}

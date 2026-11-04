@@ -77,15 +77,16 @@ def passages(sources: list[dict]) -> list[dict]:
 
 
 def rebuttal_ids(candidates: list[dict]) -> list[str | None]:
-    """규칙이 정하지 않은 경쟁 설명에만 R1, R2 … 를 준다.
+    """규칙이 정하지 않은 경쟁 설명에만 ID 를 준다.
 
+    카드 반박 ID(C1-R1)가 있으면 그것, 없으면 R1, R2 ….
     규칙이 정한 것은 None 이고 모델에 보내지 않는다.
     """
     ids, n = [], 0
     for candidate in candidates:
         if candidate["decided_by_rule"] is None:
             n += 1
-            ids.append(f"R{n}")
+            ids.append(candidate.get("id") or f"R{n}")
         else:
             ids.append(None)
     return ids
