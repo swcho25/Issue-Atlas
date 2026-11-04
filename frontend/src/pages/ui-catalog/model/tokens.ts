@@ -77,6 +77,8 @@ export const shadows = [
   { className: "shadow-frame", spec: "IA/Shadow frame · 0 24 64 18%" },
   { className: "shadow-card", spec: "결과 카드 · 0 10 36 #000 14%" },
   { className: "shadow-legend", spec: "범례 · 0 6 20 #000 10%" },
+  { className: "shadow-button", spec: "버튼 Primary · 흰 테두리 빛 + 0 2 6 14%" },
+  { className: "shadow-button-soft", spec: "버튼 Secondary · 0 1 3 #000 6%" },
 ] as const;
 
 // 겹침 순서. 아래일수록 위에 그려진다
