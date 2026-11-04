@@ -5,10 +5,10 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { useTheme } from "@/shared/lib/theme";
+import { Icon } from "@/shared/ui/icon";
 import { AtlasMark } from "@/shared/ui/logo";
 
 import { adminMenu, isActive, type MenuItem, viewerMenu } from "../model/menu";
-import { RailIcon } from "./icons";
 import { ThemeToggle } from "./ThemeToggle";
 
 type AppRailProps = {
@@ -41,7 +41,7 @@ export function AppRail({ role = "viewer", userName, currentPath, className = ""
         aria-current={active ? "page" : undefined}
         className="flex h-[calc(56*var(--u))] w-[calc(60*var(--u))] flex-col items-center justify-center gap-[calc(4*var(--u))] rounded-[calc(14*var(--u))] text-text-2 hover:text-text-1 aria-[current=page]:bg-surface-3 aria-[current=page]:text-text-1"
       >
-        <RailIcon name={menu.icon} className="size-[calc(20*var(--u))]" />
+        <Icon name={menu.icon} className="size-[calc(20*var(--u))]" />
         {/* Figma 글자 11px(caption-11 크기 · 줄 높이)에 같은 비율을 곱한다 */}
         <span
           className={`text-[length:calc(11*var(--u))] leading-[calc(14*var(--u))] whitespace-nowrap ${active ? "font-bold" : "font-medium"}`}
