@@ -6,7 +6,7 @@
 - [x] 우리 시군구 6곳과 행정동 123곳의 경계가 모두 `place_boundary` 에 들어간다 (Flyway 시드, 출처 SGIS 행정구역 경계)
 - [x] 각 place 의 대표점(`place.geometry`)이 자기 경계 안에 있다 (테스트)
 - [x] engine 에 SGIS 경계를 받아 시드 SQL 을 만드는 명령이 있고, 키가 없으면 아무것도 쓰지 않고 멈춘다
-- [ ] dev DB 에 적용된다 (트랜잭션 시험 적용 · 되돌림은 통과. 실제 적용은 병합 뒤 배포 때 Flyway)
+- [x] dev DB 에 적용된다 (V0041 · V0042, 2026-11-04 11:19 KST — 129행 · 대표점 밖 0 · 측정소 22/22)
 - [x] contracts/p3 · database 문서를 고친다 (화면 API 는 다음 MR)
 
 ## 진행
