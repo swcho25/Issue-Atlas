@@ -108,3 +108,4 @@ V0006은 `vector` 확장만 활성화한다. 벡터 칼럼과 벡터 인덱스�
 - v0.1.28 (2026-11-03): 기사 사건 표 `news_event` 에 만든 판 칸 `prompt_version` · `summary_version` · `model`(text, null 허용)을 더한다(V0038, S15P31C108-218). null 은 판을 기록하기 전 적재. 마이그레이션에서 채우지 않는다
 - v0.1.29 (2026-11-04): 출처 등급을 정했다(V0039, S15P31C108-232). 「출처 등급」 표대로 이미 있는 출처 행의 빈 `reliability_grade` 를 채우고, 넣을 때 등급이 빈 행도 같은 값으로 채우는 트리거를 둔다. 칸 · 제약은 그대로
 - v0.1.30 (2026-11-04): 세출 출처 행 `lofin` 을 넣는다(V0040, S15P31C108-234). 값은 세출 수집기 `LofinQuery` 와 같고 등급은 V0039 트리거가 B 로 채운다. 이미 있으면 그대로 둔다
+- v0.1.31 (2026-11-04): 시군구 · 행정동 경계 표 `place_boundary`(V0041, S15P31C108-230): `place_id` PK · FK, `boundary geography(MultiPolygon, 4326)`(GIST, 비지 않고 올바른 도형만), 출처 `source` · `source_year` · `source_code`. V0042 이 SGIS 2025 경계 129행을 넣고, 시군구 · 행정동 place 중 경계 없는 곳이 있으면 멈춘다. 칸 · 규칙은 [P3 계약](../p3/README.md) v0.12 「경계」
