@@ -1,6 +1,6 @@
 # chore/collector-env-keys — 수집기 서버 키 목록 정리
 
-- Jira: (만든 뒤 채움, 「[P1] 수집기 서버 키 목록 정리」) · 앞 MR: !108 리뷰에서 맡음
+- Jira: S15P31C108-209 · 앞 MR: !108 리뷰에서 맡음
 
 ## 완료 조건
 - [x] `deploy/collector/.env.example` 에 수집기가 읽는 키 이름이 모두 있다(값 없이): YOUTHCENTER · BIGKINDS · P3_LLM_* 4개 · JUSO_SEARCH_KEY · SGIS_KEY · SGIS_SECRET · GMS_API_KEY
