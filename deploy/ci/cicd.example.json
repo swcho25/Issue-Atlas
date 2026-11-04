@@ -13,6 +13,7 @@
       "collector_output_dir": "/var/lib/issueatlas/collector/output",
       "collector_log_dir": "/var/log/issueatlas/collector",
       "collector_network": "issueatlas-dev_default",
+      "engine_image_repository": "swcho25/issueatlas-backend",
       "compose_files": [
         "compose.yaml",
         "compose.tunnel.yaml",
