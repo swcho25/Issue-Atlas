@@ -20,6 +20,9 @@ def lofin_db(postgis):
             "V0002__collection_place_foundation.sql",
             "V0015__create_local_expenditure.sql",
             "V0026__track_local_expenditure_runs.sql",
+            # 마이그레이션이 미리 넣은 lofin 출처 행과 수집기 값이 맞아야 다시 받아도 멈추지 않는다
+            "V0039__fill_source_reliability_grade.sql",
+            "V0040__add_lofin_source.sql",
         ),
     )
 
