@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { BadgePreview } from "./BadgePreview";
 import { ButtonPreview } from "./ButtonPreview";
 import { ColorTokens } from "./ColorTokens";
 import { Effects } from "./Effects";
@@ -19,6 +20,7 @@ export function UiCatalogPage() {
         기준: Figma 변수 IA v5 · docs/design/DESIGN.md
       </p>
       <ButtonPreview />
+      <BadgePreview />
       <ColorTokens />
       <TypeAndShape />
       <Effects />
