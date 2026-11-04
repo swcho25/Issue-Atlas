@@ -91,7 +91,10 @@ public class CardJudge {
                         statistics,
                         List.of(),
                         List.of(),
-                        evaluation.facts()));
+                        evaluation.facts(),
+                        indicatorId,
+                        definition.path("unit").asText(),
+                        values));
     }
 
     private static JsonNode definition(JsonNode spec, String indicatorId) {
@@ -111,6 +114,7 @@ public class CardJudge {
         throw new IllegalStateException("Approved rule has no matching outcome");
     }
 
+    /** values: 판정에 쓴 연 값(계열 = 시군구 하나 또는 측정소마다). 문장화 입력의 statistics_points 가 된다 */
     public record Judgment(
             String claim,
             String level,
@@ -120,5 +124,8 @@ public class CardJudge {
             List<String> statistics,
             List<String> documents,
             List<String> denominators,
-            Map<String, Object> facts) {}
+            Map<String, Object> facts,
+            String indicatorId,
+            String unit,
+            YearValues values) {}
 }

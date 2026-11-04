@@ -14,6 +14,9 @@ import tools.jackson.databind.JsonNode;
 
 /** 승인된 지표 roll 정의로 질문 기간에 완전히 포함된 해만 집계한다. */
 final class AnnualRollup {
+    /** 측정소가 없는(시군구 하나) 지표의 계열 이름 */
+    static final String PLACE_SERIES = "_place";
+
     private AnnualRollup() {}
 
     static YearValues apply(
@@ -32,7 +35,7 @@ final class AnnualRollup {
             if (LocalDate.of(year, 1, 1).isBefore(start)
                     || LocalDate.of(year + 1, 1, 1).isAfter(end)) continue;
             if (!"end_of_period".equals(method) && !"M".equals(row.whenUnit())) continue;
-            String series = row.stationId() == null ? "_place" : row.stationId();
+            String series = row.stationId() == null ? PLACE_SERIES : row.stationId();
             SortedMap<String, BigDecimal> byPeriod =
                     grouped.computeIfAbsent(series, unused -> new HashMap<>())
                             .computeIfAbsent(year, unused -> new TreeMap<>());

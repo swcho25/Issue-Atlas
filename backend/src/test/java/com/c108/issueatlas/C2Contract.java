@@ -17,13 +17,16 @@ import java.util.stream.Collectors;
 import org.springframework.test.web.servlet.ResultMatcher;
 
 /**
- * API 응답이 C2 계약(contracts/c2/schemas)과 같은지 본다(FR-J1). 스키마의 $id 주소를 저장소의 파일로 잇는다.
+ * API 응답이 C2 계약(contracts/c2/schemas)과 같은지 본다(FR-J1). 스키마의 $id 주소를 저장소의 파일로 잇는다. backend 가 engine 에
+ * 보내는 요청은 AI 계약(contracts/ai)으로 본다({@link #assertAiMatches}).
  *
  * <p>사용: {@code mvc.perform(...).andExpect(C2Contract.matches("place-list"))}
  */
 public final class C2Contract {
     private static final String ID_BASE = "https://issue-atlas.c108/contracts/c2/";
+    private static final String AI_BASE = "https://issue-atlas.c108/contracts/ai/";
     static final Path DIR = Path.of("../contracts/c2").toAbsolutePath().normalize();
+    private static final Path AI_DIR = Path.of("../contracts/ai").toAbsolutePath().normalize();
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final JsonSchemaFactory FACTORY =
             JsonSchemaFactory.getInstance(
@@ -32,7 +35,9 @@ public final class C2Contract {
                             builder.schemaMappers(
                                     mappers ->
                                             mappers.mapPrefix(
-                                                    ID_BASE, DIR.resolve("schemas").toUri() + "")));
+                                                            ID_BASE,
+                                                            DIR.resolve("schemas").toUri() + "")
+                                                    .mapPrefix(AI_BASE, AI_DIR.toUri() + "")));
     private static final SchemaValidatorsConfig CONFIG =
             SchemaValidatorsConfig.builder().formatAssertionsEnabled(true).build();
 
@@ -46,11 +51,18 @@ public final class C2Contract {
     }
 
     public static void assertMatches(String name, String json) {
-        Set<ValidationMessage> errors = violations(name, json);
+        assertNoViolations("C2 " + name, violations(name, json));
+    }
+
+    /** backend → engine 요청 등이 AI 계약 {@code contracts/ai/<name>.schema.json} 에 맞는지. */
+    public static void assertAiMatches(String name, String json) {
+        assertNoViolations("AI " + name, validate(AI_BASE + name, json));
+    }
+
+    private static void assertNoViolations(String contract, Set<ValidationMessage> errors) {
         if (!errors.isEmpty()) {
             throw new AssertionError(
-                    "C2 "
-                            + name
+                    contract
                             + " 계약과 다르다:\n"
                             + errors.stream()
                                     .map(ValidationMessage::getMessage)
@@ -60,8 +72,11 @@ public final class C2Contract {
     }
 
     static Set<ValidationMessage> violations(String name, String json) {
-        JsonSchema schema =
-                FACTORY.getSchema(SchemaLocation.of(ID_BASE + name + ".schema.json"), CONFIG);
+        return validate(ID_BASE + name, json);
+    }
+
+    private static Set<ValidationMessage> validate(String id, String json) {
+        JsonSchema schema = FACTORY.getSchema(SchemaLocation.of(id + ".schema.json"), CONFIG);
         try {
             JsonNode node = JSON.readTree(json);
             return schema.validate(node);
