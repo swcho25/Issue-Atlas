@@ -5,6 +5,7 @@ public enum ApiErrorCode {
     UNAUTHORIZED("로그인이 필요합니다."),
     FORBIDDEN("이 작업을 할 권한이 없습니다."),
     RESOURCE_NOT_FOUND("요청한 리소스를 찾을 수 없습니다."),
+    TOO_MANY_REQUESTS("요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."),
     INTERNAL_ERROR("서버에서 요청을 처리하지 못했습니다."),
     HTTP_ERROR("요청을 처리할 수 없습니다.");
 
@@ -25,6 +26,7 @@ public enum ApiErrorCode {
             case 401 -> UNAUTHORIZED;
             case 403 -> FORBIDDEN;
             case 404 -> RESOURCE_NOT_FOUND;
+            case 429 -> TOO_MANY_REQUESTS;
             default -> HTTP_ERROR;
         };
     }
