@@ -252,7 +252,11 @@ def table_pages(conn, site_name: str, start: date, end: date):
 
     누리집이 자동 요청을 막았을 때(광주, 2026-11-02 부터 400) press-0.1.0 이 받아 둔 목록을 옮긴다.
     보이는 칸이 같아 원본 지문은 다시 수집했을 때와 같고, 수집 시각은 그때 그대로 둔다.
+    V0044 는 모든 행을 옮긴 DB 에서 이 표를 지우므로, 그런 DB 에서는 PRESS_OLD_TABLE_GONE 으로
+    멈춘다.
     """
+    if conn.execute("SELECT to_regclass('press_release')").fetchone()[0] is None:
+        raise PressError("PRESS_OLD_TABLE_GONE")
     rows = conn.execute(
         "SELECT press_id, site, category, department, title, published_on, url, collected_at"
         " FROM press_release WHERE site = %s AND published_on BETWEEN %s AND %s"

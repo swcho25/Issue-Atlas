@@ -45,3 +45,34 @@ export function browserGet<S extends z.ZodType>(path: string, schema: S, init?: 
   }
   return requestJson(`${window.location.origin}/api${path}`, path, schema, init);
 }
+
+const readCookie = (name: string) =>
+  document.cookie
+    .split("; ")
+    .find((c) => c.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
+
+// 클라이언트 전용 POST. Spring 은 CSRF 토큰을 XSRF-TOKEN 쿠키로 내려 주고 X-XSRF-TOKEN 헤더로 돌려받는다.
+// 쿠키가 아직 없으면 GET /v1/auth/csrf 로 먼저 받는다(로그인 · 익명 질문 모두 이 토큰이 있어야 한다)
+export async function browserPost<S extends z.ZodType>(
+  path: string,
+  body: unknown,
+  schema: S,
+  init?: RequestInit,
+) {
+  if (typeof window === "undefined") {
+    throw new Error(`browserPost(${path}) 은 브라우저 전용이다`);
+  }
+  const base = `${window.location.origin}/api`;
+  if (!readCookie("XSRF-TOKEN")) await fetch(`${base}/v1/auth/csrf`);
+  const headers = new Headers(init?.headers);
+  headers.set("Content-Type", "application/json");
+  const token = readCookie("XSRF-TOKEN");
+  if (token) headers.set("X-XSRF-TOKEN", decodeURIComponent(token));
+  return requestJson(`${base}${path}`, path, schema, {
+    ...init,
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+}

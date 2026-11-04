@@ -1,0 +1,59 @@
+{
+  "schema_version": "c2-0.1",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "kr-12210",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [126.92, 35.14],
+              [126.99, 35.11],
+              [127.01, 35.07],
+              [126.93, 35.05],
+              [126.91, 35.12],
+              [126.92, 35.14]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "place_id": "kr-12210",
+        "name": "광주 동구",
+        "level": "sigungu",
+        "parent_id": "kr-29",
+        "source": "sgis_hadmarea",
+        "source_year": 2025
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "kr-12210510",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [126.9142, 35.1496],
+              [126.9208, 35.1501],
+              [126.9213, 35.1452],
+              [126.9151, 35.1440],
+              [126.9142, 35.1496]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "place_id": "kr-12210510",
+        "name": "충장동",
+        "level": "emd",
+        "parent_id": "kr-12210",
+        "source": "sgis_hadmarea",
+        "source_year": 2025
+      }
+    }
+  ]
+}

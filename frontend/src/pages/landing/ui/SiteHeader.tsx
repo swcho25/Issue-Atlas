@@ -1,0 +1,46 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { AtlasMark } from "@/shared/ui/logo";
+
+import { useLoginDialog } from "../model/login-dialog";
+import styles from "./LandingPage.module.css";
+
+/** 맨 위에선 심벌만, 조금이라도 내리면 워드마크가 심벌 뒤에서 튀어나온다. 오른쪽은 유리 「로그인」 하나(관리자용) */
+export function SiteHeader() {
+  const [scrolled, setScrolled] = useState(false);
+  const login = useLoginDialog();
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <header className={`${styles.site} ${scrolled ? styles.scrolled : ""} z-panel`}>
+      <Link href="/" className={styles.brand} aria-label="Issue Atlas">
+        <AtlasMark className={styles.mark} />
+        <span className={styles.wm} aria-hidden="true">
+          <span>Issue Atlas</span>
+        </span>
+      </Link>
+      <button
+        type="button"
+        className={styles.glassBtn}
+        // 반사광이 커서를 따라온다
+        onPointerMove={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          e.currentTarget.style.setProperty("--mx", `${e.clientX - r.left}px`);
+          e.currentTarget.style.setProperty("--my", `${e.clientY - r.top}px`);
+        }}
+        onClick={(e) => login.open(e.currentTarget)}
+      >
+        로그인
+      </button>
+    </header>
+  );
+}

@@ -59,7 +59,7 @@ sudo issueatlas-collect airkorea-final --xlsx /inputs/final.xlsx --start-date 20
 # 여수시 · 광주광역시 보도자료 목록 → 원본 장부(raw_record). 실행기가 그 출처만 이어 정제한다. 키 없음. robots.txt 간격(여수 30초)을 지켜 여수 약 33분, 광주 약 3분
 sudo issueatlas-collect press --site yeosu --db
 sudo issueatlas-collect press --site gwangju --db
-# 광주 누리집이 2026-11-02 부터 자동 요청을 막는다(400). 그동안은 옛 press_release 표(10/30 수집)에서 옮긴다. 몇 초
+# 광주 누리집이 2026-11-02 부터 자동 요청을 막는다(400). 옛 press_release 표(10/30 수집)가 남은 DB 에서만 옮긴다(V0044 가 다 옮긴 DB 에서는 지움 → PRESS_OLD_TABLE_GONE). 몇 초
 sudo issueatlas-collect press --site gwangju --db --from-table
 # 지방재정365 세부사업별 세출현황 XLSX(통합자료실 첨부, 연도마다 한 파일)를 input 에 넣고 한 해씩. 파일 하나 약 30초
 sudo issueatlas-collect lofin --xlsx /inputs/2025_세부사업별세출현황.xlsx --db

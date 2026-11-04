@@ -144,7 +144,8 @@ class PressReviewMigrationTest {
         normalized("yeosu:237", "press-new", "새 제목", true);
         legacy("legacy-press", "yeosu:237");
         jdbc.execute(migration);
-        jdbc.execute("DROP TABLE press_release");
+        // V0044 가 빈 옛 표를 이미 지웠을 수 있다
+        jdbc.execute("DROP TABLE IF EXISTS press_release");
         JsonNode d = detail("legacy-press");
         assertThat(d.path("request").path("target_type").asText()).isEqualTo("normalized_record");
         assertThat(d.path("request").path("target_id").asText()).isEqualTo(Long.toString(exact));
@@ -193,7 +194,7 @@ class PressReviewMigrationTest {
     void newPressCanBeReviewedWithoutLegacyTable() throws Exception {
         long id = normalized("yeosu:238", "new-only", "새 수집 보도자료", true);
         jdbc.execute(migration);
-        jdbc.execute("DROP TABLE press_release");
+        jdbc.execute("DROP TABLE IF EXISTS press_release");
         String request =
                 json.writeValueAsString(
                         Map.of(
