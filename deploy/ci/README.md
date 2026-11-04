@@ -44,14 +44,14 @@
 | --- | --- |
 | FE 소스·설정·E2E, pnpm 잠금/설정, FE 점검 스크립트 | FE 검사·Workers 빌드, 병합 후 FE 배포 |
 | BE 소스·Flyway·Gradle·Dockerfile, 개발 Compose | BE 검사·이미지, 병합 후 BE 배포 |
-| engine/pipeline·의존성·Dockerfile, 수집기 실행 설정 | engine 검사·수집기 이미지, 병합 후 수집기 버전 갱신 (수집 자동 실행 없음) |
-| engine/api·ai·tests·tests_postgres | engine 검사만 |
+| engine/pipeline·ai·의존성·Dockerfile, 수집기 실행 설정 | engine 검사·수집기 이미지, 병합 후 수집기 버전 갱신 (수집 자동 실행 없음) |
+| engine/api·tests·tests_postgres, ai의 MD 설명 | engine 검사만 |
 | contracts의 JSON/YAML | FE·BE·engine 검사. C1 JSON은 수집기 실행 및 이미지 smoke test에서 읽으므로 수집기 이미지·배포도 실행. FE Workers·BE 이미지·배포는 생략 |
 | 공통 CI YAML | FE·BE·engine 모두 검사하고 병합 후 모두 배포 |
 | deploy/ci의 공통 Python·JSON | BE·수집기 검사·이미지·배포 |
 | docs, 루트/서비스/계약 README, pipeline의 MD 설명 | 가벼운 harness·infra 검사만 |
 
-여러 영역을 바꾸면 합집합으로 실행한다. scripts 변경은 FE 검사·빌드에도 반영한다. pipeline 실행 입력은 py/json/yaml/yml/toml/sql/txt/csv를 대상으로 하며 MD 설명은 제외한다. 새 소스 디렉터리·설정 형식을 도입하면 경로 목록과 선택 시나리오 테스트도 함께 갱신한다.
+여러 영역을 바꾸면 합집합으로 실행한다. scripts 변경은 FE 검사·빌드에도 반영한다. pipeline·ai 실행 입력은 py/json/yaml/yml/toml/sql/txt/csv를 대상으로 하며 MD 설명은 제외한다. 수집기 이미지가 `engine/ai`를 싣고 embed·score 명령이 이를 실행하므로 ai도 수집기 경로에 포함한다(233번). 새 소스 디렉터리·설정 형식을 도입하면 경로 목록과 선택 시나리오 테스트도 함께 갱신한다.
 
 FE·수집기 배포의 `backend-deploy` 의존성은 optional이다. BE 작업이 없으면 기존 BE/DB를 사용하고, 있으면 성공을 기다린다. 이미지 작업은 check 단계를 모두 통과해야 실행하며, 배포 이미지 artifact 의존성은 필수다. 공통 계약이나 Flyway를 함께 바꿀 때의 호환성 검토는 계속 필요하다.
 
