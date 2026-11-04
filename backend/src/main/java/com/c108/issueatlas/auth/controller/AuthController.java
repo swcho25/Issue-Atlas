@@ -3,6 +3,7 @@ package com.c108.issueatlas.auth.controller;
 import com.c108.issueatlas.auth.dto.LoginRequest;
 import com.c108.issueatlas.auth.dto.MeResponse;
 import com.c108.issueatlas.auth.service.AuthService;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -47,7 +48,7 @@ public class AuthController {
      */
     @GetMapping("/csrf")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void csrf(CsrfToken token) {
+    public void csrf(@Parameter(hidden = true) CsrfToken token) {
         token.getToken();
     }
 

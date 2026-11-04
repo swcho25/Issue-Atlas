@@ -37,6 +37,12 @@ issue-atlas:
     email: ${ADMIN_EMAIL:}
     password: ${DB_PASSWORD}
 
+springdoc:
+  swagger-ui:
+    # Try it out 의 POST 에 XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더로 붙인다
+    csrf:
+      enabled: true
+
 management:
   endpoints:
     web:
