@@ -162,9 +162,9 @@ class ObservationApiTest {
     }
 
     @Test
-    void 로그인_없이는_401() throws Exception {
+    void 로그인_없이도_조회된다() throws Exception {
         mvc.perform(observations("obs_city", "A3", "2024-01-01", "2024-02-01"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
     }
 
     private static MockHttpServletRequestBuilder observations(

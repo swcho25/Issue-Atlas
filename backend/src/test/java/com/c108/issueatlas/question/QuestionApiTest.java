@@ -631,7 +631,22 @@ class QuestionApiTest {
         mvc.perform(get("/v1/arguments/run_missing").with(user("u")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
-        mvc.perform(get("/v1/arguments/run_missing")).andExpect(status().isUnauthorized());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM question", Integer.class)).isZero();
+    }
+
+    @Test
+    void anonymousCanAskWithCsrfAndReadArgument() throws Exception {
+        String body = body("C1", "2025-01-01", "2026-01-01");
+        mvc.perform(post("/v1/questions").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        String runId =
+                runId(
+                        mvc.perform(
+                                post("/v1/questions")
+                                        .with(csrf())
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(body)));
+        mvc.perform(get("/v1/arguments/" + runId)).andExpect(status().isOk());
+        mvc.perform(get("/v1/arguments/run_missing")).andExpect(status().isNotFound());
     }
 }

@@ -71,8 +71,8 @@ class SourceApiTest {
     }
 
     @Test
-    void 로그인_없이는_401() throws Exception {
-        mvc.perform(get("/v1/sources")).andExpect(status().isUnauthorized());
+    void 로그인_없이도_조회된다() throws Exception {
+        mvc.perform(get("/v1/sources")).andExpect(status().isOk());
     }
 
     private void run(String id, String spec, String startedAt, String status) {
