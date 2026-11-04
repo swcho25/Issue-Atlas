@@ -1,3 +1,5 @@
+import { Icon } from "../icon";
+
 // Figma v5/Prov badge(2375:449): 논증 카드 칸을 누가 채웠는지. 높이 18 · 모서리 4 · 왼쪽 4 오른쪽 5 ·
 // 아이콘 10 과 글자 사이 3 · IA5/Label 12. 네 종류 모두 같은 반짝 아이콘(v3/Icon sparkle)
 export type ProvKind = "rule" | "card" | "ai" | "human";
@@ -15,12 +17,7 @@ export function ProvBadge({ kind, className = "" }: { kind: ProvKind; className?
     <span
       className={`inline-flex h-4.5 shrink-0 items-center gap-0.75 rounded-sm pr-1.25 pl-1 text-label-12 whitespace-nowrap ${kinds[kind].className} ${className}`}
     >
-      <svg viewBox="0 0 20 20" aria-hidden="true" className="size-2.5 shrink-0">
-        <path
-          d="M10 2.08 11.75 7.25 17.08 9.17 11.75 11.08 10 16.25 8.25 11.08 2.92 9.17 8.25 7.25 10 2.08Z"
-          fill="currentColor"
-        />
-      </svg>
+      <Icon name="sparkle" className="size-2.5" />
       {kinds[kind].label}
     </span>
   );

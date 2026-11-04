@@ -1,14 +1,11 @@
 import { Button, type ButtonSize, type ButtonVariant } from "@/shared/ui/button";
+import { Icon } from "@/shared/ui/icon";
 
 const variants: ButtonVariant[] = ["primary", "secondary", "ghost"];
 const sizes: ButtonSize[] = ["m", "s"];
 
-// Figma v5/Button 의 아이콘 자리(16 · 14)
-const plus = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.17" aria-hidden="true">
-    <path d="M8 3.33v9.34M3.33 8h9.34" strokeLinecap="round" />
-  </svg>
-);
+// Figma v5/Button 의 아이콘 자리(16 · 14). 크기는 버튼이 정한다
+const plus = <Icon name="plus" />;
 
 // v5 화면에서 쓰는 6 변형(Primary · Secondary · Ghost × M · S) + 아이콘 · 비활성.
 // 각 칸의 data-figma 는 자동 대조용 Figma 변형 이름

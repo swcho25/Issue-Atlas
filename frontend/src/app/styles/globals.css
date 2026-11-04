@@ -9,7 +9,9 @@
  *   색 값(Light · Dark) ...... :root 의 --bg-* · --surface-* · --text-* · --primary-* · --status-* …
  *   글자 · 모서리 · 간격 · 그림자 · 기본 색 제거 .. @theme   → text-body-14 · rounded-xl · p-4 · shadow-card
  *   색 클래스 이름 .......... @theme inline → bg-surface-1 · text-text-2 · bg-primary · border-border-1
- *   유리 · 겹침 순서 ........ @utility       → glass(-strong · -thin) · z-map … z-modal
+ *   유리 · 렌즈 · 겹침 순서 . @utility       → glass(-strong · -thin) · lens-amber · lens-clear · tab-glass · z-map … z-modal
+ *
+ * 공통 컴포넌트(버튼 · 배지 · 탭 바 · 아이콘 …)는 src/shared/ui/README.md 에 목록이 있다.
  *
  * 값을 바꿀 때는 Figma(IA v5)를 먼저 고치고, 개발 서버 /dev/ui 견본에서 Figma 와 대조한다.
  * 토큰 밖 값(bg-[#…] · text-[13px] · shadow-[…] · z-10)은 ESLint 가 막는다(frontend/eslint.config.mjs)

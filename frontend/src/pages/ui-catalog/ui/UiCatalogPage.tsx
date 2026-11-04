@@ -6,6 +6,7 @@ import { ColorTokens } from "./ColorTokens";
 import { Effects } from "./Effects";
 import { FontSamples } from "./FontSamples";
 import { GlassPreview } from "./GlassPreview";
+import { IconPreview } from "./IconPreview";
 import { RailPreview } from "./RailPreview";
 import { TabBarPreview } from "./TabBarPreview";
 import { TypeAndShape } from "./TypeAndShape";
@@ -23,6 +24,7 @@ export function UiCatalogPage() {
       <ButtonPreview />
       <BadgePreview />
       <TabBarPreview />
+      <IconPreview />
       <ColorTokens />
       <TypeAndShape />
       <Effects />
