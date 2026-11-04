@@ -32,6 +32,7 @@ class FoundationMigrationTest {
         jdbc.update("DELETE FROM source_spec");
         jdbc.update("DELETE FROM source");
         jdbc.update("DELETE FROM place_code_map");
+        jdbc.update("DELETE FROM place_boundary");
         jdbc.update("UPDATE place SET parent_id = NULL");
         jdbc.update("DELETE FROM place");
         jdbc.update(

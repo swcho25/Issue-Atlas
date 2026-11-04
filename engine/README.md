@@ -27,6 +27,8 @@ uv --directory engine run python -m pipeline.responses --db
 uv --directory engine run python -m pipeline.region.export --db --output <저장소 밖 경로>.jsonl
 uv --directory engine run python -m pipeline.region.extract --input <내보낸 JSONL> --output <저장소 밖 경로>.jsonl   # .env 의 P3_LLM_*
 uv --directory engine run python -m pipeline.region.load --db --extract <추출 결과 JSONL> [--apply]
+# P3 경계: SGIS 행정구역 경계 → Flyway 시드 SQL(시군구 6 · 행정동 123, 10 m 단순화). 연도가 바뀔 때 새 번호로
+uv --directory engine run python -m pipeline.region.boundary --year 2025 --output ../backend/src/main/resources/db/migration/V<번호>__seed_place_boundaries.sql
 # P4 기사→카드 1차 분류: C1·A3 승인본과 최신 정제 기사 제목·요약 사용
 # 기본은 시험 실행, --apply에서만 저장. 로컬 별도 DB는 --database issue_atlas_p4
 uv --directory engine run python -m ai.classify embed-docs --db [--apply]
@@ -49,7 +51,7 @@ uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 | `pipeline/refine/` | 박준우 | P2 정제 — 검증·정규화·저장 범위 게이트·중복 |
 | `pipeline/article/` | 박준우 | 기사 본문 수집 — 빅카인즈 원문 링크 → 본문(같은 기사 확인). 요약은 P3. 빅카인즈 수집기가 불러 `raw_record` 에 저장 ([계약](../contracts/article/)) |
 | `pipeline/collect/` | 장성우 | P1 KOSIS·에어코리아 수집·원천 저장·C1 출력 ([KOSIS](pipeline/collect/README.md), [에어코리아](pipeline/collect/AIRKOREA.md)) |
-| `pipeline/region/` | 정우현 | P3 지역 · 시간 — 기사 지역 · 여러 지역 · 위치 · 사건 시간대 · 요약 → `news_event`, 요약 뒤 본문 지우기. 규칙(이름 체계 · 지명 사전 · 본문 정리 · 여러 지역 · 적재 검사)과 서버 명령(`export` · `extract` · `load`). 추출은 OpenAI 호환 모델 서버(.env `P3_LLM_*`), 적재 전 장소 확인은 주소 API(.env `JUSO_SEARCH_KEY`), 위치 좌표는 SGIS(.env `SGIS_KEY` · `SGIS_SECRET`) ([계약](../contracts/p3/)) |
+| `pipeline/region/` | 정우현 | P3 지역 · 시간 — 기사 지역 · 여러 지역 · 위치 · 사건 시간대 · 요약 → `news_event`, 요약 뒤 본문 지우기. 규칙(이름 체계 · 지명 사전 · 본문 정리 · 여러 지역 · 적재 검사)과 서버 명령(`export` · `extract` · `load`), 경계 시드(`boundary`). 추출은 OpenAI 호환 모델 서버(.env `P3_LLM_*`), 적재 전 장소 확인은 주소 API(.env `JUSO_SEARCH_KEY`), 위치 좌표는 SGIS(.env `SGIS_KEY` · `SGIS_SECRET`) ([계약](../contracts/p3/)) |
 | `pipeline/responses/` | 장성우 | P8 카드 근거 ③ 「기존 대응」 후보 — 온통청년 정책 · 세출에서 규칙으로 골라 `existing_response` 에 저장 ([계약](../contracts/existing-response/)) |
 | `ai/classify/` | 최동준 | P4 기사 제목·요약 → C1·A3 승인 카드 프로필 임베딩·cosine 점수 ([계약](../contracts/article-card-search/README.md)) |
 | `ai/argument/` | 최동준 | P5 논증 카드 ③ 보증(`llm_phrasing`) · ⑤ 반박(`llm_judgment`) 문장화와 출력 검사(인용 · 원문 위치 · 수치 · 판정 고정 · 금지어). 탈락하면 카드 문구 · 빈 반박. 입력은 [판정 입력](../contracts/ai/) + 그 실행의 카드 승인본 + 근거 자료 구절(자료 종류 공통 모양, 지금은 기사 요약). 카드 목록 없이 승인본으로 판정한 실행이면 부른다 |
