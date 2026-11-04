@@ -1,0 +1,12 @@
+# Cloudflare Workers 정적 파일 응답 헤더. OpenNext 가 public/ 을 .open-next/assets/ 로 옮기면 Workers 가 읽는다
+# https://developers.cloudflare.com/workers/static-assets/headers
+# https://opennext.js.org/cloudflare/caching#static-assets-caching
+# 기본값(max-age=0, must-revalidate)이면 다시 올 때마다 서버에 물어본다
+
+# 빌드 결과물: 파일 이름에 내용 해시가 붙어 바뀌면 이름도 바뀐다(OpenNext 권장값)
+/_next/static/*
+  Cache-Control: public,max-age=31536000,immutable
+
+# 랜딩 그림(약 11MB)은 하루 동안 브라우저에 둔다. 그림을 바꿀 때는 파일 이름을 바꾼다(하루 동안 예전 그림이 보일 수 있다)
+/landing/*
+  Cache-Control: public,max-age=86400
