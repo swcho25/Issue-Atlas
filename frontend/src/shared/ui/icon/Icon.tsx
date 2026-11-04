@@ -7,11 +7,14 @@ export type IconName = keyof typeof iconPaths;
 export function Icon({
   name,
   label,
+  weight = 1.45833,
   className = "size-5",
 }: {
   name: IconName;
   /** 아이콘만으로 뜻을 전할 때(글자 없는 버튼 등) 화면 낭독기용 이름. 없으면 장식으로 숨긴다 */
   label?: string;
+  /** 선 굵기(20 판 기준). Figma 에서 인스턴스가 굵기를 덮어쓴 곳만(예: 뒤로 버튼 2) */
+  weight?: number;
   className?: string;
 }) {
   const icon: { d: string; fill?: true } = iconPaths[name];
@@ -28,7 +31,7 @@ export function Icon({
           d={icon.d}
           fill="none"
           stroke="currentColor"
-          strokeWidth={1.45833}
+          strokeWidth={weight}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
