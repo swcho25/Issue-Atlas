@@ -8,11 +8,12 @@ SSAFY 15기 자율 프로젝트 C108 · 기업 연계(스테디윈스). 기준 �
 ## 폴더
 | 폴더 | 내용 | 세부 규칙 |
 | --- | --- | --- |
-| `frontend/` | Next.js 16 · TypeScript · Tailwind 4 · FSD | `frontend/AGENTS.md` |
+| `frontend/` | Next.js 16 · TypeScript · Tailwind 4 · FSD. Tailwind 설정은 `frontend/src/app/styles/globals.css` | `frontend/AGENTS.md` |
 | `backend/` | Spring Boot 4.1 · Java 21 · Gradle · Flyway · PostGIS | `backend/AGENTS.md` |
 | `engine/` | Python 3.13 · uv · ruff · pytest | `engine/AGENTS.md` |
 | `contracts/` | 레인 간 계약 C1 · C2 · C3 (바꾸면 받는 쪽 리뷰 필수) | `contracts/README.md` |
-| `.agents/skills/` | 스킬 원본 start · check · test · finish · review · handoff (`.claude/skills/` 는 연결 파일) | 각 `SKILL.md` |
+| `.agents/skills/` | 스킬 원본 start · check · test · ui · finish · review · handoff (`.claude/skills/` 는 연결 파일) | 각 `SKILL.md` |
+| `docs/design/` | 디자인 기준 DESIGN.md(Figma v5 토큰 · 쓰임 규칙) · 로고 | `frontend/AGENTS.md` 「스타일」 |
 | `docs/plans/` | 작업별 실행 계획 (`active/` 진행 중, `done/` 끝남) | `docs/plans/TEMPLATE.md` |
 | `docs/harness-plan.md` | 이 하네스의 설계와 도입 순서 | — |
 
