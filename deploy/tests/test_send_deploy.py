@@ -91,6 +91,18 @@ class SenderTests(unittest.TestCase):
 
         self.invoke(execute)
 
+    def test_engine_uses_its_own_artifact_and_repository(self):
+        self.env["DEPLOY_COMPONENT"] = "engine"
+        self.env["ENGINE_IMAGE_REPOSITORY"] = "test/engine"
+        (self.root / "engine-image.txt").write_text("test/engine@sha256:" + "e" * 64)
+
+        def execute(command, **kwargs):
+            payload = json.loads(kwargs["input"])
+            self.assertEqual(payload["component"], "engine")
+            self.assertEqual(payload["image"], "test/engine@sha256:" + "e" * 64)
+
+        self.invoke(execute)
+
     def test_unknown_component_never_contacts_server(self):
         self.env["DEPLOY_COMPONENT"] = "database"
         with self.assertRaises(ValueError):

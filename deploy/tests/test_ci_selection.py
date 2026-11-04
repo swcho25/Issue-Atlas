@@ -144,6 +144,8 @@ class SelectionTests(unittest.TestCase):
         fe = {"frontend", "frontend-worker", "frontend-deploy"}
         be = {"backend", "backend-image", "backend-deploy"}
         collector = {"engine", "collector-image", "collector-deploy"}
+        # The phrasing API deploys to development only (243); main never builds it.
+        api = {"engine-image", "engine-deploy"}
         baseline = {"harness", "infra"}
         scenarios = [
             (["frontend/src/pages/landing/ui/View.tsx"], fe),
@@ -153,12 +155,16 @@ class SelectionTests(unittest.TestCase):
             (["backend/src/main/java/App.java"], be),
             (["backend/src/main/resources/db/migration/V0007.sql"], be),
             (["engine/pipeline/collect/kosis.py"], collector),
-            (["engine/uv.lock"], collector),
-            # The collector image ships engine/ai for embed and score runs.
-            (["engine/ai/classify/model.py"], collector),
-            (["engine/ai/classify/thresholds.json"], collector),
+            (["engine/uv.lock"], collector | api),
+            # The collector image ships engine/ai for embed and score runs; the API image too.
+            (["engine/ai/classify/model.py"], collector | api),
+            (["engine/ai/classify/thresholds.json"], collector | api),
             (["engine/ai/argument/README.md"], {"engine"}),
-            (["engine/api/main.py"], {"engine"}),
+            (["engine/api/main.py"], {"engine"} | api),
+            (["engine/Dockerfile"], collector | api),
+            (["contracts/ai/phrasing-request.schema.json"], {"frontend", "backend", "engine"} | api),
+            (["contracts/c2/schemas/evidence.schema.json"], {"frontend", "backend", "engine"} | api),
+            (["deploy/dev/compose.yaml"], be | api),
             (["engine/tests/test_collect_kosis.py"], {"engine"}),
             (["frontend/src/a.ts", "backend/src/b.java"], fe | be),
             (["contracts/c1/schema.json"], {"frontend", "backend"} | collector),
@@ -170,8 +176,9 @@ class SelectionTests(unittest.TestCase):
             (["engine/pipeline/collect/kosis.py", "contracts/c1/README.md"], collector),
             (["engine/pipeline/collect/README.md"], set()),
             (["contracts/c1/examples/raw/kosis-sp01-monthly.json"], {"frontend", "backend"} | collector),
-            ([".gitlab/ci/changes.gitlab-ci.yml"], fe | be | collector),
-            (["deploy/ci/send_deploy.py"], be | collector),
+            ([".gitlab/ci/changes.gitlab-ci.yml"], fe | be | collector | api),
+            (["deploy/ci/send_deploy.py"], be | collector | api),
+            (["deploy/ci/runner/restore-service-egress.sh"], set()),
             (["deploy/frontend/README.md", "docs/plans/active/plan.md", "README.md"], set()),
             (["frontend/README.md", "backend/README.md", "engine/README.md"], set()),
         ]
@@ -179,6 +186,8 @@ class SelectionTests(unittest.TestCase):
             for paths, expected in scenarios:
                 with self.subTest(branch=branch, paths=paths):
                     selected = self.selected(paths, branch=branch)
+                    if branch == "main":
+                        expected = expected - api
                     self.assertEqual(selected, baseline | expected)
                     for name in selected:
                         for need in self.jobs[name].get("needs", []):
@@ -231,8 +240,10 @@ class SelectionTests(unittest.TestCase):
             need = next(item for item in self.jobs[name]["needs"] if item["job"] == "backend-deploy")
             self.assertTrue(need["optional"])
             self.assertFalse(need["artifacts"])
+        # The engine API is independent of Flyway; backend falls back to card text without it.
+        self.assertEqual(self.jobs["engine-deploy"]["needs"], [{"job": "engine-image", "artifacts": True}])
         # Image jobs retain the check-stage barrier (no needs-based bypass).
-        for name in ("backend-image", "collector-image", "frontend-worker"):
+        for name in ("backend-image", "collector-image", "engine-image", "frontend-worker"):
             self.assertNotIn("needs", self.jobs[name])
 
     def test_deleted_and_renamed_paths(self):
@@ -264,7 +275,7 @@ class SelectionTests(unittest.TestCase):
             worker = workers["env"][environment]
             self.assertEqual(worker["routes"][0]["pattern"], domain)
             self.assertEqual(worker["services"][0]["service"], worker["name"])
-        for job in ("backend-deploy", "collector-deploy", "frontend-deploy"):
+        for job in ("backend-deploy", "collector-deploy", "engine-deploy", "frontend-deploy"):
             self.assertEqual(self.jobs[job]["environment"]["name"], "${WORKER_ENV}-" + ("workers" if job == "frontend-deploy" else "ec2"))
             self.assertIn("$CI_COMMIT_BRANCH", self.jobs[job]["resource_group"])
 
