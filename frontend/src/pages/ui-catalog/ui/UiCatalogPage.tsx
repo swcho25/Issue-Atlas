@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { ButtonPreview } from "./ButtonPreview";
 import { ColorTokens } from "./ColorTokens";
 import { Effects } from "./Effects";
 import { FontSamples } from "./FontSamples";
@@ -17,6 +18,7 @@ export function UiCatalogPage() {
       <p className="mt-1 text-body-13 text-text-2">
         기준: Figma 변수 IA v5 · docs/design/DESIGN.md
       </p>
+      <ButtonPreview />
       <ColorTokens />
       <TypeAndShape />
       <Effects />
