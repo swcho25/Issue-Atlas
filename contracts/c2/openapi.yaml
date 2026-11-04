@@ -64,6 +64,26 @@ paths:
           $ref: "#/components/responses/Problem"
         "404":
           $ref: "#/components/responses/Problem"
+  /v1/places/{place_id}/boundaries:
+    get:
+      tags: [places]
+      operationId: getPlaceBoundaries
+      summary: 지역 경계 GeoJSON (시군구를 주면 그 시군구 + 행정동 경계 한 번에)
+      description: |
+        지도 테두리 · 행정동 고르기(화면 18a). 시군구 place_id 를 주면 시군구 경계가 먼저, 이어서 그 안 행정동(place_id 순).
+        행정동을 주면 그 행정동 하나. 경계가 없는 place(측정소 · 시도)는 빈 features. 없는 place 는 404.
+        좌표는 WGS84 [경도, 위도] 소수 5자리(약 1 m). 경계는 SGIS 행정구역 경계를 10 m 단순화한 것(contracts/p3 「경계」).
+      parameters:
+        - $ref: "#/components/parameters/PlaceId"
+      responses:
+        "200":
+          description: 경계 FeatureCollection
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/place-boundaries.schema.json
+        "404":
+          $ref: "#/components/responses/Problem"
   /v1/questions:
     post:
       tags: [questions]

@@ -61,7 +61,7 @@ class OpenApiContractTest {
                                         .filter(METHODS::contains)
                                         .forEach(m -> actual.add(operation(m, p.getKey()))));
 
-        assertThat(expected).hasSize(9);
+        assertThat(expected).hasSize(10);
         assertThat(actual).containsAll(expected);
     }
 

@@ -55,6 +55,7 @@ public class SecurityConfig {
                                                 HttpMethod.GET,
                                                 "/v1/places",
                                                 "/v1/places/*/cards",
+                                                "/v1/places/*/boundaries",
                                                 "/v1/arguments/*",
                                                 "/v1/evidence/*",
                                                 "/v1/observations",

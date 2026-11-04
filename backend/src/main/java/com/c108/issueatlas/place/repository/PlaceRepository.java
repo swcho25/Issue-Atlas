@@ -33,6 +33,17 @@ public class PlaceRepository {
             ORDER BY p.place_id, c.valid_from NULLS FIRST, c.place_code
             """;
 
+    // 경계(V0041 · V0042). 준 place 자신 + 그 아래 행정동(시군구를 줄 때만 있다). 자신이 먼저, 행정동은 place_id 순.
+    // 좌표는 소수 5자리(약 1 m) — 경계가 10 m 단순화라 그보다 촘촘할 필요가 없다
+    private static final String BOUNDARIES =
+            """
+            SELECT p.place_id, p.name, p.level, p.parent_id, b.source, b.source_year,
+                   ST_AsGeoJSON(b.boundary::geometry, 5) AS geometry
+            FROM place p JOIN place_boundary b ON b.place_id = p.place_id
+            WHERE p.place_id = :id OR (p.parent_id = :id AND p.level = 'emd')
+            ORDER BY p.place_id <> :id, p.place_id
+            """;
+
     private final JdbcClient jdbc;
 
     public PlaceRepository(JdbcClient jdbc) {
@@ -51,6 +62,10 @@ public class PlaceRepository {
         return jdbc.sql(EMD_CODES).param(parentId).query(RegionCodeRow.class).list();
     }
 
+    public List<BoundaryRow> findBoundaries(String placeId) {
+        return jdbc.sql(BOUNDARIES).param("id", placeId).query(BoundaryRow.class).list();
+    }
+
     public boolean exists(String placeId) {
         return jdbc.sql("SELECT EXISTS(SELECT 1 FROM place WHERE place_id = ?)")
                 .param(placeId)
@@ -67,4 +82,13 @@ public class PlaceRepository {
             String placeCode,
             LocalDate validFrom,
             LocalDate validTo) {}
+
+    public record BoundaryRow(
+            String placeId,
+            String name,
+            String level,
+            String parentId,
+            String source,
+            int sourceYear,
+            String geometry) {}
 }
