@@ -139,8 +139,8 @@ class EvidenceApiTest {
     }
 
     @Test
-    void 로그인_없이는_401() throws Exception {
-        mvc.perform(get("/v1/evidence/ev_test_kosis")).andExpect(status().isUnauthorized());
+    void 로그인_없이도_조회된다() throws Exception {
+        mvc.perform(get("/v1/evidence/ev_test_kosis")).andExpect(status().isOk());
     }
 
     private void evidence(

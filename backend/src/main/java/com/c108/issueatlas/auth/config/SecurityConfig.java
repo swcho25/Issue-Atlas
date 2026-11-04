@@ -50,6 +50,18 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/v1/auth/login")
                                         .permitAll()
+                                        // 일반 사용자 화면(C2 조회 · 질문)은 로그인 없이. 로그인은 관리자만
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/v1/places",
+                                                "/v1/places/*/cards",
+                                                "/v1/arguments/*",
+                                                "/v1/evidence/*",
+                                                "/v1/observations",
+                                                "/v1/sources")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/v1/questions")
+                                        .permitAll()
                                         .requestMatchers("/v1/admin/**")
                                         .hasRole("ADMIN")
                                         .requestMatchers("/v1/**")
