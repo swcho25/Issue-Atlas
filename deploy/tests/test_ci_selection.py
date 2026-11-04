@@ -154,6 +154,10 @@ class SelectionTests(unittest.TestCase):
             (["backend/src/main/resources/db/migration/V0007.sql"], be),
             (["engine/pipeline/collect/kosis.py"], collector),
             (["engine/uv.lock"], collector),
+            # The collector image ships engine/ai for embed and score runs.
+            (["engine/ai/classify/model.py"], collector),
+            (["engine/ai/classify/thresholds.json"], collector),
+            (["engine/ai/argument/README.md"], {"engine"}),
             (["engine/api/main.py"], {"engine"}),
             (["engine/tests/test_collect_kosis.py"], {"engine"}),
             (["frontend/src/a.ts", "backend/src/b.java"], fe | be),

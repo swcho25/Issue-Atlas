@@ -165,8 +165,12 @@ class QuestionApiTest {
     private void lofin(String grade) {
         jdbc.update(
                 "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
-                        + " VALUES ('lofin', '지방재정365 세출', '행정안전부', '공공데이터', 'full', ?)",
+                        + " VALUES ('lofin', '지방재정365 세출', '행정안전부', '공공데이터', 'full', ?)"
+                        + " ON CONFLICT (source_id) DO UPDATE SET name = EXCLUDED.name,"
+                        + " license_type = EXCLUDED.license_type",
                 grade);
+        // V0040 이 lofin 행을 미리 넣고 V0039 가 빈 등급을 채우므로, 시험할 등급은 넣은 뒤 다시 적는다
+        jdbc.update("UPDATE source SET reliability_grade = ? WHERE source_id = 'lofin'", grade);
     }
 
     private void statistics(String card) {
@@ -394,9 +398,9 @@ class QuestionApiTest {
         assertThat(a.get("previous_run_id")).isNull();
         assertThat(b.get("previous_run_id")).isEqualTo(first);
         assertThat(metrics(other).get("previous_run_id")).isNull(); // 기간이 다르면 다른 질문
-        // 통계 없는 C1: 판단 · 근거 · 반박은 비고 보증 · 한정어 · 상한선만 찬다
-        assertThat(a.get("filled_cells")).isEqualTo(3);
-        assertThat(b.get("filled_cells")).isEqualTo(3);
+        // 통계 없는 C1: 판단 · 반박은 비고, 근거(세출 기존 대응 — V0040 lofin 출처 등급 B) · 보증 · 한정어 · 상한선이 찬다
+        assertThat(a.get("filled_cells")).isEqualTo(4);
+        assertThat(b.get("filled_cells")).isEqualTo(4);
         assertThat(a.get("edit_count")).isNull(); // 검수 기능 전
         assertThat((Integer) b.get("duration_ms")).isNotNegative();
     }
