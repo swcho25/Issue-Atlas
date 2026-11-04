@@ -1,1 +1,1 @@
-export { ApiError, apiGet, browserGet } from "./client";
+export { ApiError, apiGet, browserGet, browserPost } from "./client";

@@ -128,23 +128,38 @@
   --logo-highlight: #ffffff;
 }
 
-/* 랜딩 색(Figma v4 보드 02 확정 랜딩). 밝은 화면 전용 디자인이라 어두운 모드 값을 두지 않는다 */
+/* 랜딩 색(Figma 「02 · 로그인 · 랜딩」, 시제품 docs/design/landing-scroll). 밝은 화면 전용 디자인이라 어두운 모드 값을 두지 않는다 */
 :root {
-  --landing-bg-0: #fefefe;
-  --landing-bg-1: #fcfdfe;
+  /* 장면 바탕: 위 → 아래로 아주 옅게 푸른 흰색(시안에서 잰 값). bg-2 는 페이지 바탕 */
+  --landing-bg-0: #fafafe;
+  --landing-bg-1: #fafafd;
   --landing-bg-2: #f7f8fc;
-  --landing-bg-3: #f6f8fd;
-  --landing-bg-4: #f6f8fb;
+  --landing-bg-3: #f6f8fc;
+  --landing-bg-4: #f5f6fd;
   --landing-ink: #111318;
-  --landing-word: #1e2530;
-  --landing-rule: rgb(16 20 27 / 0.35);
-  --landing-line: #d2d6db;
-  --landing-button: #222222;
+  --landing-mast: #050608;
+  --landing-text-2: #5b606d;
+  --landing-text-3: #8a8f9c;
+  --landing-muted: #9aa0ac;
+  --landing-cue: #7b7f88;
+  --landing-place: #5a6b8c;
+  --landing-panel: #eef0f5;
+  --landing-chip: #f1f3f7;
+  --landing-chip-text: #7c8494;
+  --landing-hair: #e4e6ec;
+  --landing-caption: rgb(27 29 34 / 0.88);
   --landing-surface: #ffffff;
-  /* 바닥 그림자 색(캔버스에서 투명도와 함께 쓰는 r, g, b) */
-  --landing-shadow: 24, 32, 54;
-  --cta: #5a41fd;
-  --cta-foreground: #ffffff;
+  /* 다크 값이 없는 랜딩 전용: 데이터 남색 · 앰버(누름 · 글자) · 경고 · 입력칸 선 · 로그인 창 뒤 막 */
+  --landing-navy: #2e4a7d;
+  --landing-amber: #ffb000;
+  --landing-amber-hover: #e69e00;
+  --landing-amber-text: #9a6700;
+  --landing-alert: #c2412a;
+  --landing-field-line: #d6d6cf;
+  --landing-scrim: rgb(14 16 22 / 0.32);
+  /* 투명도와 함께 쓰는 r g b: rgb(var(--landing-ink-rgb) / 0.14) */
+  --landing-ink-rgb: 17 19 24;
+  --landing-bg-rgb: 247 248 252;
 }
 
 /*
@@ -310,14 +325,6 @@
 
   --color-logo-ink: var(--logo-ink);
   --color-logo-paper: var(--logo-paper);
-  --color-landing-ink: var(--landing-ink);
-  --color-landing-word: var(--landing-word);
-  --color-landing-rule: var(--landing-rule);
-  --color-landing-line: var(--landing-line);
-  --color-landing-button: var(--landing-button);
-  --color-landing-surface: var(--landing-surface);
-  --color-cta: var(--cta);
-  --color-cta-foreground: var(--cta-foreground);
   /*
    * 본문: 영문 · 숫자 · 띄어쓰기는 IA Latin, 나머지(한글 · 문장부호)는 Pretendard. 둘 다 fonts.ts 에서 불러온다.
    * --font-gothic-a1 · serif · mono 변수는 fonts.ts(next/font)가 <html> 에 건다. 못 받으면 뒤의 시스템 글꼴로
