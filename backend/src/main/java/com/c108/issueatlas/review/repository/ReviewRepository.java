@@ -51,15 +51,13 @@ public class ReviewRepository {
     public Optional<JsonNode> target(String type, String id, boolean lock) {
         String table =
                 switch (type) {
-                    case "news_event", "normalized_record", "press_release", "source", "card" ->
-                            type;
+                    case "news_event", "normalized_record", "source", "card" -> type;
                     default -> throw new IllegalArgumentException();
                 };
         String key =
                 switch (type) {
                     case "news_event" -> "news_id";
                     case "normalized_record" -> "id";
-                    case "press_release" -> "press_id";
                     case "source" -> "source_id";
                     default -> "card_id";
                 };
@@ -87,17 +85,20 @@ public class ReviewRepository {
                             "SELECT jsonb_build_object('source_id',source_id,'name',name,'org',org,'license_type',license_type,'storage_scope',storage_scope,'reliability_grade',reliability_grade,'robots_status',robots_status)::text FROM source WHERE source_id=?";
                     case "normalized_record" ->
                             """
-                SELECT jsonb_build_object('id',id,'content_hash',content_hash,'source_id',source_id,
-                  'spec_id',spec_id,'indicator_id',indicator_id,'place_code_system',place_code_system,
-                  'place_code_raw',place_code_raw,'value',value,'unit',unit,'validation_status',validation_status,
-                  'refined_at',refined_at)::text FROM normalized_record WHERE id=CAST(? AS bigint)
-                """;
-                    case "press_release" ->
-                            """
-                SELECT jsonb_build_object('press_id',press_id,'site',site,'org',org,'place_code_raw',place_code_raw,
-                  'category',category,'department',department,'title',title,'published_on',published_on,
-                  'url',url,'license_type',license_type,'storage_scope',storage_scope,'collected_at',collected_at)::text
-                FROM press_release WHERE press_id=?
+                SELECT (jsonb_build_object('id',n.id,'content_hash',n.content_hash,'source_id',n.source_id,
+                  'spec_id',n.spec_id,'indicator_id',n.indicator_id,'place_code_system',n.place_code_system,
+                  'place_code_raw',n.place_code_raw,'value',n.value,'unit',n.unit,'validation_status',n.validation_status,
+                  'refined_at',n.refined_at) || CASE WHEN n.record->'document'->>'kind'='press_release'
+                  THEN jsonb_build_object(
+                    'press_id',n.record->'locator'->>'press_id',
+                    'document',jsonb_build_object('kind','press_release',
+                      'title',n.record->'document'->'title','publisher',n.record->'document'->'publisher',
+                      'categories',n.record->'document'->'categories','link',n.record->'document'->'link'),
+                    'published_at',n.record->'published_at','collected_at',n.record->'collected_at',
+                    'license_type',n.record->'license_type','storage_scope',n.storage_scope,
+                    'department',(SELECT r.payload->>'department' FROM raw_record r WHERE r.content_hash=n.content_hash))
+                  ELSE '{}'::jsonb END)::text
+                FROM normalized_record n WHERE n.id=CAST(? AS bigint)
                 """;
                     default ->
                             """
