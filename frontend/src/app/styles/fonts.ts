@@ -8,7 +8,7 @@ import "./ia-latin.css";
 // 그 밖의 채택 글꼴(Figma 「00 · 로고 · 글꼴」): 맞추지 않은 Gothic A1(영문뿐인 큰 글자), 워드마크 Source Serif 4,
 // 작은 라벨 IBM Plex Mono. next/font 가 빌드 때 받아 같은 출처에서 내보내고, CSS 변수로만 노출한다
 const gothicA1 = Gothic_A1({
-  weight: ["400", "700"],
+  weight: ["400", "700", "800", "900"],
   subsets: ["latin"],
   preload: false,
   variable: "--font-gothic-a1",
