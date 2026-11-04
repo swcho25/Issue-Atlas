@@ -34,6 +34,9 @@ public class PlaceController {
     }
 
     /** 경계 GeoJSON. 시군구를 주면 그 시군구 + 행정동, 행정동을 주면 그 하나. */
+    @Operation(
+            operationId = "getPlaceBoundaries",
+            summary = "지역 경계 GeoJSON (시군구를 주면 그 시군구 + 행정동 경계 한 번에)")
     @GetMapping("/{place_id}/boundaries")
     public PlaceBoundaryResponse boundaries(@PathVariable("place_id") String placeId) {
         return places.boundaries(placeId);
