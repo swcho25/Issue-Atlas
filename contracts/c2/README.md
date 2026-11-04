@@ -145,7 +145,7 @@ PRD 7.3 은 등급 조건만 정했다. 아래는 정해지기 전까지 예시 
 | `provenance` | `rule` `card` `llm_phrasing` `llm_judgment` `human` | 칸마다 |
 | `qualifier_grade` | `high` `medium` `low` (화면: 상·중·하) | 근거 충실도 |
 | `rebuttal_status` | `supported` `not_found` `needs_review` | 경쟁 설명 |
-| `source_grade` | `A` `B` `C` | 출처 등급 |
+| `source_grade` | `A` `B` `C` | 출처 등급. 기준 · 출처별 값은 [database 「출처 등급」](../database/README.md) |
 
 PRD 1.2(근거 상태 5가지)와 카드 양식 C6(ready·partial·blocked·unsupported)의 상태가 달랐던 것은 **근거 행 단위**(`evidence_status`)와 **실행 단위**(`run_status`)로 나눠 둘 다 쓴다. 필수 근거가 하나라도 `available` 이 아니면 `blocked`, 선택 근거만 빠지면 `partial`, 카드의 적용 조건(B6)을 못 채우거나 카드가 없으면 `unsupported`. 통계 근거가 있어도 승인본 `applicability.min_complete_years`보다 완전한 연 값이 적으면 `unsupported`와 `claim.value = insufficient`를 돌려준다.
 

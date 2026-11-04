@@ -104,6 +104,8 @@ class QuestionApiTest {
                 "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
                         + " VALUES ('lofin', '지방재정365 세출', '행정안전부', '공공데이터', 'full', ?)",
                 grade);
+        // V0039 가 넣을 때 빈 등급을 채우므로, 등급 없는 출처를 시험할 때는 넣은 뒤 다시 비운다
+        jdbc.update("UPDATE source SET reliability_grade = ? WHERE source_id = 'lofin'", grade);
     }
 
     private void statistics(String card) {

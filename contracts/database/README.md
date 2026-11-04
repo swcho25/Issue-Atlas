@@ -4,12 +4,25 @@ P1 수집·P3 지역·P7 서버가 공유하는 DB 기반. 구현은 backend/src
 
 | 테이블 | 식별자 | 핵심 저장 규칙 |
 | --- | --- | --- |
-| source | source_id text | 이름·기관·이용 조건·storage_scope 필수. 신뢰 등급·robots 결과는 확인 전 null 허용 |
+| source | source_id text | 이름·기관·이용 조건·storage_scope 필수. 신뢰 등급은 아래 「출처 등급」 표로 채우고(V0039) 표에 없는 출처는 null. robots 결과는 확인 전 null 허용 |
 | source_spec | spec_id text | source FK, method(api/file/board/rss), evidence_class 4종, params 객체 기본 {}. 수동 수집 schedule은 null |
 | job_run | job_run_id text | spec FK, collector_version·started_at 필수, stats 객체 기본 {}. 종료 전 status·finished_at 모두 null, 종료 시 둘 다 입력 |
 | raw_record | bigint identity | 실행과 spec이 일치하는 복합 FK. raw_url/file_name 중 하나 이상 필수. content_hash·payload null 허용. `c1_record`(V0005): 수집기가 이 원본에서 만든 C1 레코드(장부), jsonb 객체 또는 null. P1이 채우고 P2 정제가 읽는다([P2 계약](../p2/README.md)) |
 | place | place_id text | 계층 sido/sigungu/emd/station, parent 자기 FK. geography(Point,4326), 한국 범위 경도 124~132·위도 33~39 |
 | place_code_map | bigint identity | place FK, C1 코드 체계 5종, 코드·유효 날짜 연결 |
+
+## 출처 등급 (S15P31C108-232, V0039)
+
+질문 실행은 등급이 있는 출처로만 통계 · 기존 대응 근거를 만들고, 한정어는 A · B 출처 수를 센다([C2 「근거 충실도 규칙표」](../c2/README.md)). 기준은 자료를 누가 만들었는가 하나다.
+
+| 등급 | 기준 | 출처 (`source_id`) |
+| --- | --- | --- |
+| A | 국가 · 공공기관이 측정 · 집계한 원자료(승인통계 · 측정망) | KOSIS 인구이동 · 주민등록인구 `S01`, 에어코리아 확정자료 `airkorea_final` · 측정소 정보 `airkorea_station` |
+| B | 기관이 발표 · 공시한 행정 자료(기관 입장이 들어갈 수 있음) | 지방재정365 세출 `lofin`, 온통청년 청년정책 `youthcenter`, 여수시 보도자료 `press_yeosu`, 광주광역시 보도자료 `press_gwangju` |
+| C | 언론 보도 | 빅카인즈 뉴스 `bigkinds` |
+
+- 값은 함수 `source_default_grade(source_id)` 한 곳에 있다. V0039 가 이미 있는 행의 빈 등급을 채우고, 트리거가 **넣을 때** 등급이 비어 있으면 같은 값으로 채운다(수집기는 등급 없이 넣는다). 넣은 뒤 사람이 비우거나 바꾼 값은 건드리지 않는다
+- 표에 없는 출처는 null 로 남아 근거를 만들지 않는다. 새 출처를 붙이면 새 마이그레이션에서 함수와 이 표를 함께 고친다
 
 ## 카드 목록 조회 (S15P31C108-132, V0013)
 
@@ -92,3 +105,4 @@ V0006은 `vector` 확장만 활성화한다. 벡터 칼럼과 벡터 인덱스�
 - v0.1.26 (2026-11-03): 측정소 22곳 `place_id` 를 `plc_stn_<코드>` 에서 `kr-<부모 시군구 5자리>-s<코드>` 로 바꾼다(V0032, S15P31C108-198). V0024 처럼 새 ID 로 행을 복사하고 참조(`place_code_map` · `card_evidence_status` · `existing_response` · `question` · 저장된 실행 결과의 측정소 ID)를 옮긴 뒤 옛 행을 지운다. 옛 형식이 남으면 멈춘다
 - v0.1.27 (2026-11-03): 재실행 로그(5차 멘토링 표 2, 11/13). `argument_run` 에 `previous_run_id`(같은 지역 × 카드 × 기간의 바로 앞 실행) · `filled_cells`(논증 6칸 중 자동으로 찬 칸 수, 채움률 = ÷ 6) · `edit_count`(사람이 고친 칸 수, 검수 기능 전이라 null) · `duration_ms`(실행 시간)를 더한다(V0033). C2 응답(`result`)에는 넣지 않는다(11/4 동결). 실행마다 서버 로그 한 줄에 앞 실행과의 차이를 남긴다.
 - v0.1.28 (2026-11-03): 기사 사건 표 `news_event` 에 만든 판 칸 `prompt_version` · `summary_version` · `model`(text, null 허용)을 더한다(V0038, S15P31C108-218). null 은 판을 기록하기 전 적재. 마이그레이션에서 채우지 않는다
+- v0.1.29 (2026-11-04): 출처 등급을 정했다(V0039, S15P31C108-232). 「출처 등급」 표대로 이미 있는 출처 행의 빈 `reliability_grade` 를 채우고, 넣을 때 등급이 빈 행도 같은 값으로 채우는 트리거를 둔다. 칸 · 제약은 그대로
