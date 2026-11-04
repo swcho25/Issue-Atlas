@@ -13,7 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * V0040 · V0041 이 넣은 시군구 · 행정동 경계(SGIS 2025)를 확인한다. StationPlaceSeedTest 와 같은 이유로
+ * V0041 · V0042 이 넣은 시군구 · 행정동 경계(SGIS 2025)를 확인한다. StationPlaceSeedTest 와 같은 이유로
  * {@code @AutoConfigureMockMvc} 를 둔다.
  */
 @SpringBootTest
