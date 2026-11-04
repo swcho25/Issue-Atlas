@@ -126,12 +126,12 @@ class PlaceCardsIntegrationTest {
     }
 
     @Test
-    void requiresLogin() throws Exception {
+    void readableWithoutLogin() throws Exception {
         mvc.perform(
                         get("/v1/places/cards-test/cards")
                                 .param("period_start", "2023-01-01")
                                 .param("period_end", "2026-01-01"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
     }
 
     @Test

@@ -3,6 +3,7 @@
 - 인증: /auth/authentication.json (consumer_key · consumer_secret → accessToken)
 - 지오코딩: /addr/geocodewgs84.json (WGS84, EPSG:4326).
   결과 저장 금지 문구 없음, 출처(통계청 SGIS) 표시
+- 경계: /boundary/hadmarea.geojson (UTM-K, EPSG:5179) — pipeline.region.boundary 가 쓴다
 - 키: 루트 .env 의 SGIS_KEY · SGIS_SECRET. 없으면 from_env() 가 None — 위치를 정하지 않는다
 p3-region-lab region_lab/sgis.py 에서 옮겼다 (S15P31C108-206).
 """
@@ -86,19 +87,20 @@ class Sgis:
         except (UnicodeError, ValueError):
             raise SgisError("SGIS_INVALID_RESPONSE") from None
 
-    def _call(self, path: str, retry: bool = True, **params) -> dict | None:
-        """결과 칸. 결과 없음(-100)이면 {}, 이 검색어를 처리하지 못함(-1, 옛 지명)이면 None"""
+    def _call(self, path: str, retry: bool = True, field: str = "result", **params):
+        """결과 칸(기본 result, 경계는 features). 결과 없음(-100)이면 {},
+        이 검색어를 처리하지 못함(-1, 옛 지명)이면 None"""
         body = self.get(f"{BASE}{path}?{urlencode(params)}")
         self.sleep(PAUSE)
         code = str(body.get("errCd"))
         if code == "-401" and "accessToken" in params and retry:  # 토큰 만료 → 다시 받아 한 번
             self.token = ""
-            return self._call(path, False, **{**params, "accessToken": self._token()})
+            return self._call(path, False, field, **{**params, "accessToken": self._token()})
         if code == "-1":
             return None
         if code not in ("0", "-100"):
             raise SgisError(f"SGIS_{code}")
-        return body.get("result") or {}
+        return body.get(field) or {}
 
     def _token(self) -> str:
         if self.token and self.now() < self.expires - 60:
@@ -127,6 +129,14 @@ class Sgis:
             except (KeyError, TypeError, ValueError):
                 continue
         return out
+
+    def boundary(self, adm_cd: str, year: str, below: bool = False) -> list[dict]:
+        """행정구역 경계 GeoJSON feature 목록(UTM-K).
+        below 면 그 구역 바로 아래 단계(시군구 → 읍면동)"""
+        features = self._call("/boundary/hadmarea.geojson", field="features",
+                              accessToken=self._token(), year=year, adm_cd=adm_cd,
+                              low_search="1" if below else "0")  # fmt: skip
+        return features or []
 
     def building(self, road_addr: str) -> Point | None:
         """도로명주소 → 건물 좌표. 건물 단위로 찍힌 첫 결과만(행정 중심으로 떨어지면 None)"""

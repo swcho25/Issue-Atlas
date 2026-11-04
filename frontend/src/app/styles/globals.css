@@ -1,6 +1,21 @@
 @import "tailwindcss";
 
 /*
+ * ── 이 파일이 Tailwind 설정이다 ──
+ * Tailwind 4 라 tailwind.config.js 가 없다(만들지 않는다). 토큰 · 유틸리티는 모두 여기 있다.
+ * UI 를 만들기 전에 이 파일을 읽고, 여기 있는 이름만 쓴다(디자인 기준은 docs/design/DESIGN.md).
+ *
+ *   다크 모드 규칙 .......... @custom-variant dark · color-scheme
+ *   색 값(Light · Dark) ...... :root 의 --bg-* · --surface-* · --text-* · --primary-* · --status-* …
+ *   글자 · 모서리 · 간격 · 그림자 · 기본 색 제거 .. @theme   → text-body-14 · rounded-xl · p-4 · shadow-card
+ *   색 클래스 이름 .......... @theme inline → bg-surface-1 · text-text-2 · bg-primary · border-border-1
+ *   유리 · 겹침 순서 ........ @utility       → glass(-strong · -thin) · z-map … z-modal
+ *
+ * 값을 바꿀 때는 Figma(IA v5)를 먼저 고치고, 개발 서버 /dev/ui 견본에서 Figma 와 대조한다.
+ * 토큰 밖 값(bg-[#…] · text-[13px] · shadow-[…] · z-10)은 ESLint 가 막는다(frontend/eslint.config.mjs)
+ */
+
+/*
  * 다크 모드: 기본은 OS 설정을 따르고, <html data-theme="light|dark"> 로 강제할 수 있다.
  * Tailwind 의 dark: 변형도 같은 규칙을 쓴다.
  */

@@ -59,7 +59,7 @@ class PlaceApiTest {
     }
 
     @Test
-    void 로그인_없이는_401() throws Exception {
-        mvc.perform(get("/v1/places")).andExpect(status().isUnauthorized());
+    void 로그인_없이도_조회된다() throws Exception {
+        mvc.perform(get("/v1/places")).andExpect(status().isOk());
     }
 }

@@ -37,14 +37,16 @@ Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced 
 
 ## 스타일
 - 디자인 기준은 `docs/design/DESIGN.md`(Figma v5). 값이 다르면 Figma 를 따른다
+- **Tailwind 설정 파일은 `src/app/styles/globals.css`** 다(Tailwind 4 라 `tailwind.config.js` 가 없고, 만들지 않는다). UI 를 만들기 전에 이 파일 맨 위 목차와 토큰을 먼저 읽는다
 - Tailwind 유틸리티 우선. 색·글꼴은 `src/app/styles/globals.css` 의 토큰(`bg-surface-1` · `text-text-2` · `border-border-1` 등, Figma 변수 IA v5 이름)으로만
+- 토큰 밖 값(`bg-[#…]` · `text-[13px]` · `shadow-[…]` · `z-10` · `style` 의 `#…`)은 ESLint 가 막는다. 오류 문구대로 토큰으로 바꾼다. `eslint-disable` 로 피하지 않는다
 - 색 토큰은 `light-dark()` 로 다크 값을 이미 갖는다. 토큰 색에 `dark:` 를 덧붙이지 않는다. 하드코딩 색을 쓰지 않는다
 - 앰버(누르는 것 · 고른 것)는 `bg-primary`, 투명도는 `bg-text-1/7` · `bg-white/20` 처럼 `/숫자`. Tailwind 기본 색(`bg-blue-500` …)은 지워 두어 쓰면 안 먹는다(`white` · `black` 만 남김)
 - 글자는 Figma 글자 스타일 `IA5/` 이름(`text-body-14` · `text-label-13` …, 크기 · 줄 높이 · 자간 · 굵기를 함께 건다), 모서리는 `rounded-sm|md|lg|xl|2xl|full`. Tailwind 기본 `text-sm` · `rounded-3xl` 등은 지워 두어 쓰면 스타일이 안 먹는다
 - 그림자는 `shadow-xs|sm|md|drawer|frame`(Figma IA/Shadow) · `shadow-card`(결과 카드) · `shadow-legend`(범례)만. 기본 `shadow-lg` 등은 지웠다
 - 유리는 `glass`(+ 채움 `glass-strong` · `glass-thin`)로, 지도 · 지구처럼 아래에 볼 것이 있을 때만 쓴다. 흰 화면 위 버튼에는 쓰지 않는다
 - 겹침 순서는 숫자(`z-10`) 대신 `z-map` < `z-control` < `z-panel` < `z-popover` < `z-toast` < `z-modal`
-- 견본은 개발 서버의 `/dev/ui`. 토큰 · 공통 컴포넌트를 바꾸면 여기서 Figma 와 비교한다
+- 견본은 개발 서버의 `/dev/ui`. 토큰 · 공통 컴포넌트를 바꾸면 여기서 Figma 와 비교한다. Figma 화면 · 컴포넌트를 만들 때 순서는 `ui` 스킬
 - 다크 전환은 페이지 전체(`<html data-theme>`)로만 된다. 요소 하나에 `color-scheme`·`scheme-dark` 를 걸어도 토큰 색은 안 바뀐다
 
 ## 테스트

@@ -1,4 +1,4 @@
-# P3 지역 · 시간 v0.11 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place`
+# P3 지역 · 시간 v0.12 — `news_event` · 측정소 · 시도 · 시군구 · 행정동 `place` · 경계 `place_boundary`
 
 지역 · 시간(P3)이 P2 정제 결과([P2 계약](../p2/README.md))에 붙이는 것. 기사에는 요약 · 사건 시간대 · 위치를, 통계에는 지역 코드가 가리키는 위치를 붙인다.
 **통계 값은 다시 저장하지 않는다.** 서비스는 요청 때 `normalized_ready` · `air_monthly` 를 지역 코드로 걸러 읽는다. 표는 Flyway [V0016](../../backend/src/main/resources/db/migration/V0016__create_news_event.sql) · [V0017](../../backend/src/main/resources/db/migration/V0017__seed_station_places.sql) · [V0020](../../backend/src/main/resources/db/migration/V0020__add_news_event_regions.sql).
@@ -160,12 +160,29 @@ PRD FR-A1(지역 계층 시 → 구·군 → 읍·면·동)의 읍·면·동. **
 - 이름이 같은 행정동(우산동: 북구 · 광산구)은 `place_id` · 코드로 갈린다
 - 행정동이 나뉘거나 합쳐지면 새 마이그레이션으로 새 `place_id` 를 만든다(PRD 7.6). 이미 적용된 V0019 는 고치지 않는다
 
+## 경계 — `place_boundary` (V0041 · V0042)
+
+시군구 · 행정동의 경계(폴리곤). 화면이 고른 시군구의 테두리를 그리고, 행정동을 고르면 그 안의 점(측정소 · 기사)으로 좁히는 데 쓴다. `place.geometry`(대표점)는 그대로다.
+
+| 칸 | 값 |
+| --- | --- |
+| 행 | place 한 곳에 하나. 시군구 6곳 + 행정동 123곳 = 129 |
+| `boundary` | `geography(MultiPolygon, 4326)`, GIST 인덱스 |
+| `source` · `source_year` · `source_code` | `sgis_hadmarea`(통계청 SGIS 행정구역 경계) · `2025` · SGIS 구역 코드(통합 전 광주 `24…` · 전남 `36…`, V0019 `place_code_map(sgis)` 의 옛 코드와 같다) |
+
+- 만드는 법: `python -m pipeline.region.boundary --year 2025 --output <시드.sql>`(engine, 키 `SGIS_KEY` · `SGIS_SECRET`). SGIS 가 주는 UTM-K(EPSG:5179) 좌표를 1 m 로 반올림하고 고리마다 **10 m 단순화**(Douglas–Peucker)해 시드 SQL 로 쓴다. WGS84 로 바꾸기 · 잘못된 고리 고치기는 마이그레이션 안에서 PostGIS 가 한다. 원본 꼭짓점 약 5만 → 1.3만(시드 911KB → 246KB, 대부분 여수 섬 해안선)
+- 경계마다 따로 단순화해 **맞닿은 선이 몇 m 어긋날 수 있다**(틈 · 겹침). 테두리를 그리기에는 보이지 않는 차이다
+- 확인(dev DB, 2026-11-04): 대표점 129곳 모두 자기 경계 안 · 측정소 22곳 모두 행정동 하나 안 · 시군구 면적이 공식 면적과 맞음(동구 48.7 ㎢ · 광산구 222.1 ㎢). 행정동으로 이은 기사 442건 중 435건이 자기 행정동 경계 안, 7건은 1 ~ 11 m 밖(해안 · 경계선)
+- **점 거르기는 `place_id` 앞자리가 먼저다.** 기사는 `place_id` 가 이미 행정동(`kr-<8>`)이라 경계 없이 거른다. 경계(`ST_Covers`)는 `place_id` 에 행정동이 없는 점(측정소 `kr-<시군구>-s…` · 시군구 위치 기사)에 쓰고, 단순화 오차를 생각해 20 ~ 30 m 여유(`ST_DWithin`)를 둔다
+- 화면에 내보내는 C2 API 는 아직 없다(다음 MR, P7 · 프론트 리뷰)
+- 경계 연도가 바뀌면 새 마이그레이션으로 행을 바꾼다(PRD 7.6). 이미 적용된 V0042 은 고치지 않는다
+
 ## 아직 없는 것
 
 - 측정소 유형(도시대기 · 도로변 · 항만 …). C2 `station_type` 은 null 로 나간다
 - 기사 ↔ 행정동: v0.9 부터 새로 적재하는 기사는 좌표가 든 행정동(SGIS 지오코딩 결과의 행정동 코드)으로 잇는다. 이미 넣은 기사(2026-11-01 lab 적재)의 법정동 `kr-<10자리>` 553건은 `region-load --relocate` 로 바꾼다 — 저장된 주소를 SGIS 로 다시 찍어 그 점이 든 행정동(좌표 · 주소는 그대로). SGIS 키를 넣고 돌릴 때까지는 남아 있다
 - 주민등록 읍면동 인구(SP19, 카드 C2) 수집과 그 코드(행정기관코드) 연결
-- 시군구 · 행정동 경계(폴리곤). `place.geometry` 는 대표점뿐이라 화면의 테두리 · 행정동 안 점 거르기에 쓸 경계가 아직 없다
+- 경계를 화면에 내보내는 C2 API (경계 자체는 v0.12 `place_boundary`)
 - 만든 판 중 지역 규칙(regions · checks) 판 — 프롬프트 · 모델 판은 V0038 에 있다. 규칙 판은 engine 커밋으로만 알 수 있다
 - 보도자료(`press_release`)의 사건 시간
 - 넓은 지역 기사(광주 구 모름 · 통합시 전체) · 상위 지역 자료(광주 본청 세출 · 광주시 보도자료)를 구의 근거로 셀지 — 지금 「지역 맞추기」 쿼리는 모든 구에 함께 넣는다. 대표 피드백(2026-11-01 #6 「특정 구 근거로 집계 금지」)에 맞춰 정해야 한다
@@ -186,3 +203,4 @@ PRD FR-A1(지역 계층 시 → 구·군 → 읍·면·동)의 읍·면·동. **
 | v0.9 | 2026-11-03 | 기사 위치를 `region-load` 가 정한다(engine `pipeline/region/locate`, SGIS): 장소 도로명주소 → 건물 좌표 → 행정 구역 중심 → 시도 대표점. 기사 `place_id` 는 법정동 `kr-<10>` 대신 행정동 `kr-<8>` · 시군구 `kr-<5>` · 시도 `kr-<2>`. 새 위치가 `none` 이면 이미 있는 위치를 지우지 않는다 (S15P31C108-206) |
 | v0.10 | 2026-11-03 | `region-load --relocate`: 이미 넣은 기사의 법정동 `place_id` 를 저장된 주소로 행정동 `kr-<8>`(없으면 시군구 `kr-<5>`)로 바꾼다. 좌표 · 주소는 그대로. 개발 DB 553건이 대상 (S15P31C108-210) |
 | v0.11 | 2026-11-03 | `news_event` 에 만든 판 칸 `prompt_version` · `summary_version` · `model`(V0038, null 허용). `region-load` 가 추출 결과의 판 · 모델을 저장 — LLM 결과 출처 표시. 기존 행은 null (S15P31C108-218) |
+| v0.12 | 2026-11-04 | 시군구 6곳 · 행정동 123곳 경계 `place_boundary`(V0041 표 · V0042 시드, `geography(MultiPolygon, 4326)`). 출처 SGIS 행정구역 경계 2025, 10 m 단순화. engine `pipeline.region.boundary` 가 시드를 만든다. 화면 API 는 다음 MR (S15P31C108-230) |
