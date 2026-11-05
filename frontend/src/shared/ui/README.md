@@ -8,6 +8,8 @@
 | 가져오기 | 쓰는 곳 | Figma |
 | --- | --- | --- |
 | `Button` · `buttonClass` ← `@/shared/ui/button` | 누르는 것 전부. 링크를 버튼 모양으로는 `buttonClass()` | `v5/Button` |
+| `BackButton` · `backButtonClass` · `BackIcon` ← `@/shared/ui/button` | 36 동그라미 「뒤로」 모양. 이전 화면 · 옆 패널 닫기 등 동작은 쓰는 쪽이 정한다 | `Button/뒤로` |
+| `GlassIconButton` ← `@/shared/ui/button` | 지도 · 결과 위 유리 아이콘 버튼(각주 복사 · 저장 · 다시 실행), 글자 형태도 | `Glass/Icon button` |
 | `StatusBadge` ← `@/shared/ui/badge` | 근거 · 작업 상태(확보 · 미수집 · 검수 대기 …) | `v5/Status` |
 | `ProvBadge` ← `@/shared/ui/badge` | 논증 카드 칸을 누가 채웠는지(규칙 · 카드 · AI · 검수) | `v5/Prov badge` |
 | `TabBar` ← `@/shared/ui/tab-bar` | 결과 화면 요약 · 수요표 · 논증 · 원문 오가기 | `Tab bar/Item` |
@@ -31,7 +33,9 @@ import { Icon } from "@/shared/ui/icon";
 | `StatusBadge` | `tone` green · red · amber · blue · gray · primary | 글자는 children. 색만으로 뜻을 전하지 않게 글자를 꼭 쓴다 |
 | `ProvBadge` | `kind` rule · card · ai · human | 글자는 종류로 정해져 있다 |
 | `TabBar` | `variant` clear(무색 렌즈 · 04 결과 카드 안) · amber(앰버 렌즈 · 유리 틀 · 05 패널), `items`, `current` | 링크 탭이다. 이동은 각 칸 `href`, 고른 칸은 `current` |
-| `Icon` | `name`, `className`(크기), `label` | 기본 20. 색은 글자색. 글자 없이 아이콘만 쓰면 `label` 로 이름을 준다 |
+| `BackButton` | `onClick` | 모양만 담은 `button`(이름 「뒤로」). 링크로 쓸 때는 `<Link className={backButtonClass()}><BackIcon /></Link>` |
+| `GlassIconButton` | `icon`, `label`(필수), `showLabel` | 아이콘만이면 `label` 이 화면 낭독기 · 툴팁 이름. 흰 화면 위에는 쓰지 않는다 |
+| `Icon` | `name`, `className`(크기), `label`, `weight` | 기본 20. 색은 글자색. 글자 없이 아이콘만 쓰면 `label` 로 이름을 준다. `weight` 는 Figma 가 선 굵기를 덮어쓴 곳만 |
 
 ## 아이콘
 
@@ -52,8 +56,7 @@ import { Icon } from "@/shared/ui/icon";
 
 | Figma | 쓰는 곳 |
 | --- | --- |
-| `Glass/Icon button` | 지도 위 둥근 아이콘 버튼(확대 · 위치 · 층) |
-| `Button/뒤로` | 05 화면 왼쪽 위 36 동그라미 |
+| `v5/Map controls` | 지도 오른쪽 확대 · 위치 · 층(폭 36 세로 묶음) |
 | `Button/키 컬러` | 유리 바 안의 큰 앰버 버튼(L 56 · M 36) |
 | `v5/Button` AI · Danger | v5 화면에서 0번. 필요해지면 `Button` 에 변형으로 더한다 |
 

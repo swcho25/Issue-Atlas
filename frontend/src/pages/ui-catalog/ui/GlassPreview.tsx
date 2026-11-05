@@ -1,5 +1,5 @@
 // 유리 견본. 유리는 아래에 볼 것이 있어야 하므로 지도 비슷한 바탕(토큰 색 줄무늬) 위에 Figma 크기 그대로 놓는다
-const mapLike = {
+export const mapLike = {
   backgroundImage: [
     "repeating-linear-gradient(135deg, var(--map-region-fill) 0 18px, transparent 18px 36px)",
     "radial-gradient(circle at 30% 40%, var(--aq-moderate) 0 60px, transparent 61px)",

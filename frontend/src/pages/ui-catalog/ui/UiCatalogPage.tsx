@@ -7,6 +7,7 @@ import { Effects } from "./Effects";
 import { FontSamples } from "./FontSamples";
 import { GlassPreview } from "./GlassPreview";
 import { IconPreview } from "./IconPreview";
+import { NavButtonsPreview } from "./NavButtonsPreview";
 import { RailPreview } from "./RailPreview";
 import { TabBarPreview } from "./TabBarPreview";
 import { TypeAndShape } from "./TypeAndShape";
@@ -22,6 +23,7 @@ export function UiCatalogPage() {
         기준: Figma 변수 IA v5 · docs/design/DESIGN.md
       </p>
       <ButtonPreview />
+      <NavButtonsPreview />
       <BadgePreview />
       <TabBarPreview />
       <IconPreview />
