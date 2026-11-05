@@ -1,11 +1,12 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { type ReactNode, Suspense } from "react";
+import { cache, type ReactNode, Suspense } from "react";
 
 import { ApiError, apiGet, type Me, meSchema } from "@/shared/api";
 
-// 로그인한 사람만 보는 화면 틀. 로그인이 안 돼 있으면 랜딩(/)으로 보낸다.
-// 쓸 때는 그 묶음의 layout.tsx 에서 `export { AuthLayout as default }`. 관리자 화면(/admin)은 AdminLayout.
+// 로그인한 사람만 보는 화면 틀. 로그인이 안 돼 있으면 랜딩(/)으로 보낸다 — 로그인 없이는 랜딩만 본다.
+// 쓸 때는 그 묶음의 layout.tsx 에서 `export { AuthLayout as default }`(지금 /results). 관리자 화면(/admin)은 AdminLayout.
+// 새 앱 화면(/ask · /me …)도 같은 방법으로 건다. /dev/ui 견본은 백엔드 없이 띄우므로 걸지 않는다.
 //
 // 화면 쪽 확인은 길 안내일 뿐이고, 실제 권한은 백엔드가 막는다(/v1/admin/** = ADMIN, SecurityConfig 한 곳).
 //
@@ -30,8 +31,11 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   );
 }
 
-/** 로그인한 사람을 돌려준다. 로그인이 없으면(401 · 403) null, 그 밖의 오류는 그대로 던진다 */
-export async function getCurrentUser(): Promise<Me | null> {
+/**
+ * 로그인한 사람을 돌려준다. 로그인이 없으면(401 · 403) null, 그 밖의 오류는 그대로 던진다.
+ * 띠 · 화면 틀 · 관리자 틀이 한 요청에서 함께 물어도 /v1/auth/me 는 한 번만 부르게 요청 단위로 기억한다(React cache)
+ */
+export const getCurrentUser = cache(async (): Promise<Me | null> => {
   const cookie = (await cookies())
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
@@ -42,7 +46,7 @@ export async function getCurrentUser(): Promise<Me | null> {
     if (e instanceof ApiError && (e.status === 401 || e.status === 403)) return null;
     throw e;
   }
-}
+});
 
 export async function AuthGate({
   children,
