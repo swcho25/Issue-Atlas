@@ -61,3 +61,4 @@ export type EvidenceKind = z.infer<typeof evidenceKind>;
 export type ClaimValue = z.infer<typeof claimValue>;
 export type Provenance = z.infer<typeof provenance>;
 export type EvidenceRef = z.infer<typeof evidenceRef>;
+export type StorageScope = z.infer<typeof storageScope>;

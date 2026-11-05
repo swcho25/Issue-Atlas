@@ -9,12 +9,12 @@ import {
   claimBadge,
   claimLevelLabel,
   evidenceKindShort,
-  evidenceStatusBadge,
   provKind,
   qualifierGrade,
   rebuttalBadge,
 } from "../../model/labels";
-import { summaryHref } from "../tabs";
+import { emptyRefsText, kindCount, refsTitle } from "../../model/sources";
+import { sourcesHref } from "../tabs";
 
 // 05 · 논증 카드 본문(Figma 05 · 논증 카드 탭): 두 열(폭 546 · 사이 12)에 칸 여섯.
 // 왼쪽 ① 판단 · ② 근거, 오른쪽 ③ 보증 · ④ 한정어 · ⑤ 반박 · ⑥ 상한선. 칸마다 누가 채웠는지 배지를 단다.
@@ -76,7 +76,6 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
   const judged = claim.value !== "insufficient";
   const badge = claimBadge[claim.value];
   const grade = qualifierGrade[qualifier.grade];
-  const sourcesHref = `${summaryHref(argument.run_id)}/sources`;
 
   return (
     <div className="flex items-start gap-3">
@@ -94,8 +93,9 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
             {/* 수요표와 같은 순서 · 같은 4행 */}
             {argument.evidence_table.map((row) => {
               const kind = row.kind;
-              const refs = data[kind];
-              const first = refs[0];
+              const first = data[kind][0];
+              // 「외 N건」은 수요표의 전체 건수로(목록에는 대표 자료만 온다)
+              const count = kindCount(argument, row);
               return (
                 <li key={kind} className="flex items-start gap-2.5 py-1.5">
                   <span className="w-16 shrink-0 text-caption-12 text-text-3">
@@ -104,16 +104,14 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
                   {first ? (
                     <>
                       <span className="grid min-w-0 flex-1 gap-px">
-                        <span className="text-body-13 text-text-1">
-                          {refs.length > 1 ? `${first.title} 외 ${refs.length - 1}건` : first.title}
-                        </span>
+                        <span className="text-body-13 text-text-1">{refsTitle(first, count)}</span>
                         <span className="text-caption-11 text-text-3">
                           {first.source_name} · {first.source_grade}
                         </span>
                       </span>
-                      {/* 원문 탭(U13)에서 근거마다 원문 · 각주를 본다 */}
+                      {/* 원문 탭에서 이 근거를 고른 채로 연다(원문 · 각주) */}
                       <Link
-                        href={sourcesHref}
+                        href={sourcesHref(argument.run_id, first.evidence_id)}
                         className="flex shrink-0 items-center gap-0.75 text-label-12 text-primary-text"
                       >
                         원문
@@ -121,10 +119,9 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
                       </Link>
                     </>
                   ) : (
-                    // 자료가 없으면 수요표의 사유, 없으면 상태(미수집 · 미공표 …). 「확보」인데 목록이 빈 응답은 「—」(수요표 탭과 같다)
+                    // 목록이 비었으면: 건수가 있으면 「자료 N건 · 목록 없음」, 없으면 수요표의 사유 · 상태(미수집 · 미공표 …)
                     <span className="min-w-0 flex-1 text-body-13 text-text-3">
-                      {row.reason ??
-                        (row.status === "available" ? "—" : evidenceStatusBadge[row.status].label)}
+                      {emptyRefsText(row, count)}
                     </span>
                   )}
                 </li>

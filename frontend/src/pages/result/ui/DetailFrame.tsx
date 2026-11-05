@@ -34,6 +34,7 @@ export function DetailFrame({
   caption,
   action,
   panel,
+  layout = "page",
   children,
 }: {
   argument: Argument;
@@ -44,9 +45,25 @@ export function DetailFrame({
   action?: ReactNode;
   /** 패널의 탭별 내용(실행 상태 · 칸마다 누가 썼나 …) */
   panel?: ReactNode;
+  /**
+   * page: 뒤로 · 제목 머리 + 본문(수요표 · 논증). split: 머리 없이 본문 자리를 children 이 다 쓴다
+   * (원문 탭 — Figma 는 목록 300 + 읽기로 나뉘고 제목 머리가 없다. 제목은 화면 낭독기용으로만 둔다)
+   */
+  layout?: "page" | "split";
   children: ReactNode;
 }) {
   const back = summaryHref(argument.run_id);
+  if (layout === "split") {
+    return (
+      <div className="flex h-full">
+        <main className="flex min-w-0 flex-1">
+          <h1 className="sr-only">{title}</h1>
+          {children}
+        </main>
+        <Panel argument={argument} tab={tab} panel={panel} back={back} />
+      </div>
+    );
+  }
   return (
     <div className="flex h-full">
       <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-7 py-6">
@@ -74,24 +91,41 @@ export function DetailFrame({
         {children}
       </main>
 
-      {/* 패널 자리(폭 368). 패널은 그 안에서 가장자리 16 을 두고 떠 있어 본문 쪽으로 16 겹친다(Figma 그대로) */}
-      <div className="relative w-[368px] shrink-0">
-        <aside
-          aria-label="결과 보기 패널"
-          // Figma 테두리 1px 이 여백에 들어가(안쪽 20 · 16 + 1) 내용이 21 · 17 에서 시작한다. inset-ring 은 자리를 안 차지해 여백에 1 을 더한다
-          className="absolute top-4 right-4 bottom-4 z-panel flex w-[368px] flex-col gap-3.5 overflow-y-auto rounded-[20px] bg-surface-1 px-5.25 py-4.25 shadow-panel inset-ring inset-ring-text-1/6"
+      <Panel argument={argument} tab={tab} panel={panel} back={back} />
+    </div>
+  );
+}
+
+/** 오른쪽 패널: 탭 바(앰버) → 탭마다 다른 내용 → 맨 아래 「지도로 돌아가기」 */
+function Panel({
+  argument,
+  tab,
+  panel,
+  back,
+}: {
+  argument: Argument;
+  tab: DetailTab;
+  panel: ReactNode;
+  back: string;
+}) {
+  return (
+    // 패널 자리(폭 368). 패널은 그 안에서 가장자리 16 을 두고 떠 있어 본문 쪽으로 16 겹친다(Figma 그대로)
+    <div className="relative w-[368px] shrink-0">
+      <aside
+        aria-label="결과 보기 패널"
+        // Figma 테두리 1px 이 여백에 들어가(안쪽 20 · 16 + 1) 내용이 21 · 17 에서 시작한다. inset-ring 은 자리를 안 차지해 여백에 1 을 더한다
+        className="absolute top-4 right-4 bottom-4 z-panel flex w-[368px] flex-col gap-3.5 overflow-y-auto rounded-[20px] bg-surface-1 px-5.25 py-4.25 shadow-panel inset-ring inset-ring-text-1/6"
+      >
+        <TabBar variant="amber" items={resultTabs(argument)} current={tab} />
+        {panel}
+        <Link
+          href={back}
+          className={buttonClass({ variant: "secondary", className: "mt-auto w-full" })}
         >
-          <TabBar variant="amber" items={resultTabs(argument)} current={tab} />
-          {panel}
-          <Link
-            href={back}
-            className={buttonClass({ variant: "secondary", className: "mt-auto w-full" })}
-          >
-            <Icon name="map" />
-            지도로 돌아가기
-          </Link>
-        </aside>
-      </div>
+          <Icon name="map" />
+          지도로 돌아가기
+        </Link>
+      </aside>
     </div>
   );
 }
