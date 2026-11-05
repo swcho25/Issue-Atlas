@@ -106,6 +106,17 @@ paths:
           $ref: "#/components/responses/Problem"
         "404":
           $ref: "#/components/responses/Problem"
+        "429":
+          description: 클라이언트 IP(CF-Connecting-IP, 없으면 접속 주소) 당 분당 한도(기본 10, QUESTIONS_PER_MINUTE)를 넘음. 질문 · 실행을 만들지 않는다. code TOO_MANY_REQUESTS (contracts/http-errors v0.3)
+          headers:
+            Retry-After:
+              description: 다시 보내기까지 기다릴 초. 지금은 늘 60
+              schema:
+                type: integer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
   /v1/arguments/{run_id}:
     get:
       tags: [questions]
@@ -271,20 +282,23 @@ components:
       content:
         application/problem+json:
           schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code: { enum: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, RESOURCE_NOT_FOUND, TOO_MANY_REQUESTS, INTERNAL_ERROR, HTTP_ERROR] }
+        errors:
+          type: array
+          items:
             type: object
             properties:
-              type: { type: string }
-              title: { type: string }
-              status: { type: integer }
-              detail: { type: string }
-              instance: { type: string }
-              code: { enum: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, RESOURCE_NOT_FOUND, INTERNAL_ERROR, HTTP_ERROR] }
-              errors:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    field: { type: string }
-                    message: { type: string }
-                  required: [field, message]
-            required: [type, title, status, detail, instance, code, errors]
+              field: { type: string }
+              message: { type: string }
+            required: [field, message]
+      required: [type, title, status, detail, instance, code, errors]
