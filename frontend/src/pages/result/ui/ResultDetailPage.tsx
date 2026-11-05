@@ -5,6 +5,9 @@ import type { Argument } from "@/shared/api";
 
 import { getArgument } from "../api/getResult";
 import { DetailFrame } from "./DetailFrame";
+import { EvidenceCsvButton } from "./evidence/EvidenceCsvButton";
+import { EvidencePanel } from "./evidence/EvidencePanel";
+import { EvidenceTab } from "./evidence/EvidenceTab";
 import { type DetailTab, isDetailTab } from "./tabs";
 
 // /results/[id]/[tab] — 05 · 근거 수요표(evidence) · 논증 카드(argument) · 원문(sources).
@@ -45,9 +48,23 @@ async function DetailContent({ params }: { params: Promise<{ id: string; tab: st
   if (!isDetailTab(tab)) notFound();
   const argument = await getArgument(id);
   const head = heads[tab](argument);
+  if (tab === "evidence") {
+    return (
+      <DetailFrame
+        argument={argument}
+        tab={tab}
+        title={head.title}
+        caption={head.caption}
+        action={<EvidenceCsvButton runId={argument.run_id} rows={argument.evidence_table} />}
+        panel={<EvidencePanel argument={argument} />}
+      >
+        <EvidenceTab argument={argument} />
+      </DetailFrame>
+    );
+  }
   return (
     <DetailFrame argument={argument} tab={tab} title={head.title} caption={head.caption}>
-      {/* 탭 내용은 다음 단위(U11 수요표 · U12 논증 · U13 원문)에서 채운다 */}
+      {/* 탭 내용은 다음 단위(U12 논증 · U13 원문)에서 채운다 */}
       <p className="rounded-xl bg-surface-2 px-4 py-3 text-body-13 text-text-2">준비 중이에요.</p>
     </DetailFrame>
   );
