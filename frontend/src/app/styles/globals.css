@@ -266,6 +266,8 @@
   /* 결과 카드(Panel 400 × 860) · 지도 위 범례 */
   --shadow-card: 0 10px 36px rgb(0 0 0 / 0.14);
   --shadow-legend: 0 6px 20px rgb(0 0 0 / 0.1);
+  /* 05 화면 오른쪽 패널(Panel 368 × 868) */
+  --shadow-panel: 0 8px 28px rgb(0 0 0 / 0.12);
   /*
    * 버튼(Figma v5/Button). button = Primary 의 「평면 몸 + 유리 테두리」:
    * 흰 그라데이션 테두리(왼쪽 위 50% → 오른쪽 아래 30%)를 안쪽 1px 빛으로 흉내 + 안쪽 흰 빛 4 · 16% + 바깥 0 2 6 · 14%.

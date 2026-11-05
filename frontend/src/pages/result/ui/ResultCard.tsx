@@ -1,7 +1,8 @@
 import type { Argument, RunStatus } from "@/shared/api";
 import { StatusBadge, type StatusTone } from "@/shared/ui/badge";
-import { Icon } from "@/shared/ui/icon";
-import { TabBar, type TabBarItem } from "@/shared/ui/tab-bar";
+import { TabBar } from "@/shared/ui/tab-bar";
+
+import { resultTabs } from "./tabs";
 
 // 실행 상태를 한 단어로. 색만으로 뜻을 전하지 않게 글자를 함께 쓴다
 const runStatusBadge: Record<RunStatus, { tone: StatusTone; label: string }> = {
@@ -18,26 +19,9 @@ const period = (a: Argument) => {
   return start === end ? start : `${start}–${end}`;
 };
 
-/** 결과 화면 탭: 요약(이 화면) · 수요표 · 논증 · 원문 */
-export function resultTabs(runId: string, sourceCount: number): TabBarItem[] {
-  const base = `/results/${encodeURIComponent(runId)}`;
-  return [
-    { key: "summary", label: "요약", href: base, icon: <Icon name="grid" /> },
-    { key: "evidence", label: "수요표", href: `${base}/evidence`, icon: <Icon name="table" /> },
-    { key: "argument", label: "논증", href: `${base}/argument`, icon: <Icon name="compare" /> },
-    {
-      key: "sources",
-      label: sourceCount ? `원문 ${sourceCount}` : "원문",
-      href: `${base}/sources`,
-      icon: <Icon name="doc" />,
-    },
-  ];
-}
-
 // 04 · 결과 · 지도 먼저: 지도 위에 뜨는 결과 카드(요약 탭). 이번 단위는 틀까지 — Figma 값 대조는 다음 단위
 export function ResultCard({ argument }: { argument: Argument }) {
   const status = runStatusBadge[argument.run_status];
-  const sources = argument.data.documents.length + argument.articles.length;
   return (
     <section
       aria-label="결과 요약"
@@ -53,12 +37,7 @@ export function ResultCard({ argument }: { argument: Argument }) {
         </h1>
       </header>
 
-      <TabBar
-        variant="clear"
-        items={resultTabs(argument.run_id, sources)}
-        current="summary"
-        className="-mx-1"
-      />
+      <TabBar variant="clear" items={resultTabs(argument)} current="summary" className="-mx-1" />
 
       <p className="text-body-14 text-text-1">{argument.claim.text ?? "판단 문장이 없습니다."}</p>
     </section>
