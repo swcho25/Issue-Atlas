@@ -32,6 +32,7 @@ Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced 
 
 ## 데이터
 - 응답은 항상 Zod 스키마로 검증한다(`apiGet`·`browserGet` 둘째 인자). 스키마는 슬라이스 `model/schema.ts`, 타입은 `z.infer`
+- 단, C2 계약 응답(여러 화면이 함께 쓰는 것, 예: `argumentSchema`)은 `src/shared/api/c2/` 에 `contracts/c2/schemas` 와 같은 칸으로 두고 `@/shared/api` 로 가져온다. 계약 예시(`contracts/c2/examples`)로 테스트한다
 - 클라이언트 데이터는 TanStack Query. 쿼리는 슬라이스 `api/` 에 `queryOptions(...)` 로 정의하고 컴포넌트는 `useQuery(그 옵션)`
 - 서버 상태를 `useState`·전역 스토어에 복사하지 않는다
 
