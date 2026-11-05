@@ -1,7 +1,7 @@
 # 질문 부하 시험
 
 `POST /v1/questions` 가 몰릴 때 처리량 · 응답 시간 · 커넥션 풀을 잰다(S15P31C108-260). 결과와 해석은
-[docs/perf/question-load-test.md](../../docs/perf/question-load-test.md).
+[docs/perf/question-load-test.md](../../docs/perf/question-load-test.md) · [phrasing-cache.md](../../docs/perf/phrasing-cache.md).
 
 | 파일 | 하는 일 |
 | --- | --- |
@@ -28,6 +28,7 @@ PYTHONIOENCODING=utf-8 python backend/loadtest/report.py --svg backend/loadtest/
 | `QUESTION_VUS` | 30 | 동시에 질문하는 사람 수 |
 | `PROBE_RPS` | 5 | 조회 API 초당 요청 |
 | `DURATION` | 120s | 시험 시간 |
+| `ENGINE_CACHE_SIZE` | (backend 기본 500) | backend 로 그대로 넘어간다. `0` 이면 문장화 캐시를 끈다(S15P31C108-261) |
 
 ## 재는 것
 - k6: 요청별 응답 시간 · 상태(`k6.csv`), 요약(`summary.json`)

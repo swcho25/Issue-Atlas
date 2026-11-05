@@ -9,6 +9,7 @@
 import argparse
 import csv
 import json
+import math
 import re
 from datetime import datetime
 from pathlib import Path
@@ -110,7 +111,7 @@ def series(run):
     return probe, waiting, cumulative
 
 
-def svg(runs, path):
+def svg(runs, path, title):
     width, panel_h, left, right, top = 760, 170, 64, 24, 64
     gap = 54
     height = top + 3 * panel_h + 2 * gap + 40
@@ -127,8 +128,7 @@ def svg(runs, path):
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'font-family="system-ui, -apple-system, \'Segoe UI\', sans-serif" font-size="12">',
         f'<rect width="{width}" height="{height}" fill="#fcfcfb"/>',
-        f'<text x="{left}" y="26" font-size="16" font-weight="600" fill="#0b0b0b">'
-        "동시 질문 30명 · 문장화 13초 · 2분</text>",
+        f'<text x="{left}" y="26" font-size="16" font-weight="600" {INK}>{title}</text>',
     ]
     # 범례
     lx = left
@@ -152,13 +152,14 @@ def svg(runs, path):
             v = k * step
             y = y1 - v / y_max * panel_h
             out.append(f'<line x1="{left}" y1="{y:.1f}" x2="{width - right}" y2="{y:.1f}" {GRID}/>')
-            label = f"{v:g}"
+            label = number(v)
             out.append(
                 f'<text x="{left - 8}" y="{y + 4:.1f}" text-anchor="end" {MUTED}>{label}</text>'
             )
         for t in range(0, x_max + 1, 30):
             x = left + t / x_max * plot_w
             out.append(f'<text x="{x:.1f}" y="{y1 + 16}" text-anchor="middle" {MUTED}>{t}초</text>')
+        labels = []
         for i, d in enumerate(data.values()):
             points = " ".join(
                 f"{left + t / x_max * plot_w:.1f},{y1 - v / y_max * panel_h:.1f}" for t, v in d[idx]
@@ -171,10 +172,15 @@ def svg(runs, path):
             if d[idx]:
                 t, v = d[idx][-1] if idx == 2 else max(d[idx], key=lambda p: p[1])
                 x = left + t / x_max * plot_w
-                y = y1 - v / y_max * panel_h
+                y = y1 - v / y_max * panel_h - 6
+                # 앞 선의 라벨과 겹치면 아래로 비킨다
+                while any(abs(x - lx) < 60 and abs(y - ly) < 14 for lx, ly in labels):
+                    y += 14
+                labels.append((x, y))
+                anchor = "end" if x > width - 120 else "start"
                 out.append(
-                    f'<text x="{min(x + 6, width - right - 4):.1f}" y="{y - 6:.1f}" '
-                    f'text-anchor="{"end" if x > width - 120 else "start"}" {INK}>{v:.3g}</text>'
+                    f'<text x="{min(x + 6, width - right - 4):.1f}" y="{y:.1f}" '
+                    f'text-anchor="{anchor}" {INK}>{number(v)}</text>'
                 )
     out.append("</svg>")
     Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -182,18 +188,25 @@ def svg(runs, path):
 
 
 def nice_step(v):
-    for s in (0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500):
-        if v / s <= 5:
-            return s
-    return 1000
+    """눈금이 5칸 안팎이 되는 1 · 2 · 5 × 10^k."""
+    base = 10 ** math.floor(math.log10(v / 5))
+    for m in (1, 2, 5, 10):
+        if v / (m * base) <= 5:
+            return m * base
+    return 10 * base
+
+
+def number(v):
+    return f"{v:,.0f}" if v >= 100 else f"{v:.3g}"
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--svg")
+    parser.add_argument("--title", default="동시 질문 30명 · 문장화 13초 · 2분")
     parser.add_argument("runs", nargs="+", help="이름=폴더")
     args = parser.parse_args()
     runs = {r.split("=", 1)[0]: load(r.split("=", 1)[1]) for r in args.runs}
     print(table(runs))
     if args.svg:
-        svg(runs, args.svg)
+        svg(runs, args.svg, args.title)

@@ -14,6 +14,7 @@ import com.c108.issueatlas.card.dto.CardStorageDto.Approve;
 import com.c108.issueatlas.card.dto.CardStorageDto.CreateCard;
 import com.c108.issueatlas.card.dto.CardStorageDto.SaveDraft;
 import com.c108.issueatlas.card.service.CardStorageService;
+import com.c108.issueatlas.question.service.PhrasingCache;
 import com.jayway.jsonpath.JsonPath;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -66,6 +67,7 @@ class QuestionApiTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired CardStorageService storage;
     @Autowired ObjectMapper json;
+    @Autowired PhrasingCache phrasingCache;
 
     // 가짜 engine(contracts/ai v0.2 「문장화」). 테스트마다 답을 정하고 받은 요청을 남긴다. 기본 503 → 카드 문구
     private record EngineAnswer(int status, String body, long delayMs) {}
@@ -119,6 +121,8 @@ class QuestionApiTest {
     void seed() throws Exception {
         engineAnswer = new EngineAnswer(503, "", 0);
         ENGINE_REQUESTS.clear();
+        // 테스트마다 같은 질문에 다른 engine 답을 쓰므로 앞 테스트의 문장화 결과를 지운다
+        phrasingCache.clear();
         jdbc.queryForObject(
                 "SELECT set_config('issue_atlas.approver', ?, true)",
                 String.class,
@@ -1009,6 +1013,47 @@ class QuestionApiTest {
         assertThat(row.get("reason_code")).isEqualTo(reason);
         assertThat(((String) row.get("problems")).contains("number_mismatch"))
                 .isEqualTo(reason.equals("OUTPUT_REJECTED"));
+    }
+
+    // ── 문장화 결과 캐시(S15P31C108-261) ──
+
+    @Test
+    void sameQuestionReusesTheDonePhrasingWithoutCallingTheEngineAgain() throws Exception {
+        engineAnswer = new EngineAnswer(200, PHRASED, 0);
+        String first = judgedC1Run();
+        // engine 이 이번엔 실패하더라도 같은 입력이면 앞 done 결과를 쓴다
+        engineAnswer = new EngineAnswer(503, "", 0);
+        String second =
+                runId(ask(body("C1", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+
+        assertThat(second).isNotEqualTo(first);
+        assertThat(ENGINE_REQUESTS).hasSize(1);
+        argument(second)
+                .andExpect(jsonPath("$.run_id").value(second))
+                .andExpect(jsonPath("$.warrant.text").value("여수시 청년 순이동은 해마다 순유출이 커졌다."))
+                .andExpect(jsonPath("$.warrant.provenance").value("llm_phrasing"))
+                .andExpect(jsonPath("$.rebuttals[0].status").value("supported"));
+        Map<String, Object> row = phrasing(second);
+        assertThat(row.get("status")).isEqualTo("done");
+        assertThat(row.get("reason_code")).isNull();
+        assertThat(row.get("model")).isEqualTo("gemini-2.5-flash");
+        assertThat((String) row.get("citations")).contains("C1-R1");
+    }
+
+    @Test
+    void failedPhrasingIsNotReusedAndDifferentInputsCallTheEngine() throws Exception {
+        String first = judgedC1Run();
+        assertThat(phrasing(first).get("reason_code")).isEqualTo("ENGINE_ERROR");
+        engineAnswer = new EngineAnswer(200, PHRASED, 0);
+        String again =
+                runId(ask(body("C1", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+        // 기간이 다르면 판정 입력이 달라 다른 키
+        String otherPeriod =
+                runId(ask(body("C1", "2024-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+
+        assertThat(ENGINE_REQUESTS).hasSize(3);
+        assertThat(phrasing(again).get("status")).isEqualTo("done");
+        assertThat(phrasing(otherPeriod).get("status")).isEqualTo("done");
     }
 
     @Test
