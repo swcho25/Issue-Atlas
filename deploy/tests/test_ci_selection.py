@@ -141,7 +141,7 @@ class SelectionTests(unittest.TestCase):
         return selected
 
     def test_component_scenarios_and_required_dependencies(self):
-        fe = {"frontend", "frontend-worker", "frontend-deploy"}
+        fe = {"frontend", "frontend-image", "frontend-deploy"}
         be = {"backend", "backend-image", "backend-deploy"}
         collector = {"engine", "collector-image", "collector-deploy"}
         # The phrasing API deploys to development only (243); main never builds it.
@@ -150,6 +150,10 @@ class SelectionTests(unittest.TestCase):
         scenarios = [
             (["frontend/src/pages/landing/ui/View.tsx"], fe),
             (["frontend/wrangler.json"], fe),
+            (["frontend/Dockerfile.release"], fe),
+            (["deploy/frontend/compose.yaml"], fe),
+            (["deploy/frontend/nginx.conf"], fe),
+            (["deploy/frontend/nginx.conf.template"], fe),
             (["deploy/frontend/verify.mjs"], fe),
             (["pnpm-lock.yaml"], fe),
             (["backend/src/main/java/App.java"], be),
@@ -196,7 +200,7 @@ class SelectionTests(unittest.TestCase):
 
     def test_mr_checks_without_deployment(self):
         selected = self.selected([".gitlab-ci.yml"], source="merge_request_event")
-        self.assertEqual(selected, {"harness", "infra", "frontend", "backend", "engine", "frontend-worker"})
+        self.assertEqual(selected, {"harness", "infra", "frontend", "backend", "engine"})
         self.assertEqual(self.selected(["docs/guide.md"], source="merge_request_event"), {"harness", "infra"})
         # Jobs without rules can default to except: merge_requests in GitLab.
         for name in ("harness", "infra"):
@@ -207,7 +211,7 @@ class SelectionTests(unittest.TestCase):
             with self.subTest(branch=branch):
                 for paths in ([], [".gitlab-ci.yml", "backend/src/App.java", "engine/pipeline/main.py"]):
                     selected = self.selected(paths, source="web", branch=branch, redeploy="frontend")
-                    self.assertEqual(selected, {"harness", "infra", "frontend", "frontend-worker", "frontend-deploy"})
+                    self.assertEqual(selected, {"harness", "infra", "frontend", "frontend-image", "frontend-deploy"})
                     for name in selected:
                         for need in self.jobs[name].get("needs", []):
                             if not need.get("optional"):
@@ -229,7 +233,7 @@ class SelectionTests(unittest.TestCase):
 
     def test_manual_selection_cannot_enable_deployment_in_an_mr(self):
         selected = self.selected(["frontend/src/a.ts"], source="merge_request_event", redeploy="frontend")
-        self.assertEqual(selected, {"harness", "infra", "frontend", "frontend-worker"})
+        self.assertEqual(selected, {"harness", "infra", "frontend"})
 
     def test_unprotected_push_cannot_deploy(self):
         selected = self.selected([".gitlab-ci.yml"], protected=False)
@@ -243,7 +247,7 @@ class SelectionTests(unittest.TestCase):
         # The engine API is independent of Flyway; backend falls back to card text without it.
         self.assertEqual(self.jobs["engine-deploy"]["needs"], [{"job": "engine-image", "artifacts": True}])
         # Image jobs retain the check-stage barrier (no needs-based bypass).
-        for name in ("backend-image", "collector-image", "engine-image", "frontend-worker"):
+        for name in ("backend-image", "collector-image", "engine-image", "frontend-image"):
             self.assertNotIn("needs", self.jobs[name])
 
     def test_deleted_and_renamed_paths(self):
@@ -276,30 +280,31 @@ class SelectionTests(unittest.TestCase):
             self.assertEqual(worker["routes"][0]["pattern"], domain)
             self.assertEqual(worker["services"][0]["service"], worker["name"])
         for job in ("backend-deploy", "collector-deploy", "engine-deploy", "frontend-deploy"):
-            self.assertEqual(self.jobs[job]["environment"]["name"], "${WORKER_ENV}-" + ("workers" if job == "frontend-deploy" else "ec2"))
+            self.assertEqual(self.jobs[job]["environment"]["name"], "${WORKER_ENV}-" + "ec2")
             self.assertIn("$CI_COMMIT_BRANCH", self.jobs[job]["resource_group"])
 
     def test_browser_image_matches_installed_playwright_and_skips_downloads(self):
         package = __import__("json").loads((ROOT / "frontend/package.json").read_text())
         version = package["devDependencies"]["@playwright/test"]
-        for name in ("frontend", "frontend-worker", "frontend-deploy"):
-            job = self.jobs[name]
-            self.assertRegex(job["image"], rf"playwright:v{re.escape(version)}-noble@sha256:[0-9a-f]{{64}}$")
-            commands = job["before_script"] + job["script"]
-            self.assertFalse(any("apt-get" in c or "playwright install" in c for c in commands))
-            self.assertIn("pnpm install --frozen-lockfile", commands)
-        node_cache = self.jobs["frontend"]["cache"][1]["key"]["prefix"]
-        worker_cache = self.jobs["frontend-worker"]["cache"][1]["key"]["prefix"]
-        self.assertNotEqual(node_cache, worker_cache)
-        self.assertIn("$WORKER_ENV", worker_cache)
+        job = self.jobs["frontend"]
+        self.assertRegex(job["image"], rf"playwright:v{re.escape(version)}-noble@sha256:[0-9a-f]{{64}}$")
+        commands = job["before_script"] + job["script"]
+        self.assertFalse(any("apt-get" in c or "playwright install" in c for c in commands))
+        self.assertIn("pnpm install --frozen-lockfile", commands)
+        self.assertEqual(job["variables"]["ISSUEATLAS_EC2_BUILD"], "1")
 
     def test_deployment_reuses_current_pipeline_bundle_without_rebuilding(self):
+        image = self.jobs["frontend-image"]
+        self.assertEqual(image["dependencies"], ["frontend"])
+        self.assertIn("frontend-standalone.tar.gz", self.jobs["frontend"]["artifacts"]["paths"])
+        self.assertIn("tar -xzf frontend-standalone.tar.gz -C frontend", image["script"])
+        self.assertFalse(any("next build" in c or "pnpm install" in c for c in image["script"]))
+        self.assertIn("frontend/Dockerfile.release", " ".join(image["script"]))
         job = self.jobs["frontend-deploy"]
-        artifact = next(n for n in job["needs"] if n["job"] == "frontend-worker")
-        self.assertTrue(artifact["artifacts"])
-        self.assertIn("frontend/.open-next/", self.jobs["frontend-worker"]["artifacts"]["paths"])
-        self.assertFalse(any("worker:build" in c or "next build" in c for c in job["script"]))
-        self.assertEqual(job["cache"]["policy"], "pull")
+        self.assertEqual(job["needs"][0], {"job": "frontend-image", "artifacts": True})
+        self.assertIn("python deploy/ci/send_deploy.py", job["script"])
+        self.assertEqual(job["resource_group"], self.jobs["backend-deploy"]["resource_group"])
+        self.assertNotIn("CLOUDFLARE_API_TOKEN", " ".join(job["script"]))
 
 
 if __name__ == "__main__":

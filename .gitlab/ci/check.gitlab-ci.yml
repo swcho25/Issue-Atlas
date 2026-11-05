@@ -23,6 +23,9 @@ frontend:
   extends: .frontend-browser
   stage: check
   rules: !reference [.frontend-scope, rules]
+  variables:
+    ISSUEATLAS_EC2_BUILD: "1"
+    API_BASE_URL: http://backend:8080
   cache:
     - key: { files: [pnpm-lock.yaml] }
       paths: [.pnpm-store]
@@ -33,6 +36,11 @@ frontend:
     - pnpm frontend:typecheck
     - pnpm frontend:test
     - pnpm frontend:e2e   # next build 포함
+    - node frontend/scripts/check-standalone.mjs
+    - tar -czf frontend-standalone.tar.gz -C frontend .next/standalone .next/static
+  artifacts:
+    paths: [frontend-standalone.tar.gz]
+    expire_in: 1 day
 
 backend:
   stage: check

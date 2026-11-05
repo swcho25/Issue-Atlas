@@ -2,7 +2,7 @@
 
 Next.js 16(App Router) + TypeScript(strict) + Tailwind CSS 4. 폴더 구조는 [Feature-Sliced Design](https://feature-sliced.design)을 따른다.
 
-Workers 배포·CI/CD 및 런타임 호환성 제한은 [프론트 배포 안내](../deploy/frontend/README.md)를 참고한다.
+EC2 배포·CI/CD와 Workers에서의 전환 절차는 [프론트 배포 안내](../deploy/frontend/README.md)를 참고한다.
 
 ## 폴더
 

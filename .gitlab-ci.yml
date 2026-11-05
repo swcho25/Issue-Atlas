@@ -1,4 +1,4 @@
-# MR: 검사·배포 빌드만. 보호된 develop/main 병합: 검사 → 빌드 → EC2/Workers 배포.
+# MR: 검사·배포 빌드만. 보호된 develop/main 병합: 검사 → 빌드 → EC2 배포.
 variables:
   REDEPLOY_COMPONENT:
     value: "none"

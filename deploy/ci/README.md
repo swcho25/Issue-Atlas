@@ -6,12 +6,12 @@
 
 | 이벤트 | 동작 |
 | --- | --- |
-| develop/main 대상 MR 생성·갱신 | 변경 영역 검사, FE 변경 시 Workers 빌드·검사 포함. 배포 없음 |
-| 보호된 develop/main에 병합(push 파이프라인) | 변경 영역 검사 → 해당 이미지/Workers 빌드 → 해당 서비스만 자동 배포 |
-| New pipeline에서 보호된 develop/main 및 REDEPLOY_COMPONENT=frontend 선택 | FE 검사 → Workers 빌드·검사 → FE만 배포 |
+| develop/main 대상 MR 생성·갱신 | 변경 영역 검사, FE 변경 시 standalone 빌드·E2E 포함. 배포 없음 |
+| 보호된 develop/main에 병합(push 파이프라인) | 변경 영역 검사 → 해당 이미지 빌드 → 해당 서비스만 자동 배포 |
+| New pipeline에서 보호된 develop/main 및 REDEPLOY_COMPONENT=frontend 선택 | FE 검사·standalone 빌드 → FE 이미지 → EC2 FE만 배포 |
 | 다른 브랜치 push·태그·스케줄·그 밖의 웹 수동 파이프라인 | 실행 안 함 |
 
-137번부터 `develop → development`, `main → production`으로 분리한다. 같은 EC2를 사용하되 개발은 `/opt/issueatlas-dev`(기존 볼륨 유지), 운영은 `/opt/issueatlas-prod`(새 볼륨)를 사용한다. 환경별 잠금·pipeline 상한·복구 기록을 분리하고, 같은 환경의 BE·수집기는 직렬 배포한다. 직접 push는 계속 금지하며 MR로만 병합한다.
+137번부터 `develop → development`, `main → production`으로 분리한다. 같은 EC2를 사용하되 개발은 `/opt/issueatlas-dev`(기존 볼륨 유지), 운영은 `/opt/issueatlas-prod`(새 볼륨)를 사용한다. 환경별 잠금·pipeline 상한·복구 기록을 분리하고, 같은 환경의 BE·수집기·engine·FE는 직렬 배포한다. 직접 push는 계속 금지하며 MR로만 병합한다.
 
 ## 환경 분리 전환 — S15P31C108-137
 
@@ -34,7 +34,7 @@
 6. GitLab의 `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`, `DEPLOY_HOST`, `DEPLOY_USER`, `DOCKERHUB_PULL_TOKEN`은 기존 `shared-ec2` 범위를 `*-ec2`로 바꾼다. development-ec2/production-ec2와 전환 중 shared-ec2에서 같은 EC2 인증을 사용하며 빌드·검사 job에는 전달하지 않는다. 값은 로그/저장소에 출력하지 않는다. Cloudflare 변수·Docker push 변수는 기존 protected `*` 범위를 유지한다. 각 환경의 배포 변수는 MR에 제공하지 않는다.
 7. develop MR로 개발 배포를 확인한다. 이어 develop 전체를 main에 MR하여 운영 FE·BE·수집기를 모두 최초 배포한다. Flyway MR 순서 V0011→V0012→V0013→V0014를 유지한다. 화면·API·인증·서로 다른 DB 연결 및 수집기 배포 기록을 확인한다.
 
-설정 파일의 서버 설치는 자동 CD 범위가 아니다. 첫 병합 전에 서버 준비와 GitLab 변수 전환을 마쳐야 한다. 기존 환경으로 되돌릴 때는 백업한 프로그램·설정·Compose·변수 범위·Tunnel origin을 함께 복구하며 볼륨은 보존한다. 프론트 배포 실패 후 자동 원복은 기존과 동일하게 제공하지 않는다.
+설정 파일의 서버 설치는 자동 CD 범위가 아니다. 첫 병합 전에 서버 준비와 GitLab 변수 전환을 마쳐야 한다. 기존 환경으로 되돌릴 때는 백업한 프로그램·설정·Compose·변수 범위·Tunnel origin을 함께 복구하며 볼륨은 보존한다. 257번 FE는 이전 FE 이미지가 있으면 자동 복구한다. DNS·Custom Domain 전환의 복구는 별도 수동 절차다.
 
 ### 변경 영역 선택 (S15P31C108-113)
 
@@ -42,14 +42,14 @@
 
 | 변경 | 추가로 실행할 작업 (harness·infra는 항상 실행) |
 | --- | --- |
-| FE 소스·설정·E2E, pnpm 잠금/설정, FE 점검 스크립트 | FE 검사·Workers 빌드, 병합 후 FE 배포 |
+| FE 소스·설정·E2E, pnpm 잠금/설정, FE 점검 스크립트 | FE 검사·standalone 빌드, 병합 후 FE 이미지·EC2 배포 |
 | BE 소스·Flyway·Gradle·Dockerfile, 개발 Compose | BE 검사·이미지, 병합 후 BE 배포 |
 | engine/pipeline·ai·의존성·Dockerfile, 수집기 실행 설정 | engine 검사·수집기 이미지, 병합 후 수집기 버전 갱신 (수집 자동 실행 없음) |
 | engine/api, contracts/ai·c2 schemas | engine 검사. develop 병합 후 engine(문장화 API) 이미지·배포 |
 | engine/tests·tests_postgres, ai의 MD 설명 | engine 검사만 |
-| contracts의 JSON/YAML | FE·BE·engine 검사. C1 JSON은 수집기 실행 및 이미지 smoke test에서 읽으므로 수집기 이미지·배포도 실행. FE Workers·BE 이미지·배포는 생략 |
+| contracts의 JSON/YAML | FE·BE·engine 검사. C1 JSON은 수집기 실행 및 이미지 smoke test에서 읽으므로 수집기 이미지·배포도 실행. FE·BE 이미지·배포는 생략 |
 | 공통 CI YAML | FE·BE·engine 모두 검사하고 병합 후 모두 배포 |
-| deploy/ci의 공통 Python·JSON | BE·수집기 검사·이미지·배포 |
+| deploy/ci의 공통 Python·JSON | BE·수집기 검사·이미지·배포 (FE 로직 변경은 FE 경로도 함께 변경) |
 | docs, 루트/서비스/계약 README, pipeline의 MD 설명 | 가벼운 harness·infra 검사만 |
 
 engine(문장화 API) 이미지는 engine/pipeline·ai·의존성·Dockerfile·개발 Compose·공통 CI·deploy/ci 변경에도 다시 만든다. 단 **develop 에서만** 만들고 배포한다(243번, 운영은 별도 MR). 서버 준비 순서는 [개발 서버 engine](../dev/README.md#논증-문장화-engine-s15p31c108-243).
@@ -67,16 +67,14 @@ FE·수집기 배포의 `backend-deploy` 의존성은 optional이다. BE 작업�
 1. 보완 코드가 들어간 브랜치에서 GitLab **Build → Pipelines → New pipeline**을 연다.
 2. **Branch**는 `develop`(개발) 또는 `main`(운영)을 선택한다. 해당 브랜치 병합/실행 권한이 필요하다.
 3. 표시된 **REDEPLOY_COMPONENT**를 `frontend`로 선택하고 실행한다. SSH 키·Cloudflare 토큰이나 WORKER_ENV/FRONTEND_URL을 직접 입력하지 않는다. 기존 보호 변수와 브랜치별 환경을 사용한다.
-4. harness·infra·frontend 검사 → frontend-worker 빌드/dry-run/Workers E2E → frontend-deploy 및 HTTPS 검증 성공을 확인한다. BE·수집기 job은 생성하지 않으므로 기존 정상 BE에 연결한다.
+4. harness·infra·frontend 검사 → frontend-image 포장·게시 → frontend-deploy 및 HTTPS 검증 성공을 확인한다. BE·수집기 job은 생성하지 않으므로 기존 정상 BE에 연결한다.
 5. 대상 환경의 `/healthz` revision이 이번 파이프라인 커밋과 같은지 확인한다. 실행을 기다리는 동안 브랜치가 갱신되면 배포 직전 최신 SHA 확인에서 차단하므로 최신 브랜치로 New pipeline을 다시 생성한다.
 
 기존 push/MR 실행과 같은 환경별 resource group·배포 후 검증을 유지한다. 이전 파이프라인 artifact를 가져오거나 검사 없이 배포하지 않는다. 새 보완 코드는 main에도 병합되어야 main 수동 실행을 사용할 수 있다. 자동 배포 파이프라인에서 BE도 함께 변경된 경우에는 기존처럼 BE 배포 성공을 기다린다.
 
-FE 검사·Workers 빌드·배포는 같은 공식 Playwright 1.64.1 이미지(digest 고정)를 사용한다. Node 24·Git·인증서·브라우저 및 OS 의존성을 포함하므로 apt/playwright install을 매번 실행하지 않는다. 최초 이미지 다운로드는 크지만 이후 레이어를 재사용한다. @playwright/test 버전과 이미지 버전은 함께 갱신하며 선택 테스트에서 일치를 검사한다.
+257번부터 FE 검사는 공식 Playwright 이미지에서 standalone 빌드와 Node E2E를 수행한다. 같은 파이프라인의 artifact를 `frontend-image`가 포장하며 배포 job은 빌드·pnpm 설치를 반복하지 않는다. Node 이미지·Playwright 이미지는 digest로 고정한다. MR artifact를 병합 후 배포에 재사용하지 않는다. pnpm store·Next 컴파일 캐시는 잠금 파일과 환경 기준으로 유지한다.
 
-pnpm store는 잠금 파일 기준으로 재사용하고 매번 frozen-lockfile로 확인한다. 배포 job은 캐시를 읽기만 하여 중복 압축·업로드를 줄인다. Next 컴파일 캐시는 잠금 파일·Next 설정·WORKER_ENV 및 Node/Workers별로 분리한다. 캐시는 선택적 가속 수단이며 완성 빌드를 대신하지 않는다.
-
-Node E2E는 Cache Components 활성, Workers는 호환성 때문에 비활성이므로 두 Next 빌드를 공유하거나 skipNextBuild로 대체하지 않는다. Workers 빌드는 한 번 수행하고 같은 파이프라인의 .open-next artifact를 dry-run·Workers E2E·배포에 사용한다(기존 동작 유지). MR artifact를 병합 후 배포에 재사용하지 않는다. Runner 동시 실행 수·기존 테스트·로컬 pre-push 규칙은 변경하지 않는다. 실제 시간 감소는 다음 GitLab 실행에서 확인한다.
+FE도 기존 protected SSH·Docker Hub 변수와 development-ec2/production-ec2 환경을 사용한다. Workers 토큰은 복구용 구성을 유지하는 동안 남겨두되 새 CI는 사용하지 않는다. 서버 설치·도메인 전환 순서와 첫 배포 상태는 [프론트 EC2 배포](../frontend/README.md)를 따른다. 초기 137번 절차의 Workers 관련 설명보다 이 전환 절차를 우선한다. Runner 동시 실행 수·로컬 pre-push 규칙은 변경하지 않는다.
 
 ## 운영 배포 리허설 체크리스트 — S15P31C108-178
 
