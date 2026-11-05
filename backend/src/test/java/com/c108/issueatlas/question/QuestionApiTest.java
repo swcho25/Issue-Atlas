@@ -689,6 +689,35 @@ class QuestionApiTest {
                 .isEqualTo(1);
     }
 
+    @Test
+    void documentsAreListedByPublishedDateNotEvidenceId() throws Exception {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < YEOSU.length; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        // 근거 ID 는 yeosu:5(ev_doc_2f19…)가 yeosu:1(ev_doc_d527…)보다 앞이지만 등록일은 늦다
+        press("yeosu", "yeosu:5", "[기획] 청년 유입의 새로운 시작점, 여수 청년마을", "2025-04-22");
+        press("yeosu", "yeosu:1", "여수시, 2024년 청년어촌정착지원 사업 대상자 모집", "2023-11-12");
+        String body =
+                """
+                {"place_id": "kr-12130", "card_id": "C1", "period_start": "2023-01-01",
+                 "period_end": "2026-01-01", "raw_text": null}
+                """;
+        String result =
+                argument(runId(ask(body)))
+                        .andExpect(jsonPath("$.data.documents.length()").value(2))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        List<String> ids = JsonPath.read(result, "$.data.documents[*].evidence_id");
+        assertThat(ids.get(0)).isGreaterThan(ids.get(1)); // ID 순이면 거꾸로다
+        assertThat(JsonPath.<List<String>>read(result, "$.data.documents[*].title"))
+                .containsExactly("여수시, 2024년 청년어촌정착지원 사업 대상자 모집", "[기획] 청년 유입의 새로운 시작점, 여수 청년마을");
+    }
+
     /** 여수 SP10 주민등록인구 연말 값 2023–2025(개발 DB 실데이터). */
     private static final int[] YEOSU_REGISTERED = {271696, 267816, 263284};
 

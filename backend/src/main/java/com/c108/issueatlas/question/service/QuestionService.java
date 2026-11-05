@@ -475,12 +475,16 @@ public class QuestionService {
                 null);
     }
 
+    /** 판정이 고른 근거를 판정이 준 순서 그대로(문서는 등록일 순, 분모는 카드 설계도 순). 저장소는 ID 순으로 읽는다. */
     private List<EvidenceRef> load(List<String> ids) {
         List<EvidenceRef> found = questions.evidence(ids);
         if (found.size() != ids.size()) {
             throw new IllegalStateException("Card rule returned unknown evidence");
         }
-        return found;
+        Map<String, EvidenceRef> byId =
+                found.stream()
+                        .collect(Collectors.toMap(EvidenceRef::evidenceId, Function.identity()));
+        return ids.stream().map(byId::get).toList();
     }
 
     private static String statusOf(Map<String, CardEvidenceRow> status, String kind) {
