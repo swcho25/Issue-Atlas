@@ -1,4 +1,4 @@
-# 공통 HTTP 오류 응답 v0.2 초안
+# 공통 HTTP 오류 응답 v0.3 초안
 
 주는 쪽: backend(P7) → 받는 쪽: frontend. C2 통합 전 받는 쪽 리뷰가 필요한 공통 오류 계약 초안이다. 성공 응답 구조는 별도 C2에서 정한다.
 
@@ -40,10 +40,11 @@ Spring MVC가 처리하는 요청 오류와 Controller에서 발생한 예외에
 | 401 | UNAUTHORIZED | 로그인이 필요합니다. |
 | 403 | FORBIDDEN | 이 작업을 할 권한이 없습니다. |
 | 404 | RESOURCE_NOT_FOUND | 요청한 리소스를 찾을 수 없습니다. |
+| 429 | TOO_MANY_REQUESTS | 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요. |
 | 500 및 MVC 5xx | INTERNAL_ERROR | 서버에서 요청을 처리하지 못했습니다. |
 | 나머지 MVC 4xx | HTTP_ERROR | 요청을 처리할 수 없습니다. |
 
-없는 업무 리소스는 ResourceNotFoundException을 사용한다. 예상하지 못한 예외는 500으로 처리하고 서버 로그에 기록한다. MVC 예외는 원래 상태와 헤더(예: 405의 Allow)를 보존한다. INTERNAL_ERROR에는 상세 입력 오류를 포함하지 않는다. 로그인 실패는 없는 계정·틀린 비밀번호·비활성 계정을 구분하지 않고 모두 401 UNAUTHORIZED다. CSRF 토큰이 없거나 틀린 요청은 403 FORBIDDEN이다. 같은 리소스를 두 번 만들면 409(HTTP_ERROR)다. 새 업무 오류 코드는 이 계약과 웹 테스트를 함께 추가하고 받는 쪽 리뷰를 받는다.
+없는 업무 리소스는 ResourceNotFoundException을 사용한다. 예상하지 못한 예외는 500으로 처리하고 서버 로그에 기록한다. MVC 예외는 원래 상태와 헤더(예: 405의 Allow)를 보존한다. INTERNAL_ERROR에는 상세 입력 오류를 포함하지 않는다. 로그인 실패는 없는 계정·틀린 비밀번호·비활성 계정을 구분하지 않고 모두 401 UNAUTHORIZED다. CSRF 토큰이 없거나 틀린 요청은 403 FORBIDDEN이다. 질문 저장(POST /v1/questions)이 IP 당 분당 한도(기본 10, `QUESTIONS_PER_MINUTE`)를 넘으면 429 TOO_MANY_REQUESTS 와 `Retry-After: 60` 이다. 같은 리소스를 두 번 만들면 409(HTTP_ERROR)다. 새 업무 오류 코드는 이 계약과 웹 테스트를 함께 추가하고 받는 쪽 리뷰를 받는다.
 
 ## 사용
 
@@ -65,3 +66,4 @@ Spring MVC가 처리하는 요청 오류와 Controller에서 발생한 예외에
 
 - v0.1 (2026-10-21): 공통 오류 응답 초안, 프론트 리뷰 대기.
 - v0.2 (2026-10-22): 401 UNAUTHORIZED·403 FORBIDDEN 추가. 보안 필터가 막은 요청도 같은 problem+json. 프론트 리뷰 필요.
+- v0.3 (2026-11-04): 429 TOO_MANY_REQUESTS 추가. 익명 질문 저장의 IP 당 분당 한도(S15P31C108-208 후속). 프론트는 이 코드를 받으면 「잠시 후 다시」 안내.
