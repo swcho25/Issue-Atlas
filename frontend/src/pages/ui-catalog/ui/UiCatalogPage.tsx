@@ -7,6 +7,7 @@ import { Effects } from "./Effects";
 import { FontSamples } from "./FontSamples";
 import { GlassPreview } from "./GlassPreview";
 import { IconPreview } from "./IconPreview";
+import { MapPreview } from "./MapPreview";
 import { NavButtonsPreview } from "./NavButtonsPreview";
 import { RailPreview } from "./RailPreview";
 import { TabBarPreview } from "./TabBarPreview";
@@ -27,6 +28,7 @@ export function UiCatalogPage() {
       <BadgePreview />
       <TabBarPreview />
       <IconPreview />
+      <MapPreview />
       <ColorTokens />
       <TypeAndShape />
       <Effects />

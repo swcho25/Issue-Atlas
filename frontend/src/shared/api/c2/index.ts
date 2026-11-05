@@ -6,6 +6,7 @@ export {
   type EvidenceRow,
   seriesShape,
 } from "./argument";
+export { type PlaceBoundaries, placeBoundariesSchema } from "./boundaries";
 export type {
   ClaimValue,
   EvidenceKind,
