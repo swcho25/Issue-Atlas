@@ -128,20 +128,33 @@ export function CellMenu({
               각주 복사
             </button>
           )}
-          <button
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            className={itemClass}
-            onClick={() => {
-              // ⋯ 로 초점을 먼저 돌려 둔다. 창은 연 때 초점이 있던 곳으로 닫히며 돌아간다(메뉴 줄은 사라지므로)
-              close();
-              report(target);
-            }}
-          >
-            <ItemIcon name="alert" />
-            오류 신고 · 수정 제안
-          </button>
+          {report ? (
+            <button
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              className={itemClass}
+              onClick={() => {
+                // ⋯ 로 초점을 먼저 돌려 둔다. 창은 연 때 초점이 있던 곳으로 닫히며 돌아간다(메뉴 줄은 사라지므로)
+                close();
+                report(target);
+              }}
+            >
+              <ItemIcon name="alert" />
+              오류 신고 · 수정 제안
+            </button>
+          ) : (
+            // 카드가 없는 결과(카드 밖)는 신고할 카드가 없다. 줄은 남기고 왜 안 되는지 보인다
+            <span
+              role="menuitem"
+              tabIndex={-1}
+              aria-disabled="true"
+              className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-label-12 whitespace-nowrap text-text-3 outline-none focus-visible:bg-surface-2"
+            >
+              <ItemIcon name="alert" />
+              오류 신고 — 카드가 없는 결과예요
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -88,9 +88,15 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
     <CellMenu target={target} refs={refs} sourcesHref={sourcesHref(argument.run_id, evidenceId)} />
   );
   const lines = (texts: string[]) => (texts.length ? texts.join(" / ") : null);
+  // 반박은 줄마다 누가 썼는지가 있다. 칸 배지는 사람이 고친 줄이 있으면 검수, 아니면 첫 줄(없으면 규칙)
+  const rebuttalProvenance: Provenance = rebuttals.some((r) => r.provenance === "human")
+    ? "human"
+    : (rebuttals[0]?.provenance ?? "rule");
 
   return (
     <ReportProvider
+      cardId={argument.question.card_id}
+      runId={argument.run_id}
       context={[argument.question.card_name, argument.question.place_name]
         .filter(Boolean)
         .join(" · ")}
@@ -101,7 +107,13 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
             no="①"
             title="판단"
             provenance={claim.provenance}
-            menu={menu({ cell: "claim", no: "①", title: "판단", quote: claim.text })}
+            menu={menu({
+              cell: "claim",
+              no: "①",
+              title: "판단",
+              provenance: claim.provenance,
+              quote: claim.text,
+            })}
           >
             <div className="flex items-center gap-1.5">
               <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
@@ -115,7 +127,13 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
             title="근거"
             provenance={data.provenance}
             menu={menu(
-              { cell: "data", no: "②", title: "근거", quote: lines(refs.map((r) => r.title)) },
+              {
+                cell: "data",
+                no: "②",
+                title: "근거",
+                provenance: data.provenance,
+                quote: lines(refs.map((r) => r.title)),
+              },
               refs[0]?.evidence_id,
             )}
           >
@@ -169,7 +187,13 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
             title="보증"
             provenance={warrant.provenance}
             tone="warrant"
-            menu={menu({ cell: "warrant", no: "③", title: "보증", quote: warrant.text })}
+            menu={menu({
+              cell: "warrant",
+              no: "③",
+              title: "보증",
+              provenance: warrant.provenance,
+              quote: warrant.text,
+            })}
           >
             {warrant.text ? (
               <p className="text-body-13 text-text-1">{warrant.text}</p>
@@ -188,6 +212,7 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
               cell: "qualifier",
               no: "④",
               title: "한정어 · 근거 충실도",
+              provenance: qualifier.provenance,
               quote: `${grade.label} · ${qualifierNote(qualifier.components)}`,
             })}
           >
@@ -199,19 +224,15 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
             </div>
           </Cell>
 
-          {/* 반박은 줄마다 누가 썼는지가 있다. 칸 배지는 사람이 고친 줄이 있으면 검수, 아니면 첫 줄(없으면 규칙) */}
           <Cell
             no="⑤"
             title="반박 · 다른 설명"
-            provenance={
-              rebuttals.some((r) => r.provenance === "human")
-                ? "human"
-                : (rebuttals[0]?.provenance ?? "rule")
-            }
+            provenance={rebuttalProvenance}
             menu={menu({
               cell: "rebuttals",
               no: "⑤",
               title: "반박 · 다른 설명",
+              provenance: rebuttalProvenance,
               quote: lines(rebuttals.map((r) => r.text)),
             })}
           >
@@ -241,6 +262,7 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
               cell: "ceiling",
               no: "⑥",
               title: "상한선 · 말하지 않는 것",
+              provenance: ceiling.provenance,
               quote: lines(ceiling.items),
             })}
           >
