@@ -19,7 +19,12 @@
         "compose.tunnel.yaml",
         "compose.routing.yaml",
         "compose.release.yaml"
-      ]
+      ],
+      "frontend_image_repository": "swcho25/issueatlas-backend",
+      "frontend_project": "issueatlas-development-frontend",
+      "frontend_host_port": 3100,
+      "frontend_network": "issueatlas-dev_default",
+      "frontend_url": "https://dev.issue-atlas.kr"
     },
     "main": {
       "app_dir": "/opt/issueatlas-prod",
@@ -33,7 +38,12 @@
       "collector_input_dir": "/var/lib/issueatlas/production/collector/input",
       "collector_output_dir": "/var/lib/issueatlas/production/collector/output",
       "collector_log_dir": "/var/log/issueatlas/production/collector",
-      "collector_network": "issueatlas-prod_default"
+      "collector_network": "issueatlas-prod_default",
+      "frontend_image_repository": "swcho25/issueatlas-backend",
+      "frontend_project": "issueatlas-production-frontend",
+      "frontend_host_port": 3101,
+      "frontend_network": "issueatlas-prod_default",
+      "frontend_url": "https://issue-atlas.kr"
     }
   }
 }

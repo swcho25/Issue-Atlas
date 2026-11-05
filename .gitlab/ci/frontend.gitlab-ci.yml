@@ -1,44 +1,53 @@
-# self-hosted GitLab이므로 Cloudflare Git 연동 대신 기존 Runner에서 배포한다.
-frontend-worker:
-  extends: .frontend-browser
-  stage: image
-  rules: !reference [.frontend-build-scope, rules]
+# Package the exact standalone output built and tested by the frontend check job.
+frontend-image:
+  extends: backend-image
+  rules: !reference [.frontend-release, rules]
+  variables:
+    FRONTEND_IMAGE_REPOSITORY: swcho25/issueatlas-backend
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  dependencies: [frontend]
   script:
-    - pnpm --filter frontend worker:build
-    - pnpm --filter frontend exec wrangler deploy --dry-run --env "$WORKER_ENV"
-    - node --check deploy/frontend/verify.mjs
-    - pnpm --filter frontend worker:test
-  cache:
-    - key: { files: [pnpm-lock.yaml] }
-      paths: [.pnpm-store]
-    - key: { prefix: "next-worker-$WORKER_ENV", files: [pnpm-lock.yaml, frontend/next.config.ts] }
-      paths: [frontend/.next/cache/]
+    - tar -xzf frontend-standalone.tar.gz -C frontend
+    - test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_PUSH_TOKEN"
+    - echo "$DOCKERHUB_PUSH_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
+    - docker build -f frontend/Dockerfile.release --label "org.opencontainers.image.component=frontend" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$FRONTEND_IMAGE_REPOSITORY:frontend-$CI_COMMIT_SHA" .
+    - |
+      smoke=$(docker run -d --network none --memory 512m --cpus 1 --cap-drop ALL -e DEPLOYMENT_REVISION=ci-smoke "$FRONTEND_IMAGE_REPOSITORY:frontend-$CI_COMMIT_SHA")
+      trap 'docker rm -f "$smoke" >/dev/null 2>&1 || true' EXIT
+      docker exec "$smoke" node -e '
+      (async()=>{for(let i=0;i<20;i++){try{
+        const health=await fetch("http://127.0.0.1:3000/healthz");
+        if((await health.json()).revision!=="ci-smoke")throw Error("revision");
+        for(const path of ["/","/landing/liberty-seoul-9.webp"]){
+          const r=await fetch("http://127.0.0.1:3000"+path);
+          if(!r.ok)throw Error("runtime asset");await r.arrayBuffer();
+        }
+        return;
+      }catch(e){if(i===19)throw e;await new Promise(r=>setTimeout(r,1000));}}})().catch(()=>process.exit(1));'
+      docker rm -f "$smoke" >/dev/null
+      trap - EXIT
+    - docker push "$FRONTEND_IMAGE_REPOSITORY:frontend-$CI_COMMIT_SHA"
+    - docker inspect --format '{{index .RepoDigests 0}}' "$FRONTEND_IMAGE_REPOSITORY:frontend-$CI_COMMIT_SHA" > frontend-image.txt
   artifacts:
-    paths: [frontend/.open-next/]
-    expire_in: 1 day
+    paths: [frontend-image.txt]
+    expire_in: 7 days
 
 frontend-deploy:
-  extends: .frontend-browser
+  extends: backend-deploy
   rules: !reference [.frontend-release, rules]
-  stage: deploy
+  variables:
+    DEPLOY_COMPONENT: frontend
+    FRONTEND_IMAGE_REPOSITORY: swcho25/issueatlas-backend
   needs:
-    - job: frontend-worker
+    - job: frontend-image
       artifacts: true
     - job: backend-deploy
       artifacts: false
       optional: true
-  resource_group: issueatlas-workers-$CI_COMMIT_BRANCH
-  environment:
-    name: ${WORKER_ENV}-workers
-    url: $FRONTEND_URL
-  interruptible: false
-  timeout: 15 minutes
-  cache:
-    key: { files: [pnpm-lock.yaml] }
-    paths: [.pnpm-store]
-    policy: pull
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends openssh-client ca-certificates git
   script:
-    - test -n "$CLOUDFLARE_ACCOUNT_ID" && test -n "$CLOUDFLARE_API_TOKEN"
     - |
       if [ "$CI_PIPELINE_SOURCE" = "web" ]; then
         current_sha=$(git ls-remote --exit-code origin "refs/heads/$CI_COMMIT_BRANCH" | cut -f1)
@@ -47,5 +56,4 @@ frontend-deploy:
           exit 1
         fi
       fi
-    - pnpm --filter frontend worker:deploy --env "$WORKER_ENV" --var "DEPLOYMENT_REVISION:$CI_COMMIT_SHA"
-    - node deploy/frontend/verify.mjs "$FRONTEND_URL" "$CI_COMMIT_SHA"
+    - python deploy/ci/send_deploy.py

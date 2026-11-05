@@ -1,31 +1,61 @@
-# 프론트 Workers 배포 — S15P31C108-109
+# 프론트 EC2 배포 — S15P31C108-257
 
-Next.js는 Cloudflare Workers, Spring은 기존 EC2·Tunnel에서 실행한다. GitLab CI가 배포하며 Cloudflare의 저장소 자동 연결은 사용하지 않는다.
+## 구성
 
-## 설정과 실행
+| 브랜치 | 주소 | EC2 실행 경로 | 호스트 포트 | 연결 네트워크 |
+| --- | --- | --- | --- | --- |
+| develop | https://dev.issue-atlas.kr | /opt/issueatlas-dev/deploy/frontend/compose.yaml | 127.0.0.1:3100 | issueatlas-dev_default |
+| main | https://issue-atlas.kr | /opt/issueatlas-prod/deploy/frontend/compose.yaml | 127.0.0.1:3101 | issueatlas-prod_default |
 
-- `frontend/wrangler.json`: production은 `issueatlas-frontend` / `issue-atlas.kr` / `backend.issue-atlas.kr`, development는 `issueatlas-frontend-dev` / `dev.issue-atlas.kr` / `dev-backend.issue-atlas.kr`. 별도 workers.dev·preview URL은 공개하지 않는다. 계정 ID·인증 토큰은 포함하지 않는다.
-- `/api/*`는 기존 Next rewrites로 Spring에 전달된다. Workers 빌드는 rewrites와 런타임 vars에 같은 API 주소를 사용한다. API 주소 변경 시 다시 빌드·배포한다.
-- GitLab 변수 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`: Variable·Protected·범위 `*`, 토큰만 Masked, Expand variable reference 해제. 토큰은 해당 계정과 issue-atlas.kr로 범위를 제한한다.
-- 개발: `pnpm frontend:dev`. Workers 빌드: `pnpm --filter frontend worker:build`(기본 development, 운영은 `WORKER_ENV=production`). 미리보기: `pnpm --filter frontend worker:preview` (development, 8787). 운영 결과물은 `pnpm --filter frontend exec opennextjs-cloudflare preview --env production --port 8787`로 확인한다. Workers 빌드·미리보기는 Linux/WSL 사용을 권장한다. Windows에서는 심볼릭 링크 권한 오류가 날 수 있다.
-- OpenNext가 루트와 프론트의 `.env*`를 번들에 포함할 수 있어 실제 `.env` 파일이 있으면 빌드를 거절한다. 비밀을 이동·삭제하지 말고 CI처럼 비밀 파일 없는 작업 사본에서 빌드한다. 실행 설정은 Wrangler vars/secrets로 관리한다.
+두 환경은 별도 Compose 프로젝트로 Next.js를 실행한다. 각 메모리 1GiB·CPU 1개·로그 제한·자동 재시작을 적용한다.
+Nginx가 HTTPS를 종료하고 `/api/`를 같은 환경의 Spring(개발 8080, 운영 8081)으로 직접 전달한다.
+Next 서버의 API 요청은 같은 Docker 네트워크의 `backend:8080`을 사용한다. DB 비밀번호·GMS 키는 FE에 전달하지 않는다.
+Cloudflare는 DNS only로 주소만 관리하며 FE 트래픽은 Workers·Tunnel을 경유하지 않는다.
 
 ## CI/CD
 
-1. develop/main 대상 MR: 기존 프론트 검사·E2E와 `frontend-worker`의 Workers 빌드·Wrangler dry-run·Workers 브라우저 검사. 같은 E2E를 Node와 workerd에서 각각 실행한다. API 토큰 없이 실행하며 공개 버전을 바꾸지 않는다.
-2. 보호된 develop/main 병합: FE에 영향이 있는 변경일 때 선행 검사 후 빌드한 `.open-next`를 artifact로 전달한다. BE도 변경되었다면 `frontend-deploy`는 backend 배포 성공을 기다리고, 아니면 기존 BE를 사용한다. 경로별 실행 조건은 [CI 운영 문서](../ci/README.md#변경-영역-선택-s15p31c108-113)를 참고한다.
-3. 브랜치별 `production-workers`/`development-workers` 환경과 resource group에서 서로 다른 Worker로 배포한다. GitLab의 오래된 배포 방지 설정도 유지한다. Cloudflare token은 배포 job에만 사용한다.
-4. Workers 빌드·dry-run·테스트·배포는 동일한 `WORKER_ENV`를 사용한다. 환경이 다른 `.open-next`를 재사용하지 않는다. 배포 시 커밋 SHA를 `DEPLOYMENT_REVISION`으로 설정한다. `/healthz`의 SHA·루트 HTML·`/api/actuator/health`를 확인하고 불일치/오류면 job을 실패시킨다. 배포 후 점검 실패 시 자동 원복은 구현하지 않았으므로 GitLab/Workers 배포 이력을 확인한 뒤 이전 정상 버전을 복구한다.
+1. MR 및 병합 후 변경 영역 검사: 기존 lint·타입·단위·브라우저 E2E를 유지한다. FE 검사에서 `ISSUEATLAS_EC2_BUILD=1`, `API_BASE_URL=http://backend:8080`으로 Next를 한 번 빌드한다. standalone 비밀 파일 검사도 수행한다.
+2. 보호된 develop/main 병합: `frontend-image`가 같은 파이프라인의 심볼릭 링크를 보존한 frontend-standalone.tar.gz artifact와 저장소의 public을 Dockerfile.release로 포장한다. Next 재빌드·의존성 재설치는 하지 않는다. `swcho25/issueatlas-backend:frontend-<SHA>`를 게시하고 digest를 전달한다. MR에서는 이미지를 게시하지 않는다.
+3. `frontend-deploy`가 기존 SSH 배포 경로로 `component=frontend`를 보낸다. 환경은 development-ec2/production-ec2이며 기존 보호 변수(`*-ec2`)를 재사용한다. Cloudflare 배포 토큰은 사용하지 않는다.
+4. 배포 프로그램이 이미지 digest·소스·컴포넌트·SHA·pipeline 상한을 확인하고 FE만 교체한다. 같은 환경의 BE·수집기·engine·FE 배포는 공통 잠금과 resource group으로 직렬화한다.
+5. 내부·공개 `/healthz` SHA/no-store, HTML, `/api/actuator/health`를 확인한다. 실패하면 이전 FE 이미지와 SHA로 복구하고 job은 실패로 남긴다. 첫 배포 실패는 후보를 중단하며 복구할 이전 버전이 있었다고 표시하지 않는다. 컨테이너 교체 시 짧은 중단은 있을 수 있다.
 
-첫 배포가 Worker와 Custom Domain 연결을 만든다. `issue-atlas.kr`에 충돌하는 DNS 레코드가 있으면 먼저 대시보드에서 확인하며, 기존 backend Tunnel 레코드를 변경하지 않는다. 계정 ID·토큰·도메인 권한·실제 첫 CD는 사용자 병합 후 검증한다. 이 토큰은 유효기간이 있으므로 만료 전에 갱신한다.
+FE만 변경되면 BE·수집기는 배포하지 않는다. 계약 JSON/YAML만 바뀌면 FE 검사는 유지하되 이미지·배포는 생략한다.
+수동 재배포는 GitLab New pipeline에서 보호된 develop/main과 `REDEPLOY_COMPONENT=frontend`를 선택한다. 배포 직전 브랜치 최신 SHA도 확인한다.
 
-## 호환성과 남은 검증
+## 서버 준비와 전환 순서
 
-- 로컬 프론트 lint/typecheck/단위 9건, Node E2E 2건, Linux Workers E2E 2건, 실제 backend API 프록시·SSR 요청 구분·배포 dry-run·배포 후 점검 스크립트 검증을 통과했다. 전체 `pnpm check:all`은 로컬 Docker 미실행으로 backend build에서 중단됐으므로 전체 통과로 기록하지 않는다. 임시 컨테이너·검증 사본·SSR probe는 정리했다.
-- Next.js 16.4.2, OpenNext 1.20.13, Wrangler 4.153.0을 고정한다. 의존성·잠금 파일은 함께 커밋한다.
-- [OpenNext #1450](https://github.com/opennextjs/opennextjs-cloudflare/issues/1450), [수정 PR #1318](https://github.com/opennextjs/opennextjs-cloudflare/pull/1318): 현재 Cache Components staged rendering이 workerd에서 멈출 수 있다. 실제 미리보기에서도 HTML 요청이 500으로 실패했다. `ISSUEATLAS_WORKERS_BUILD=1`인 Workers 빌드에서만 cacheComponents·partialPrefetching을 끈다. 일반 로컬 개발은 기존 설정을 유지하며 SSR·서버 컴포넌트는 유지한다. 공식 수정 반영 후 별도 검증을 거쳐 재활성화한다.
-- 현재 ISR/`use cache`를 사용하는 제품 기능은 없으며 영속 캐시를 구성하지 않았다. 해당 기능 추가 시 캐시 저장소·무효화·사용자별 응답 격리를 먼저 설계한다. SSR을 정적 export로 바꾸지 않는다.
-- 현재 랜딩은 원래 정적 사전 생성 대상이다. SSR 지원은 별도의 일회용 검증 화면에서 요청 헤더가 HTML에 반영되는지 확인하며, 이 화면을 제품에 추가하지 않는다.
-- 로그인 화면·사용자별 SSR·세션 쿠키·CSRF 연동·Swagger 쓰기 호출은 기능 구현 후 별도 검증한다. 백엔드·수집기 코드와 배포 설정은 변경하지 않는다.
+현재 정식 도메인은 Workers이며, 코드 병합과 첫 EC2 배포 후 순차 전환한다. 커밋·push·MR은 사용자가 수행한다.
 
-137번 전환 순서와 GitLab 변수 범위는 [환경 분리 절차](../ci/README.md#환경-분리-전환--s15p31c108-137)를 따른다. 개발 Worker를 먼저 준비하고 운영 도메인 전환은 운영 backend 준비와 맞춘다.
+1. 기존 배포 프로그램·cicd.json을 root 전용 백업에 보관한다. 새 `deploy/ci/deploy_backend.py`를 `/usr/local/sbin/issueatlas-deploy.py`에 root:root 755로 설치하고, `compose.yaml`을 위 개발·운영 경로에 root:root 644로 설치한다. 기존 BE/DB Compose는 바꾸지 않는다.
+2. cicd.json 각 환경에 `frontend_image_repository`, `frontend_project`, `frontend_host_port`, `frontend_network`, `frontend_url`을 추가한다. 값은 cicd.example.json을 따른다. 전환 전 `frontend_url`은 개발 `https://ec2-dev.issue-atlas.kr`, 운영 `https://ec2-prod.issue-atlas.kr`로 둬서 기존 Workers를 잘못 점검하지 않게 한다.
+3. nginx.conf.template의 FRONTEND_HOST·NEXT_PORT·BACKEND_PORT를 각 검증 호스트와 포트로 치환한다. HTTP ACME 경로만 먼저 설치하고 기존 Certbot 계정의 webroot(`/var/www/issueatlas-acme`)로 인증서를 발급한 뒤 전체 HTTPS 설정을 적용한다. `nginx -t` 후 reload한다. 검증 호스트도 DNS only이다.
+4. 이 MR을 develop에 병합하고 `frontend-image`·`frontend-deploy`를 확인한다. ec2-dev에서 세션·CSRF·화면·이미지·API와 동시 CI 자원을 점검한다. main은 develop→main MR 이후에만 운영 코드를 배포한다.
+5. 환경별 첫 자동 배포가 정상이면 실제 호스트의 인증서·Nginx를 준비하고 해당 Worker의 Custom Domain 연결을 해제한 뒤 같은 호스트 A 레코드를 EC2 IP/DNS only로 연결한다. 코드·인증서·정상 후보 없이 DNS만 먼저 바꾸지 않는다. 실제 호스트를 인증서 발급에 사용할 때는 ACME 요청이 EC2로 전달되는지도 확인한다.
+6. 실제 주소에서 인증·페이지·정적 파일·API·각각의 DB 연결을 검증한 뒤 cicd.json의 frontend_url을 실제 주소로 바꾼다. 개발부터 마친 다음 운영을 전환한다. 기존 backend·dev-backend Tunnel 주소는 팀 사용 여부 확인 전 유지한다.
+7. 두 환경의 정식 전환 이후에만 복구용 Workers를 정리한다. 초기 preview(127.0.0.1:3000)는 새 개발 FE 검증 후 이미 중단·정리했고 설정은 서버 백업에 보관했다. worker 스크립트·Wrangler·의존성은 복구 기간 동안 유지하지만 새 CI는 호출하지 않는다. 임시 검증 DNS·Nginx·인증서도 사용 종료 후 정리한다.
+
+검증 주소가 준비되어도 **운영 Next.js가 배포됐다는 의미는 아니다**. main 첫 CI 배포와 실제 도메인 검증까지 구분해 기록한다.
+
+## 빌드·조회·복구
+
+저장소 루트의 비밀 파일 없는 소스 사본에서 수동 이미지 검증:
+
+```sh
+docker build -f frontend/Dockerfile -t issueatlas-frontend:local .
+```
+
+현재 EC2에는 docker0이 없어 직접 검증 빌드에만 `--network host`를 사용했다. 실행 컨테이너는 호스트 네트워크를 사용하지 않는다. CI는 별도 DinD를 사용한다.
+
+배포 기록: 각 app_dir의 `.deploy/frontend/{current,watermark,last-result}.json`.
+실제 실행 버전은 `/healthz`와 일치해야 한다. 이전 파이프라인 재시도로 watermark를 우회하지 않는다.
+수동 복구 시 root 운영자가 이전 정상 digest를 선택하고 FRONTEND_IMAGE·DEPLOYMENT_REVISION·FRONTEND_PROJECT·FRONTEND_HOST_PORT·FRONTEND_NETWORK를 지정해 FE Compose만 적용한다.
+기존 파일 백업과 복구 버전은 서버 전용이며 저장소에 비밀 값이나 인증서를 넣지 않는다.
+
+현재 주소 전환 전 되돌리려면 새 FE만 중단하고 검증 호스트를 해제하면 된다. 실제 주소 전환 후에는 이전 FE 이미지 복구를 우선하고, Workers 복귀가 필요하면 Custom Domain·DNS·CI 배포 대상도 함께 되돌린다.
+
+## 검증 범위
+
+2026-11-05: develop f8bec0d와 배포 변경을 반영해 Linux 이미지 빌드·포장·실행, 실제 저장된 분석 결과 SSR·상세 이동·관리자 세션·CSRF·쿠키·로그아웃을 확인했다. 전체 pnpm check:all(FE 단위 42·E2E 3, BE 232, engine 587)과 별도 인프라 테스트 74건이 통과했다.
+현재 PC 3회 중앙값은 HTML Workers 5.073초 / EC2 0.082초, 지역 목록 API 3.147초 / 0.084초였다. 전체 화면 완료 시간이나 부하 시험 결과를 의미하지 않는다.
+실제 GitLab 첫 EC2 자동 배포·main 배포·정식 도메인 전환·복구용 Workers 정리는 사용자 MR 이후 확인한다. 외부 OpenFreeMap의 지연은 별도 과제다.

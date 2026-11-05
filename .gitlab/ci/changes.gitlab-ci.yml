@@ -10,7 +10,9 @@
         - frontend/public/**/*
         - frontend/e2e/**/*
         - frontend/scripts/**/*
-        - deploy/frontend/*.mjs
+        - deploy/frontend/*.{mjs,yaml,yml,conf}
+        - deploy/frontend/*.template
+        - frontend/Dockerfile*
         - frontend/*.{ts,js,mjs,cjs,json,css,yaml,yml,toml}
         - frontend/.prettierignore
         - frontend/.npmrc

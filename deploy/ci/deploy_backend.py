@@ -224,6 +224,64 @@ class Deployment:
         )
 
 
+class FrontendDeployment(Deployment):
+    """Separate Next.js project; never recreates Spring or database containers."""
+
+    service = "frontend"
+    image_variable = "FRONTEND_IMAGE"
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.state = self.state / "frontend"
+        self.state.mkdir(mode=0o700, exist_ok=True)
+        self.compose = ["docker", "compose", "-f", str(self.app / "deploy/frontend/compose.yaml")]
+        self.env.update(
+            FRONTEND_PROJECT=config["frontend_project"],
+            FRONTEND_HOST_PORT=str(config["frontend_host_port"]),
+            FRONTEND_NETWORK=config["frontend_network"],
+            DEPLOYMENT_REVISION="not-deployed",
+        )
+
+    def apply(self, image):
+        if image is not None:
+            # Rollback must restore the old SHA as well as the old image.
+            revision = self.inspect(image)["Config"]["Labels"]["org.opencontainers.image.revision"]
+            self.env["DEPLOYMENT_REVISION"] = revision
+        super().apply(image)
+
+    def healthy(self):
+        for _ in range(12):
+            try:
+                for base in (
+                    f"http://127.0.0.1:{self.config['frontend_host_port']}",
+                    self.config["frontend_url"],
+                ):
+                    for path in ("/healthz", "/", "/api/actuator/health"):
+                        req = urllib.request.Request(base + path, headers={"User-Agent": "IssueAtlasDeploymentCheck/1.0"})
+                        with urllib.request.urlopen(req, timeout=10) as response:
+                            if response.status != 200:
+                                raise RuntimeError("Frontend HTTP check failed")
+                            if path == "/":
+                                if "text/html" not in response.headers.get("Content-Type", ""):
+                                    raise RuntimeError("Frontend HTML missing")
+                                response.read()
+                                continue
+                            value = json.load(response)
+                            if path == "/healthz" and (
+                                "no-store" not in response.headers.get("Cache-Control", "")
+                                or response.headers.get("CF-Cache-Status", "").upper() == "HIT"
+                            ):
+                                raise RuntimeError("Cached frontend health response")
+                            if value.get("status") != "UP":
+                                raise RuntimeError("Frontend or API is not UP")
+                            if path == "/healthz" and value.get("revision") != self.env["DEPLOYMENT_REVISION"]:
+                                raise RuntimeError("Published frontend revision mismatch")
+                return
+            except Exception:
+                time.sleep(2)
+        raise RuntimeError("Frontend internal/external revision, HTML or API check failed")
+
+
 class EngineDeployment(Deployment):
     """Argument phrasing API (engine/api). No host port: trust the compose /health healthcheck."""
 
@@ -300,6 +358,10 @@ class CollectorDeployment(Deployment):
 
 def deployment_for(config, component):
     """Pick the handler for one environment's config (already narrowed by environment_config)."""
+    if component == "frontend":
+        if not config.get("frontend_image_repository"):
+            raise ValueError("Frontend is not configured for this environment")
+        return FrontendDeployment({**config, "image_repository": config["frontend_image_repository"]})
     if component == "collector":
         return CollectorDeployment(
             {**config, "image_repository": config["collector_image_repository"]}

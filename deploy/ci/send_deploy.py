@@ -16,7 +16,13 @@ def required(name):
 
 
 def main():
-    if required("CI_PIPELINE_SOURCE") != "push":
+    component = os.environ.get("DEPLOY_COMPONENT", "backend")
+    manual_frontend = (
+        required("CI_PIPELINE_SOURCE") == "web"
+        and component == "frontend"
+        and os.environ.get("REDEPLOY_COMPONENT") == "frontend"
+    )
+    if required("CI_PIPELINE_SOURCE") != "push" and not manual_frontend:
         raise ValueError("Deployments require a merged branch pipeline")
     branch = required("CI_COMMIT_BRANCH")
     if branch not in {"develop", "main"} or required("CI_COMMIT_REF_PROTECTED") != "true":
@@ -24,8 +30,7 @@ def main():
     host, user = required("DEPLOY_HOST"), required("DEPLOY_USER")
     if not re.fullmatch(r"[a-zA-Z0-9.-]+", host) or not re.fullmatch(r"[a-z_][a-z0-9_-]*", user):
         raise ValueError("Invalid SSH destination")
-    component = os.environ.get("DEPLOY_COMPONENT", "backend")
-    if component not in {"backend", "collector", "engine"}:
+    if component not in {"backend", "collector", "engine", "frontend"}:
         raise ValueError("Unsupported deployment component")
     image = Path(f"{component}-image.txt").read_text().strip()
     repository = required(f"{component.upper()}_IMAGE_REPOSITORY")
