@@ -4,7 +4,8 @@ import { z } from "zod";
 
 import { mswServer } from "@/shared/lib/test";
 
-import { ApiError, browserGet, browserPost } from "./client";
+import { browserGet, browserPost } from "./browser";
+import { ApiError } from "./client";
 
 const schema = z.object({ ok: z.boolean() });
 
@@ -31,6 +32,26 @@ describe("browserGet", () => {
       name: ApiError.name,
       status: 404,
     });
+  });
+
+  it("읽기 요청에는 CSRF 토큰을 받거나 붙이지 않는다", async () => {
+    let csrfCalled = false;
+    let received: Headers | undefined;
+    mswServer.use(
+      http.get("*/api/v1/auth/csrf", () => {
+        csrfCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get("*/api/ping", ({ request }) => {
+        received = request.headers;
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    await browserGet("/ping", schema);
+
+    expect(csrfCalled).toBe(false);
+    expect(received?.get("X-XSRF-TOKEN")).toBeNull();
   });
 });
 

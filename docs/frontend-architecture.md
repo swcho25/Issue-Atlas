@@ -13,7 +13,8 @@
 | 스타일 | Tailwind CSS 4 + CSS 변수 토큰 | 적용 |
 | 서버 데이터 (클라이언트) | TanStack Query 5 | 적용 |
 | 응답 검증 · 타입 | Zod 4 | 적용 |
-| API 호출 경로 | 서버: Spring 직접 · 브라우저: 같은 출처 `/api/*` → Next rewrites → Spring | 적용 |
+| API 호출 경로 | 서버: fetch 로 Spring 직접 · 브라우저: axios 로 같은 출처 `/api/*` → Next rewrites → Spring | 적용 |
+| 로그인 확인 | 서버 세션 쿠키 + CSRF(axios 인터셉터) · `AuthLayout`(서버에서 `/v1/auth/me`) | 만듦 (적용 전) |
 | 지도 | MapLibre GL JS | 결정 (설치는 지도 작업 때) |
 | 차트 (시계열) | 미정 — 후보 비교만 | 화면 확정 뒤 |
 | 테스트 | Vitest · Testing Library · MSW · Playwright | 적용 |
@@ -43,9 +44,17 @@
 
 ### API 호출 경로
 
-- 서버 컴포넌트: `apiGet(path, schema)` → `API_BASE_URL`(서버 전용 환경 변수)로 Spring 직접 호출
-- 클라이언트: `browserGet(path, schema)` → `/api{path}` → `next.config.ts` rewrites → Spring
-- **이유**: 브라우저에 백엔드 주소를 노출하지 않고, CORS 설정이 필요 없다.
+- 서버 컴포넌트: `apiGet(path, schema)` → `API_BASE_URL`(서버 전용 환경 변수)로 Spring 직접 호출. **fetch** 로 둔다 — Next 의 캐시 · 재검증은 fetch 에만 붙는다
+- 클라이언트: `browserGet(path, schema)` · `browserPost(path, body, schema)` → axios 인스턴스 `browserHttp`(`baseURL: /api`) → `next.config.ts` rewrites → Spring
+  - 요청 인터셉터: 쓰기 요청이면 `XSRF-TOKEN` 쿠키(없으면 `GET /v1/auth/csrf` 로 먼저 받음)를 `X-XSRF-TOKEN` 헤더로
+  - 응답 인터셉터: 오류를 서버 쪽과 같은 `ApiError(status, path)` 로
+- **이유**: 브라우저에 백엔드 주소를 노출하지 않고, CORS 설정이 필요 없다. 브라우저 쪽을 axios 로 둔 것은 인터셉터 한 곳에서 CSRF · 오류를 처리하려고(S15P31C108-256). 서버까지 axios 로 바꾸면 Next 캐시를 잃는다
+
+### 로그인 확인 — 서버 세션 쿠키 + AuthLayout
+
+- 백엔드(Spring Security)는 토큰(JWT)을 주지 않는다. `POST /v1/auth/login` 이 서버 세션을 만들고 `JSESSIONID`(HttpOnly · SameSite=Lax) 쿠키를 심는다. 쓰기 요청은 CSRF(SPA 방식) 토큰이 필요하다
+- 화면 JS 는 세션 쿠키를 못 읽으므로, 로그인 여부는 서버에서 쿠키를 실어 `GET /v1/auth/me` 를 불러 안다(401 · 403 = 로그인 없음)
+- `AuthLayout`(`src/app/layouts`): `<Suspense>` 안의 `AuthGate` 가 확인하고, 없으면 `redirect("/")`. Cache Components 에서 `cookies()` 는 Suspense 밖에서 읽으면 빌드 오류다
 
 ### 지도 — MapLibre GL JS
 

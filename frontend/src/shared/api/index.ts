@@ -12,4 +12,6 @@ export {
   type RunStatus,
   seriesShape,
 } from "./c2";
-export { ApiError, apiGet, browserGet, browserPost } from "./client";
+export { browserGet, browserHttp, browserPost } from "./browser";
+export { ApiError, apiGet } from "./client";
+export { type Me, meSchema } from "./auth";
