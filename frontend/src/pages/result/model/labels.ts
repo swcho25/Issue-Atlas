@@ -5,6 +5,7 @@ import type {
   EvidenceStatus,
   Provenance,
   RunStatus,
+  StorageScope,
 } from "@/shared/api";
 import type { ProvKind, StatusTone } from "@/shared/ui/badge";
 
@@ -108,4 +109,61 @@ export function yearSpan(start: string | null, end: string | null) {
   // 끝은 미포함이라, 1월 1일로 끝나면 그 전 해까지
   const to = end.slice(5) === "01-01" ? String(Number(end.slice(0, 4)) - 1) : end.slice(0, 4);
   return from === to ? from : `${from}–${to}`;
+}
+
+/** 출처 등급(원문 탭 읽기 배지). Figma 예는 A(초록)뿐 — B · C 는 디자이너 확인 */
+export const sourceGradeTone: Record<"A" | "B" | "C", StatusTone> = {
+  A: "green",
+  B: "blue",
+  C: "gray",
+};
+
+/** 저장 범위(원문 탭). 「링크만」은 이용 조건상 원문을 저장하지 않아 미리보기가 없다 */
+export const storageScopeBadge: Record<StorageScope, { tone: StatusTone; label: string }> = {
+  full: { tone: "blue", label: "전문 저장" },
+  metadata: { tone: "gray", label: "요약 · 메타만" },
+  link_only: { tone: "gray", label: "링크만" },
+};
+
+/** 시각을 한국 날짜(YYYY-MM-DD), withTime 이면 「YYYY-MM-DD HH:mm」 */
+export function kstDate(iso: string, withTime = false) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const day = `${get("year")}-${get("month")}-${get("day")}`;
+  return withTime ? `${day} ${get("hour")}:${get("minute")}` : day;
+}
+
+/** 원문 위치(locator)를 한 줄로: 「tbl_id DT_1B26001 · C1 46130 · prd_de 2023 · 2024 · 2025」 */
+export function locatorLine(locator: Record<string, unknown>) {
+  return Object.entries(locator)
+    .filter(([, value]) => value !== null && value !== undefined)
+    .map(([key, value]) => {
+      const text = Array.isArray(value)
+        ? value.map(String).join(" · ")
+        : typeof value === "object" && value !== null
+          ? JSON.stringify(value)
+          : String(value);
+      return `${key} ${text}`;
+    })
+    .join(" · ");
+}
+
+/**
+ * 기간(끝 미포함)을 날짜로: 2023-01-01 ~ 2026-01-01 → 「2023-01-01 – 2025-12-31」.
+ * 끝을 하루 당겨 각주(2023–2025)와 같은 기간으로 읽히게 한다. 시작이 없으면 「~ 끝」
+ */
+export function periodRange(start: string | null, end: string | null) {
+  const last =
+    end && new Date(Date.parse(`${end}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  if (start && last) return `${start} – ${last}`;
+  if (start) return `${start} –`;
+  return last ? `~ ${last}` : "";
 }

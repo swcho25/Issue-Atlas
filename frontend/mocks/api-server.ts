@@ -1,5 +1,6 @@
 // 개발용 목 API 서버. `pnpm --filter frontend mock:api` 로 띄우고, 개발 서버는 API_BASE_URL=http://localhost:4010 으로 붙인다.
 // - GET /v1/arguments/{run_id}: 계약 예시(contracts/c2/examples/argument-*.json)의 run_id 면 그 예시를 답한다
+// - GET /v1/evidence/{evidence_id}: 계약 예시(evidence-*.json)의 evidence_id 면 그 예시를 답한다
 // - 그 밖의 요청(경계 · 지역 목록 …)은 MOCK_UPSTREAM(기본: dev 백엔드)으로 그대로 넘긴다
 // Node 의 타입 지우기로 바로 실행한다(빌드 없음). 앱 코드가 아니라 배포에 들어가지 않는다
 import { readdirSync, readFileSync } from "node:fs";
@@ -18,6 +19,13 @@ for (const file of readdirSync(EXAMPLES).filter((f) => /^argument-.*\.json$/.tes
   runs.set(run_id, { run_status, body });
 }
 
+// evidence_id → 예시 응답(예시에 없는 근거는 dev 로 넘어가 404 가 된다)
+const evidences = new Map<string, string>();
+for (const file of readdirSync(EXAMPLES).filter((f) => /^evidence-.*\.json$/.test(f))) {
+  const body = readFileSync(join(EXAMPLES, file), "utf8");
+  evidences.set((JSON.parse(body) as { evidence_id: string }).evidence_id, body);
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
   const run = url.pathname.match(/^\/v1\/arguments\/([^/]+)$/)?.[1];
@@ -26,6 +34,14 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(mocked.body);
     console.info(`[mock] ${req.method} ${url.pathname} → 예시(${mocked.run_status})`);
+    return;
+  }
+  const ev = url.pathname.match(/^\/v1\/evidence\/([^/]+)$/)?.[1];
+  const evidence = req.method === "GET" && ev ? evidences.get(decodeURIComponent(ev)) : undefined;
+  if (evidence) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(evidence);
+    console.info(`[mock] ${req.method} ${url.pathname} → 근거 예시`);
     return;
   }
   // 나머지는 실제 백엔드로. fetch 가 압축을 풀어 주므로 content-encoding 은 빼고 돌려준다

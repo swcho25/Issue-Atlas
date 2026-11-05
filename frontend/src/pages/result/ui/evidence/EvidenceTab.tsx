@@ -8,6 +8,7 @@ import {
   evidenceStatusBadge,
   yearSpan,
 } from "../../model/labels";
+import { emptyRefsText, refsTitle } from "../../model/sources";
 
 // 05 · 근거 수요표 본문(Figma 05 · 근거 수요표 탭): 표(근거 4행) → 비교 조건 4가지 → 빈칸 안내.
 // 판단보다 먼저 「무엇이 있고 무엇이 없는지」를 보여 준다(FR-B2). 없는 근거는 0 이 아니라 상태 · 사유로
@@ -30,13 +31,16 @@ const col = Object.fromEntries(columns.map((c) => [c.key, `${c.width} shrink-0`]
   string
 >;
 
-/** 소스 칸: 근거 자료 첫 줄(+ 외 N건)과 출처 · 등급 · 기간. 자료가 없으면 사유 */
+/**
+ * 소스 칸: 대표 자료 첫 줄(+ 외 N건 — 건수 칸과 같은 전체 건수로)과 출처 · 등급 · 기간.
+ * 대표 자료가 없으면 「자료 N건 · 목록 없음」 또는 사유 · 상태
+ */
 function sourceOf(row: EvidenceRow, refs: EvidenceRef[]) {
   const first = refs[0];
-  // 자료 목록이 비었으면 사유, 사유도 없으면 「—」(확보인데 목록이 빈 응답도 있어 「없음」이라 쓰지 않는다)
-  if (!first) return { title: row.reason ?? "—", sub: null };
+  const count = Math.max(row.count, refs.length);
+  if (!first) return { title: emptyRefsText(row, count), sub: null };
   return {
-    title: refs.length > 1 ? `${first.title} 외 ${refs.length - 1}건` : first.title,
+    title: refsTitle(first, count),
     sub: [
       first.source_name,
       `출처 등급 ${first.source_grade}`,
