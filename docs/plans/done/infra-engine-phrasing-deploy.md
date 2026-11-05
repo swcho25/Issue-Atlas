@@ -23,6 +23,8 @@
   - 로컬 스택(postgres + !140 backend + !140 engine, 임시 worktree 에서 이미지만 빌드, 키 없음): engine healthy · 호스트 포트 없음 · postgres 이름 못 찾음 · backend 에서 `/health` 200. C1·A3 승인 시드 뒤 익명 질문 → backend 가 `POST /v1/argument/phrase` 호출, 기록 `skipped RUN_BLOCKED`(engine 이 돌려준 사유, GMS 안 부름). ENGINE_URL 비우고 backend 재생성 → `ENGINE_DISABLED`, engine 호출 없음
   - 배포 프로그램의 `apply`/`healthy` 를 실제 Compose 에 돌림: engine 두 판 교체 · healthy · 실행 이미지 일치, backend 재시작 없음. 확인 뒤 스택 · 볼륨 · 임시 worktree · 이미지 정리
 - 2026-11-04: 개발 서버 `docker ps` 로 engine 컨테이너가 없음을 확인(사용자). 박준우 님 배포는 수집기 이미지(-233, 배치) 쪽. 이 MR 은 마이그레이션이 없고, 기준 커밋 뒤 develop 이 같은 파일을 바꾸지 않았다. MR 열기(리뷰 조석원)
+- 2026-11-05: 서버 준비 전에 develop 병합(b946460) → 병합 파이프라인 #267651 의 `engine-deploy` 만 실패(서버의 옛 배포 프로그램이 `Unsupported deployment component`). 나머지 12 job 성공. 사용자가 서버 준비(키 파일 · 배포 프로그램 · cicd.json · egress · compose · .env)를 마친 뒤 job 재시도 → 833501 성공(`Deployed engine develop b946460…`), 파이프라인 통과
+- 2026-11-05: README 확인 단계 정정(docs/engine-deploy-check). engine 만 배포되면 backend 는 다시 만들어질 때까지 engine 네트워크에 붙지 않으므로 backend → engine 확인을 「켜기」 뒤로 옮김. 실패 시 재시도 안내 · 서버로 파일 보내는 법 추가
 
 ## 다음 할 일 / 범위 밖
 - 서버 준비(조석원, 병합 전): deploy/dev/README.md 「처음 켜는 순서」. 배포 프로그램을 compose 파일보다 먼저 설치해야 한다

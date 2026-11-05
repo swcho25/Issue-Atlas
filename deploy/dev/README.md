@@ -70,9 +70,18 @@ sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml
 1. 키 파일: `/etc/issueatlas/engine.env` 에 `GMS_API_KEY=` 를 채우고 `chown 10001:10001`, `chmod 400`.
 2. 배포 프로그램: `deploy/ci/deploy_backend.py` 를 `/usr/local/sbin/issueatlas-deploy.py` 로 다시 설치하고, `/etc/issueatlas/cicd.json` 의 `environments.develop` 에만 `"engine_image_repository": "swcho25/issueatlas-backend"` 를 넣는다. 이 값이 없는 환경은 engine 배포를 거절한다.
 3. 외부 통신 규칙: `deploy/ci/runner/restore-service-egress.sh` 를 `/usr/local/sbin/issueatlas-service-egress` 로 다시 설치한다(engine 네트워크 추가).
-4. Compose: 이 MR 의 `compose.yaml` · `compose.release.yaml` 을 `/opt/issueatlas-dev/deploy/dev/` 에 root 소유로 설치한다. `.env` 에 `ENGINE_URL=`(빈 값)을 두고, 키 파일이 기본 경로가 아니면 `ENGINE_ENV_FILE` 도 적는다.
-5. 병합 → `engine-deploy` 성공 확인. engine 네트워크가 이때 처음 생기므로 `sudo /usr/local/sbin/issueatlas-service-egress` 를 한 번 실행한다.
-6. 확인: `ps engine` 이 healthy, `sudo docker compose ... exec backend bash -c 'echo > /dev/tcp/engine/8000'` 이 성공.
+4. Compose: develop 의 `compose.yaml` · `compose.release.yaml` 을 `/opt/issueatlas-dev/deploy/dev/` 에 root 소유로 설치한다. 서버에는 저장소가 없으므로 2 · 3 · 4 의 파일은 PC 에서 `git show origin/develop:<경로>` 로 꺼내 scp 로 보낸다. `.env` 에 `ENGINE_URL=`(빈 값)을 두고, 키 파일이 기본 경로가 아니면 `ENGINE_ENV_FILE` 도 적는다.
+5. 병합 → `engine-deploy` 성공 확인. 준비 전에 병합돼 `Unsupported deployment component` 로 실패했다면 1~4 를 마친 뒤 그 job 을 재시도한다. engine 네트워크가 이때 처음 생기므로 `sudo /usr/local/sbin/issueatlas-service-egress` 를 한 번 실행한다.
+6. 확인: engine 이 healthy 이고 GMS 에 닿는지 본다.
+
+```bash
+sudo docker ps --filter name=issueatlas-dev-engine --format '{{.Names}} {{.Status}}'
+sudo docker exec issueatlas-dev-engine-1 python -c "import socket; socket.create_connection(('gms.ssafy.io', 443), timeout=5); print('GMS 연결 OK')"
+```
+
+`engine-deploy` 는 engine 만 만들고 backend 컨테이너는 그대로 둔다. 그래서 backend 는 다시 만들어질 때(아래 「켜기」 또는 다음 backend 배포)까지 engine 네트워크에 붙지 않는다. `ENGINE_URL` 이 비어 있는 동안에는 문제가 없다. backend → engine 확인은 「켜기」 뒤에 한다.
+
+개발 서버 적용: 2026-11-05. 병합이 먼저 돼 첫 `engine-deploy` 가 실패했고, 1~4 뒤 재시도로 성공했다(job 833501).
 
 ### 켜기 (나중)
 
@@ -83,6 +92,12 @@ cd /opt/issueatlas-dev
 export BACKEND_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/current.json'))['image'])")
 export ENGINE_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/engine/current.json'))['image'])")
 sudo -E docker compose --env-file deploy/dev/.env -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml -f deploy/dev/compose.routing.yaml -f deploy/dev/compose.release.yaml up -d --no-deps --no-build --pull never --wait backend
+```
+
+backend 가 engine 네트워크에 붙었는지 확인한다.
+
+```bash
+sudo docker exec issueatlas-dev-backend-1 bash -c 'echo > /dev/tcp/engine/8000' && echo 'backend→engine OK'
 ```
 
 끌 때는 `ENGINE_URL=` 로 비우고 같은 명령을 다시 실행한다.
