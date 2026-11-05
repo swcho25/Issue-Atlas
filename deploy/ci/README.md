@@ -78,6 +78,30 @@ pnpm store는 잠금 파일 기준으로 재사용하고 매번 frozen-lockfile�
 
 Node E2E는 Cache Components 활성, Workers는 호환성 때문에 비활성이므로 두 Next 빌드를 공유하거나 skipNextBuild로 대체하지 않는다. Workers 빌드는 한 번 수행하고 같은 파이프라인의 .open-next artifact를 dry-run·Workers E2E·배포에 사용한다(기존 동작 유지). MR artifact를 병합 후 배포에 재사용하지 않는다. Runner 동시 실행 수·기존 테스트·로컬 pre-push 규칙은 변경하지 않는다. 실제 시간 감소는 다음 GitLab 실행에서 확인한다.
 
+## 운영 배포 리허설 체크리스트 — S15P31C108-178
+
+develop → main 반영(운영 배포)을 할 때 위에서 아래로 확인한다. main 병합 · 서버 작업은 사람이 한다. 2026-11-05 기준 운영은 main `8281550`(10/30, Flyway V0014)이고 develop 은 V0046 이라, 다음 반영은 **migration 32개(V0015–V0046)를 운영 DB 에 한 번에** 적용한다.
+
+**전날 · 시작 전**
+- [ ] develop · main 파이프라인이 모두 끝났고 develop 최신 커밋의 개발 배포가 성공했다(같은 환경 직렬 배포)
+- [ ] 운영 DB 를 수동 백업했다 — 자동 백업(`deploy/backup`)은 개발 DB 만 한다. `pg_dump -Fc` 결과를 `/var/backups/issueatlas` 아래 운영 전용 경로에 두고 `pg_restore --list` 로 읽히는지 본다
+- [ ] 새 migration 중 데이터를 지우거나 옮기는 것을 다시 읽었다: V0024 · V0032(ID 바꾸기), V0043 · V0044(보도자료 표 정리), V0042(경계 시드, 크다). 이전 이미지로 롤백해도 DB 는 돌아가지 않는다
+- [ ] 운영 `.env` 에 develop 에서 생긴 변수를 정했다: `QUESTIONS_PER_MINUTE`(기본 10), `ENGINE_URL` 은 **비운다**(engine 은 develop 에만 배포, -243)
+- [ ] Flyway 밖 시드 `backend/db/seed/cards-c1-a3.sql`(카드 C1 · A3 승인본)을 운영 DB 에 넣을지 정했다. 넣지 않으면 운영 질문은 카드 없음(`unsupported`)이다
+- [ ] 운영 DB 에는 수집 자료가 없다(수집기 자동 실행 없음, -137). 통계 · 측정소 · 기사 없이 무엇을 보여 줄지(빈 상태 · 개발 주소로 데모) 정했다
+
+**반영**
+- [ ] MR `chore: develop → main 반영 (YYYY-MM-DD)` 을 만들고 변경 영역 검사가 통과한다
+- [ ] 병합 뒤 push 파이프라인에서 backend 배포 → frontend · 수집기 배포 순서로 성공한다. 걸린 시간을 적는다
+- [ ] 실패하면 그 job 만 재시도한다. backend 는 이전 image ID 로 자동 복구를 시도하지만 migration 은 되돌리지 않는다 — DB 가 반쯤 바뀌었으면 위 백업에서 복원할지 정한다
+
+**확인 (운영 주소)**
+- [ ] `https://backend.issue-atlas.kr/actuator/health` UP, `https://issue-atlas.kr/healthz` 의 revision 이 병합 커밋
+- [ ] 로그인 없이 `GET /v1/places` 200(시군구 6곳 `kr-*`), `GET /v1/places/kr-12130/boundaries` 200 — 10/30 판은 401 이었다
+- [ ] EC2 에서 `python3 deploy/dev/verify.py --base-url https://backend.issue-atlas.kr --session-auth`(관리자 로그인 · CSRF · 쿠키)
+- [ ] `python deploy/dev/measure.py --base-url https://backend.issue-atlas.kr --question-runs 1` 로 질문 1건 · 응답 시간 표. 카드 시드가 없으면 질문 단계에서 멈춘다(위 결정대로)
+- [ ] 개발 주소(dev-backend · dev)는 그대로 동작한다(환경 간 DB 분리)
+
 ## 최초 GitLab 설정 (Maintainer 필요)
 
 1. `issueatlas-docker` 태그의 Linux amd64 Docker executor Runner를 준비한다. 고정한 Docker-in-Docker 서비스만 privileged로 실행하고 일반 작업 컨테이너에는 허용하지 않는다. 사용 가능한 서버가 EC2 한 대이므로 동시 실행 1, CPU·메모리 제한, CI 전용 Docker daemon을 구성한다. 운영 DB·서비스 Docker socket·배포 키를 검사 컨테이너에 마운트하지 않는다. 같은 호스트에서 privileged 서비스를 실행하므로 완전한 보안 격리는 아니며 신뢰하는 팀 코드만 실행한다.

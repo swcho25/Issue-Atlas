@@ -21,6 +21,8 @@ MODES = {
     "refine": ("pipeline.refine", "--db"),
     # 기존 대응 후보: 정제된 온통청년 정책 · local_expenditure → existing_response. 키 없음, refine 뒤에 돈다
     "responses": ("pipeline.responses", "--db"),
+    # P2 전재 묶기: 정제된 최신 기사 → news_syndication 통째로 다시 계산. 키 없음. 기본 시험 실행, --apply 로 커밋
+    "syndicate": ("pipeline.refine.syndication", "--db"),
     # P3: 아직 지역 · 시간을 안 정한 기사 → 추출기 입력(본문 포함 JSONL). 키 없음
     "region-export": ("pipeline.region.export", "--db"),
     # P3: 내보낸 기사(/inputs) → 모델 서버(collector.env 의 P3_LLM_*)에 지역 · 요약 질문 → 추출 결과 JSONL
@@ -33,7 +35,7 @@ MODES = {
     "score": ("ai.classify", "score", "--db"),
 }
 # 결과 파일이 없는 모드. --output 을 붙이면 사용법 오류로 끝난다
-NO_OUTPUT = {"refine", "responses", "region-load", "embed-docs", "embed-cards", "score"}
+NO_OUTPUT = {"refine", "responses", "syndicate", "region-load", "embed-docs", "embed-cards", "score"}
 # 결과 파일이 C1 이 아닌 모드의 파일 이름
 OUTPUT_NAME = {"region-export": "articles.jsonl", "region-extract": "extract.jsonl"}
 # 원본 장부(raw_record)에 쓰는 수집 모드. 성공하면 같은 잠금 안에서 바뀐 출처만 정제한다.

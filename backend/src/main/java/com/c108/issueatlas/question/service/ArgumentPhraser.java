@@ -8,11 +8,13 @@ import com.c108.issueatlas.question.dto.ArgumentResponse.Rebuttal;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Text;
 import com.c108.issueatlas.question.repository.QuestionRepository.PhrasingRow;
 import com.c108.issueatlas.question.service.CardJudge.Judgment;
+import com.c108.issueatlas.question.service.PhrasingCache.Lookup;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -27,7 +29,8 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * 논증 카드 ③ 보증 · ⑤ 반박 문장화(S15P31C108-231, contracts/ai v0.2 「문장화」). 규칙 판정이 끝난 응답을 판정 입력으로 바꿔 engine 에
- * 보내고, 결과가 done 일 때만 두 칸을 바꿔 쓴다. 판정 · 수치 · 다른 칸은 건드리지 않는다. 못 받으면 카드 문구 그대로 + 사유 코드.
+ * 보내고, 결과가 done 일 때만 두 칸을 바꿔 쓴다. 판정 · 수치 · 다른 칸은 건드리지 않는다. 못 받으면 카드 문구 그대로 + 사유 코드. 같은 입력의 done 결과는
+ * {@link PhrasingCache} 로 다시 쓴다.
  */
 @Component
 public class ArgumentPhraser {
@@ -61,26 +64,39 @@ public class ArgumentPhraser {
                     "OUTPUT_REJECTED");
 
     private final ArgumentEngineClient engine;
+    private final PhrasingCache cache;
     private final ObjectMapper json;
 
-    public ArgumentPhraser(ArgumentEngineClient engine, ObjectMapper json) {
+    public ArgumentPhraser(ArgumentEngineClient engine, PhrasingCache cache, ObjectMapper json) {
         this.engine = engine;
+        this.cache = cache;
         this.json = json;
     }
 
     /** judgment 는 규칙이 판정했을 때만 있다(연 값). 없으면 engine 이 RUN_* · NOT_JUDGED 로 건너뛴다. */
     public Phrased phrase(ArgumentResponse result, ApprovedCard approved, Judgment judgment) {
         long started = System.nanoTime();
-        Reply reply = engine.phrase(request(result, approved, judgment));
+        ObjectNode request = request(result, approved, judgment);
+        Lookup lookup = cache.get(request, () -> engine.phrase(request), ArgumentPhraser::reusable);
         int durationMs = (int) ((System.nanoTime() - started) / 1_000_000);
-        Phrased phrased = apply(result, reply, durationMs);
+        Phrased phrased = apply(result, lookup.reply(), durationMs);
         log.info(
-                "argument_phrasing {} {} {} {}ms",
+                "argument_phrasing {} {} {} {}ms {}",
                 result.runId(),
                 phrased.row().status(),
                 phrased.row().reasonCode() == null ? "-" : phrased.row().reasonCode(),
-                durationMs);
+                durationMs,
+                lookup.source().name().toLowerCase(Locale.ROOT));
         return phrased;
+    }
+
+    /** 다시 써도 되는 결과: done 이고 바꿔 쓸 두 칸이 모양대로 있다. 실패 · 시간 초과 · 건너뜀은 다음 질문이 다시 부른다. */
+    static boolean reusable(Reply reply) {
+        JsonNode r = reply.result();
+        return r != null
+                && "done".equals(r.path("status").asText())
+                && r.path("warrant").isObject()
+                && r.path("rebuttals").isArray();
     }
 
     private Phrased apply(ArgumentResponse result, Reply reply, int durationMs) {

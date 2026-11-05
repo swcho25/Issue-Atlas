@@ -181,7 +181,7 @@ public class QuestionService {
                         new Ceiling(
                                 run.approved() == null
                                         ? List.of()
-                                        : strings(run.approved().spec().path("ceiling")),
+                                        : ceilingItems(run.approved().spec()),
                                 "card"),
                         // 판정과 따로, 카드가 있으면 그림 자료를 늘 보낸다(규칙이 없어도 화면은 그린다)
                         card == null
@@ -672,6 +672,29 @@ public class QuestionService {
         List<String> result = new ArrayList<>();
         array.forEach(item -> result.add(item.asText()));
         return result;
+    }
+
+    /**
+     * 상한선 ⑥ = 카드 상한선 + 카드 설계도의 예상 빈칸(C5 expected_gaps)을 문장으로(S15P31C108-265). 인수 기준 ③
+     * 「license_blocked · not_published 숨김 없이 표시」를 C2 v1(expected_gaps[] 칸) 전까지 이미 있는 칸으로 보인다.
+     */
+    static List<String> ceilingItems(JsonNode spec) {
+        List<String> items = new ArrayList<>(strings(spec.path("ceiling")));
+        for (JsonNode gap : spec.path("expected_gaps")) {
+            String what = gap.path("what").asText();
+            String status = gap.path("status").asText();
+            String phrase =
+                    switch (status) {
+                        case "license_blocked" -> "이용 허락이 없어 쓰지 않는다";
+                        case "not_published" -> "공표되지 않는다";
+                        case "not_collected" -> "수집하지 않는다";
+                        default -> null;
+                    };
+            if (!what.isBlank() && phrase != null) {
+                items.add(what + ": " + phrase + " (" + status + ")");
+            }
+        }
+        return items;
     }
 
     private static List<String> indicators(JsonNode spec) {

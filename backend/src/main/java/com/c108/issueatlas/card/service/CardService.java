@@ -35,7 +35,7 @@ public class CardService {
         if (!cards.placeExists(placeId)) {
             throw new ResourceNotFoundException();
         }
-        List<CardEvidenceRow> rows = cards.findCards(placeId, start, end);
+        List<CardEvidenceRow> rows = cards.findCardsForList(placeId, start, end);
         Map<String, List<CardEvidenceRow>> grouped = new LinkedHashMap<>();
         for (CardEvidenceRow row : rows) {
             grouped.computeIfAbsent(row.cardId(), ignored -> new ArrayList<>()).add(row);

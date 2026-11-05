@@ -14,6 +14,7 @@ import com.c108.issueatlas.card.dto.CardStorageDto.Approve;
 import com.c108.issueatlas.card.dto.CardStorageDto.CreateCard;
 import com.c108.issueatlas.card.dto.CardStorageDto.SaveDraft;
 import com.c108.issueatlas.card.service.CardStorageService;
+import com.c108.issueatlas.question.service.PhrasingCache;
 import com.jayway.jsonpath.JsonPath;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -66,6 +67,7 @@ class QuestionApiTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired CardStorageService storage;
     @Autowired ObjectMapper json;
+    @Autowired PhrasingCache phrasingCache;
 
     // 가짜 engine(contracts/ai v0.2 「문장화」). 테스트마다 답을 정하고 받은 요청을 남긴다. 기본 503 → 카드 문구
     private record EngineAnswer(int status, String body, long delayMs) {}
@@ -119,6 +121,8 @@ class QuestionApiTest {
     void seed() throws Exception {
         engineAnswer = new EngineAnswer(503, "", 0);
         ENGINE_REQUESTS.clear();
+        // 테스트마다 같은 질문에 다른 engine 답을 쓰므로 앞 테스트의 문장화 결과를 지운다
+        phrasingCache.clear();
         jdbc.queryForObject(
                 "SELECT set_config('issue_atlas.approver', ?, true)",
                 String.class,
@@ -548,6 +552,14 @@ class QuestionApiTest {
                         jsonPath("$.warrant.text")
                                 .value(org.hamcrest.Matchers.startsWith("청년 순유출이")))
                 .andExpect(jsonPath("$.ceiling.items[0]").value("떠난 이유"))
+                // 카드 설계도의 예상 빈칸(expected_gaps)이 상한선 끝에 문장으로 붙는다(S15P31C108-265)
+                .andExpect(
+                        jsonPath("$.ceiling.items")
+                                .value(
+                                        org.hamcrest.Matchers.hasItems(
+                                                "민원: 이용 허락이 없어 쓰지 않는다 (license_blocked)",
+                                                "읍면동 순이동: 공표되지 않는다 (not_published)")))
+                .andExpect(jsonPath("$.ceiling.items.length()").value(7))
                 .andExpect(jsonPath("$.series[0].values.length()").value(36))
                 // 분모 지표(SP10 주민등록인구) 관측이 없으면 분모 칸은 비고, 빈 칸마다 없는 이유가 있다
                 .andExpect(jsonPath("$.evidence_table[3].kind").value("denominators"))
@@ -1038,6 +1050,47 @@ class QuestionApiTest {
         assertThat(row.get("reason_code")).isEqualTo(reason);
         assertThat(((String) row.get("problems")).contains("number_mismatch"))
                 .isEqualTo(reason.equals("OUTPUT_REJECTED"));
+    }
+
+    // ── 문장화 결과 캐시(S15P31C108-261) ──
+
+    @Test
+    void sameQuestionReusesTheDonePhrasingWithoutCallingTheEngineAgain() throws Exception {
+        engineAnswer = new EngineAnswer(200, PHRASED, 0);
+        String first = judgedC1Run();
+        // engine 이 이번엔 실패하더라도 같은 입력이면 앞 done 결과를 쓴다
+        engineAnswer = new EngineAnswer(503, "", 0);
+        String second =
+                runId(ask(body("C1", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+
+        assertThat(second).isNotEqualTo(first);
+        assertThat(ENGINE_REQUESTS).hasSize(1);
+        argument(second)
+                .andExpect(jsonPath("$.run_id").value(second))
+                .andExpect(jsonPath("$.warrant.text").value("여수시 청년 순이동은 해마다 순유출이 커졌다."))
+                .andExpect(jsonPath("$.warrant.provenance").value("llm_phrasing"))
+                .andExpect(jsonPath("$.rebuttals[0].status").value("supported"));
+        Map<String, Object> row = phrasing(second);
+        assertThat(row.get("status")).isEqualTo("done");
+        assertThat(row.get("reason_code")).isNull();
+        assertThat(row.get("model")).isEqualTo("gemini-2.5-flash");
+        assertThat((String) row.get("citations")).contains("C1-R1");
+    }
+
+    @Test
+    void failedPhrasingIsNotReusedAndDifferentInputsCallTheEngine() throws Exception {
+        String first = judgedC1Run();
+        assertThat(phrasing(first).get("reason_code")).isEqualTo("ENGINE_ERROR");
+        engineAnswer = new EngineAnswer(200, PHRASED, 0);
+        String again =
+                runId(ask(body("C1", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+        // 기간이 다르면 판정 입력이 달라 다른 키
+        String otherPeriod =
+                runId(ask(body("C1", "2024-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+
+        assertThat(ENGINE_REQUESTS).hasSize(3);
+        assertThat(phrasing(again).get("status")).isEqualTo("done");
+        assertThat(phrasing(otherPeriod).get("status")).isEqualTo("done");
     }
 
     @Test

@@ -18,15 +18,19 @@ import type { PlaceBoundaries } from "@/shared/api";
 // 워커 파일을 번들러가 함께 내보내게 하고 그 주소를 알려 준다
 setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).href);
 
-// 바탕 지도: OpenFreeMap positron(키 · 요청 제한 없음, 11/4 결정). 음영 없음, 지명은 한국어
-const POSITRON = "https://tiles.openfreemap.org/styles/positron";
+// 바탕 지도: OpenFreeMap Liberty(키 · 요청 제한 없음, 11/5 positron 에서 바꿈). 지명은 한국어.
+// Liberty 는 낮은 확대에서 음영(Natural Earth) · 높은 확대에서 건물 입체를 스타일 안에 갖고 있다
+const BASEMAP = "https://tiles.openfreemap.org/styles/liberty";
 // 경계가 오기 전 처음 자리(남한 가운데쯤)
 const KOREA: [number, number] = [127.8, 36.0];
 
-// 지명: OpenMapTiles 의 name:ko 를 먼저, 없으면 현지 이름(원본은 영어 · 한국어를 함께 쓴다)
+// 지명: OpenMapTiles 의 name:ko 를 먼저, 없으면 현지 이름(원본은 「Gwangyang 광양시」처럼 영어 · 한국어를 함께 쓴다).
+// 이름을 쓰는 글자 층만 바꾼다 — 도로 번호 방패(ref)까지 바꾸면 번호 대신 이름이 들어간다
 function showKoreanLabels(m: MapLibreMap) {
   for (const layer of m.getStyle().layers) {
-    if (layer.type === "symbol" && m.getLayoutProperty(layer.id, "text-field") !== undefined) {
+    if (layer.type !== "symbol") continue;
+    const field = m.getLayoutProperty(layer.id, "text-field");
+    if (field !== undefined && JSON.stringify(field).includes('"name')) {
       m.setLayoutProperty(layer.id, "text-field", [
         "coalesce",
         ["get", "name:ko"],
@@ -82,7 +86,7 @@ export function MapView({
     if (!box.current) return;
     const m = new MapLibreMap({
       container: box.current,
-      style: POSITRON,
+      style: BASEMAP,
       center: KOREA,
       zoom: 6,
       attributionControl: { compact: true },
