@@ -1,0 +1,14 @@
+[Unit]
+Description=IssueAtlas development daily collection (press Yeosu, youth policy, existing responses)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/issueatlas-collect-daily.py
+User=root
+UMask=0077
+Nice=10
+TimeoutStartSec=3h
+NoNewPrivileges=true
+PrivateTmp=true
