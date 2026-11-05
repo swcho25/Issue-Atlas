@@ -85,6 +85,26 @@
       changes: *collector-paths
     - when: never
 
+# 논증 문장화 API(engine/api). 개발(develop)에만 배포한다. 운영은 요청 수 제한·키 준비 뒤 별도 MR (243번).
+.engine-release:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_REF_PROTECTED == "true"'
+      changes:
+        - engine/api/**/*.py
+        - engine/ai/**/*.{py,json,yaml,yml,toml,sql,txt,csv}
+        - engine/pyproject.toml
+        - engine/uv.lock
+        - engine/Dockerfile
+        - engine/Dockerfile.dockerignore
+        # API 가 실행 중 읽는 요청 스키마
+        - contracts/ai/**/*.json
+        - contracts/c2/schemas/**/*.json
+        - deploy/dev/*.{yaml,yml}
+        - deploy/ci/*.{py,json}
+        - .gitlab-ci.yml
+        - .gitlab/ci/**/*
+    - when: never
+
 .engine-scope:
   rules:
     - !reference [.collector-scope, rules]

@@ -7,7 +7,8 @@ ensure_rule() {
     iptables --wait -C DOCKER-USER "$@" 2>/dev/null ||
         iptables --wait -I DOCKER-USER 1 "$@"
 }
-for network in issueatlas-dev_default issueatlas-prod_default; do
+# engine: argument phrasing API network (GMS calls only; S15P31C108-243)
+for network in issueatlas-dev_default issueatlas-prod_default issueatlas-dev_engine issueatlas-prod_engine; do
     docker network inspect "$network" >/dev/null 2>&1 || continue
     id=$(docker network inspect --format '{{.Id}}' "$network")
     subnet=$(docker network inspect --format '{{(index .IPAM.Config 0).Subnet}}' "$network")

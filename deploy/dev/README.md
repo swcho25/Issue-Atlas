@@ -55,6 +55,38 @@ sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml
 
 기존 Flyway 파일을 수정하거나 DB에서 직접 테이블을 만들지 않는다. 마이그레이션 추가 번호는 백엔드 담당자와 협의한다.
 
+## 논증 문장화 engine (S15P31C108-243)
+
+- `engine` 서비스는 `engine/Dockerfile` 의 `api` 대상이다(uvicorn `api.main:app`, 8000). 호스트 포트를 열지 않는다. `engine` 네트워크에는 backend 만 같이 붙어 `http://engine:8000` 으로 부른다. DB 네트워크(default)와 cloudflared 에는 붙지 않는다. GMS 호출을 위해 밖으로 나가는 길만 있다.
+- UID 10001, 읽기 전용 파일 시스템, `cap_drop: ALL`, no-new-privileges, 메모리 512MB · CPU 1 · PID 128. 상태 검사는 컨테이너 안에서 `GET /health`.
+- 키: `GMS_API_KEY=` 한 줄만 든 서버 파일(`.env` 의 `ENGINE_ENV_FILE`, 기본 `/etc/issueatlas/engine.env`)을 `/app/.env` 에 읽기 전용으로 연결한다. 소유 10001:10001, 권한 400. 키를 환경변수 · 이미지 · 저장소 · CI 변수에 넣지 않는다. 운영 경로는 `/etc/issueatlas/production/engine.env` 로 따로 둔다.
+- backend 는 `.env` 의 `ENGINE_URL` 이 비어 있으면 engine 을 부르지 않는다(카드 문구로 응답, 사유 `ENGINE_DISABLED`). 켜면 익명 질문 1건이 GMS 호출 1번이므로 **익명 질문 요청 수 제한과 문장화 연결 코드가 배포된 뒤에만** 켠다.
+- 자동 배포는 develop 병합 때 `engine-image` → `engine-deploy` 가 engine 만 `--no-deps` 로 바꾼다. 운영(main)은 이번 범위가 아니다. 배포 기록은 `.deploy/engine/current.json`. 수동 갱신 때도 `BACKEND_IMAGE` 와 함께 이 파일의 `ENGINE_IMAGE` digest 를 넘긴다(compose.release.yaml 이 둘 다 요구한다).
+
+### 처음 켜는 순서 (서버 관리자 · MR 병합 전)
+
+순서를 지킨다. 새 compose.release.yaml 은 `ENGINE_IMAGE` 를 요구하므로, 배포 프로그램을 먼저 바꿔 두지 않으면 그 사이 병합된 backend 배포가 compose 검사에서 멈춘다.
+
+1. 키 파일: `/etc/issueatlas/engine.env` 에 `GMS_API_KEY=` 를 채우고 `chown 10001:10001`, `chmod 400`.
+2. 배포 프로그램: `deploy/ci/deploy_backend.py` 를 `/usr/local/sbin/issueatlas-deploy.py` 로 다시 설치하고, `/etc/issueatlas/cicd.json` 의 `environments.develop` 에만 `"engine_image_repository": "swcho25/issueatlas-backend"` 를 넣는다. 이 값이 없는 환경은 engine 배포를 거절한다.
+3. 외부 통신 규칙: `deploy/ci/runner/restore-service-egress.sh` 를 `/usr/local/sbin/issueatlas-service-egress` 로 다시 설치한다(engine 네트워크 추가).
+4. Compose: 이 MR 의 `compose.yaml` · `compose.release.yaml` 을 `/opt/issueatlas-dev/deploy/dev/` 에 root 소유로 설치한다. `.env` 에 `ENGINE_URL=`(빈 값)을 두고, 키 파일이 기본 경로가 아니면 `ENGINE_ENV_FILE` 도 적는다.
+5. 병합 → `engine-deploy` 성공 확인. engine 네트워크가 이때 처음 생기므로 `sudo /usr/local/sbin/issueatlas-service-egress` 를 한 번 실행한다.
+6. 확인: `ps engine` 이 healthy, `sudo docker compose ... exec backend bash -c 'echo > /dev/tcp/engine/8000'` 이 성공.
+
+### 켜기 (나중)
+
+문장화 연결(!140)과 익명 질문 요청 수 제한(!142)이 develop 에 병합 · 배포됐는지 먼저 확인한다. 그 뒤 `.env` 에 `ENGINE_URL=http://engine:8000` 을 쓰고 backend 만 다시 만든다.
+
+```bash
+cd /opt/issueatlas-dev
+export BACKEND_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/current.json'))['image'])")
+export ENGINE_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/engine/current.json'))['image'])")
+sudo -E docker compose --env-file deploy/dev/.env -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml -f deploy/dev/compose.routing.yaml -f deploy/dev/compose.release.yaml up -d --no-deps --no-build --pull never --wait backend
+```
+
+끌 때는 `ENGINE_URL=` 로 비우고 같은 명령을 다시 실행한다.
+
 ## 개발 PC의 DB 접속
 
 DB는 외부에 공개하지 않는다. Windows PowerShell에서 SSH 터널을 열고 유지한다. 키 경로는 각 개발자 환경에 맞게 지정한다.

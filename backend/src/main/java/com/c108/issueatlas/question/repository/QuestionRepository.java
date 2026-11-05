@@ -319,7 +319,7 @@ public class QuestionRepository {
                 .update();
     }
 
-    /** 실행 한 건의 문장화 기록(V0044). problems · citations 는 JSON 문자열. */
+    /** 실행 한 건의 문장화 기록(V0046). problems · citations 는 JSON 문자열. */
     public void insertPhrasing(String runId, PhrasingRow row) {
         jdbc.sql(
                         "INSERT INTO argument_phrasing (run_id, status, reason_code, problems,"

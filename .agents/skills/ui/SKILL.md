@@ -11,10 +11,10 @@ Figma 와 「눈대중」이 아니라 「숫자」로 맞춘다. 순서를 건�
 
 1. `frontend/src/app/styles/globals.css` — **Tailwind 설정 파일**. 맨 위 목차와 토큰 이름(색 · 글자 · 모서리 · 그림자 · 유리 · 겹침 순서)을 읽는다. `tailwind.config.js` 는 없다.
 2. `docs/design/DESIGN.md` — 쓰임 규칙(앰버는 누르는 것만, 유리는 지도 위에서만 …).
-3. `frontend/src/shared/ui/` — 이미 있는 공통 컴포넌트. 있으면 새로 만들지 않고 쓴다.
+3. `frontend/src/shared/ui/README.md` — 이미 있는 공통 컴포넌트 · 아이콘 목록. 있으면 새로 만들지 않고 쓴다. 공통 컴포넌트를 새로 만들면 이 목록에 한 줄 더한다.
 4. **Figma 값**: Figma MCP(`get_design_context`)가 되면 그것으로, 안 되면 브라우저에서 Figma 파일을 열고 콘솔의 Plugin API(`figma.getNodeByIdAsync`)로 노드의 크기 · 간격 · 자동 배치 · 글자 스타일 · 색 변수 · 효과를 읽는다.
    - 변수에 묶인 색은 변수 이름으로 → 같은 이름의 토큰 클래스.
-   - 아이콘은 `exportAsync({ format: "SVG_STRING" })` 로 받아 `currentColor` 로.
+   - 아이콘은 `shared/ui/icon` 의 `Icon` 을 쓴다. 없는 아이콘만 `exportAsync({ format: "SVG_STRING" })` 로 받아 `icon/paths.ts` 에 더한다.
 
 ## 2. 만들기
 

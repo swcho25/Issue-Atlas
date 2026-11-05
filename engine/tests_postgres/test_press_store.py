@@ -12,9 +12,10 @@ from pipeline.collect import press
 from pipeline.collect.press import PressQuery, c1_pages, collect_pages, main, store_pages, to_c1
 from pipeline.refine.store import refine_raw
 from tests.test_collect_press import AT, Web, gwangju_page, rows_yeosu, yeosu_page
-from tests_postgres.conftest import fresh_schema
+from tests_postgres.conftest import MIGRATIONS, fresh_schema
 
 QUERY = PressQuery("yeosu", date(2025, 1, 1), date(2025, 12, 31))
+V0044 = MIGRATIONS / "V0044__drop_press_release.sql"
 
 
 @pytest.fixture
@@ -162,6 +163,32 @@ def test_old_table_moves_to_raw_as_the_same_originals(press_db, monkeypatch, cap
     assert '"inserted": 0, "duplicates": 3' in capsys.readouterr().out
     result = refine_raw(conn)
     assert result["raw"] == 3 and result["status"] == {"pass": 3}
+
+
+def test_old_table_is_dropped_only_after_every_row_is_in_raw(press_db, capsys):
+    # V0044: 옮기지 않은 행이 하나라도 있으면 표를 남긴다(운영처럼 옮기기 전인 DB)
+    conn, connect = press_db
+    collected = gwangju_listings(
+        [(2, "행정", "가상 보도 2", "2025-02-01"), (1, "복지", "가상 보도 1", "2024-01-01")]
+    )
+    old_table(conn, collected)
+    old_table(conn, [collected[0] | {"press_id": "gwangju:99", "published_on": "2021-01-01"}])
+    assert main(["--site", "gwangju", "--db", "--from-table"], connect=connect) == 0
+    capsys.readouterr()
+
+    conn.execute(V0044.read_text("utf-8"))
+    assert conn.execute("SELECT to_regclass('press_release') IS NOT NULL").fetchone() == (True,)
+
+    argv = ["--site", "gwangju", "--db", "--from-table", "--start", "2021-01-01"]
+    assert main(argv, connect=connect) == 0
+    capsys.readouterr()
+    conn.execute(V0044.read_text("utf-8"))
+    assert conn.execute("SELECT to_regclass('press_release')").fetchone() == (None,)
+    assert conn.execute("SELECT count(*) FROM raw_record").fetchone() == (3,)
+
+    # 지운 뒤 옛 표 옮기기는 원인을 알려 주고 실패한 실행으로 남긴다
+    assert main(["--site", "gwangju", "--db", "--from-table"], connect=connect) == 1
+    assert capsys.readouterr().err.strip() == "PRESS_OLD_TABLE_GONE"
 
 
 def test_empty_old_table_is_a_failed_run(press_db, capsys):

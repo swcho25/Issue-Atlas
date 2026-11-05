@@ -4,6 +4,7 @@
 Python 3.13 · uv · ruff · pytest. 규칙은 `AGENTS.md`.
 
 수집기 서버 실행·자동 버전 갱신: [EC2 수집기 배포](../deploy/collector/README.md).
+논증 문장화 API(engine/api) 개발 서버 실행: [개발 서버 engine](../deploy/dev/README.md#논증-문장화-engine-s15p31c108-243).
 
 ```bash
 uv --directory engine sync   # 처음 한 번 (.venv 생성)

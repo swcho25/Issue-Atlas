@@ -35,6 +35,7 @@
 - 2026-11-04: develop 다시 반영(83c92a4). 경계 V0041 · V0042(-230) · 보도자료 검수 V0043(-237) 다음으로 문장화 기록을 V0044, DB 계약 v0.1.32. -208 로 익명 `POST /v1/questions` 가 열림(테스트 함께 둠). `pnpm check`(backend 전체 · engine 587개) 통과 — 이번 실행은 `SourceGradeMigrationTest` 순서 문제도 안 걸림.
   개발 서버 확인: 출처 등급(V0039)은 들어감. 「컨테이너」(-233)는 `engine/ai` 만 바뀌어도 **수집기** 이미지를 다시 만드는 CI 규칙이고, 수집기는 한 번 도는 배치(`pipeline.collect`, 이미지에 `engine/api` 없음)라 backend 가 부를 engine API 는 서버에 아직 없다(dev compose = postgres · backend). 그래서 이 MR 이 병합돼도 서버는 `ENGINE_DISABLED` 로 지금과 같은 응답.
 - 2026-11-04: MR 전 `pnpm check:all`(83c92a4 + 계획 파일) 전 항목 통과 — harness · backend format · build · frontend lint · typecheck · test · e2e · engine lint · test 587개. 리뷰어 장성우.
+- 2026-11-05: develop 다시 반영. -240 `V0044__drop_press_release` · -236 `V0045__create_admin_csv_imports` 가 먼저 들어와 문장화 기록을 V0046, DB 계약 v0.1.33 으로 바꿈(위 V0044 는 옛 번호). 계약 README 변경 기록 충돌 2곳은 두 줄 모두 유지
 
 ## 다음 할 일 / 범위 밖
 

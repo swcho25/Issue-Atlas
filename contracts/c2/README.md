@@ -18,6 +18,7 @@
 | ① | `GET /v1/places` | 지역 선택 | `place-list` | `place-list.json` |
 | ① | `GET /v1/places?parent_id=<시군구>` | 고른 시군구 안의 범위 (읍·면·동) | `place-list` | `place-list-emd-donggu.json` |
 | ② | `GET /v1/places/{place_id}/cards?period_start&period_end` | 이슈 카드 목록 (근거 n/4) | `place-cards` | `place-cards-yeosu.json` |
+| ① | `GET /v1/places/{place_id}/boundaries` | 지도 테두리 · 행정동 고르기 (시군구 + 그 행정동 경계 한 번에) | `place-boundaries` | `place-boundaries-donggu.json` (좌표를 줄인 예시) |
 | ③ | `POST /v1/questions` | 질문 저장 | `question-create-request` · `-response` | `question-create-*.json` |
 | ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 4개 |
 | ④ | `GET /v1/evidence/{evidence_id}` | 원문 탭 · 각주 복사 | `evidence` | `evidence-kosis.json` |
@@ -190,4 +191,5 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-02): argument 에 `series[]`(그림 자료: 통계 · 이동 · 기사 건수 세 모양) · `articles[]`(근거 기사)를 더한다 — 「시공간 표시 개발 명세」 5 · 6절. 둘 다 필수 칸이고 카드가 없으면 빈 배열. 예시 4개에 추가(여수 C1 · A3 는 로컬 실데이터 값).
 - v0.1 (2026-11-02): `articles[]` 에 `url`(원문 링크, null 허용)을 더한다 — 데모 「근거 기사 2클릭 → 원문」. C1 예시 문구의 청년 연령을 카드 계약(contracts/cards, 대표 결정 2026-11-01)대로 15–39세 → 19–39세.
 - v0.1 (2026-11-02): C1 판정 규칙 연결(`c1-net-migration-0.1`, 대표 결정 2026-11-01). 통계 상태가 등록되지 않았으면 관측 행으로 정하고, 통계 근거를 실행 때 만든다. 판단 문장은 카드 결과 이름(`rule.outcomes[].label`)을 쓴다.
+- v0.1 (2026-11-04): 지역 경계 `GET /v1/places/{place_id}/boundaries` 추가(S15P31C108-238, 11/4 동결 뒤라 기존 응답은 그대로 두고 **새 엔드포인트**로). GeoJSON FeatureCollection(WGS84 [경도, 위도], 소수 5자리)에 `schema_version`. 시군구를 주면 시군구 경계 + 그 행정동, 행정동을 주면 그 하나, 경계 없는 place 는 빈 `features`, 없는 place 는 404. feature `properties` 는 `place_id` · `name` · `level` · `parent_id` · `source` · `source_year`. 경계 자료는 contracts/p3 v0.12 「경계」(SGIS 2025, 10 m 단순화)
 - c2-0.1 값 변경 (2026-11-04): 승인본이 있는 실행의 보증 ③ · 반박 ⑤ 를 engine 논증 문장화 결과로 채운다(S15P31C108-231). 칸 · enum · 스키마는 그대로 — `warrant.provenance` 가 `llm_phrasing`, `rebuttals[]` 가 `llm_judgment` · `rule` 로 찰 수 있다. 판단 ① 등 나머지 칸은 규칙 그대로.

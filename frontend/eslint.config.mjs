@@ -19,7 +19,7 @@ const tokenRules = [
   {
     pattern: "(^|\\s|:)shadow-\\[",
     message:
-      "그림자를 직접 쓰지 않는다. shadow-xs · sm · md · drawer · frame · card · legend 중에서 고른다(src/app/styles/globals.css 의 --shadow-*)",
+      "그림자를 직접 쓰지 않는다. shadow-xs · sm · md · drawer · frame · card · legend · button · button-soft 중에서 고른다(src/app/styles/globals.css 의 --shadow-*)",
   },
   {
     pattern: "(^|\\s|:)-?z-(\\d|\\[)",

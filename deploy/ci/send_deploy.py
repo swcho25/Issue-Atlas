@@ -25,7 +25,7 @@ def main():
     if not re.fullmatch(r"[a-zA-Z0-9.-]+", host) or not re.fullmatch(r"[a-z_][a-z0-9_-]*", user):
         raise ValueError("Invalid SSH destination")
     component = os.environ.get("DEPLOY_COMPONENT", "backend")
-    if component not in {"backend", "collector"}:
+    if component not in {"backend", "collector", "engine"}:
         raise ValueError("Unsupported deployment component")
     image = Path(f"{component}-image.txt").read_text().strip()
     repository = required(f"{component.upper()}_IMAGE_REPOSITORY")

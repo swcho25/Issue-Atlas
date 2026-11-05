@@ -6,6 +6,8 @@
 !engine/pipeline/**
 !engine/ai
 !engine/ai/**
+!engine/api
+!engine/api/**
 !contracts
 !contracts/**
 **/.env*

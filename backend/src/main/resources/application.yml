@@ -17,6 +17,10 @@ spring:
           time_zone: UTC
   flyway:
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
   jackson:
     # C2 계약과 같은 snake_case (place_id, is_active …)
     property-naming-strategy: SNAKE_CASE
@@ -41,6 +45,12 @@ issue-atlas:
     # 첫 관리자. 둘 다 있고 같은 이메일이 없을 때만 한 번 만든다. 값은 환경 변수로만 준다.
     email: ${ADMIN_EMAIL:}
     password: ${DB_PASSWORD}
+
+springdoc:
+  swagger-ui:
+    # Try it out 의 POST 에 XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더로 붙인다
+    csrf:
+      enabled: true
 
 management:
   endpoints:

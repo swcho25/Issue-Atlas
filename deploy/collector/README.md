@@ -9,7 +9,7 @@
 - 이미지의 project·revision·component=collector를 확인한다. backend 이미지를 collector로, collector 이미지를 backend로 배포할 수 없다.
 - CD는 네트워크·설정 파일·DB 연결 없이 도움말 실행으로 이미지 로딩을 검사하고 `/opt/issueatlas-dev/.deploy/collector/current.json`을 원자적으로 갱신한다. API를 호출하거나 데이터를 수집하지 않는다.
 - 실패하면 이전 사용 버전을 유지한다. 실제 수집 중 CD가 실행돼도 이미 시작한 작업은 원래 digest로 끝나며 다음 실행부터 새 버전을 사용한다.
-- SSH 전용 키는 유지하되 브랜치별 development/production 보호 변수 범위를 사용한다. 서버 처리기는 backend/collector만 허용한다. Collector의 배포 이력·watermark는 backend와 별도로 보관하고 배포 잠금/resource group은 같은 환경 안에서만 공유한다.
+- SSH 전용 키는 유지하되 브랜치별 development/production 보호 변수 범위를 사용한다. 서버 처리기는 backend/collector/engine만 허용한다(engine 은 243번, 설정에 저장소가 있는 환경만). Collector의 배포 이력·watermark는 backend와 별도로 보관하고 배포 잠금/resource group은 같은 환경 안에서만 공유한다.
 
 CI 전용 Docker를 같이 운영하는 EC2에서는 서비스 bridge의 외부 통신 규칙도 유지해야 한다. `deploy/ci/runner/restore-service-egress.sh`를 root:root 755로 `/usr/local/sbin/issueatlas-service-egress`에 설치한다. CI Docker unit의 ExecStartPost가 서비스 subnet의 외부 접속과 해당 응답만 DOCKER-USER에 복원한다. 기본 방화벽 정책·외부 공개 포트를 바꾸지 않으며 반복 실행해도 규칙을 중복 추가하지 않는다.
 
@@ -59,7 +59,7 @@ sudo issueatlas-collect airkorea-final --xlsx /inputs/final.xlsx --start-date 20
 # 여수시 · 광주광역시 보도자료 목록 → 원본 장부(raw_record). 실행기가 그 출처만 이어 정제한다. 키 없음. robots.txt 간격(여수 30초)을 지켜 여수 약 33분, 광주 약 3분
 sudo issueatlas-collect press --site yeosu --db
 sudo issueatlas-collect press --site gwangju --db
-# 광주 누리집이 2026-11-02 부터 자동 요청을 막는다(400). 그동안은 옛 press_release 표(10/30 수집)에서 옮긴다. 몇 초
+# 광주 누리집이 2026-11-02 부터 자동 요청을 막는다(400). 옛 press_release 표(10/30 수집)가 남은 DB 에서만 옮긴다(V0044 가 다 옮긴 DB 에서는 지움 → PRESS_OLD_TABLE_GONE). 몇 초
 sudo issueatlas-collect press --site gwangju --db --from-table
 # 지방재정365 세부사업별 세출현황 XLSX(통합자료실 첨부, 연도마다 한 파일)를 input 에 넣고 한 해씩. 파일 하나 약 30초
 sudo issueatlas-collect lofin --xlsx /inputs/2025_세부사업별세출현황.xlsx --db
