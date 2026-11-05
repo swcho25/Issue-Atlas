@@ -12,9 +12,10 @@ export class ApiError extends Error {
   }
 }
 
+// 서버 컴포넌트 · Route Handler 용. Spring API 를 직접 부른다(주소는 서버 전용).
+// 서버는 fetch 로 둔다: Next 의 캐시 · 재검증(cache · next.revalidate)은 fetch 에만 붙는다. 브라우저 요청은 ./browser(axios)
 // 응답을 Zod 스키마로 검증한다. 계약(C2)과 다른 응답은 화면에 닿기 전에 여기서 실패한다.
-async function requestJson<S extends z.ZodType>(
-  url: string,
+export async function apiGet<S extends z.ZodType>(
   path: string,
   schema: S,
   init?: RequestInit,
@@ -23,56 +24,9 @@ async function requestJson<S extends z.ZodType>(
   const headers = new Headers(init?.headers);
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
 
-  const res = await fetch(url, { ...init, headers });
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
   if (!res.ok) {
     throw new ApiError(res.status, path);
   }
   return schema.parse(await res.json());
-}
-
-// 서버 컴포넌트 · Route Handler 용. Spring API 를 직접 부른다(주소는 서버 전용).
-export function apiGet<S extends z.ZodType>(path: string, schema: S, init?: RequestInit) {
-  return requestJson(`${API_BASE_URL}${path}`, path, schema, init);
-}
-
-// 클라이언트 전용(TanStack Query). 같은 출처의 /api 로 부르면 next.config 의 rewrites 가 Spring 으로 넘긴다.
-// 서버에서 불리면(useSuspenseQuery · 서버 prefetch 등) 바로 알 수 있게 실패시킨다. 서버에서는 apiGet 을 쓴다.
-export function browserGet<S extends z.ZodType>(path: string, schema: S, init?: RequestInit) {
-  if (typeof window === "undefined") {
-    return Promise.reject(
-      new Error(`browserGet(${path}) 은 브라우저 전용이다. 서버에서는 apiGet 을 쓴다`),
-    );
-  }
-  return requestJson(`${window.location.origin}/api${path}`, path, schema, init);
-}
-
-const readCookie = (name: string) =>
-  document.cookie
-    .split("; ")
-    .find((c) => c.startsWith(`${name}=`))
-    ?.slice(name.length + 1);
-
-// 클라이언트 전용 POST. Spring 은 CSRF 토큰을 XSRF-TOKEN 쿠키로 내려 주고 X-XSRF-TOKEN 헤더로 돌려받는다.
-// 쿠키가 아직 없으면 GET /v1/auth/csrf 로 먼저 받는다(로그인 · 익명 질문 모두 이 토큰이 있어야 한다)
-export async function browserPost<S extends z.ZodType>(
-  path: string,
-  body: unknown,
-  schema: S,
-  init?: RequestInit,
-) {
-  if (typeof window === "undefined") {
-    throw new Error(`browserPost(${path}) 은 브라우저 전용이다`);
-  }
-  const base = `${window.location.origin}/api`;
-  if (!readCookie("XSRF-TOKEN")) await fetch(`${base}/v1/auth/csrf`);
-  const headers = new Headers(init?.headers);
-  headers.set("Content-Type", "application/json");
-  const token = readCookie("XSRF-TOKEN");
-  if (token) headers.set("X-XSRF-TOKEN", decodeURIComponent(token));
-  return requestJson(`${base}${path}`, path, schema, {
-    ...init,
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
 }

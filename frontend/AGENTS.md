@@ -28,7 +28,8 @@ Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced 
 ## 서버 · 클라이언트
 - 결과를 읽는 화면(논증 카드 결과, 근거 상세, 내 질문)은 서버 컴포넌트
 - 지도(MapLibre) · 슬라이더 · 선택 UI 는 `"use client"`. MapLibre 는 서버에서 그리지 않는다
-- Spring API 는 `@/shared/api` 로만 부른다. 서버 컴포넌트 `apiGet`, 클라이언트 `browserGet`(같은 출처 `/api/*` → rewrites). `API_BASE_URL` 은 서버 전용
+- Spring API 는 `@/shared/api` 로만 부른다. 서버 컴포넌트 `apiGet`(fetch — Next 캐시), 클라이언트 `browserGet` · `browserPost`(axios `browserHttp`, 같은 출처 `/api/*` → rewrites). `API_BASE_URL` 은 서버 전용. axios 를 화면에서 직접 만들지 않는다
+- 로그인은 서버 세션 쿠키(JSESSIONID, HttpOnly) + CSRF. 쓰기 요청의 `X-XSRF-TOKEN` 은 `browserHttp` 인터셉터가 넣는다. 로그인이 필요한 화면 묶음은 `src/app/layouts` 의 `AuthLayout`(없으면 `/` 로)
 
 ## 데이터
 - 응답은 항상 Zod 스키마로 검증한다(`apiGet`·`browserGet` 둘째 인자). 스키마는 슬라이스 `model/schema.ts`, 타입은 `z.infer`
