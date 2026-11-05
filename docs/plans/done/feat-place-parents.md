@@ -7,7 +7,7 @@
 - [x] contracts/p3 v0.5 「상위 지역 자료」: 고른 지역과 상위 지역 코드를 찾는 재귀 SQL. 광주 본청 세출 · 광주시 보도자료(KOSIS 29)가 구에서 상위 지역 자료로 잡힌다
 - [x] C2 `place-list.json` 의 시군구 `parent_id` 갱신 · C2 README · database README v0.1.17
 - [x] `pnpm backend:format:check` · `backend:test`(89개) · `backend:build` 통과
-- [ ] 장성우(P7) 리뷰
+- [x] 장성우(P7) 리뷰 — 2026-11-05 완료, 문제 없음
 
 ## 진행
 - 2026-11-01: 시작. V0018 에서 광주 본청 세출(8,547행) · 광주 보도자료(6,852행)를 `kr-29` 에 이었지만 시군구 `parent_id` 가 비어(V0011) 구에서 찾아 올라갈 길이 없었다

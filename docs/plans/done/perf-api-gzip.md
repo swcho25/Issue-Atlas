@@ -4,7 +4,7 @@
 
 ## 완료 조건
 - [x] 2KB 넘는 JSON 응답을 Accept-Encoding: gzip 일 때 압축한다(`server.compression`)
-- [ ] 병합 뒤 개발 서버에서 `curl -H 'Accept-Encoding: gzip'` 로 `Content-Encoding: gzip` · 크기 확인
+- [x] 병합 뒤 개발 서버에서 `curl -H 'Accept-Encoding: gzip'` 로 `Content-Encoding: gzip` · 크기 확인 — 2026-11-05: 경계 184,531 → 47,893 바이트, 지역 목록 1,651 → 315
 
 ## 진행
 - 2026-11-04: Spring Boot 설정 두 줄. 압축은 Tomcat 이 해 MockMvc 테스트로는 안 보인다 → 개발 서버에서 확인

@@ -4,7 +4,7 @@
 
 ## 완료 조건
 - [x] 개발 서버에서 데모 흐름 API 7개(`GET /v1/places` · `/v1/places/{id}/cards` · `/v1/places/{id}/boundaries` · `POST /v1/questions` · `GET /v1/arguments/{run_id}` · `/v1/evidence/{id}` · `/v1/observations`)를 각 20회 재는 스크립트(`deploy/dev/measure.py`)가 있고, 중앙값 · p95 표를 이 계획에 남긴다 (질문은 개발 DB 행 · 분당 10건 제한 때문에 3회)
-- [ ] p95 가 목표(PRD 성능 기준, 없으면 조회 1초 · 질문 3초)를 넘는 API 마다 원인(서버 처리 · DB 쿼리 · 응답 크기 · 네트워크/Cloudflare)을 나눠 적고, 고칠 것과 미룰 것을 정한다
+- [x] p95 가 목표(PRD 성능 기준, 없으면 조회 1초 · 질문 3초)를 넘는 API 마다 원인(서버 처리 · DB 쿼리 · 응답 크기 · 네트워크/Cloudflare)을 나눠 적고, 고칠 것과 미룰 것을 정한다 — 서버 시간은 모두 목표 안(조회 p95 ≤ 111 ms, 질문 1.2 s), 넘는 것은 전부 네트워크(Cloudflare LAX) → 코드로 고칠 것 없음, LAX 는 팀 결정으로 미룸
 - [x] 운영 배포 리허설 체크리스트(develop → main MR, 운영 DB Flyway 순서, 운영 Tunnel origin, 운영 health · 질문 1건 · 로그인 확인, 실패 시 복구)를 `deploy/ci/README.md` 에 쓴다. main 병합 · 운영 배포 실행은 사람 승인 뒤
 - [ ] 운영 리허설을 실제로 했으면 결과(걸린 시간 · 막힌 곳)를 남긴다
 
@@ -32,8 +32,23 @@
 
 - 2026-11-05: 운영 현황 — `backend.issue-atlas.kr` 은 별도 운영 backend 로 main `8281550`(10/30) 판이 돈다(경계 API 401 = 옛 로그인 정책), `issue-atlas.kr/healthz` revision 도 같다. 다음 반영은 migration V0015–V0046(32개). 카드 시드 `db/seed/cards-c1-a3.sql` 은 Flyway 밖, 운영 DB 자동 백업 없음, 운영 수집 자료 없음 → 체크리스트 「전날」에 결정 항목으로 넣음
 
+- 2026-11-05: 2차 측정 — 문장화 캐시(-261, !174) 배포 뒤. **EC2 안**(`--base-url http://127.0.0.1:8080`, 네트워크 없음)과 밖(SSAFY 망)을 같이 쟀다
+
+| API | 밖 중앙값 ms | 밖 p95 ms | **EC2 안 중앙값 ms** | **EC2 안 p95 ms** |
+| --- | ---: | ---: | ---: | ---: |
+| health | 571 | 9356 | 7 | 14 |
+| GET /v1/places | 547 | 3620 | 7 | 13 |
+| GET /v1/places/{id}/cards | 552 | 2524 | 18 | 60 |
+| GET /v1/places/{id}/boundaries | 3202 | 4652 | 44 | 76 |
+| GET /v1/arguments/{run_id} | 2566 | 7412 | 11 | 47 |
+| GET /v1/evidence/{id} | 903 | 1648 | 7 | 14 |
+| GET /v1/observations (A3) | 3069 | 4503 | 51 | 111 |
+| POST /v1/questions (같은 질문 재실행) | 1890 | 2007 | 1202 | 1262 |
+
+- 결론: **서버는 조회 p95 111 ms 이하, 질문 1.2 s(캐시 적중)**. 밖에서 보이는 0.5~9 s 는 전부 Cloudflare LAX 경로. 질문 12.4 s → 1.9 s 는 캐시 덕(같은 입력만, 처음 질문은 여전히 engine 약 13 s)
+- gzip(-238 후속) 동작 확인: 경계 184,531 → 47,893 바이트
+
 ## 다음 할 일 / 범위 밖
 - 정할 것: Cloudflare LAX 경로(요금제 · Argo · 다른 경로) — 팀 결정. 데모장 망에서 다시 재기
-- 질문 12 s: engine 호출 시간을 `argument_run.duration_ms` · engine 로그로 나누고, 화면 로딩 표시 또는 문장화 비동기 여부 결정
-- EC2 안 측정(위)에서 서버 시간이 0.3 s 를 넘는 API 가 나오면 그때 쿼리 확인(EXPLAIN ANALYZE)
+- 처음 질문(캐시 없음)은 engine 약 13 s — 화면 로딩 표시 또는 문장화 비동기 여부 결정(화면 · engine 담당)
 - 운영 수집기 API 키 · 실제 수집 실행은 범위 밖(-137)
