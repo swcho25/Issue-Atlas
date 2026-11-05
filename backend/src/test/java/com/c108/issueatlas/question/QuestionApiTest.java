@@ -558,7 +558,7 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.evidence_table[1].status").value("not_collected"))
                 .andExpect(
                         jsonPath("$.evidence_table[1].reason")
-                                .value("기사 · 보도자료를 아직 이 판정에 잇지 않았습니다."))
+                                .value("이 지역 · 기간 보도자료 가운데 카드 키워드에 맞는 글이 없습니다."))
                 .andExpect(
                         jsonPath("$.evidence_table[0].reason")
                                 .value(org.hamcrest.Matchers.nullValue()))
@@ -569,6 +569,122 @@ class QuestionApiTest {
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM evidence WHERE kind = 'statistics'"
                                         + " AND evidence_id LIKE 'ev_stat_%'",
+                                Integer.class))
+                .isEqualTo(1);
+    }
+
+    /** 정제된 보도자료 한 건(보도자료 계약 v0.3 C1 문서). site 는 yeosu(46130) · gwangju(29). */
+    private void press(String site, String pressId, String title, String publishedOn) {
+        String source = "press_" + site;
+        String spec = "press_release_" + site;
+        String code = site.equals("yeosu") ? "46130" : "29";
+        String license = site.equals("yeosu") ? "KOGL-4" : "KOGL-미표시";
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES (?,?,?,?,'metadata','B') ON CONFLICT (source_id) DO NOTHING",
+                source,
+                site.equals("yeosu") ? "여수시 보도자료" : "광주광역시 보도자료",
+                site.equals("yeosu") ? "여수시" : "광주광역시",
+                license);
+        jdbc.update("UPDATE source SET reliability_grade = 'B' WHERE source_id = ?", source);
+        jdbc.update(
+                "INSERT INTO source_spec(spec_id,source_id,method,evidence_class)"
+                        + " VALUES (?,?,'board','documents') ON CONFLICT DO NOTHING",
+                spec,
+                source);
+        jdbc.update(
+                "INSERT INTO job_run(job_run_id,spec_id,collector_version,started_at)"
+                        + " VALUES (?,?,'test',now()) ON CONFLICT DO NOTHING",
+                "run-q-" + spec,
+                spec);
+        String hash = "sha256:press-" + pressId;
+        String link = "https://press.test/view?idx=" + pressId;
+        jdbc.update(
+                "INSERT INTO raw_record(job_run_id,spec_id,raw_url,content_hash,collected_at)"
+                        + " VALUES (?,?,'https://press.test',?,now())",
+                "run-q-" + spec,
+                spec,
+                hash);
+        jdbc.update(
+                "INSERT INTO normalized_record(content_hash,source_id,spec_id,place_code_system,"
+                        + "place_code_raw,observed_period_type,storage_scope,validation_status,issues,"
+                        + "rule_version,obs_key,is_latest,record)"
+                        + " VALUES (?,?,?,'kosis',?,'none','metadata','pass','[]','p2-test',"
+                        + "'obs:' || encode(sha256(convert_to(?, 'UTF8')), 'hex'),true,"
+                        + "jsonb_build_object('document', jsonb_build_object('kind','press_release',"
+                        + "'title',?::text,'link',?::text,'body',null),'published_at',?::text,"
+                        + "'collected_at','2026-11-05T00:00:00Z','license_type',?::text,"
+                        + "'locator',jsonb_build_object('press_id',?::text)))",
+                hash,
+                source,
+                spec,
+                code,
+                pressId,
+                title,
+                link,
+                publishedOn + "T00:00:00+09:00",
+                license,
+                pressId);
+    }
+
+    @Test
+    void c1DocumentsAreLinkedFromPressReleasesMatchingCardKeywords() throws Exception {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < YEOSU.length; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        // C1 키워드 「청년 정착」의 낱말이 모두 든 제목 · 기간 안 → 근거
+        press("yeosu", "yeosu:1", "여수시, 2024년 청년어촌정착지원 사업 대상자 모집", "2023-11-12");
+        // 키워드 없음 · 기간 밖 · 광주광역시(시 전체 kr-29, 여수 질문과 다른 지역) → 근거 아님
+        press("yeosu", "yeosu:2", "여수시, 비대면 무인민원발급기 확대 운영", "2024-03-01");
+        press("yeosu", "yeosu:3", "여수시, 2026년 청년어촌정착 지원사업 대상자 모집", "2026-02-01");
+        press("gwangju", "gwangju:4", "광주시, 청년 정착 지원 확대", "2024-05-01");
+        String body =
+                """
+                {"place_id": "kr-12130", "card_id": "C1", "period_start": "2023-01-01",
+                 "period_end": "2026-01-01", "raw_text": null}
+                """;
+        String result =
+                argument(runId(ask(body)))
+                        .andExpect(jsonPath("$.claim.value").value("increasing"))
+                        .andExpect(jsonPath("$.evidence_table[1].kind").value("documents"))
+                        .andExpect(jsonPath("$.evidence_table[1].status").value("available"))
+                        .andExpect(jsonPath("$.evidence_table[1].count").value(1))
+                        .andExpect(
+                                jsonPath("$.evidence_table[1].reason")
+                                        .value(org.hamcrest.Matchers.nullValue()))
+                        .andExpect(jsonPath("$.data.documents.length()").value(1))
+                        .andExpect(
+                                jsonPath("$.data.documents[0].evidence_id")
+                                        .value(org.hamcrest.Matchers.startsWith("ev_doc_")))
+                        .andExpect(
+                                jsonPath("$.data.documents[0].title")
+                                        .value("여수시, 2024년 청년어촌정착지원 사업 대상자 모집"))
+                        .andExpect(jsonPath("$.data.documents[0].source_name").value("여수시 보도자료"))
+                        .andExpect(jsonPath("$.data.documents[0].source_grade").value("B"))
+                        .andExpect(jsonPath("$.data.documents[0].storage_scope").value("metadata"))
+                        // 통계(A) · 문서(B) 두 갈래 → 독립 근거 2
+                        .andExpect(jsonPath("$.qualifier.components.independent_evidence").value(2))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        String evidenceId = JsonPath.read(result, "$.data.documents[0].evidence_id");
+        // 근거 상세에서 원문 링크로 간다(본문 없음)
+        mvc.perform(get("/v1/evidence/{id}", evidenceId).with(user("u")))
+                .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("evidence"))
+                .andExpect(jsonPath("$.kind").value("documents"))
+                .andExpect(jsonPath("$.url").value("https://press.test/view?idx=yeosu:1"))
+                .andExpect(jsonPath("$.published_at").value(org.hamcrest.Matchers.notNullValue()))
+                .andExpect(jsonPath("$.display").value(org.hamcrest.Matchers.nullValue()));
+        // 다시 실행해도 같은 글 같은 판은 근거 한 행
+        runId(ask(body));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM evidence WHERE kind = 'documents'",
                                 Integer.class))
                 .isEqualTo(1);
     }

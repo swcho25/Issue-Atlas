@@ -92,6 +92,16 @@ public class CardJudge {
                     .filter(id -> !denominators.contains(id))
                     .ifPresent(denominators::add);
         }
+        // 문서 ②: 카드 문서 명세의 보도자료 중 제목이 카드 키워드에 맞는 글. 빅카인즈 기사는 articles[](P4 카드 태그)로 따로 낸다
+        List<String> documentSpecs = new ArrayList<>();
+        spec.path("evidence")
+                .path("documents")
+                .forEach(source -> documentSpecs.add(source.path("spec_id").asText()));
+        documentSpecs.removeIf(String::isBlank);
+        List<String> keywords = new ArrayList<>();
+        spec.path("keywords").forEach(keyword -> keywords.add(keyword.asText()));
+        List<String> documents =
+                questions.pressEvidence(documentSpecs, keywords, placeId, start, end);
         String level =
                 switch (claim) {
                     case "insufficient" -> "insufficient_evidence";
@@ -106,7 +116,7 @@ public class CardJudge {
                         outcome.path("label").asText(),
                         new Comparability(indicator, period, boundary, method),
                         statistics,
-                        List.of(),
+                        documents,
                         List.copyOf(denominators),
                         evaluation.facts(),
                         indicatorId,
