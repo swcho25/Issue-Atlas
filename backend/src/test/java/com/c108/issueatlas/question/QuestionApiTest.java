@@ -548,6 +548,14 @@ class QuestionApiTest {
                         jsonPath("$.warrant.text")
                                 .value(org.hamcrest.Matchers.startsWith("청년 순유출이")))
                 .andExpect(jsonPath("$.ceiling.items[0]").value("떠난 이유"))
+                // 카드 설계도의 예상 빈칸(expected_gaps)이 상한선 끝에 문장으로 붙는다(S15P31C108-265)
+                .andExpect(
+                        jsonPath("$.ceiling.items")
+                                .value(
+                                        org.hamcrest.Matchers.hasItems(
+                                                "민원: 이용 허락이 없어 쓰지 않는다 (license_blocked)",
+                                                "읍면동 순이동: 공표되지 않는다 (not_published)")))
+                .andExpect(jsonPath("$.ceiling.items.length()").value(7))
                 .andExpect(jsonPath("$.series[0].values.length()").value(36))
                 // 분모 지표(SP10 주민등록인구) 관측이 없으면 분모 칸은 비고, 빈 칸마다 없는 이유가 있다
                 .andExpect(jsonPath("$.evidence_table[3].kind").value("denominators"))
