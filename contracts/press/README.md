@@ -1,4 +1,4 @@
-# 보도자료 목록 v0.3 — C1 문서(`kind = press_release`)
+# 보도자료 목록 v0.5 — C1 문서(`kind = press_release`)
 
 지자체 보도자료 게시판의 **목록**을 받아 C1 문서 레코드로 원본 장부(`raw_record` · `job_run`)에 둔다. P2 정제를 거쳐 `normalized_ready` 로 나간다.
 만드는 곳: `python -m pipeline.collect.press --site yeosu|gwangju --db` (`engine/pipeline/collect/press.py`). 광주광역시는 지금 `--from-table` 로 옛 표에서 옮긴다(아래 「옛 표에서 옮기기」).
@@ -83,3 +83,4 @@ C1 레코드(`raw_record.c1_record`)에서 기사와 다른 칸
 | v0.2 | 2026-11-02 | C1 문서 레코드로 원본 장부 · `job_run` 에 저장하고 P2 정제를 거친다. 게시판마다 출처 · 수집 명세. 정정된 글은 새 판, 최신본만 `normalized_ready`. 수집기 `press-0.2.0`, `--output` 은 C1 레코드 JSONL. `press_release` 표는 더 채우지 않는다 (S15P31C108-172) |
 | v0.3 | 2026-11-02 | 광주광역시 누리집 자동 요청 차단(400). `--from-table` 로 옛 표 행을 같은 원본 지문 · 그때 수집 시각으로 원본 장부에 옮긴다, `job_run.stats.imported_from` (S15P31C108-187) |
 | v0.4 | 2026-11-04 | V0044: 옛 표의 모든 행이 원본 장부에 있을 때만 `press_release` 를 지운다(아니면 남김). 지운 DB 의 `--from-table` 은 `PRESS_OLD_TABLE_GONE` (S15P31C108-240) |
+| v0.5 | 2026-11-05 | 쓰는 곳: 질문 실행이 정제된 보도자료를 논증 카드의 문서 근거로 잇는다 — 발행 기관 지역(`place_code_raw`) = 질문 지역, 등록일이 질문 기간 안, 제목이 카드 `keywords` 에 맞는 글. 근거에는 제목 · 등록일 · 링크만([C2 「문서」](../c2/README.md)). 이 계약의 칸은 그대로 (S15P31C108-253) |

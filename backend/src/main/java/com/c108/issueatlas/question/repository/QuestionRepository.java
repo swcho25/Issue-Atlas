@@ -294,6 +294,83 @@ public class QuestionRepository {
                 .optional();
     }
 
+    /**
+     * 정제된 보도자료(C1 문서 kind = press_release) 가운데 카드 문서 명세 · 질문 지역 · 기간 · 키워드에 맞는 글. 발행 기관
+     * 지역(place_code_raw)이 질문 place 와 같아야 한다 — 광주광역시(시 전체 kr-29) 글은 구 질문에 잇지 않는다. 키워드는 띄어쓰기로 나눈 낱말이
+     * 제목에 모두 있으면 맞다. 출처 등급이 없는 출처는 뺀다.
+     */
+    private static final String PRESS_MATCHES =
+            """
+            WITH keyword AS (
+                SELECT regexp_split_to_array(btrim(k), '\\s+') AS words
+                FROM unnest(ARRAY[:keywords]::text[]) k WHERE btrim(k) <> ''
+            )
+            SELECT 'ev_doc_' || md5(n.obs_key || '|' || n.content_hash) AS evidence_id,
+                   n.record -> 'document' ->> 'title' AS title, n.source_id, s.reliability_grade,
+                   n.record ->> 'license_type' AS license_type, n.storage_scope,
+                   (n.record ->> 'published_at')::timestamptz AS published_at,
+                   (n.record ->> 'collected_at')::timestamptz AS collected_at,
+                   n.record -> 'document' ->> 'link' AS url,
+                   jsonb_build_object('spec_id', n.spec_id, 'locator', n.record -> 'locator',
+                                      'obs_key', n.obs_key, 'content_hash', n.content_hash) AS locator
+            FROM normalized_ready n
+            JOIN place_code_map m ON m.code_system = n.place_code_system AND m.place_code = n.place_code_raw
+            JOIN source s ON s.source_id = n.source_id
+            WHERE n.spec_id IN (:specs) AND n.record -> 'document' ->> 'kind' = 'press_release'
+              AND m.place_id = :place AND s.reliability_grade IS NOT NULL
+              AND (n.record ->> 'published_at')::timestamptz
+                  >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+              AND (n.record ->> 'published_at')::timestamptz
+                  < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+              AND EXISTS (
+                  SELECT 1 FROM keyword kw
+                  WHERE NOT EXISTS (
+                      SELECT 1 FROM unnest(kw.words) w
+                      WHERE strpos(n.record -> 'document' ->> 'title', w) = 0))
+            """;
+
+    /**
+     * 카드 문서 명세의 보도자료를 문서 근거(ID {@code ev_doc_<md5(obs_key|content_hash)>})로 만들고 ID 를 등록일 순으로 준다. 같은
+     * 글 같은 판은 같은 ID 라 다시 실행해도 한 행. 제목 · 등록일 · 원문 링크만 두고 본문은 두지 않는다(보도자료 계약 v0.3 「왜 목록만인가」).
+     */
+    public List<String> pressEvidence(
+            List<String> specs,
+            List<String> keywords,
+            String placeId,
+            LocalDate start,
+            LocalDate end) {
+        if (specs.isEmpty() || keywords.isEmpty()) {
+            return List.of();
+        }
+        jdbc.sql(
+                        "WITH matched AS ("
+                                + PRESS_MATCHES
+                                + ") INSERT INTO evidence (evidence_id, kind, title, source_id,"
+                                + " source_grade, license_type, storage_scope, observed_at,"
+                                + " published_at, collected_at, locator, url)"
+                                + " SELECT evidence_id, 'documents', title, source_id,"
+                                + " reliability_grade, license_type, storage_scope, published_at,"
+                                + " published_at, coalesce(collected_at, now()), locator, url"
+                                + " FROM matched ON CONFLICT (evidence_id) DO NOTHING")
+                .param("keywords", keywords)
+                .param("specs", specs)
+                .param("place", placeId)
+                .param("start", start)
+                .param("end", end)
+                .update();
+        return jdbc.sql(
+                        "SELECT evidence_id FROM ("
+                                + PRESS_MATCHES
+                                + ") matched ORDER BY published_at, evidence_id")
+                .param("keywords", keywords)
+                .param("specs", specs)
+                .param("place", placeId)
+                .param("start", start)
+                .param("end", end)
+                .query(String.class)
+                .list();
+    }
+
     public List<EvidenceRef> evidence(List<String> evidenceIds) {
         if (evidenceIds.isEmpty()) {
             return List.of();

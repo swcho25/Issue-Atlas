@@ -529,8 +529,8 @@ public class QuestionService {
             default ->
                     switch (kind) {
                         case "statistics" -> "이 지역 · 기간의 통계 관측 값이 없습니다.";
-                        // ponytail: 11/13 「보도자료 → 문서 칸 통합」에서 판정에 문서를 이으면 문장을 바꾼다
-                        case "documents" -> "기사 · 보도자료를 아직 이 판정에 잇지 않았습니다.";
+                        // 광역 기관(광주광역시) 보도자료는 시군구 질문에 잇지 않는다(S15P31C108-253)
+                        case "documents" -> "이 지역 · 기간 보도자료 가운데 카드 키워드에 맞는 글이 없습니다.";
                         case "existing_responses" -> "이 지역 · 기간 · 카드에 맞는 기존 대응 후보가 없습니다.";
                         case "denominators" -> "카드의 분모 지표에 이 지역 · 기간 관측 값이 없습니다.";
                         default -> "이 지역 · 기간의 근거가 없습니다.";
