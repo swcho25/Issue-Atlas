@@ -8,6 +8,7 @@ import com.c108.issueatlas.question.dto.ArgumentResponse.Comparability;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Condition;
 import com.c108.issueatlas.question.repository.QuestionRepository;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -75,6 +76,22 @@ public class CardJudge {
                                         end)
                                 .map(List::of)
                                 .orElse(List.of());
+        List<String> denominators = new ArrayList<>();
+        for (JsonNode source : spec.path("evidence").path("denominators")) {
+            String denominatorSpec = source.path("spec_id").asText();
+            String denominatorId = source.path("indicator_id").asText();
+            if (denominatorSpec.isBlank() || denominatorId.isBlank()) continue;
+            questions
+                    .denominatorEvidence(
+                            denominatorSpec,
+                            denominatorId,
+                            label(spec, denominatorId),
+                            placeId,
+                            start,
+                            end)
+                    .filter(id -> !denominators.contains(id))
+                    .ifPresent(denominators::add);
+        }
         String level =
                 switch (claim) {
                     case "insufficient" -> "insufficient_evidence";
@@ -90,11 +107,22 @@ public class CardJudge {
                         new Comparability(indicator, period, boundary, method),
                         statistics,
                         List.of(),
-                        List.of(),
+                        List.copyOf(denominators),
                         evaluation.facts(),
                         indicatorId,
                         definition.path("unit").asText(),
                         values));
+    }
+
+    /** 승인본 지표 사본의 이름. 사본이 없는 지표(분모 등)는 null. */
+    private static String label(JsonNode spec, String indicatorId) {
+        for (JsonNode snapshot : spec.path("indicator_snapshots")) {
+            if (indicatorId.equals(snapshot.path("indicator_id").asText())) {
+                JsonNode label = snapshot.path("definition").path("label");
+                return label.isMissingNode() || label.isNull() ? null : label.asText();
+            }
+        }
+        return null;
     }
 
     private static JsonNode definition(JsonNode spec, String indicatorId) {

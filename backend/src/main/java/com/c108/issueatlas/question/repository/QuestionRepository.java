@@ -194,8 +194,64 @@ public class QuestionRepository {
             String placeId,
             LocalDate start,
             LocalDate end) {
+        return observationEvidence(
+                "statistics", "ev_stat_", specId, indicatorId, label, placeId, start, end);
+    }
+
+    /**
+     * 분모 근거 한 건(지역 · 기간 · 분모 지표의 관측 묶음, ID {@code ev_den_<md5>}). 질문 기간에 available 관측 행이 있을 때만 만든다
+     * — 없으면 분모 칸은 not_collected. 이름은 승인본 지표 사본(label), 없으면 지표 사전(indicator), 그것도 없으면 지표 ID.
+     */
+    public Optional<String> denominatorEvidence(
+            String specId,
+            String indicatorId,
+            String label,
+            String placeId,
+            LocalDate start,
+            LocalDate end) {
+        boolean observed =
+                jdbc.sql(
+                                """
+                SELECT EXISTS (
+                    SELECT 1 FROM observation o
+                    WHERE o.what_type = 'indicator' AND o.what_id = :indicator
+                      AND o.place_id = :place AND o.status = 'available'
+                      AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+                      AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul')
+                """)
+                        .param("indicator", indicatorId)
+                        .param("place", placeId)
+                        .param("start", start)
+                        .param("end", end)
+                        .query(Boolean.class)
+                        .single();
+        if (!observed) {
+            return Optional.empty();
+        }
+        String name =
+                label != null && !label.isBlank()
+                        ? label
+                        : jdbc.sql(
+                                        "SELECT coalesce((SELECT definition ->> 'label' FROM indicator"
+                                                + " WHERE indicator_id = ?), ?)")
+                                .params(indicatorId, indicatorId)
+                                .query(String.class)
+                                .single();
+        return observationEvidence(
+                "denominators", "ev_den_", specId, indicatorId, name, placeId, start, end);
+    }
+
+    private Optional<String> observationEvidence(
+            String kind,
+            String prefix,
+            String specId,
+            String indicatorId,
+            String label,
+            String placeId,
+            LocalDate start,
+            LocalDate end) {
         String id =
-                "ev_stat_"
+                prefix
                         + jdbc.sql("SELECT md5(?)")
                                 .param(
                                         String.join(
@@ -211,7 +267,7 @@ public class QuestionRepository {
                         """
                 INSERT INTO evidence (evidence_id, kind, title, source_id, source_grade, license_type,
                     storage_scope, observed_at, period_start, period_end, collected_at, locator)
-                SELECT :id, 'statistics', s.name || ' · ' || :label, s.source_id, s.reliability_grade,
+                SELECT :id, :kind, s.name || ' · ' || :label, s.source_id, s.reliability_grade,
                        s.license_type, s.storage_scope,
                        (SELECT max(o.when_end) FROM observation o
                         WHERE o.what_id = :indicator AND o.place_id = :place AND o.status = 'available'
@@ -224,6 +280,7 @@ public class QuestionRepository {
                 ON CONFLICT (evidence_id) DO NOTHING
                 """)
                 .param("id", id)
+                .param("kind", kind)
                 .param("label", label)
                 .param("indicator", indicatorId)
                 .param("place", placeId)
