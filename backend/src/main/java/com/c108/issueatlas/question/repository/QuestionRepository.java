@@ -269,7 +269,10 @@ public class QuestionRepository {
                     storage_scope, observed_at, period_start, period_end, collected_at, locator)
                 SELECT :id, :kind, s.name || ' · ' || :label, s.source_id, s.reliability_grade,
                        s.license_type, s.storage_scope,
-                       (SELECT max(o.when_end) FROM observation o
+                       -- 시점 = 마지막 관측 기간의 마지막 날(한국 0시). when_end 는 끝 경계(다음 달 1일 0시,
+                       -- 포함 안 함)라 하루를 뺀다. 2025-12 월 값 → 2025-12-31 (S15P31C108-272)
+                       (SELECT max(greatest(o.when_start, o.when_end - interval '1 day'))
+                        FROM observation o
                         WHERE o.what_id = :indicator AND o.place_id = :place AND o.status = 'available'
                           AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
                           AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'),

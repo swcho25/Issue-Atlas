@@ -121,7 +121,7 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 | `a_grade_sources` | 근거의 출처 중 출처 등급 A 의 수 |
 | `ab_grade_sources` | 근거의 출처 중 출처 등급 A 또는 B 의 수 |
 | `independent_evidence` | 독립 근거 수 |
-| `latest_observed_at` | 가장 최근 근거의 시점. 근거가 없으면 `null` |
+| `latest_observed_at` | 가장 최근 근거의 시점. 통계 · 분모는 마지막 관측 기간의 마지막 날 한국 0시(2025-12 월 값 → 2025-12-31, 끝 경계 2026-01-01 이 아님), 문서는 등록일. 근거가 없으면 `null` |
 | `latest_within_one_year` | 최신 근거가 분석 기간 말 기준 1년 이내인가. `latest_observed_at` 이 `null` 이면 `false` |
 
 같은 `components` 는 언제나 같은 등급이다. 스키마가 이를 검사한다(등급만 바꾼 응답은 검증 실패). 예시 셋이 한 등급씩이다: `argument-c1-ready` 상 · `argument-a3-not-comparable` 중 · `argument-c1-insufficient` 하.
@@ -201,3 +201,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-05): `POST /v1/questions` 의 `429 TOO_MANY_REQUESTS` 를 openapi 에 적는다(S15P31C108-250). 동작은 이미 backend 에 있다(-208 후속, `QuestionRateLimitFilter`): 클라이언트 IP 당 분당 10건(`QUESTIONS_PER_MINUTE`)을 넘으면 질문 · 실행을 만들지 않고 `Retry-After: 60`. 오류 응답 스키마를 `components/schemas/Problem` 으로 분리하고 `code` enum 에 `TOO_MANY_REQUESTS` 를 더했다. 성공 응답은 그대로
 - v0.1 (2026-11-05): 상한선 ⑥ `ceiling.items` 끝에 카드 예상 빈칸(`expected_gaps`)을 「무엇: 문장 (상태)」로 붙인다(S15P31C108-265). 칸 그대로(값만 바뀜). 구조 칸 `expected_gaps[]` 는 C2 v1 에서 주는 쪽 · 받는 쪽 리뷰 MR 로
 - v0.1 (2026-11-05): 카드 목록 근거 상태 = 등록된 `card_evidence_status` → 없으면 같은 지역 · 카드 · 카드 버전 · 기간의 최근 실행 근거 수요표 → 없으면 `not_collected`(S15P31C108-264). 응답 모양 그대로(동결 규칙의 「값이 바뀌는 것」)
+- v0.1 (2026-11-05): 통계 · 분모 근거 시점(`observed_at`, 한정어 `latest_observed_at`)을 마지막 관측 기간의 끝 경계(다음 달 1일 0시)에서 그 기간의 마지막 날(한국 0시)로(S15P31C108-272). 화면 ④ 가 「최신 2026-01-01」(기간 밖)로 보이고 「1년 이내」가 하루 후했다. 저장된 근거 행은 V0048 이 고치고, 저장된 실행 결과는 그대로(다시 실행하면 새 값). 응답 모양 그대로(값만 바뀜)
