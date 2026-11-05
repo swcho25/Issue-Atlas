@@ -5,7 +5,9 @@ import { type ReactNode, Suspense } from "react";
 import { ApiError, apiGet, type Me, meSchema } from "@/shared/api";
 
 // 로그인한 사람만 보는 화면 틀. 로그인이 안 돼 있으면 랜딩(/)으로 보낸다.
-// 아직 어느 화면에도 적용하지 않았다. 쓸 때는 그 묶음의 layout.tsx 에서 `export { AuthLayout as default }`.
+// 쓸 때는 그 묶음의 layout.tsx 에서 `export { AuthLayout as default }`. 관리자 화면(/admin)은 AdminLayout.
+//
+// 화면 쪽 확인은 길 안내일 뿐이고, 실제 권한은 백엔드가 막는다(/v1/admin/** = ADMIN, SecurityConfig 한 곳).
 //
 // 「키」 = 서버 세션 쿠키(JSESSIONID, HttpOnly). 화면 JS 는 못 읽으므로 서버에서 그 쿠키를 그대로 실어
 // GET /v1/auth/me 를 부르고, 401 · 403 이면 로그인이 없는 것으로 본다.
@@ -15,6 +17,15 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <Suspense fallback={null}>
       <AuthGate>{children}</AuthGate>
+    </Suspense>
+  );
+}
+
+/** 관리자(ADMIN)만 보는 화면 틀. 로그인이 없거나 조회자(VIEWER)면 랜딩(/)으로 보낸다 */
+export function AdminLayout({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <AuthGate admin>{children}</AuthGate>
     </Suspense>
   );
 }
@@ -33,8 +44,14 @@ export async function getCurrentUser(): Promise<Me | null> {
   }
 }
 
-export async function AuthGate({ children }: { children: ReactNode }) {
+export async function AuthGate({
+  children,
+  admin = false,
+}: {
+  children: ReactNode;
+  admin?: boolean;
+}) {
   const me = await getCurrentUser();
-  if (!me) redirect("/");
+  if (!me || (admin && me.role !== "ADMIN")) redirect("/");
   return children;
 }
