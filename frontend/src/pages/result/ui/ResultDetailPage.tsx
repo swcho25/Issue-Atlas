@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import type { Argument } from "@/shared/api";
 
 import { getArgument } from "../api/getResult";
+import { ArgumentPanel } from "./argument/ArgumentPanel";
+import { ArgumentTab } from "./argument/ArgumentTab";
 import { DetailFrame } from "./DetailFrame";
 import { EvidenceCsvButton } from "./evidence/EvidenceCsvButton";
 import { EvidencePanel } from "./evidence/EvidencePanel";
@@ -62,9 +64,23 @@ async function DetailContent({ params }: { params: Promise<{ id: string; tab: st
       </DetailFrame>
     );
   }
+  if (tab === "argument") {
+    // 머리 「각주 전체 복사」는 근거 상세 API 를 쓰는 원문 탭(U13)과 함께 붙인다
+    return (
+      <DetailFrame
+        argument={argument}
+        tab={tab}
+        title={head.title}
+        caption={head.caption}
+        panel={<ArgumentPanel />}
+      >
+        <ArgumentTab argument={argument} />
+      </DetailFrame>
+    );
+  }
   return (
     <DetailFrame argument={argument} tab={tab} title={head.title} caption={head.caption}>
-      {/* 탭 내용은 다음 단위(U12 논증 · U13 원문)에서 채운다 */}
+      {/* 원문 탭은 다음 단위(U13)에서 채운다 */}
       <p className="rounded-xl bg-surface-2 px-4 py-3 text-body-13 text-text-2">준비 중이에요.</p>
     </DetailFrame>
   );

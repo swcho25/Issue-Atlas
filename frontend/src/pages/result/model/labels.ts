@@ -1,5 +1,12 @@
-import type { EvidenceKind, EvidenceStatus, RunStatus } from "@/shared/api";
-import type { StatusTone } from "@/shared/ui/badge";
+import type {
+  Argument,
+  ClaimValue,
+  EvidenceKind,
+  EvidenceStatus,
+  Provenance,
+  RunStatus,
+} from "@/shared/api";
+import type { ProvKind, StatusTone } from "@/shared/ui/badge";
 
 // 근거 · 실행 상태를 화면 글자와 배지 색으로. 색은 v5 화면의 쓰임을 센 값(확보 32 · 미수집 11 …)을 따른다
 
@@ -34,6 +41,64 @@ export const comparabilityLabel = {
   same_boundary: "같은 경계",
   same_method: "같은 산출 방식",
 } as const;
+
+/** 논증 카드 ② 근거 칸의 짧은 종류 이름(Figma 칸 폭 64) */
+export const evidenceKindShort: Record<EvidenceKind, string> = {
+  statistics: "통계",
+  documents: "기사·보도",
+  existing_responses: "기존 대응",
+  denominators: "분모·맥락",
+};
+
+/** 칸을 누가 채웠나 → 배지 종류. AI 문장화 · AI 판단은 둘 다 AI */
+export const provKind: Record<Provenance, ProvKind> = {
+  rule: "rule",
+  card: "card",
+  llm_phrasing: "ai",
+  llm_judgment: "ai",
+  human: "human",
+};
+
+/**
+ * ① 판단 배지. Figma 예는 카드 문구(「청년 순유출 확대」 amber) 하나뿐이라, 카드와 상관없는 말로 두고
+ * 증가 · 감소는 그 예의 amber 를 따른다(디자이너 확인)
+ */
+export const claimBadge: Record<ClaimValue, { tone: StatusTone; label: string }> = {
+  observed: { tone: "blue", label: "관측" },
+  increasing: { tone: "amber", label: "증가" },
+  decreasing: { tone: "amber", label: "감소" },
+  unclear: { tone: "gray", label: "뚜렷하지 않음" },
+  not_comparable: { tone: "gray", label: "비교 불가" },
+  insufficient: { tone: "red", label: "판단 안 함" },
+};
+
+/** ① 판단 수준(Figma 「계산값」) */
+export const claimLevelLabel: Record<Argument["claim"]["level"], string> = {
+  observed_fact: "관측 사실",
+  calculated: "계산값",
+  associated: "연관",
+  insufficient_evidence: "근거 부족",
+};
+
+/** ④ 근거 충실도 상 · 중 · 하. Figma 예는 상(초록)뿐 — 중 · 하는 상태 색 순서를 따른다 */
+export const qualifierGrade: Record<
+  Argument["qualifier"]["grade"],
+  { label: string; className: string }
+> = {
+  high: { label: "상", className: "text-status-green" },
+  medium: { label: "중", className: "text-status-amber" },
+  low: { label: "하", className: "text-status-red" },
+};
+
+/** ⑤ 반박 상태. Figma: 검토 필요 amber · 근거 없음 gray. 근거 있음(판단을 약하게 함)은 red(디자이너 확인) */
+export const rebuttalBadge: Record<
+  Argument["rebuttals"][number]["status"],
+  { tone: StatusTone; label: string }
+> = {
+  needs_review: { tone: "amber", label: "검토 필요" },
+  not_found: { tone: "gray", label: "근거 없음" },
+  supported: { tone: "red", label: "근거 있음" },
+};
 
 /** 기간(끝 미포함)을 연도로: 2023-01-01 ~ 2026-01-01 → 2023–2025 */
 export function yearSpan(start: string | null, end: string | null) {
