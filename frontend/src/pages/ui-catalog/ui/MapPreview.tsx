@@ -28,7 +28,7 @@ export function MapPreview() {
         <code className="font-mono">
           {"<MapView boundaries={…} padding={…}>지도 위 부품</MapView>"}
         </code>
-        {" · "}MapLibre {getVersion()} · OpenFreeMap positron · 한국어 지명 · 여수 · {status}
+        {" · "}MapLibre {getVersion()} · OpenFreeMap Liberty · 한국어 지명 · 여수 · {status}
       </p>
       <MapView boundaries={boundaries} className="mt-4 h-[480px] rounded-xl shadow-card" />
     </section>
