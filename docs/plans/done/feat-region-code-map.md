@@ -9,7 +9,7 @@
 - [x] `GET /v1/places` 가 시도를 내보내지 않는다 (지역 선택 화면은 시군구 6곳 그대로)
 - [x] contracts/p3 v0.2 · database README · contracts README 변경 이력
 - [x] `pnpm backend:format:check` · `backend:test` · `backend:build` 통과
-- [ ] 장성우(P7) 리뷰: `plc_` → `kr-` 전환(11/3)과 마이그레이션 번호 · 형식 맞추기
+- [x] 장성우(P7) 리뷰: `plc_` → `kr-` 전환(11/3)과 마이그레이션 번호 · 형식 맞추기 — 2026-11-05 완료, V0024 가 place_id 표 6개 모두 옮김
 
 ## 진행
 - 2026-11-01: 개발 DB 확인. 연결된 것: KOSIS SP01 · SP02 · SP10 시군구 6곳, `air_monthly` 측정소 22곳, 세출 · 보도자료의 5개 구 · 여수. 빠진 것: 온통청년 `bjd` 5,633행, 세출 「광주 본청」 · 보도자료 광주 `29` 15,399행, 측정소 메타 이름 22행, SP02 도착 시도 `locator.C2` 17곳

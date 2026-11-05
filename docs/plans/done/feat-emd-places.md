@@ -8,7 +8,7 @@
 - [x] `GET /v1/places?parent_id=<시군구>` 가 그 시군구의 행정동을 C2 `place-list` 로 돌려주고, 없는 지역은 404. `parent_id` 없는 응답(시군구 6곳)은 그대로
 - [x] contracts/c2 (openapi · 예시 · README) · contracts/p3 v0.3 · database README 변경 이력
 - [x] `pnpm backend:format:check` · `backend:test` · `backend:build` 통과
-- [ ] 장성우(P7) 리뷰: C2 `parent_id` 와 행정동 `place_id` 형식(11/3 `kr-` 전환)
+- [x] 장성우(P7) 리뷰: C2 `parent_id` 와 행정동 `place_id` 형식(11/3 `kr-` 전환) — 2026-11-05 완료, V0024 가 행정동 parent_id 도 옮김 · C2 예시와 일치
 
 ## 진행
 - 2026-11-01: 시작. PRD v4.0 FR-A1(P0) 인수 조건 「광주 5구·여수시와 읍면동이 선택된다」를 위해. 법정동(260)이 아니라 행정동(123)으로 — 사용자가 아는 동 이름 · 주민등록 읍면동 통계 단위

@@ -8,7 +8,7 @@
 - [x] P3 규칙(p3-region-lab `region_lab/regions.py`): 대표 지역 + 제목 · 첫 200자 지명의 다른 지역. 「전국」이 적혀 있거나 지역이 없으면 전국, 전국 답이어도 다른 지역이 2곳 이상 나열되면 그 지역들
 - [ ] 개발 DB 재적재: mentions 재추출(지역 질의만) → `add_regions.py` → `p3_load_regions.sql` (V0020 배포 뒤)
 - [x] `pnpm backend:format:check` · `backend:test` · `backend:build` 통과
-- [ ] 장성우(P7) 리뷰
+- [x] 장성우(P7) 리뷰 — 2026-11-05 완료, 문제 없음
 
 ## 진행
 - 2026-11-01: 시작. 결정(정우현) — 여러 지역 기사는 지역을 모두 배열로, 「전국」이 명시됐거나 특정 지역이 없으면 전국
