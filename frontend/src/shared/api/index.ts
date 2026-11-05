@@ -8,6 +8,8 @@ export {
   type EvidenceRef,
   type EvidenceRow,
   type EvidenceStatus,
+  type PlaceBoundaries,
+  placeBoundariesSchema,
   type Provenance,
   type RunStatus,
   seriesShape,
