@@ -15,19 +15,32 @@ import com.c108.issueatlas.card.dto.CardStorageDto.CreateCard;
 import com.c108.issueatlas.card.dto.CardStorageDto.SaveDraft;
 import com.c108.issueatlas.card.service.CardStorageService;
 import com.jayway.jsonpath.JsonPath;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,8 +67,58 @@ class QuestionApiTest {
     @Autowired CardStorageService storage;
     @Autowired ObjectMapper json;
 
+    // 가짜 engine(contracts/ai v0.2 「문장화」). 테스트마다 답을 정하고 받은 요청을 남긴다. 기본 503 → 카드 문구
+    private record EngineAnswer(int status, String body, long delayMs) {}
+
+    private static final List<String> ENGINE_REQUESTS = new CopyOnWriteArrayList<>();
+    private static volatile EngineAnswer engineAnswer;
+    private static final HttpServer ENGINE = fakeEngine();
+
+    private static HttpServer fakeEngine() {
+        try {
+            HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext(
+                    "/v1/argument/phrase",
+                    exchange -> {
+                        ENGINE_REQUESTS.add(
+                                new String(
+                                        exchange.getRequestBody().readAllBytes(),
+                                        StandardCharsets.UTF_8));
+                        EngineAnswer answer = engineAnswer;
+                        try {
+                            Thread.sleep(answer.delayMs());
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                        byte[] body = answer.body().getBytes(StandardCharsets.UTF_8);
+                        exchange.getResponseHeaders().add("Content-Type", "application/json");
+                        exchange.sendResponseHeaders(
+                                answer.status(), body.length == 0 ? -1 : body.length);
+                        if (body.length > 0) {
+                            exchange.getResponseBody().write(body);
+                        }
+                        exchange.close();
+                    });
+            server.setExecutor(Executors.newCachedThreadPool());
+            server.start();
+            return server;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @DynamicPropertySource
+    static void engine(DynamicPropertyRegistry registry) {
+        registry.add(
+                "issue-atlas.engine.url",
+                () -> "http://127.0.0.1:" + ENGINE.getAddress().getPort());
+        registry.add("issue-atlas.engine.timeout", () -> "1s");
+    }
+
     @BeforeEach
     void seed() throws Exception {
+        engineAnswer = new EngineAnswer(503, "", 0);
+        ENGINE_REQUESTS.clear();
         jdbc.queryForObject(
                 "SELECT set_config('issue_atlas.approver', ?, true)",
                 String.class,
@@ -723,6 +786,167 @@ class QuestionApiTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM question", Integer.class)).isZero();
+    }
+
+    // ── 논증 문장화(S15P31C108-231): ③ 보증 · ⑤ 반박만 engine 결과로, 판정은 그대로 ──
+
+    private static final String PHRASED =
+            """
+            {"schema_version": "ai-phrasing-result-0.2", "run_id": "x", "status": "done",
+             "reason_code": null, "retryable": false,
+             "warrant": {"text": "여수시 청년 순이동은 해마다 순유출이 커졌다.", "provenance": "llm_phrasing"},
+             "rebuttals": [{"text": "대학 진학 · 군 입대 연령의 구조적 전출 — 진학 전출 보도가 있다.",
+                            "status": "supported", "provenance": "llm_judgment"}],
+             "citations": {"warrant": ["ev_stat_x"], "C1-R1": [{"passage": "P1", "quote": "수도권 대학으로 진학",
+               "locator": {"kind": "article", "source_id": "n1", "field": "summary", "sentence": 1,
+                           "date": "2025-03-02", "url": null}}]},
+             "problems": [], "model": "gemini-2.5-flash", "prompt_version": "argument-phrasing-v2"}
+            """;
+    private static final String REJECTED =
+            """
+            {"schema_version": "ai-phrasing-result-0.2", "run_id": "x", "status": "failed",
+             "reason_code": "OUTPUT_REJECTED", "retryable": false,
+             "warrant": {"text": "청년 순유출이", "provenance": "card"}, "rebuttals": [], "citations": {},
+             "problems": [{"check": "number_mismatch", "where": "warrant", "detail": "2500"}],
+             "model": "gemini-2.5-flash", "prompt_version": "argument-phrasing-v2"}
+            """;
+
+    /** C1 규칙이 판정하는 실행(c1RuleJudgesYearSumsOfMonthlyNetMigration 과 같은 자료). */
+    private String judgedC1Run() throws Exception {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < YEOSU.length; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        return runId(ask(body("C1", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+    }
+
+    private Map<String, Object> phrasing(String runId) {
+        return jdbc.queryForMap(
+                "SELECT status, reason_code, problems::text AS problems, citations::text AS citations,"
+                        + " model FROM argument_phrasing WHERE run_id = ?",
+                runId);
+    }
+
+    @Test
+    void engineSentencesFillWarrantAndRebuttalsButNotTheJudgment() throws Exception {
+        engineAnswer = new EngineAnswer(200, PHRASED, 0);
+        String runId = judgedC1Run();
+        argument(runId)
+                .andExpect(jsonPath("$.claim.value").value("increasing"))
+                .andExpect(jsonPath("$.claim.provenance").value("rule"))
+                .andExpect(jsonPath("$.warrant.text").value("여수시 청년 순이동은 해마다 순유출이 커졌다."))
+                .andExpect(jsonPath("$.warrant.provenance").value("llm_phrasing"))
+                .andExpect(jsonPath("$.rebuttals[0].status").value("supported"))
+                .andExpect(jsonPath("$.rebuttals[0].provenance").value("llm_judgment"))
+                .andExpect(jsonPath("$.ceiling.provenance").value("card"));
+        // 보낸 요청은 AI 계약 그대로: 판정 입력(연 값 3개 · 카드 반박 ID) + 기사 + 그 판의 카드 승인본
+        String sent = ENGINE_REQUESTS.getLast();
+        C2Contract.assertAiMatches("phrasing-request", sent);
+        assertThat((List<?>) JsonPath.read(sent, "$.judgment.statistics_points")).hasSize(3);
+        assertThat((String) JsonPath.read(sent, "$.judgment.statistics_points[0].period_start"))
+                .isEqualTo("2023-01-01");
+        assertThat((String) JsonPath.read(sent, "$.judgment.rebuttal_candidates[0].id"))
+                .isEqualTo("C1-R1");
+        assertThat((String) JsonPath.read(sent, "$.card.card_id")).isEqualTo("C1");
+        Map<String, Object> row = phrasing(runId);
+        assertThat(row.get("status")).isEqualTo("done");
+        assertThat(row.get("reason_code")).isNull();
+        assertThat((String) row.get("citations")).contains("C1-R1");
+        // 반박이 차서 6칸이 모두 찬다
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT filled_cells FROM argument_run WHERE run_id = ?",
+                                Integer.class,
+                                runId))
+                .isEqualTo(6);
+    }
+
+    static Stream<Arguments> engineFailures() {
+        return Stream.of(
+                Arguments.of(new EngineAnswer(503, "", 0), "ENGINE_ERROR"),
+                Arguments.of(new EngineAnswer(200, "not json", 0), "ENGINE_ERROR"),
+                Arguments.of(
+                        new EngineAnswer(422, "{\"reason_code\": \"INPUT_INVALID\"}", 0),
+                        "INPUT_INVALID"),
+                Arguments.of(new EngineAnswer(200, PHRASED, 1500), "ENGINE_TIMEOUT"),
+                Arguments.of(new EngineAnswer(200, REJECTED, 0), "OUTPUT_REJECTED"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("engineFailures")
+    void engineFailuresKeepCardTextAndRecordTheReason(EngineAnswer answer, String reason)
+            throws Exception {
+        engineAnswer = answer;
+        String runId = judgedC1Run();
+        argument(runId)
+                .andExpect(jsonPath("$.claim.value").value("increasing"))
+                .andExpect(
+                        jsonPath("$.warrant.text")
+                                .value(org.hamcrest.Matchers.startsWith("청년 순유출이")))
+                .andExpect(jsonPath("$.warrant.provenance").value("card"))
+                .andExpect(jsonPath("$.rebuttals.length()").value(0));
+        Map<String, Object> row = phrasing(runId);
+        assertThat(row.get("status")).isEqualTo("failed");
+        assertThat(row.get("reason_code")).isEqualTo(reason);
+        assertThat(((String) row.get("problems")).contains("number_mismatch"))
+                .isEqualTo(reason.equals("OUTPUT_REJECTED"));
+    }
+
+    @Test
+    void a3RequestCarriesStationYearValues() throws Exception {
+        for (int month = 1; month <= 9; month++) {
+            air("336121", 2023, month, 10);
+            air("336121", 2024, month, 11);
+            air("336121", 2025, month, 13);
+        }
+        String runId =
+                runId(ask(body("A3", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+        String sent = ENGINE_REQUESTS.getLast();
+        C2Contract.assertAiMatches("phrasing-request", sent);
+        // 측정소 연 값 3개 + 규칙이 계산한 시군구 연 값(공통 측정소 첫해 · 끝해 평균) 2개
+        List<String> places = JsonPath.read(sent, "$.judgment.statistics_points[*].place_id");
+        assertThat(places)
+                .containsExactly(
+                        "kr-12130-s336121",
+                        "kr-12130-s336121",
+                        "kr-12130-s336121",
+                        "kr-12130",
+                        "kr-12130");
+        List<Number> values = JsonPath.read(sent, "$.judgment.statistics_points[3:].value");
+        assertThat(values).extracting(Number::intValue).containsExactly(10, 13);
+        assertThat(phrasing(runId).get("reason_code")).isEqualTo("ENGINE_ERROR");
+    }
+
+    @Test
+    void phrasingRowNeedsItsRunAndReasonOnlyWhenNotDone() throws Exception {
+        String runId = judgedC1Run();
+        String insert =
+                "INSERT INTO argument_phrasing (run_id, status, reason_code, duration_ms)"
+                        + " VALUES (?, ?, ?, 0)";
+        // 앞 실행의 기록이 이미 있으니 다른 실행 ID 로 본다: 없는 실행 · done 인데 사유 · 사유 없는 실패 · 모르는 사유
+        for (Object[] row :
+                List.of(
+                        new Object[] {"run_missing", "done", null},
+                        new Object[] {runId + "_x", "done", "LLM_ERROR"},
+                        new Object[] {runId + "_x", "failed", null},
+                        new Object[] {runId + "_x", "failed", "MAYBE"})) {
+            // 제약 위반은 트랜잭션을 멈추므로 시도마다 savepoint 로 되돌린다
+            jdbc.execute("SAVEPOINT phrasing_row");
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update(insert, row))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            jdbc.execute("ROLLBACK TO SAVEPOINT phrasing_row");
+        }
+    }
+
+    @Test
+    void runsWithoutApprovedCardDoNotCallTheEngine() throws Exception {
+        runId(ask(body(null, "2025-01-01", "2026-01-01")));
+        assertThat(ENGINE_REQUESTS).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM argument_phrasing", Integer.class))
+                .isZero();
     }
 
     @Test

@@ -1,19 +1,16 @@
 """개발용: 판정 입력 파일과 기사 목록 파일로 문장화를 한 번 돌려 결과를 출력한다.
 
-DB 에 쓰지 않는다.
+DB 에 쓰지 않는다. 운영 경로는 backend → engine POST /v1/argument/phrase.
 
     uv --directory engine run python -m ai.argument <판정 입력> <기사> [--card <카드>]
 
 판정 입력은 contracts/ai judgment-input, 기사는 C2 articles[] 배열.
 카드 승인본은 카드 파일(기본 contracts/cards/<card_id>.json, 판정 입력과 같은 판).
-실제 기사를 외부 모델로 보내도 되는지 확인 전이라(contracts/ai 「열린 문제」)
-fixture 가 아닌 판정 입력은 멈춘다.
 """
 
 import argparse
 import json
 import sys
-from dataclasses import asdict
 from pathlib import Path
 
 from .phrase import phrase
@@ -33,14 +30,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--card", type=Path)
     args = parser.parse_args(argv)
     judgment = read(args.judgment)
-    if not judgment.get("fixture"):
-        print("가상 판정 입력(fixture: true)만 외부 모델로 보냅니다", file=sys.stderr)
-        return 2
     card = read(args.card or CARDS / f"{judgment['question']['card_id']}.json")
     result = phrase(judgment, article_sources(read(args.articles)), card)
-    report = {**asdict(result), "retryable": result.retryable}
     sys.stdout.reconfigure(encoding="utf-8")
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    print(json.dumps(result.result(), ensure_ascii=False, indent=2))
     return 0
 
 

@@ -23,6 +23,7 @@ import com.c108.issueatlas.question.repository.QuestionRepository.CardRow;
 import com.c108.issueatlas.question.repository.QuestionRepository.EvidenceRef;
 import com.c108.issueatlas.question.repository.QuestionRepository.MatchedResponse;
 import com.c108.issueatlas.question.repository.QuestionRepository.PreviousRun;
+import com.c108.issueatlas.question.service.ArgumentPhraser.Phrased;
 import com.c108.issueatlas.question.service.CardJudge.Judgment;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -47,7 +48,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * 질문 저장 → 실행 → 결과 저장(S15P31C108-133). 판단(claim · 비교 조건 · 근거 고르기)은 승인본 기반 {@link CardJudge}가 하고,
- * 여기서는 근거 수요표 · 실행 상태 · 한정어 · 6칸 문장(템플릿, LLM 없음)만 만든다. 실행 결과는 한 번 쓰고 고치지 않는다.
+ * 여기서는 근거 수요표 · 실행 상태 · 한정어 · 6칸 문장(템플릿)을 만든다. 승인본이 있으면 ③ 보증 · ⑤ 반박만 {@link ArgumentPhraser}(engine
+ * LLM 문장화)가 바꿔 쓸 수 있고, 못 받으면 템플릿 그대로다. 실행 결과는 한 번 쓰고 고치지 않는다.
  */
 @Service
 public class QuestionService {
@@ -67,6 +69,7 @@ public class QuestionService {
     private final CardRepository cards;
     private final CardJudge judge;
     private final SeriesService series;
+    private final ArgumentPhraser phraser;
     private final ObjectMapper json;
 
     public QuestionService(
@@ -74,11 +77,13 @@ public class QuestionService {
             CardRepository cards,
             CardJudge judge,
             SeriesService series,
+            ArgumentPhraser phraser,
             ObjectMapper json) {
         this.questions = questions;
         this.cards = cards;
         this.judge = judge;
         this.series = series;
+        this.phraser = phraser;
         this.json = json;
     }
 
@@ -164,6 +169,13 @@ public class QuestionService {
                         card == null
                                 ? List.of()
                                 : series.articles(card.cardId(), request.placeId(), start, end));
+        Phrased phrased =
+                run.approved() == null
+                        ? null
+                        : phraser.phrase(result, run.approved(), run.judgment());
+        if (phrased != null) {
+            result = result.withArgumentText(phrased.warrant(), phrased.rebuttals());
+        }
         PreviousRun previous =
                 questions.previousRun(request.placeId(), request.cardId(), start, end).orElse(null);
         int filled = filledCells(result);
@@ -188,6 +200,9 @@ public class QuestionService {
                 diff(filled, previous == null ? null : previous.filledCells()),
                 durationMs,
                 diff(durationMs, previous == null ? null : previous.durationMs()));
+        if (phrased != null) {
+            questions.insertPhrasing(runId, phrased.row());
+        }
         run.refs()
                 .forEach(
                         (kind, refs) ->
@@ -433,7 +448,8 @@ public class QuestionService {
                 approved,
                 refs,
                 responses,
-                pending);
+                pending,
+                judgment);
     }
 
     private Run notJudged(
@@ -455,7 +471,8 @@ public class QuestionService {
                 approved,
                 refs,
                 responses,
-                pending);
+                pending,
+                null);
     }
 
     private List<EvidenceRef> load(List<String> ids) {
@@ -648,7 +665,10 @@ public class QuestionService {
                 "rule");
     }
 
-    /** 한 실행의 중간 결과. responses: 기존 대응 근거 ID → 후보 ID, pending: 등급 없어 근거로 못 쓴 후보. */
+    /**
+     * 한 실행의 중간 결과. responses: 기존 대응 근거 ID → 후보 ID, pending: 등급 없어 근거로 못 쓴 후보, judgment: 규칙이 판정했을 때만
+     * (문장화 입력의 연 값).
+     */
     private record Run(
             String status,
             List<EvidenceRow> table,
@@ -658,5 +678,6 @@ public class QuestionService {
             ApprovedCard approved,
             Map<String, List<EvidenceRef>> refs,
             Map<String, String> responses,
-            List<String> pending) {}
+            List<String> pending,
+            Judgment judgment) {}
 }

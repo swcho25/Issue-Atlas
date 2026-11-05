@@ -19,6 +19,7 @@
         "WAITING_JUDGMENT",
         "RUN_BLOCKED",
         "RUN_UNSUPPORTED",
+        "NOT_JUDGED",
         "INPUT_INVALID",
         "FIXTURE_IN_PRODUCTION",
         "LLM_TIMEOUT",
@@ -44,7 +45,7 @@
     },
     {
       "if": { "properties": { "status": { "const": "skipped" } } },
-      "then": { "properties": { "reason_code": { "enum": ["RUN_BLOCKED", "RUN_UNSUPPORTED"] }, "retryable": { "const": false } } }
+      "then": { "properties": { "reason_code": { "enum": ["RUN_BLOCKED", "RUN_UNSUPPORTED", "NOT_JUDGED"] }, "retryable": { "const": false } } }
     },
     {
       "if": { "properties": { "status": { "const": "failed" } } },

@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/ai/phrasing-result.schema.json",
+  "title": "AI 모듈 문장화 결과 v0.2 — engine POST /v1/argument/phrase 응답",
+  "description": "warrant · rebuttals 는 C2 칸 모양 그대로라 done 이면 backend 가 응답 칸을 바꿔 끼운다. done 이 아니면 카드 보증 문구와 빈 반박(지금 응답과 같음)",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": "ai-phrasing-result-0.2" },
+    "run_id": { "$ref": "../c2/common.schema.json#/$defs/id" },
+    "status": { "enum": ["done", "skipped", "failed"] },
+    "reason_code": {
+      "enum": [
+        null,
+        "RUN_BLOCKED",
+        "RUN_UNSUPPORTED",
+        "NOT_JUDGED",
+        "INPUT_INVALID",
+        "LLM_TIMEOUT",
+        "LLM_ERROR",
+        "OUTPUT_REJECTED"
+      ]
+    },
+    "retryable": { "description": "같은 입력으로 다시 부르면 달라질 수 있는가(모델 호출 실패만 true)", "type": "boolean" },
+    "warrant": { "$ref": "../c2/argument.schema.json#/properties/warrant" },
+    "rebuttals": { "$ref": "../c2/argument.schema.json#/properties/rebuttals" },
+    "citations": {
+      "description": "칸 → 인용. warrant 는 근거 ID, 반박(id)은 구절과 원문 위치. C2 응답으로 나가지 않는다(감사용)",
+      "type": "object",
+      "properties": { "warrant": { "type": "array", "items": { "type": "string" } } },
+      "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/citation" } }
+    },
+    "problems": {
+      "description": "OUTPUT_REJECTED 일 때 떨어진 검사. 검사 이름은 README 「출력 검사」",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "enum": [
+              "format",
+              "judgment_changed",
+              "unknown_citation",
+              "quote_not_in_source",
+              "number_mismatch",
+              "unsupported",
+              "forbidden_term"
+            ]
+          },
+          "where": { "type": "string" },
+          "detail": { "type": "string" }
+        },
+        "required": ["check", "where", "detail"],
+        "additionalProperties": false
+      }
+    },
+    "model": { "type": ["string", "null"] },
+    "prompt_version": { "type": "string", "minLength": 1 }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "status",
+    "reason_code",
+    "retryable",
+    "warrant",
+    "rebuttals",
+    "citations",
+    "problems",
+    "model",
+    "prompt_version"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "done" } } },
+      "then": { "properties": { "reason_code": { "const": null }, "problems": { "maxItems": 0 } } },
+      "else": { "properties": { "rebuttals": { "maxItems": 0 }, "citations": { "maxProperties": 0 } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "skipped" } } },
+      "then": { "properties": { "reason_code": { "enum": ["RUN_BLOCKED", "RUN_UNSUPPORTED", "NOT_JUDGED"] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "failed" } } },
+      "then": {
+        "properties": { "reason_code": { "enum": ["INPUT_INVALID", "LLM_TIMEOUT", "LLM_ERROR", "OUTPUT_REJECTED"] } }
+      }
+    },
+    {
+      "if": { "properties": { "reason_code": { "const": "OUTPUT_REJECTED" } }, "required": ["reason_code"] },
+      "then": { "properties": { "problems": { "minItems": 1 } } }
+    }
+  ],
+  "$defs": {
+    "citation": {
+      "type": "object",
+      "properties": {
+        "passage": { "type": "string", "minLength": 1 },
+        "quote": { "type": "string", "minLength": 1 },
+        "locator": {
+          "description": "원문 위치: 자료 종류 · 원천 ID(기사는 news_id) · 칸 · 몇 번째 문장 · 날짜 · 링크",
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string" },
+            "source_id": { "type": "string" },
+            "field": { "type": "string" },
+            "sentence": { "type": "integer", "minimum": 1 },
+            "date": { "$ref": "../c2/common.schema.json#/$defs/date" },
+            "url": { "type": ["string", "null"] }
+          },
+          "required": ["kind", "source_id", "field", "sentence", "date", "url"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["passage", "quote", "locator"],
+      "additionalProperties": false
+    }
+  }
+}

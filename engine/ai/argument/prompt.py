@@ -10,7 +10,7 @@
 import re
 from datetime import date, timedelta
 
-PROMPT_VERSION = "argument-phrasing-v2"
+PROMPT_VERSION = "argument-phrasing-v3"
 MAX_SOURCES = 40
 STATUSES = ("supported", "not_found", "needs_review")
 # C2 「공통 규칙」: 문구에 쓰지 않는다. 카드 금지어와 합친다
@@ -24,9 +24,14 @@ SYSTEM = "\n".join(
         " 출력 claim_value 에는 fixed.claim_value 를 그대로 적는다.",
         "2. 숫자는 statistics 의 value · period 와 입력 문장에 이미 있는 숫자만 쓴다."
         " 더하기 · 빼기 · 비율 같은 새 계산을 하지 않는다.",
-        "3. warrant.text: card_warrant 의 논리를 이 질문(지역 · 기간)에 맞게 두 문장 이내로"
-        " 다시 쓴다. fixed 판단과 반대되는 말을 하지 않는다."
-        " statistics 값을 쓰면 그 evidence_id 를 warrant.citations 에 넣는다.",
+        "3. warrant.text: 두 문장 이내. 첫 문장은 statistics 의 연 값(place 가 질문 지역인 값이"
+        " 있으면 그것, 첫해와 끝해는 꼭)을 그대로 써서 판정이 어떻게 나왔는지 보인다."
+        " 판정 이유는 fixed.rule_meaning 으로만 설명하고 다른 이유를 지어내지 않는다."
+        " 둘째 문장은 card_warrant 의 논리를 이 질문(지역 · 기간)에 맞게 쓴다."
+        " fixed 판단과 반대되는 말을 하지 않는다."
+        " 쓴 값의 evidence_id 를 warrant.citations 에 넣는다.",
+        "3-1. 값의 부호와 같은 뜻의 낱말을 겹쳐 쓰지 않는다"
+        "(순유출 -1,850명 ✗ → 순이동 -1,850명 또는 순유출 1,850명).",
         "4. rebuttals: rebuttal_candidates 마다 같은 id 로 하나씩."
         " passages 에 그 경쟁 설명을 뒷받침하는 내용이 있으면 status 를 supported 로 하고"
         " citations 에 passage id 와, 그 구절에서 글자 그대로 옮긴 quote 를 넣는다."
@@ -77,15 +82,16 @@ def passages(sources: list[dict]) -> list[dict]:
 
 
 def rebuttal_ids(candidates: list[dict]) -> list[str | None]:
-    """규칙이 정하지 않은 경쟁 설명에만 R1, R2 … 를 준다.
+    """규칙이 정하지 않은 경쟁 설명에만 ID 를 준다.
 
+    카드 반박 ID(C1-R1)가 있으면 그것, 없으면 R1, R2 ….
     규칙이 정한 것은 None 이고 모델에 보내지 않는다.
     """
     ids, n = [], 0
     for candidate in candidates:
         if candidate["decided_by_rule"] is None:
             n += 1
-            ids.append(f"R{n}")
+            ids.append(candidate.get("id") or f"R{n}")
         else:
             ids.append(None)
     return ids
@@ -99,13 +105,30 @@ def period(start: str, end: str) -> str:
     return f"{first}~{last}"
 
 
+def outcome(judgment: dict, card: dict) -> dict | None:
+    """판정이 고른 규칙 결과.
+
+    승인본 rule.outcomes 중 판단 값이 같고 이름(label)이 판단 문장에 든 것(가장 긴 이름).
+    """
+    claim = judgment["claim"]
+    found = [
+        o
+        for o in card.get("rule", {}).get("outcomes", [])
+        if o.get("claim") == claim["value"]
+        and o.get("label")
+        and o["label"] in (claim["text"] or "")
+    ]
+    return max(found, key=lambda o: len(o["label"]), default=None)
+
+
 def build(judgment: dict, sources: list[dict], card: dict) -> dict:
     """card = 그 실행이 쓴 카드 승인본(DB card_version.spec).
 
-    카드마다 다른 설정은 여기서만 읽는다.
+    카드마다 다른 설정(금지어 · 규칙 결과 뜻)은 여기서만 읽는다.
     """
     question = judgment["question"]
     candidates = judgment["rebuttal_candidates"]
+    chosen = outcome(judgment, card)
     return {
         "question": {
             "place": question["place_name"],
@@ -118,13 +141,23 @@ def build(judgment: dict, sources: list[dict], card: dict) -> dict:
             "claim_text": judgment["claim"]["text"],
             "qualifier_grade": judgment["qualifier"]["grade"],
             "comparability": {k: v["note"] for k, v in judgment["comparability"].items()},
+            # 판정 이유는 이 뜻으로만 말한다(v3). 다른 결과들은 뜻을 견주어 보라고 함께 준다
+            "rule_meaning": chosen["meaning"] if chosen else None,
+            "rule_outcomes": [
+                {"label": o["label"], "meaning": o["meaning"]}
+                for o in card.get("rule", {}).get("outcomes", [])
+                if o.get("label") and o.get("meaning")
+            ],
         },
         "card_warrant": judgment["warrant"]["text"],
         "statistics": [
             {
                 "evidence_id": p["evidence_id"],
                 "indicator_id": p["indicator_id"],
-                "place_id": p["place_id"],
+                # 질문 지역 값인지(측정소가 여럿이면 지역 값 = 공통 측정소 평균) 측정소 값인지
+                "place": question["place_name"]
+                if p["place_id"] == question["place_id"]
+                else p["place_id"],
                 "period": period(p["period_start"], p["period_end"]),
                 "value": p["value"],
                 "unit": p["unit"],

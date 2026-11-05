@@ -376,6 +376,24 @@ public class QuestionRepository {
                 .update();
     }
 
+    /** 실행 한 건의 문장화 기록(V0046). problems · citations 는 JSON 문자열. */
+    public void insertPhrasing(String runId, PhrasingRow row) {
+        jdbc.sql(
+                        "INSERT INTO argument_phrasing (run_id, status, reason_code, problems,"
+                                + " citations, model, prompt_version, duration_ms)"
+                                + " VALUES (?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)")
+                .params(
+                        runId,
+                        row.status(),
+                        row.reasonCode(),
+                        row.problems(),
+                        row.citations(),
+                        row.model(),
+                        row.promptVersion(),
+                        row.durationMs())
+                .update();
+    }
+
     public void insertSource(String runId, String kind, String evidenceId, String responseId) {
         jdbc.sql(
                         "INSERT INTO argument_run_source (run_id, kind, evidence_id, response_id)"
@@ -457,6 +475,16 @@ public class QuestionRepository {
             String stationId, String whenUnit, String period, BigDecimal value, String status) {}
 
     public record MatchedResponse(String responseId, String evidenceId) {}
+
+    /** argument_phrasing 한 행. reasonCode 는 done 이면 null */
+    public record PhrasingRow(
+            String status,
+            String reasonCode,
+            String problems,
+            String citations,
+            String model,
+            String promptVersion,
+            int durationMs) {}
 
     /** 재실행 로그의 앞 실행. 칸이 생기기 전(V0033) 실행은 지표가 null */
     public record PreviousRun(String runId, Integer filledCells, Integer durationMs) {}

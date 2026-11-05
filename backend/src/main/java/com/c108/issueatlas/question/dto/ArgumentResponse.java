@@ -24,6 +24,29 @@ public record ArgumentResponse(
         Ceiling ceiling,
         List<Series> series,
         List<Article> articles) {
+    /** ③ 보증 · ⑤ 반박만 바꾼 같은 응답(문장화 결과를 끼울 때). 다른 칸은 그대로다. */
+    public ArgumentResponse withArgumentText(Text warrant, List<Rebuttal> rebuttals) {
+        return new ArgumentResponse(
+                schemaVersion,
+                runId,
+                question,
+                cardVersion,
+                formulaVersion,
+                taxonomyVersion,
+                runStatus,
+                createdAt,
+                evidenceTable,
+                comparability,
+                claim,
+                data,
+                warrant,
+                qualifier,
+                rebuttals,
+                ceiling,
+                series,
+                articles);
+    }
+
     /**
      * 화면 그림 한 줄(「시공간 표시 개발 명세」 5절). 세 배열(periods · values · statuses)은 길이가 같고 월 순서다. 그림 종류는 모양이
      * 정한다: to 가 있으면 이동, tag 가 있으면 기사 건수(확산), coordinates 가 있으면 지도, 없으면 막대.
