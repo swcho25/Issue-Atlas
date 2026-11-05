@@ -328,6 +328,24 @@ public class QuestionService {
             refs.put("statistics", load(judgment.statistics()));
             refs.put("documents", load(judgment.documents()));
             refs.put("denominators", load(judgment.denominators()));
+            // ponytail: 통계와 같은 임시 방식 — 확보 상태를 쓰는 곳(P3/P4)이 아직 없어, 판정이 이은 근거가 있으면
+            // not_collected(등록 없음 포함)를 available 로 본다. 등록된 not_published · license_blocked 는 그대로
+            for (String kind : List.of("documents", "denominators")) {
+                if (!refs.get(kind).isEmpty() && "not_collected".equals(statusOf(status, kind))) {
+                    status.put(
+                            kind,
+                            new CardEvidenceRow(
+                                    card.cardId(),
+                                    card.name(),
+                                    null,
+                                    null,
+                                    card.cardVersion(),
+                                    card.taxonomyVersion(),
+                                    kind,
+                                    "available",
+                                    0));
+                }
+            }
         }
         List<EvidenceRow> table = new ArrayList<>();
         for (String kind : KINDS) {
@@ -475,7 +493,32 @@ public class QuestionService {
                             : "이 지역 · 기간의 확보 상태가 등록되지 않았습니다.";
             return new EvidenceRow(kind, required, "not_collected", count, 0, reason);
         }
-        return new EvidenceRow(kind, required, status.status(), count, review, null);
+        return new EvidenceRow(
+                kind,
+                required,
+                status.status(),
+                count,
+                review,
+                missingReason(kind, status.status()));
+    }
+
+    /** 근거 수요표의 「없는 이유」(회사 플랜 Goal ①). available 이면 null, 아니면 상태 · 근거 종류별 문장. */
+    static String missingReason(String kind, String status) {
+        return switch (status) {
+            case "available" -> null;
+            case "not_published" -> "원천이 이 기간 값을 아직 공표하지 않았습니다.";
+            case "license_blocked" -> "이용 조건상 이 근거를 저장 · 표시할 수 없습니다.";
+            case "review_pending" -> "검수를 기다리는 근거라 아직 쓰지 않았습니다.";
+            default ->
+                    switch (kind) {
+                        case "statistics" -> "이 지역 · 기간의 통계 관측 값이 없습니다.";
+                        // ponytail: 11/13 「보도자료 → 문서 칸 통합」에서 판정에 문서를 이으면 문장을 바꾼다
+                        case "documents" -> "기사 · 보도자료를 아직 이 판정에 잇지 않았습니다.";
+                        case "existing_responses" -> "이 지역 · 기간 · 카드에 맞는 기존 대응 후보가 없습니다.";
+                        case "denominators" -> "카드의 분모 지표에 이 지역 · 기간 관측 값이 없습니다.";
+                        default -> "이 지역 · 기간의 근거가 없습니다.";
+                    };
+        };
     }
 
     private static List<String> failed(Comparability c) {

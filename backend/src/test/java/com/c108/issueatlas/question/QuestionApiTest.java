@@ -219,6 +219,13 @@ class QuestionApiTest {
 
     /** observation view(V0025)가 읽는 KOSIS 정제 한 행. 기간은 그 달 한 달. */
     private void kosis(String spec, String indicator, String locator, String month, int value) {
+        kosis(spec, indicator, locator, "M", month, value);
+    }
+
+    /** KOSIS 정제 한 행. type M 은 그 달 한 달, Y 는 그 해 한 해(start 는 1월 1일). */
+    private void kosis(
+            String spec, String indicator, String locator, String type, String start, int value) {
+        String length = type.equals("Y") ? "1 year" : "1 month";
         jdbc.update(
                 "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
                         + " VALUES ('S01','KOSIS','통계청','KOGL-1','full','A') ON CONFLICT DO NOTHING");
@@ -231,7 +238,7 @@ class QuestionApiTest {
                         + " VALUES (?,?,'test',now()) ON CONFLICT DO NOTHING",
                 "run-q-" + spec,
                 spec);
-        String hash = "sha256:" + spec + locator + month;
+        String hash = "sha256:" + spec + locator + start;
         jdbc.update(
                 "INSERT INTO raw_record(job_run_id,spec_id,raw_url,content_hash,collected_at)"
                         + " VALUES (?,?,'https://kosis.kr',?,now())",
@@ -242,15 +249,17 @@ class QuestionApiTest {
                 "INSERT INTO normalized_record(content_hash,source_id,spec_id,indicator_id,place_code_system,"
                         + "place_code_raw,observed_period_type,observed_period_start,observed_period_end,value,unit,"
                         + "storage_scope,validation_status,issues,rule_version,obs_key,is_latest,record)"
-                        + " VALUES (?,'S01',?,?,'kosis','46130','M',CAST(? AS date)::timestamp AT TIME ZONE 'Asia/Seoul',"
-                        + "(CAST(? AS date) + interval '1 month')::timestamp AT TIME ZONE 'Asia/Seoul',?,'명','full',"
+                        + " VALUES (?,'S01',?,?,'kosis','46130',?,CAST(? AS date)::timestamp AT TIME ZONE 'Asia/Seoul',"
+                        + "(CAST(? AS date) + CAST(? AS interval))::timestamp AT TIME ZONE 'Asia/Seoul',?,'명','full',"
                         + "'pass','[]','p2-test','obs:' || encode(sha256(convert_to(?, 'UTF8')), 'hex'),true,"
                         + "jsonb_build_object('locator', ?::jsonb))",
                 hash,
                 spec,
                 indicator,
-                month,
-                month,
+                type,
+                start,
+                start,
+                length,
                 value,
                 hash,
                 locator);
@@ -476,13 +485,95 @@ class QuestionApiTest {
                         jsonPath("$.warrant.text")
                                 .value(org.hamcrest.Matchers.startsWith("청년 순유출이")))
                 .andExpect(jsonPath("$.ceiling.items[0]").value("떠난 이유"))
-                .andExpect(jsonPath("$.series[0].values.length()").value(36));
+                .andExpect(jsonPath("$.series[0].values.length()").value(36))
+                // 분모 지표(SP10 주민등록인구) 관측이 없으면 분모 칸은 비고, 빈 칸마다 없는 이유가 있다
+                .andExpect(jsonPath("$.evidence_table[3].kind").value("denominators"))
+                .andExpect(jsonPath("$.evidence_table[3].status").value("not_collected"))
+                .andExpect(
+                        jsonPath("$.evidence_table[3].reason")
+                                .value("카드의 분모 지표에 이 지역 · 기간 관측 값이 없습니다."))
+                .andExpect(jsonPath("$.evidence_table[1].status").value("not_collected"))
+                .andExpect(
+                        jsonPath("$.evidence_table[1].reason")
+                                .value("기사 · 보도자료를 아직 이 판정에 잇지 않았습니다."))
+                .andExpect(
+                        jsonPath("$.evidence_table[0].reason")
+                                .value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.denominators.length()").value(0));
         // 같은 지역 · 기간 · 지표는 같은 근거 한 행(다시 실행해도 늘지 않는다)
         runId(ask(body));
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM evidence WHERE kind = 'statistics'"
                                         + " AND evidence_id LIKE 'ev_stat_%'",
+                                Integer.class))
+                .isEqualTo(1);
+    }
+
+    /** 여수 SP10 주민등록인구 연말 값 2023–2025(개발 DB 실데이터). */
+    private static final int[] YEOSU_REGISTERED = {271696, 267816, 263284};
+
+    @Test
+    void c1DenominatorIsLinkedFromRegisteredPopulation() throws Exception {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < YEOSU.length; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        for (int i = 0; i < YEOSU_REGISTERED.length; i++) {
+            String year = LocalDate.of(2023 + i, 1, 1).toString();
+            kosis(
+                    "SP10",
+                    "population_registered",
+                    "{\"C2\": \"000\"}",
+                    "Y",
+                    year,
+                    YEOSU_REGISTERED[i]);
+        }
+        String body =
+                """
+                {"place_id": "kr-12130", "card_id": "C1", "period_start": "2023-01-01",
+                 "period_end": "2026-01-01", "raw_text": null}
+                """;
+        String result =
+                argument(runId(ask(body)))
+                        .andExpect(jsonPath("$.claim.value").value("increasing"))
+                        .andExpect(jsonPath("$.evidence_table[3].kind").value("denominators"))
+                        .andExpect(jsonPath("$.evidence_table[3].status").value("available"))
+                        .andExpect(jsonPath("$.evidence_table[3].count").value(1))
+                        .andExpect(
+                                jsonPath("$.evidence_table[3].reason")
+                                        .value(org.hamcrest.Matchers.nullValue()))
+                        .andExpect(jsonPath("$.data.denominators.length()").value(1))
+                        .andExpect(
+                                jsonPath("$.data.denominators[0].evidence_id")
+                                        .value(org.hamcrest.Matchers.startsWith("ev_den_")))
+                        .andExpect(
+                                jsonPath("$.data.denominators[0].title")
+                                        .value("KOSIS 인구이동 · 주민등록인구 (연말)"))
+                        .andExpect(jsonPath("$.data.denominators[0].source_grade").value("A"))
+                        .andExpect(
+                                jsonPath("$.data.denominators[0].period_start").value("2023-01-01"))
+                        // 분모는 한정어 구성 값에서 뺀다(qualifier-0.1): 독립 근거는 통계 하나 그대로
+                        .andExpect(jsonPath("$.qualifier.components.independent_evidence").value(1))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        String runId = JsonPath.read(result, "$.run_id");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM argument_run_source"
+                                        + " WHERE run_id = ? AND kind = 'denominators'",
+                                Integer.class,
+                                runId))
+                .isEqualTo(1);
+        // 다시 실행해도 분모 근거는 한 행
+        runId(ask(body));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM evidence WHERE kind = 'denominators'",
                                 Integer.class))
                 .isEqualTo(1);
     }
