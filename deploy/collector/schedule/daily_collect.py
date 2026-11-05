@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 COLLECT = "/usr/local/sbin/issueatlas-collect"
 KST = ZoneInfo("Asia/Seoul")
-# 여수 게시판은 최신 글부터 100건씩 준다. 14일이면 한 쪽이고, 하루 이틀 빠져도 다음 실행이 채운다
+# 여수 게시판은 최신 글부터 100건씩 준다. 14일이면 1–2쪽(11/5 첫 실행 116건)이고, 하루 이틀 빠져도 다음 실행이 채운다
 PRESS_DAYS = 14
 
 
