@@ -39,6 +39,7 @@ frontend/
 | 명령 | 하는 일 |
 | --- | --- |
 | `pnpm frontend:dev` | 개발 서버 (http://localhost:3000) |
+| `pnpm --filter frontend mock:api` | 목 API 서버 (http://localhost:4010). 개발 서버를 `API_BASE_URL=http://localhost:4010` 으로 띄우면 `/results/{계약 예시 run_id}` 가 `contracts/c2/examples` 로 그려지고, 나머지 요청은 dev 백엔드로 간다 |
 | `pnpm frontend:lint` | ESLint + FSD 검사 |
 | `pnpm frontend:typecheck` | 라우트 타입 생성 + tsc |
 | `pnpm frontend:test` | 단위 · 컴포넌트 테스트 (Vitest) |

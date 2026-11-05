@@ -1,1 +1,1 @@
-export { AppRail } from "./ui/AppRail";
+export { AppRail, AppRailPlaceholder } from "./ui/AppRail";

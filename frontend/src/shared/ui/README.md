@@ -14,6 +14,7 @@
 | `ProvBadge` ← `@/shared/ui/badge` | 논증 카드 칸을 누가 채웠는지(규칙 · 카드 · AI · 검수) | `v5/Prov badge` |
 | `TabBar` ← `@/shared/ui/tab-bar` | 결과 화면 요약 · 수요표 · 논증 · 원문 오가기 | `Tab bar/Item` |
 | `Icon` ← `@/shared/ui/icon` | 모든 줄 아이콘(30개) | `v3/Icon` |
+| `MapView` ← `@/shared/ui/map` | 지도 바탕(OpenFreeMap positron · 한국어 지명) + 시군구 · 행정동 경계. 지도 위 부품은 children | 04 지도 |
 | `AtlasMark` · `Lockup` ← `@/shared/ui/logo` | 로고(띠 · 랜딩 · 바닥글) | 로고 |
 
 ## 쓰는 법

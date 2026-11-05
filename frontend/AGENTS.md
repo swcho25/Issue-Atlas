@@ -56,6 +56,7 @@ Next.js 16(App Router) · TypeScript strict · Tailwind CSS 4 · Feature-Sliced 
 - 작성·실행은 `test` 스킬. 단위(스키마·변환)·컴포넌트(상태 있는 것만)는 필요할 때, 페이지(Playwright)는 페이지 완성 시 1~3개
 - 테스트 파일은 대상 옆 `*.test.ts(x)`, 페이지 테스트는 `e2e/`. 도구는 `@/shared/lib/test`(`renderWithQuery`, `mswServer`) — 앱 코드에서 import 하지 않는다
 - 스냅샷 테스트를 쓰지 않는다. 테스트를 통과시키려고 기대값을 바꾸거나 skip 하지 않는다
+- 백엔드에 아직 없는 결과 화면은 목 API(`mocks/api-server.ts`, `pnpm --filter frontend mock:api`)로 띄워 본다. 가짜 응답은 손으로 만들지 않고 `contracts/c2/examples` 만 쓴다
 
 ## 검사 (루트에서)
 `pnpm frontend:lint`(ESLint + steiger + prettier) · `pnpm frontend:typecheck` · `pnpm frontend:test` · `pnpm frontend:e2e`(빌드 포함)
