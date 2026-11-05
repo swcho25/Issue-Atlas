@@ -45,6 +45,10 @@ issue-atlas:
     # 카드 문구로 응답한다(argument_phrasing 사유 ENGINE_DISABLED). 응답 대기는 engine 모델 제한(30초)보다 조금 길게.
     url: ${ENGINE_URL:}
     timeout: ${ENGINE_TIMEOUT:40s}
+    # 같은 문장화 입력(run_id · question_id 제외)의 done 결과를 서버 메모리에 담아 다시 쓴다(S15P31C108-261).
+    # 크기 0 이면 끈다. engine 프롬프트 · 모델을 바꾼 뒤 바로 반영하려면 backend 를 다시 띄운다.
+    cache-size: ${ENGINE_CACHE_SIZE:500}
+    cache-ttl: ${ENGINE_CACHE_TTL:24h}
   admin:
     # 첫 관리자. 둘 다 있고 같은 이메일이 없을 때만 한 번 만든다. 값은 환경 변수로만 준다.
     email: ${ADMIN_EMAIL:}
