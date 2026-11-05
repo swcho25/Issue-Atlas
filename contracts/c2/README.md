@@ -53,6 +53,8 @@
 - 6칸 문장은 템플릿으로만 만든다(LLM 없음). 보증 ③ · 상한선 ⑥ 은 카드 정의(규칙이 함께 줌), 반박 ⑤ 는 아직 `[]`
 - 「기존 대응」: [-136 후보](../existing-response/) 중 같은 카드 · 지역(`place_id`)이고 기간이 겹치는 현재 판만 잇는다. 세출은 회계연도 `[Y-01-01, Y+1-01-01)`, 온통청년은 사업 기간으로 겹침을 본다. 기간을 모르는 후보와 광역 후보(광주 본청 `kr-29` · `place_id` null)는 시군구 질문에 잇지 않는다. 출처 등급(`source.reliability_grade`)이 정해진 출처의 후보만 근거(`evidence`, ID `ev_<후보 해시>`)로 만들고, 등급 없는 후보는 근거 수요표에 `review_pending`(보류 수 = 후보 수)으로만 센다
 - 근거 수요표 상태는 `card_evidence_status`(정확히 같은 기간 · 카드 판)를 읽는다. 기존 대응은 이번 실행이 이은 후보가 있으면 그것으로 정한다
+- 「분모」: 승인본 `evidence.denominators` 의 지표마다 질문 지역 · 기간에 available 관측(observation) 행이 있으면 근거 한 행(`ev_den_<md5>`, 이름은 지표 사전 `label`)을 만들어 `data.denominators` 에 넣는다. 판정이 이은 분모 · 문서 근거가 있으면 확보 상태 `not_collected`(등록 없음 포함)를 `available` 로 본다(통계와 같은 임시 방식). 분모는 한정어 구성 값에서 뺀다. 지금 C1 · A3 승인본의 분모는 SP10 전체 인구(`population_registered_total`)뿐 — 19–39세 인구는 관측 view 에 합계 행이 없어 아직 잇지 않는다
+- 근거 수요표 `reason`: `available` 이면 null, 아니면 「없는 이유」 문장(회사 플랜 Goal ①). 상태가 `not_published` · `license_blocked` · `review_pending` 이면 상태별 문장, `not_collected` 면 근거 종류별 문장(예: 분모 「카드의 분모 지표에 이 지역 · 기간 관측 값이 없습니다.」, 문서 「기사 · 보도자료를 아직 이 판정에 잇지 않았습니다.」 — 문서 칸은 11/13 보도자료 연결 전까지)
 - 한정어 ④ 는 위 「정하지 않은 것」의 임시 방식으로 센다
 
 ## 그림 자료 `series[]` · 근거 기사 `articles[]`
@@ -192,3 +194,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-02): `articles[]` 에 `url`(원문 링크, null 허용)을 더한다 — 데모 「근거 기사 2클릭 → 원문」. C1 예시 문구의 청년 연령을 카드 계약(contracts/cards, 대표 결정 2026-11-01)대로 15–39세 → 19–39세.
 - v0.1 (2026-11-02): C1 판정 규칙 연결(`c1-net-migration-0.1`, 대표 결정 2026-11-01). 통계 상태가 등록되지 않았으면 관측 행으로 정하고, 통계 근거를 실행 때 만든다. 판단 문장은 카드 결과 이름(`rule.outcomes[].label`)을 쓴다.
 - v0.1 (2026-11-04): 지역 경계 `GET /v1/places/{place_id}/boundaries` 추가(S15P31C108-238, 11/4 동결 뒤라 기존 응답은 그대로 두고 **새 엔드포인트**로). GeoJSON FeatureCollection(WGS84 [경도, 위도], 소수 5자리)에 `schema_version`. 시군구를 주면 시군구 경계 + 그 행정동, 행정동을 주면 그 하나, 경계 없는 place 는 빈 `features`, 없는 place 는 404. feature `properties` 는 `place_id` · `name` · `level` · `parent_id` · `source` · `source_year`. 경계 자료는 contracts/p3 v0.12 「경계」(SGIS 2025, 10 m 단순화)
+- v0.1 (2026-11-05): 근거 수요표 분모 칸 · 빈 칸 이유(S15P31C108-249). 칸 · 타입은 그대로(동결 규칙의 「빈 배열 · null 칸에 값이 차는 것」). 승인본 분모 지표의 관측 행이 있으면 `data.denominators` 에 `ev_den_<md5>` 근거가 차고 분모 줄이 `available`, `available` 이 아닌 줄은 `reason` 이 늘 문장이다. 「질문 · 실행 구현」의 「분모」 · 「근거 수요표 `reason`」 항목
