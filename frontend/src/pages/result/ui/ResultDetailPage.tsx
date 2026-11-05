@@ -4,8 +4,10 @@ import { Suspense } from "react";
 import type { Argument } from "@/shared/api";
 
 import { getArgument } from "../api/getResult";
+import { cardRefs } from "../model/footnotes";
 import { pickEvidence } from "../model/sources";
 import { ArgumentPanel } from "./argument/ArgumentPanel";
+import { CardFootnotesButton } from "./argument/CardFootnotesButton";
 import { ArgumentTab } from "./argument/ArgumentTab";
 import { DetailFrame } from "./DetailFrame";
 import { EvidenceCsvButton } from "./evidence/EvidenceCsvButton";
@@ -75,13 +77,13 @@ async function DetailContent({ params, searchParams }: Props) {
     );
   }
   if (tab === "argument") {
-    // 머리 「각주 전체 복사」 · 칸 ⋯ 메뉴는 다음 단위(U14)
     return (
       <DetailFrame
         argument={argument}
         tab={tab}
         title={head.title}
         caption={head.caption}
+        action={<CardFootnotesButton refs={cardRefs(argument)} />}
         panel={<ArgumentPanel />}
       >
         <ArgumentTab argument={argument} />
