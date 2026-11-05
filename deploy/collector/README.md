@@ -1,6 +1,6 @@
 # 수집기 EC2 배포 — S15P31C108-105
 
-수집기는 상시 서비스가 아니다. CD는 사용 버전만 바꾸고 실제 수집은 운영자가 실행한다. cron·RabbitMQ·FastAPI 배포와 P1/P2 로직 변경은 포함하지 않는다.
+수집기는 상시 서비스가 아니다. CD는 사용 버전만 바꾸고 실제 수집은 운영자가 실행한다. 개발 서버의 매일 예약 실행(251번)은 아래 「매일 예약 실행」에 있는 출처만 돈다. RabbitMQ·FastAPI 배포와 P1/P2 로직 변경은 포함하지 않는다.
 
 ## 자동 배포
 
@@ -42,6 +42,43 @@ CI 전용 Docker를 같이 운영하는 EC2에서는 서비스 bridge의 외부 
 
 - `--no-refine`(mode 앞): 이어지는 정제를 끈다. 그 환경의 수집기 이미지에 `refine --changed-since` 가 없을 때(운영에 아직 반영 전) 쓴다: `sudo issueatlas-collect --environment main --no-refine kosis ...`
 - 세출(lofin)은 자체 표라 정제하지 않는다. 기존 대응 후보(`responses`)는 지금처럼 따로 돌린다
+
+## 매일 예약 실행 (S15P31C108-251, 개발만)
+
+`issueatlas-collect-daily.timer` 가 매일 03:00 KST(04:00 DB 백업 전)에 [schedule/daily_collect.py](schedule/daily_collect.py)를 부른다. 스크립트는 단계마다 `issueatlas-collect --environment develop` 을 불러, 잠금 · 로그 · 수집 뒤 정제는 위 실행기 규칙 그대로다.
+
+| 순서 | 단계 | 실행기 인자 | 걸리는 시간 |
+| --- | --- | --- | --- |
+| 1 | 여수 보도자료 최근 14일 | `press --site yeosu --db --start <14일 전> --end <오늘>` | 약 1–2분(게시판 한 쪽, robots 30초 간격) + 정제 1분 |
+| 2 | 온통청년 정책 | `youth-policy` | 약 1–2분 + 정제 |
+| 3 | 기존 대응 후보 | `responses` — 2가 성공했을 때만 | 몇 초 |
+
+- 한 단계가 실패해도 다음 독립 단계는 돈다. 하나라도 실패(또는 건너뜀)하면 unit 이 실패로 남는다: `systemctl status issueatlas-collect-daily` · `journalctl -u issueatlas-collect-daily`. 각 수집의 로그 경로는 실행기가 출력하는 JSON 에 있다
+- 손으로 수집 중이면 실행기 잠금 때문에 그 단계는 실패한다. 다음 날 다시 돈다(`Persistent=true` 라 서버가 꺼져 있던 날은 켜질 때 한 번)
+- 같은 글 · 같은 정책은 원본 장부에서 중복으로 세고 새 행을 만들지 않는다. 14일 창은 하루 이틀 빠져도 다음 실행이 채우는 폭이다
+
+넣지 않은 출처:
+
+| 출처 | 이유 |
+| --- | --- |
+| 빅카인즈 | 기사 본문은 P3 요약 뒤 지운다(대표 결정 11/1). 요약 모델 서버(`P3_LLM_*`)가 연결되기 전에 매일 받으면 지우지 못한 본문이 쌓인다 |
+| 광주 보도자료 | 2026-11-02 부터 누리집이 자동 요청을 400 으로 막는다. 브라우저 흉내는 하지 않는다 |
+| KOSIS | 수집 명세의 기간(2023–2025)이 고정이고 범위가 다르면 거절된다. 새 달 반영은 분석 기간을 늘릴 때 따로 |
+| 에어코리아 확정 · 세출 | 사람이 받은 XLSX 를 input 에 넣어야 하는 파일 수집 |
+| 에어코리아 측정소 | 측정소 목록은 거의 바뀌지 않는다 |
+
+설치(서버 관리자, root):
+
+```bash
+sudo install -o root -g root -m 755 deploy/collector/schedule/daily_collect.py /usr/local/sbin/issueatlas-collect-daily.py
+sudo install -o root -g root -m 644 deploy/collector/schedule/issueatlas-collect-daily.service deploy/collector/schedule/issueatlas-collect-daily.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now issueatlas-collect-daily.timer
+# 바로 한 번 돌려 확인(끝날 때까지 기다린다)
+sudo systemctl start issueatlas-collect-daily.service
+```
+
+끄기: `sudo systemctl disable --now issueatlas-collect-daily.timer`. CD 는 이 파일들을 갱신하지 않는다 — 바꾸면 위처럼 다시 설치한다.
 
 ## 수동 실행
 
