@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "mock:api": "node mocks/api-server.ts",
     "build": "next build",
     "worker:build": "node scripts/build-worker.mjs",
     "worker:preview": "opennextjs-cloudflare preview --env development --port 8787",

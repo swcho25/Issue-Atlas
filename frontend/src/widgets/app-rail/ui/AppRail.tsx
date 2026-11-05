@@ -26,6 +26,19 @@ type AppRailProps = {
 // 16:10 노트북에서 Figma(16:9, 1600 × 900) 크기 그대로면 두꺼워 보여 90% 로 둔다(2026-11-03 사용자 확인)
 const RAIL_UNIT = "[--u:0.9px]";
 
+/**
+ * 띠와 같은 폭 · 바탕의 빈 자리. 띠는 지금 주소(usePathname)를 읽어 동적 주소 화면(/results/[id])에서
+ * <Suspense> 안에 둬야 하는데(Next 16 Cache Components), 그동안 이 자리가 먼저 보여 본문이 흔들리지 않는다
+ */
+export function AppRailPlaceholder() {
+  return (
+    <div
+      aria-hidden="true"
+      className={`${RAIL_UNIT} w-[calc(72*var(--u))] shrink-0 border-r border-border-1 bg-bg-sidebar`}
+    />
+  );
+}
+
 export function AppRail({ role = "viewer", userName, currentPath, className = "" }: AppRailProps) {
   const pathname = usePathname();
   const path = currentPath ?? pathname ?? "";
