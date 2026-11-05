@@ -41,7 +41,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.ErrorResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -71,6 +73,7 @@ public class QuestionService {
     private final SeriesService series;
     private final ArgumentPhraser phraser;
     private final ObjectMapper json;
+    private final TransactionTemplate tx;
 
     public QuestionService(
             QuestionRepository questions,
@@ -78,23 +81,51 @@ public class QuestionService {
             CardJudge judge,
             SeriesService series,
             ArgumentPhraser phraser,
-            ObjectMapper json) {
+            ObjectMapper json,
+            PlatformTransactionManager transactions) {
         this.questions = questions;
         this.cards = cards;
         this.judge = judge;
         this.series = series;
         this.phraser = phraser;
         this.json = json;
+        this.tx = new TransactionTemplate(transactions);
     }
 
-    @Transactional
+    /**
+     * engine 문장화(최대 ENGINE_TIMEOUT)는 트랜잭션 밖에서 불러 그동안 DB 연결을 잡지 않는다(S15P31C108-254). ① 판정 · 결과 조립(짧은
+     * 트랜잭션) → ② 문장화(트랜잭션 없음) → ③ 질문 · 실행 · 문장화 · 근거 행 저장(짧은 트랜잭션). 실행 결과는 ③에서 한 번만 쓴다. 이 메서드에
+     * {@code @Transactional} 을 달면 ②가 다시 트랜잭션 안으로 들어간다.
+     */
     public QuestionCreateResponse create(QuestionCreateRequest request) {
         long started = System.nanoTime();
-        LocalDate start = request.periodStart();
-        LocalDate end = request.periodEnd();
-        if (!start.isBefore(end)) {
+        if (!request.periodStart().isBefore(request.periodEnd())) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST);
         }
+        Draft draft = Objects.requireNonNull(tx.execute(status -> draft(request)));
+        Run run = draft.run();
+        Phrased phrased =
+                run.approved() == null
+                        ? null
+                        : phraser.phrase(draft.result(), run.approved(), run.judgment());
+        ArgumentResponse result =
+                phrased == null
+                        ? draft.result()
+                        : draft.result().withArgumentText(phrased.warrant(), phrased.rebuttals());
+        tx.executeWithoutResult(
+                status -> save(request, draft.questionId(), run, result, phrased, started));
+        return new QuestionCreateResponse(
+                SCHEMA_VERSION,
+                draft.questionId(),
+                result.runId(),
+                run.status(),
+                request.cardId() == null);
+    }
+
+    /** ① 판정과 C2 결과 조립(카드 문구). 기존 대응 후보 → 근거만 쓰고, 질문 · 실행 행은 ③에서 쓴다. */
+    private Draft draft(QuestionCreateRequest request) {
+        LocalDate start = request.periodStart();
+        LocalDate end = request.periodEnd();
         String placeName =
                 questions.placeName(request.placeId()).orElseThrow(ResourceNotFoundException::new);
         CardRow card =
@@ -105,8 +136,6 @@ public class QuestionService {
                                 .orElseThrow(ResourceNotFoundException::new);
         String questionId = "q_" + UUID.randomUUID();
         String runId = "run_" + UUID.randomUUID();
-        questions.insertQuestion(
-                questionId, request.placeId(), request.cardId(), start, end, request.rawText());
 
         Question question =
                 new Question(
@@ -169,13 +198,22 @@ public class QuestionService {
                         card == null
                                 ? List.of()
                                 : series.articles(card.cardId(), request.placeId(), start, end));
-        Phrased phrased =
-                run.approved() == null
-                        ? null
-                        : phraser.phrase(result, run.approved(), run.judgment());
-        if (phrased != null) {
-            result = result.withArgumentText(phrased.warrant(), phrased.rebuttals());
-        }
+        return new Draft(questionId, run, result);
+    }
+
+    /** ③ 질문 · 실행 · 문장화 · 근거 행. result 는 문장화를 반영한 최종 응답, phrased 는 engine 을 안 불렀으면 null. */
+    private void save(
+            QuestionCreateRequest request,
+            String questionId,
+            Run run,
+            ArgumentResponse result,
+            Phrased phrased,
+            long started) {
+        LocalDate start = request.periodStart();
+        LocalDate end = request.periodEnd();
+        String runId = result.runId();
+        questions.insertQuestion(
+                questionId, request.placeId(), request.cardId(), start, end, request.rawText());
         PreviousRun previous =
                 questions.previousRun(request.placeId(), request.cardId(), start, end).orElse(null);
         int filled = filledCells(result);
@@ -214,8 +252,6 @@ public class QuestionService {
                                                         ref.evidenceId(),
                                                         run.responses().get(ref.evidenceId()))));
         run.pending().forEach(id -> questions.insertSource(runId, "existing_responses", null, id));
-        return new QuestionCreateResponse(
-                SCHEMA_VERSION, questionId, runId, run.status(), card == null);
     }
 
     /** 저장된 결과 그대로(JSON). 지난 실행을 다시 계산하지 않는다. */
@@ -680,4 +716,7 @@ public class QuestionService {
             Map<String, String> responses,
             List<String> pending,
             Judgment judgment) {}
+
+    /** ①의 결과: 아직 저장하지 않은 질문 ID · 실행 · 카드 문구 응답. */
+    private record Draft(String questionId, Run run, ArgumentResponse result) {}
 }
