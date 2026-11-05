@@ -32,7 +32,7 @@
 
 현재 카드 seed는 C1·A3 두 개다. 카드 목록은 대분류 → 한국어 가나다 → 카드 ID로 고정 정렬하며 확보 수와 무관하다. 네 종류는 statistics·documents·existing_responses·denominators 순서로 각각 한 번씩 반환한다.
 
-상태는 [DB 계약](../database/README.md)의 `card_evidence_status`에서 정확히 같은 지역·조회 기간·카드 버전만 읽는다. 미등록 종류는 `not_collected`다. `available_kinds`는 available 종류 수, `review_pending_count`는 종류별 보류 항목 수의 합이다. 예시 JSON의 가상 확보 상태를 실서비스 seed에 복사하지 않는다. P3/P4의 근거 연결·상태 작성은 후속 작업이며, 연결 전 0/4 응답은 자료가 없다는 판정이 아니라 확보 상태가 등록되지 않았다는 뜻이다.
+상태는 [DB 계약](../database/README.md)의 `card_evidence_status`에서 정확히 같은 지역·조회 기간·카드 버전만 읽는다. 등록이 없는 종류는 같은 지역·카드·카드 버전·조회 기간으로 가장 최근에 돌린 실행(`argument_run`)의 근거 수요표 상태와 보류 수를 쓰고(S15P31C108-264), 그런 실행도 없으면 `not_collected`다. 질문 실행은 지금처럼 등록된 상태만 읽는다(지난 실행 결과를 다음 실행의 입력으로 쓰지 않는다). `available_kinds`는 available 종류 수, `review_pending_count`는 종류별 보류 항목 수의 합이다. 예시 JSON의 가상 확보 상태를 실서비스 seed에 복사하지 않는다. P3/P4의 근거 연결·상태 작성은 후속 작업이며, 연결 전 0/4 응답은 자료가 없다는 판정이 아니라 확보 상태가 등록되지 않았다는 뜻이다.
 
 ## 질문 · 실행 구현 (S15P31C108-133)
 
@@ -200,3 +200,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-05): 근거 수요표 문서 칸 — 보도자료 연결(S15P31C108-253). 칸 · 타입 그대로(빈 `data.documents` 에 값이 차는 것). 카드 문서 명세 · 같은 지역 · 기간 안 · 제목이 카드 `keywords` 에 맞는 보도자료가 `ev_doc_<md5>` 근거(`kind = documents`, `url` = 원문 링크, 본문 없음)로 차고 문서 줄이 `available`. 없으면 `not_collected` + 「이 지역 · 기간 보도자료 가운데 카드 키워드에 맞는 글이 없습니다.」. 「질문 · 실행 구현」의 「문서」 항목
 - v0.1 (2026-11-05): `POST /v1/questions` 의 `429 TOO_MANY_REQUESTS` 를 openapi 에 적는다(S15P31C108-250). 동작은 이미 backend 에 있다(-208 후속, `QuestionRateLimitFilter`): 클라이언트 IP 당 분당 10건(`QUESTIONS_PER_MINUTE`)을 넘으면 질문 · 실행을 만들지 않고 `Retry-After: 60`. 오류 응답 스키마를 `components/schemas/Problem` 으로 분리하고 `code` enum 에 `TOO_MANY_REQUESTS` 를 더했다. 성공 응답은 그대로
 - v0.1 (2026-11-05): 상한선 ⑥ `ceiling.items` 끝에 카드 예상 빈칸(`expected_gaps`)을 「무엇: 문장 (상태)」로 붙인다(S15P31C108-265). 칸 그대로(값만 바뀜). 구조 칸 `expected_gaps[]` 는 C2 v1 에서 주는 쪽 · 받는 쪽 리뷰 MR 로
+- v0.1 (2026-11-05): 카드 목록 근거 상태 = 등록된 `card_evidence_status` → 없으면 같은 지역 · 카드 · 카드 버전 · 기간의 최근 실행 근거 수요표 → 없으면 `not_collected`(S15P31C108-264). 응답 모양 그대로(동결 규칙의 「값이 바뀌는 것」)

@@ -151,6 +151,86 @@ class PlaceCardsIntegrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    void listUsesLatestRunOfSameCardVersionAndPeriodWhenNothingIsRegistered() throws Exception {
+        int version =
+                jdbc.queryForObject(
+                        "SELECT card_version FROM card WHERE card_id = 'C1'", Integer.class);
+        String period = "2023-01-01";
+        run("q-old", "cards-test", version, period, "2026-11-01T00:00:00Z", "not_collected");
+        run("q-new", "cards-test", version, period, "2026-11-02T00:00:00Z", "available");
+        // 더 늦지만 다른 카드 판 · 다른 기간 · 다른 지역 실행은 섞지 않는다
+        run(
+                "q-version",
+                "cards-test",
+                version + 1,
+                period,
+                "2026-11-03T00:00:00Z",
+                "license_blocked");
+        run(
+                "q-period",
+                "cards-test",
+                version,
+                "2024-01-01",
+                "2026-11-03T00:00:00Z",
+                "not_published");
+        run("q-place", "cards-other", version, period, "2026-11-03T00:00:00Z", "not_published");
+        // 등록된 확보 상태가 있으면 실행보다 먼저 (P3 · P4 가 채울 자리)
+        put("cards-test", "C1", version, period, "2026-01-01", "statistics", "not_published", 0);
+
+        mvc.perform(request("cards-test", period, "2026-01-01"))
+                .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("place-cards"))
+                .andExpect(jsonPath("$.cards[1].card_id").value("C1"))
+                .andExpect(jsonPath("$.cards[1].evidence[0].status").value("not_published"))
+                .andExpect(jsonPath("$.cards[1].evidence[1].status").value("available"))
+                .andExpect(jsonPath("$.cards[1].evidence[2].status").value("review_pending"))
+                .andExpect(jsonPath("$.cards[1].evidence[3].status").value("available"))
+                .andExpect(jsonPath("$.cards[1].available_kinds").value(2))
+                .andExpect(jsonPath("$.cards[1].review_pending_count").value(2))
+                // 실행이 없는 카드는 그대로 not_collected
+                .andExpect(jsonPath("$.cards[0].card_id").value("A3"))
+                .andExpect(jsonPath("$.cards[0].evidence[1].status").value("not_collected"))
+                .andExpect(jsonPath("$.cards[0].available_kinds").value(0));
+    }
+
+    /**
+     * C1 질문 하나와 실행 하나. 근거 수요표는 통계 available · 문서 documents · 기존 대응 review_pending(2) · 분모
+     * available.
+     */
+    private void run(
+            String questionId,
+            String place,
+            int version,
+            String start,
+            String createdAt,
+            String documents) {
+        jdbc.update(
+                "INSERT INTO question(question_id,place_id,card_id,period_start,period_end)"
+                        + " VALUES (?,?,'C1',?::date,'2026-01-01')",
+                questionId,
+                place,
+                start);
+        String table =
+                """
+                {"evidence_table": [
+                  {"kind": "statistics", "status": "available", "review_pending_count": 0},
+                  {"kind": "documents", "status": "%s", "review_pending_count": 0},
+                  {"kind": "existing_responses", "status": "review_pending", "review_pending_count": 2},
+                  {"kind": "denominators", "status": "available", "review_pending_count": 0}]}
+                """
+                        .formatted(documents);
+        jdbc.update(
+                "INSERT INTO argument_run(run_id,question_id,run_status,card_version,taxonomy_version,"
+                        + "result,created_at) VALUES (?,?,'partial',?,'tax-2026.10',?::jsonb,"
+                        + "?::timestamptz)",
+                "run-" + questionId,
+                questionId,
+                version,
+                table,
+                createdAt);
+    }
+
     private MockHttpServletRequestBuilder request(String place, String start, String end) {
         return get("/v1/places/{place}/cards", place)
                 .with(user("viewer"))
