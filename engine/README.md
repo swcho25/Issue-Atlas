@@ -23,6 +23,9 @@ uv --directory engine run python -m pipeline.article <빅카인즈 응답 JSON �
 # DB 저장은 빅카인즈 수집기(pipeline.collect.bigkinds)가 raw_record 에 한다 (pipeline/collect/README.md 「빅카인즈 뉴스」)
 # 기존 대응 후보: 정제된 온통청년 정책 · local_expenditure → existing_response (같은 판은 건너뜀, 건수 JSON)
 uv --directory engine run python -m pipeline.responses --db
+# 기사 전재 묶기: 정제된 최신 기사 → news_syndication 통째로 다시 계산(제목 bigram 0.7 · 3일, contracts/p2 「전재 묶음」)
+# 기본 시험 실행(건수 JSON), --apply 로 커밋
+uv --directory engine run python -m pipeline.refine.syndication --db [--apply]
 # P3 지역 · 시간: 아직 안 돌린 기사 → JSONL(본문 포함, 저장소 밖에) → 모델 서버 추출 → news_event
 # region.load 는 기본 시험 실행(되돌림). --apply 로 커밋, --delete-bodies 로 요약된 기사 본문 지우기
 uv --directory engine run python -m pipeline.region.export --db --output <저장소 밖 경로>.jsonl

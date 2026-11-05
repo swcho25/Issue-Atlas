@@ -116,6 +116,10 @@ sudo issueatlas-collect refine --source press_gwangju
 # 기존 대응 후보(existing_response): 정제된 온통청년 정책 · 세출에서 카드 C1 · A3 후보를 뽑는다. 키 없음 · 결과 파일 없음.
 # youth-policy · lofin 적재와 refine 뒤에 돌린다. 같은 판을 다시 돌리면 0건 추가
 sudo issueatlas-collect responses
+# 기사 전재 묶기(P2 계약 「전재 묶음」): 정제된 최신 기사 → news_syndication 통째로 다시 계산. 키 없음 · 결과 파일 없음 · 몇 초.
+# 빅카인즈 수집 · 정제 뒤에 돌린다. 기본 시험 실행(건수만) → 확인 뒤 --apply
+sudo issueatlas-collect syndicate
+sudo issueatlas-collect syndicate --apply
 # P3 지역 · 시간 (contracts/p3). 키 없음. ① 아직 P3 를 안 돌린 기사(본문 있음) → output 의 articles.jsonl.
 # 본문이 들어 있으니 주피터로 옮긴 뒤 지운다
 sudo issueatlas-collect region-export
