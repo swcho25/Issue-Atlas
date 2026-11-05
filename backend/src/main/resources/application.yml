@@ -27,6 +27,10 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  # 2KB 넘는 JSON 응답을 gzip (경계 GeoJSON 여수 약 175KB). 브라우저가 Accept-Encoding 을 보낼 때만
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json
   servlet:
     session:
       cookie:
