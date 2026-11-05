@@ -5,7 +5,7 @@
 ## 완료 조건
 - [x] 개발 서버에서 데모 흐름 API 7개(`GET /v1/places` · `/v1/places/{id}/cards` · `/v1/places/{id}/boundaries` · `POST /v1/questions` · `GET /v1/arguments/{run_id}` · `/v1/evidence/{id}` · `/v1/observations`)를 각 20회 재는 스크립트(`deploy/dev/measure.py`)가 있고, 중앙값 · p95 표를 이 계획에 남긴다 (질문은 개발 DB 행 · 분당 10건 제한 때문에 3회)
 - [ ] p95 가 목표(PRD 성능 기준, 없으면 조회 1초 · 질문 3초)를 넘는 API 마다 원인(서버 처리 · DB 쿼리 · 응답 크기 · 네트워크/Cloudflare)을 나눠 적고, 고칠 것과 미룰 것을 정한다
-- [ ] 운영 배포 리허설 체크리스트(develop → main MR, 운영 DB Flyway 순서, 운영 Tunnel origin, 운영 health · 질문 1건 · 로그인 확인, 실패 시 복구)를 `deploy/ci/README.md` 에 쓴다. main 병합 · 운영 배포 실행은 사람 승인 뒤
+- [x] 운영 배포 리허설 체크리스트(develop → main MR, 운영 DB Flyway 순서, 운영 Tunnel origin, 운영 health · 질문 1건 · 로그인 확인, 실패 시 복구)를 `deploy/ci/README.md` 에 쓴다. main 병합 · 운영 배포 실행은 사람 승인 뒤
 - [ ] 운영 리허설을 실제로 했으면 결과(걸린 시간 · 막힌 곳)를 남긴다
 
 ## 진행
@@ -29,6 +29,8 @@
 - 원인 2 — **문장화(LLM)가 이미 켜져 있다**: 측정한 실행의 `warrant.provenance = llm_phrasing`, 반박 4개 `llm_judgment`. 질문 12 s 의 대부분이 engine → GMS 호출(-243 `ENGINE_URL` 이 켜짐)
 - ~~원인 3 — observations 는 서버 쪽~~ → **정정(같은 날 재측정)**: health 와 번갈아 20회씩 재니 observations TTFB 중앙값 1.09 s(health 0.53 s), 전체 1.26 s(health 0.72 s). 1달(9행) · 12달 · 36달(324행)도 TTFB 가 바닥값과 같은 0.5 s 인 때가 많다. 1차의 3.6 s 는 LAX 경로 흔들림이었다. 쿼리는 `air_monthly` PK(station_code, indicator_id, month_start)를 타고 place 는 약 180행이라 코드 수정 근거가 없다
 - 나머지(places · cards · evidence)도 바닥값 + 0~0.6 s. **밖에서 재서는 서버 시간을 바닥값 0.5 s 아래로 가를 수 없다** → EC2 안에서 `python3 deploy/dev/measure.py --base-url http://127.0.0.1:8080` 로 네트워크 없이 다시 잰다(서버 담당)
+
+- 2026-11-05: 운영 현황 — `backend.issue-atlas.kr` 은 별도 운영 backend 로 main `8281550`(10/30) 판이 돈다(경계 API 401 = 옛 로그인 정책), `issue-atlas.kr/healthz` revision 도 같다. 다음 반영은 migration V0015–V0046(32개). 카드 시드 `db/seed/cards-c1-a3.sql` 은 Flyway 밖, 운영 DB 자동 백업 없음, 운영 수집 자료 없음 → 체크리스트 「전날」에 결정 항목으로 넣음
 
 ## 다음 할 일 / 범위 밖
 - 정할 것: Cloudflare LAX 경로(요금제 · Argo · 다른 경로) — 팀 결정. 데모장 망에서 다시 재기
