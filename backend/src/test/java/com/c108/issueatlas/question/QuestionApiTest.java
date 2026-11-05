@@ -574,7 +574,12 @@ class QuestionApiTest {
                 .andExpect(
                         jsonPath("$.evidence_table[0].reason")
                                 .value(org.hamcrest.Matchers.nullValue()))
-                .andExpect(jsonPath("$.data.denominators.length()").value(0));
+                .andExpect(jsonPath("$.data.denominators.length()").value(0))
+                // 최신 근거 시점 = 마지막 달(2025-12)의 마지막 날 한국 0시. 끝 경계 2026-01-01 이 아니다(-272)
+                .andExpect(
+                        jsonPath("$.qualifier.components.latest_observed_at")
+                                .value("2025-12-30T15:00:00Z"))
+                .andExpect(jsonPath("$.qualifier.components.latest_within_one_year").value(true));
         // 같은 지역 · 기간 · 지표는 같은 근거 한 행(다시 실행해도 늘지 않는다)
         runId(ask(body));
         assertThat(
@@ -583,6 +588,36 @@ class QuestionApiTest {
                                         + " AND evidence_id LIKE 'ev_stat_%'",
                                 Integer.class))
                 .isEqualTo(1);
+    }
+
+    @Test
+    void latestObservedAtIsLastDayOfLastObservedMonth() throws Exception {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        // 2024-12 까지만 있다. 분석 기간 끝(2026-01-01) 전 1년(2025-01-01)보다 앞이라 「1년 이내」가 아니다.
+        // 끝 경계(2025-01-01 0시)를 시점으로 쓰면 1년 이내로 잘못 센다(-272)
+        for (int i = 0; i < 24; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        String body =
+                """
+                {"place_id": "kr-12130", "card_id": "C1", "period_start": "2023-01-01",
+                 "period_end": "2026-01-01", "raw_text": null}
+                """;
+        argument(runId(ask(body)))
+                .andExpect(jsonPath("$.data.statistics.length()").value(1))
+                .andExpect(
+                        jsonPath("$.qualifier.components.latest_observed_at")
+                                .value("2024-12-30T15:00:00Z"))
+                .andExpect(jsonPath("$.qualifier.components.latest_within_one_year").value(false));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT observed_at = TIMESTAMPTZ '2024-12-31 00:00+09'"
+                                        + " FROM evidence WHERE kind = 'statistics'",
+                                Boolean.class))
+                .isTrue();
     }
 
     /** 정제된 보도자료 한 건(보도자료 계약 v0.3 C1 문서). site 는 yeosu(46130) · gwangju(29). */
@@ -796,6 +831,13 @@ class QuestionApiTest {
                                 "SELECT count(*) FROM evidence WHERE kind = 'denominators'",
                                 Integer.class))
                 .isEqualTo(1);
+        // 연 값(2025 한 해)의 시점도 그 해 마지막 날(-272)
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT observed_at = TIMESTAMPTZ '2025-12-31 00:00+09'"
+                                        + " FROM evidence WHERE kind = 'denominators'",
+                                Boolean.class))
+                .isTrue();
     }
 
     @Test
