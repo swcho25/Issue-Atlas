@@ -62,6 +62,10 @@ class CollectorRunnerTests(unittest.TestCase):
         self.assertEqual(
             runner.command(self.app, "responses", [])[-3:], ["-m", "pipeline.responses", "--db"]
         )
+        self.assertEqual(
+            runner.command(self.app, "syndicate", ["--apply"])[-4:],
+            ["-m", "pipeline.refine.syndication", "--db", "--apply"],
+        )
         self.assertIn("--rm", command)
         self.assertIn("never", command)
 
@@ -84,6 +88,9 @@ class CollectorRunnerTests(unittest.TestCase):
         # pipeline.refine 은 --db 하나만 받는다. --output 을 붙이면 사용법 오류(종료 코드 2)
         self.assertEqual(runner.run_arguments("refine", [], "T"), [])
         self.assertEqual(runner.run_arguments("responses", [], "T"), [])
+        # 전재 묶기도 결과 파일 없이 DB 만 쓴다
+        self.assertEqual(runner.run_arguments("syndicate", ["--apply"], "T"), ["--apply"])
+        self.assertIsNone(runner.refine_after("syndicate", 0, "2026-11-05T00:00:00+00:00"))
         self.assertEqual(
             runner.run_arguments("region-load", ["--delete-bodies"], "T"), ["--delete-bodies"]
         )
