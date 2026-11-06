@@ -178,7 +178,12 @@
               "when": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
               "label": { "description": "화면 판정값 문구", "type": "string", "minLength": 1 },
               "claim": { "description": "C2 claim.value", "enum": ["increasing", "decreasing", "unclear", "insufficient", "not_comparable"] },
-              "meaning": { "type": "string", "minLength": 1 }
+              "meaning": { "type": "string", "minLength": 1 },
+              "claim_text": {
+                "description": "이 결과의 판단 ① 문장(선택). 빈칸 {지역} {기간} {n} {첫해} {첫값} {끝해} {끝값}. 값은 판정에 쓴 첫해 · 끝해 연 값의 절댓값(천 단위 쉼표, 정수가 아니면 소수 한 자리) — 방향은 문장 낱말로 쓴다. 없으면 claim_template",
+                "type": "string",
+                "minLength": 1
+              }
             },
             "required": ["when", "label", "claim", "meaning"],
             "additionalProperties": false

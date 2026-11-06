@@ -114,6 +114,9 @@ public class CardJudge {
                         level,
                         definition.path("label").asText(),
                         outcome.path("label").asText(),
+                        outcome.path("claim_text").isString()
+                                ? outcome.path("claim_text").asText()
+                                : null,
                         new Comparability(indicator, period, boundary, method),
                         statistics,
                         documents,
@@ -152,12 +155,16 @@ public class CardJudge {
         throw new IllegalStateException("Approved rule has no matching outcome");
     }
 
-    /** values: 판정에 쓴 연 값(계열 = 시군구 하나 또는 측정소마다). 문장화 입력의 statistics_points 가 된다 */
+    /**
+     * values: 판정에 쓴 연 값(계열 = 시군구 하나 또는 측정소마다). 문장화 입력의 statistics_points 가 된다. claimText: 고른 결과의 판단
+     * ① 문장 틀(승인본 outcomes[].claim_text). 없으면 null 이고 claim_template 을 쓴다
+     */
     public record Judgment(
             String claim,
             String level,
             String indicator,
             String label,
+            String claimText,
             Comparability comparability,
             List<String> statistics,
             List<String> documents,

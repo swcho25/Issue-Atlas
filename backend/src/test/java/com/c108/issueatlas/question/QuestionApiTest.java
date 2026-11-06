@@ -513,6 +513,10 @@ class QuestionApiTest {
                 .isEqualTo("existing_responses|" + evidence + "|resp:a" + "1".repeat(63));
     }
 
+    /** YEOSU 의 판단 ① 문장: 승인본 결과 문장(claim_text)에 첫해 · 끝해 연 값(절댓값)을 넣는다(S15P31C108-282, Figma ①). */
+    private static final String C1_CLAIM =
+            "여수시 청년(19–39세) 순유출은 2023년 1,537명에서 2025년 2,262명으로 매년 커졌습니다.";
+
     /** 여수 SP01 19–39세 순이동 2023–2025(로컬 실데이터, C2 예시와 같은 값). 해 합계 −1537 · −1935 · −2262. */
     private static final int[] YEOSU = {
         -152, -198, -161, -136, -153, -159, -83, -163, -88, -89, -73, -82,
@@ -541,9 +545,7 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.evidence_table[0].status").value("available"))
                 .andExpect(jsonPath("$.claim.value").value("increasing"))
                 .andExpect(jsonPath("$.claim.level").value("calculated"))
-                .andExpect(
-                        jsonPath("$.claim.text")
-                                .value("여수시에서 2023–2025 청년(19–39세) 순이동이 청년 순유출 확대."))
+                .andExpect(jsonPath("$.claim.text").value(C1_CLAIM))
                 .andExpect(jsonPath("$.comparability.same_period_length.passed").value(true))
                 .andExpect(jsonPath("$.data.statistics.length()").value(1))
                 .andExpect(jsonPath("$.data.statistics[0].source_grade").value("A"))
@@ -1003,7 +1005,9 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.claim.value").value("not_comparable"))
                 .andExpect(
                         jsonPath("$.claim.text")
-                                .value(org.hamcrest.Matchers.containsString("비교 불가")))
+                                .value(
+                                        "여수시에는 2023–2025 모든 해에 연평균이 있는 측정소가 없어"
+                                                + " 초미세먼지(PM2.5) 연평균을 비교할 수 없습니다."))
                 .andExpect(jsonPath("$.comparability.same_boundary.passed").value(false))
                 .andExpect(jsonPath("$.evidence_table[2].status").value("review_pending"))
                 .andExpect(jsonPath("$.evidence_table[2].review_pending_count").value(1))
@@ -1037,15 +1041,18 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.formula_version").value("a3-pm25-diff-0.2"))
                 .andExpect(jsonPath("$.claim.value").value("increasing"))
                 .andExpect(jsonPath("$.claim.level").value("calculated"))
+                // 336124 는 2025 에만 있어 공통 측정소가 아니다 → 336121 하나의 첫해 · 끝해 연평균
                 .andExpect(
                         jsonPath("$.claim.text")
-                                .value("여수시의 측정소 1곳에서 2023–2025 초미세먼지(PM2.5) 연평균이 악화."))
+                                .value(
+                                        "여수시 측정소 1곳의 초미세먼지(PM2.5) 연평균은 2023년 10µg/m³에서"
+                                                + " 2025년 13µg/m³로 높아졌습니다."))
                 .andExpect(jsonPath("$.comparability.same_boundary.passed").value(true))
                 .andExpect(jsonPath("$.data.statistics.length()").value(1));
     }
 
     @Test
-    void approvedNewCardReusesRuleAndOwnClaimTemplateWithoutJavaBean() throws Exception {
+    void approvedNewCardReusesRuleAndItsOutcomeSentenceWithoutJavaBean() throws Exception {
         storage.create(new CreateCard("C9", "청년 흐름", "C 인구·지역소멸", "청년은 이동하는가?"), "writer");
         ObjectNode draft =
                 (ObjectNode) json.readTree(Files.readString(Path.of("../contracts/cards/C1.json")));
@@ -1066,8 +1073,9 @@ class QuestionApiTest {
         argument(runId)
                 .andExpect(jsonPath("$.card_version").value(1))
                 .andExpect(jsonPath("$.claim.value").value("increasing"))
-                .andExpect(
-                        jsonPath("$.claim.text").value("여수시의 청년(19–39세) 흐름: 2023–2025 청년 순유출 확대."))
+                // 결과 이름과 결과 문장은 규칙(지표 한 행)에 있어 같은 규칙을 쓰는 카드가 같이 쓴다.
+                // 카드의 claim_template 은 결과 문장이 없을 때만(ClaimTextTest)
+                .andExpect(jsonPath("$.claim.text").value(C1_CLAIM))
                 .andExpect(
                         jsonPath("$.series[0].indicator_id")
                                 .value("population_net_migration_19_39"));
@@ -1102,27 +1110,36 @@ class QuestionApiTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM question", Integer.class)).isZero();
     }
 
-    // ── 논증 문장화(S15P31C108-231): ③ 보증 · ⑤ 반박만 engine 결과로, 판정은 그대로 ──
+    // ── 논증 문장화(S15P31C108-231 · -282): ⑤ 반박만 engine 결과로, ① 판단 · ③ 보증은 규칙 · 카드 그대로 ──
 
     private static final String PHRASED =
+            """
+            {"schema_version": "ai-phrasing-result-0.3", "run_id": "x", "status": "done",
+             "reason_code": null, "retryable": false,
+             "rebuttals": [{"text": "대학 진학 · 군 입대 연령의 구조적 전출 — 진학 전출 보도가 있다.",
+                            "status": "supported", "provenance": "llm_judgment"}],
+             "citations": {"C1-R1": [{"passage": "P1", "quote": "수도권 대학으로 진학",
+               "locator": {"kind": "article", "source_id": "n1", "field": "summary", "sentence": 1,
+                           "date": "2025-03-02", "url": null}}]},
+             "problems": [], "model": "gemini-2.5-flash", "prompt_version": "argument-phrasing-v4"}
+            """;
+    // 옛 engine(결과 v0.2)은 warrant 를 같이 보낸다 — 배포 순서가 엇갈려도 ③ 은 카드 문장
+    private static final String PHRASED_V02 =
             """
             {"schema_version": "ai-phrasing-result-0.2", "run_id": "x", "status": "done",
              "reason_code": null, "retryable": false,
              "warrant": {"text": "여수시 청년 순이동은 해마다 순유출이 커졌다.", "provenance": "llm_phrasing"},
              "rebuttals": [{"text": "대학 진학 · 군 입대 연령의 구조적 전출 — 진학 전출 보도가 있다.",
                             "status": "supported", "provenance": "llm_judgment"}],
-             "citations": {"warrant": ["ev_stat_x"], "C1-R1": [{"passage": "P1", "quote": "수도권 대학으로 진학",
-               "locator": {"kind": "article", "source_id": "n1", "field": "summary", "sentence": 1,
-                           "date": "2025-03-02", "url": null}}]},
-             "problems": [], "model": "gemini-2.5-flash", "prompt_version": "argument-phrasing-v2"}
+             "citations": {"warrant": ["ev_stat_x"]},
+             "problems": [], "model": "gemini-2.5-flash", "prompt_version": "argument-phrasing-v3"}
             """;
     private static final String REJECTED =
             """
-            {"schema_version": "ai-phrasing-result-0.2", "run_id": "x", "status": "failed",
-             "reason_code": "OUTPUT_REJECTED", "retryable": false,
-             "warrant": {"text": "청년 순유출이", "provenance": "card"}, "rebuttals": [], "citations": {},
-             "problems": [{"check": "number_mismatch", "where": "warrant", "detail": "2500"}],
-             "model": "gemini-2.5-flash", "prompt_version": "argument-phrasing-v2"}
+            {"schema_version": "ai-phrasing-result-0.3", "run_id": "x", "status": "failed",
+             "reason_code": "OUTPUT_REJECTED", "retryable": false, "rebuttals": [], "citations": {},
+             "problems": [{"check": "number_mismatch", "where": "C1-R1", "detail": "2500"}],
+             "model": "gemini-2.5-flash", "prompt_version": "argument-phrasing-v4"}
             """;
 
     /** C1 규칙이 판정하는 실행(c1RuleJudgesYearSumsOfMonthlyNetMigration 과 같은 자료). */
@@ -1145,14 +1162,17 @@ class QuestionApiTest {
     }
 
     @Test
-    void engineSentencesFillWarrantAndRebuttalsButNotTheJudgment() throws Exception {
+    void engineSentencesFillOnlyRebuttalsNotTheJudgmentOrWarrant() throws Exception {
         engineAnswer = new EngineAnswer(200, PHRASED, 0);
         String runId = judgedC1Run();
         argument(runId)
                 .andExpect(jsonPath("$.claim.value").value("increasing"))
                 .andExpect(jsonPath("$.claim.provenance").value("rule"))
-                .andExpect(jsonPath("$.warrant.text").value("여수시 청년 순이동은 해마다 순유출이 커졌다."))
-                .andExpect(jsonPath("$.warrant.provenance").value("llm_phrasing"))
+                .andExpect(jsonPath("$.claim.text").value(C1_CLAIM))
+                .andExpect(
+                        jsonPath("$.warrant.text")
+                                .value(org.hamcrest.Matchers.startsWith("청년 순유출이")))
+                .andExpect(jsonPath("$.warrant.provenance").value("card"))
                 .andExpect(jsonPath("$.rebuttals[0].status").value("supported"))
                 .andExpect(jsonPath("$.rebuttals[0].provenance").value("llm_judgment"))
                 .andExpect(jsonPath("$.ceiling.provenance").value("card"));
@@ -1176,6 +1196,17 @@ class QuestionApiTest {
                                 Integer.class,
                                 runId))
                 .isEqualTo(6);
+    }
+
+    @Test
+    void oldEngineWarrantIsIgnored() throws Exception {
+        engineAnswer = new EngineAnswer(200, PHRASED_V02, 0);
+        argument(judgedC1Run())
+                .andExpect(
+                        jsonPath("$.warrant.text")
+                                .value(org.hamcrest.Matchers.startsWith("청년 순유출이")))
+                .andExpect(jsonPath("$.warrant.provenance").value("card"))
+                .andExpect(jsonPath("$.rebuttals[0].provenance").value("llm_judgment"));
     }
 
     static Stream<Arguments> engineFailures() {
@@ -1224,8 +1255,7 @@ class QuestionApiTest {
         assertThat(ENGINE_REQUESTS).hasSize(1);
         argument(second)
                 .andExpect(jsonPath("$.run_id").value(second))
-                .andExpect(jsonPath("$.warrant.text").value("여수시 청년 순이동은 해마다 순유출이 커졌다."))
-                .andExpect(jsonPath("$.warrant.provenance").value("llm_phrasing"))
+                .andExpect(jsonPath("$.warrant.provenance").value("card"))
                 .andExpect(jsonPath("$.rebuttals[0].status").value("supported"));
         Map<String, Object> row = phrasing(second);
         assertThat(row.get("status")).isEqualTo("done");
