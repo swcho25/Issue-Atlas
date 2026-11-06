@@ -5,8 +5,8 @@ import { cache, type ReactNode, Suspense } from "react";
 import { ApiError, apiGet, type Me, meSchema } from "@/shared/api";
 
 // 로그인한 사람만 보는 화면 틀. 로그인이 안 돼 있으면 랜딩(/)으로 보낸다 — 로그인 없이는 랜딩만 본다.
-// 쓸 때는 그 묶음의 layout.tsx 에서 `export { AuthLayout as default }`(지금 /results). 관리자 화면(/admin)은 AdminLayout.
-// 새 앱 화면(/ask · /me …)도 같은 방법으로 건다. /dev/ui 견본은 백엔드 없이 띄우므로 걸지 않는다.
+// 쓸 때는 그 묶음의 layout.tsx 에서 `export { AuthLayout as default }`(지금 /results · /ask). 관리자 화면(/admin)은 AdminLayout.
+// 새 앱 화면(/me …)도 같은 방법으로 건다. /dev/ui 견본은 백엔드 없이 띄우므로 걸지 않는다.
 //
 // 화면 쪽 확인은 길 안내일 뿐이고, 실제 권한은 백엔드가 막는다(/v1/admin/** = ADMIN, SecurityConfig 한 곳).
 //

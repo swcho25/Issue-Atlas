@@ -19,4 +19,4 @@ export {
 } from "./c2";
 export { browserGet, browserHttp, browserPost } from "./browser";
 export { ApiError, apiGet } from "./client";
-export { type Me, meSchema } from "./auth";
+export { homeOf, type Me, meSchema } from "./auth";

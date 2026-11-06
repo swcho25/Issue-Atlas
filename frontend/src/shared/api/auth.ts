@@ -10,3 +10,6 @@ export const meSchema = z.object({
 });
 
 export type Me = z.infer<typeof meSchema>;
+
+/** 로그인한 뒤 가는 첫 화면: 관리자는 운영 요약, 그 밖은 새 질문. 로그인 창과 랜딩 앞(proxy)이 같이 쓴다 */
+export const homeOf = (me: Me) => (me.role === "ADMIN" ? "/admin" : "/ask");
