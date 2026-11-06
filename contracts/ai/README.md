@@ -132,6 +132,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | `number_mismatch` | 문장 속 숫자가 입력 값(통계 값 · 입력 문장 속 숫자, 또는 그 자릿수로 반올림)에 없음. 기사 숫자는 그 구절을 인용한 반박에서만. 부호는 보지 않는다 |
 | `unsupported` | `supported` 인데 맞는 인용 구절이 없음, 보증에 숫자가 있는데 근거 ID 인용이 없음 |
 | `forbidden_term` | 카드 `forbidden_terms` + C2 공통(확산 · 전파 · 원인 · 효과) |
+| `sign_wording` | 카드 `claim_items[].sign_words`([카드 계약](../cards/README.md) v0.5)가 있는 지표 값을 `-` 부호로 썼거나, 그 숫자 앞에서 가장 가까운 부호 낱말이 없거나 값의 부호와 다름(예 -1537 은 「순유출 1,537명」만). 「…년」 숫자는 연도라 보지 않는다. `sign_words` 없는 카드는 검사하지 않는다 |
 
 ### 시간 제한 · 비용
 
@@ -140,7 +141,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | engine → 모델(GMS Gemini 2.5 Flash) | 한 번에 30초. 429 · 5xx 만 두 번까지 다시 부른다 → `LLM_TIMEOUT` · `LLM_ERROR` |
 | backend → engine | 연결 2초 · 응답 40초. 넘거나 못 닿으면 backend 가 `ENGINE_TIMEOUT` · `ENGINE_ERROR`, 주소 설정이 없으면 `ENGINE_DISABLED` 로 남기고 카드 문구로 응답 |
 
-실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v3`, 결과에 `model` · `prompt_version` 을 남긴다.
+실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v4`, 결과에 `model` · `prompt_version` 을 남긴다. v4: 카드 `sign_words` 가 있는 통계 값은 engine 이 부호 대신 낱말로 쓴 글자(`value_text`, 예 「순유출 1,537명」)를 함께 보내고 모델은 그 글자를 그대로 쓴다. 낱말이 없는 카드의 입력은 v3 와 같다.
 
 ## 예시 · 샘플
 
@@ -194,6 +195,7 @@ pnpm --package=ajv-cli@5 --package=ajv-formats@3 dlx ajv validate --spec=draft20
 
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
+| v0.2.1 | 2026-11-06 | 문장화 프롬프트 v4 · 출력 검사 `sign_wording`: 카드 `sign_words` 값은 「순유출 1,537명」처럼 부호 대신 낱말로. 요청 · 결과 스키마는 그대로(카드 승인본은 이미 통째로 보낸다) (S15P31C108-286) |
 | v0.2 | 2026-11-04 | 문장화 요청 · 결과 스키마와 예시 2개, 출력 검사 · 시간 제한, 처리 상태 `NOT_JUDGED`, 판정 입력 `rebuttal_candidates[].id`, 실제 기사 제목 · 요약의 GMS 전송 허용 (S15P31C108-231) |
 | v0.1.1 | 2026-11-02 | 기사 `body = null` 의 뜻: 요약 뒤 지운 본문 — 제목 · 요약으로 분류 (S15P31C108-189) |
 | v0.1 초안 | 2026-10-30 | 문서 입력 · 판정 입력 · 처리 상태 스키마, 빈 칸의 뜻, 가상 예시 10개, 실제 문서 샘플 요청 목록 2개 (S15P31C108-153) |
