@@ -15,7 +15,7 @@
 ## 진행
 <!-- 날짜: 한 일 · 결정 · 막혔던 것 -->
 - 2026-11-06: 시작. 질문 표에 묻는 사람 칸이 없고 내 질문 목록 API 도 없어 백엔드부터(호성 「백엔드까지 제대로」). `POST /v1/questions` 는 로그인 없이도 열려 있어 그대로 두고, 로그인했으면 묻는 사람만 적는다. 다시 실행은 새 질문이 아니라 같은 질문의 새 실행(회차)으로 — Figma 의 「1회차 → 2회차」
-- 2026-11-06: 백엔드 — V0049 `question.asked_by`(app_user, 익명 · 이전 질문은 null), `POST /v1/questions` 는 로그인했으면 묻는 사람을 적고, `POST /v1/questions/{id}/runs` 는 같은 질문 ID 로 새 실행(재실행 로그 previous_run_id 도 이어짐), `GET /v1/me/questions` 는 질문 + 회차(저장된 결과의 claim 그대로). 회차 비교 값은 화면이 두 실행의 argument 를 읽어 센다(판단 · 근거 4종 · 충실도 · 독립 근거 · 검수 대기) — 「그 사이 바뀐 것」(검수 승인 · 새 기사 수)은 받을 API 가 없어 뺐다
+- 2026-11-06: 백엔드 — V0050 `question.asked_by`(app_user, 익명 · 이전 질문은 null), `POST /v1/questions` 는 로그인했으면 묻는 사람을 적고, `POST /v1/questions/{id}/runs` 는 같은 질문 ID 로 새 실행(재실행 로그 previous_run_id 도 이어짐), `GET /v1/me/questions` 는 질문 + 회차(저장된 결과의 claim 그대로). 회차 비교 값은 화면이 두 실행의 argument 를 읽어 센다(판단 · 근거 4종 · 충실도 · 독립 근거 · 검수 대기) — 「그 사이 바뀐 것」(검수 승인 · 새 기사 수)은 받을 API 가 없어 뺐다
 - 2026-11-06: 화면 — 판단 배지 · 충실도 · 기간 연도는 결과 화면과 함께 쓰므로 `entities/argument` 로, 질문 실행 응답 스키마는 `shared/api/c2` 로 옮겼다. dev 백엔드에 새 API 가 없어 목 API 서버(`mock:api`)에 내 질문 · 다시 실행을 더해 브라우저로 확인
 
 ## 다음 할 일 / 범위 밖

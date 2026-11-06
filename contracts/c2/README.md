@@ -21,11 +21,11 @@
 | ① | `GET /v1/places/{place_id}/boundaries` | 지도 테두리 · 행정동 고르기 (시군구 + 그 행정동 경계 한 번에) | `place-boundaries` | `place-boundaries-donggu.json` (좌표를 줄인 예시) |
 | ③ | `POST /v1/questions` | 질문 저장 | `question-create-request` · `-response` | `question-create-*.json` |
 | ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 4개 |
-| 보조 | `GET /v1/me/questions` | 내 질문 (저장한 질문 · 새 이슈 후보 · 회차 비교) | `my-question-list` | `my-question-list.json` |
-| 보조 | `POST /v1/questions/{question_id}/runs` | 내 질문 다시 실행 (새 회차) | `question-create-response` | `question-create-response.json` |
 | ④ | `GET /v1/evidence/{evidence_id}` | 원문 탭 · 각주 복사 | `evidence` | `evidence-kosis.json` |
 | ⑤ | `GET /v1/observations?place_id&card_id&period_start&period_end` | 지도 점 | `observations` | `observations-a3-yeosu.json` |
 | 보조 | `GET /v1/sources` | 근거 출처 · 이용 조건 · 마지막 수집 (8장 보조) | `source-list` | `source-list.json` |
+| 보조 | `GET /v1/me/questions` | 내 질문 (저장한 질문 · 새 이슈 후보 · 회차 비교) | `my-question-list` | `my-question-list.json` |
+| 보조 | `POST /v1/questions/{question_id}/runs` | 내 질문 다시 실행 (새 회차) | `question-create-response` | `question-create-response.json` |
 | 보조 | `GET /v1/admin/jobs?status&source_id&spec_id&page&size` · `GET /v1/admin/jobs/{job_run_id}` | 관리자 수집 이력 (FR-F5) | `job-list` · `job` | `job-list.json` · `job-failed.json` |
 
 ## 카드 목록 구현 (S15P31C108-132)
@@ -69,7 +69,7 @@
 
 ## 내 질문 · 다시 실행
 
-- 로그인한 사람이 `POST /v1/questions` 로 물으면 질문에 묻는 사람(`question.asked_by`, V0049)을 남긴다. 로그인 없이 묻는 질문과 그 전 질문은 비어 있어 누구의 내 질문에도 뜨지 않는다
+- 로그인한 사람이 `POST /v1/questions` 로 물으면 질문에 묻는 사람(`question.asked_by`, V0050)을 남긴다. 로그인 없이 묻는 질문과 그 전 질문은 비어 있어 누구의 내 질문에도 뜨지 않는다
 - `GET /v1/me/questions`(로그인 필요, 없으면 `401`): 내가 물은 질문을 마지막 실행이 새로운 것부터. 질문마다 `runs[]` 는 실행(회차)을 새것부터 주고, `claim` · `claim_text` 는 그 실행에 저장된 결과의 `claim.value` · `claim.text` 그대로다(다시 계산하지 않는다). `card_id` 가 null 이면 `candidate: true`(새 이슈 후보)
 - `POST /v1/questions/{question_id}/runs`(로그인 필요): 내 질문을 같은 지역 · 카드 · 기간으로 다시 실행해 **같은 질문의 새 실행**을 만든다. 응답은 `POST /v1/questions` 와 같은 `question-create-response`(같은 `question_id`, 새 `run_id`). 없는 질문 · 남이 물은 질문은 `404 RESOURCE_NOT_FOUND`. 회차 비교는 화면이 두 실행의 `GET /v1/arguments/{run_id}` 를 읽어 한다
 
