@@ -153,6 +153,47 @@ class CardSeedIntegrationTest {
     }
 
     @Test
+    void changedContractRuleIsApprovedAsNextVersion() throws Exception {
+        // -282 전 개발 · 운영 DB: 결과별 판단 문장(outcomes[].claim_text) 없이 v2 로 승인돼 있다
+        jdbc.queryForObject(
+                "SELECT set_config('issue_atlas.approver', ?, true)", String.class, APPROVER);
+        jdbc.execute(Files.readString(SEED).replaceAll(",\\s*\"claim_text\": \"[^\"]*\"", ""));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT spec::text FROM card_version WHERE card_id='C1' AND version=2",
+                                String.class))
+                .doesNotContain("claim_text");
+
+        // 계약 seed 를 다시 돌리면 규칙을 계약 값으로 고치고 두 카드를 v3 로 승인한다
+        runSeed("other@seed.test");
+        for (String cardId : CARD_IDS) {
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT card_version FROM card WHERE card_id=?",
+                                    Integer.class,
+                                    cardId))
+                    .isEqualTo(3);
+            JsonNode spec =
+                    json.readTree(
+                            jdbc.queryForObject(
+                                    "SELECT spec::text FROM card_version WHERE card_id=? AND version=3",
+                                    String.class,
+                                    cardId));
+            ObjectNode rule = (ObjectNode) contract(cardId + ".json").get("rule").deepCopy();
+            assertThat(spec.get("rule")).isEqualTo(rule.put("rule_version", 2));
+            assertThat(spec.at("/card_approval/approved_by").asText()).isEqualTo("other@seed.test");
+        }
+        // 세 번째는 바뀐 것이 없어 그대로
+        runSeed(APPROVER);
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT card_id || ':' || to_version FROM card_revision"
+                                        + " WHERE card_id IN ('C1','A3') ORDER BY card_id, to_version",
+                                String.class))
+                .containsExactly("A3:2", "A3:3", "C1:2", "C1:3");
+    }
+
+    @Test
     void seedNeedsApprover() throws Exception {
         String seed = Files.readString(SEED);
         assertThatThrownBy(() -> jdbc.execute(seed))

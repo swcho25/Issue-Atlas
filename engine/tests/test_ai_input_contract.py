@@ -307,7 +307,9 @@ def test_phrasing_request_rejects_contract_breaks(changes):
         ("phrasing-result-rejected", {"problems": []}),
         ("phrasing-result-done", {"reason_code": "LLM_ERROR"}),
         ("phrasing-result-done", {"status": "skipped"}),
-        ("phrasing-result-done", {"warrant__provenance": "robot"}),
+        ("phrasing-result-done", {"rebuttals__0__provenance": "robot"}),
+        # v0.3: ③ 보증은 카드 문장이라 AI 결과에 warrant 칸이 없다(S15P31C108-282)
+        ("phrasing-result-done", {"warrant": {"text": "x", "provenance": "llm_phrasing"}}),
     ],
 )
 def test_phrasing_result_rejects_contract_breaks(name, changes):

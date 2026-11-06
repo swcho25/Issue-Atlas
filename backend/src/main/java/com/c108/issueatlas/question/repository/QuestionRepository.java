@@ -315,18 +315,72 @@ public class QuestionRepository {
                 .list();
     }
 
+    /** 로그인한 사람의 사용자 ID(질문의 묻는 사람). 없거나 쉬는 계정이면 비어 있다 */
+    public Optional<Long> userId(String email) {
+        return jdbc.sql("SELECT id FROM app_user WHERE email = ? AND is_active")
+                .param(email)
+                .query(Long.class)
+                .optional();
+    }
+
+    /** askedBy 는 로그인 없이 물었으면 null */
     public void insertQuestion(
             String questionId,
             String placeId,
             String cardId,
             LocalDate start,
             LocalDate end,
-            String rawText) {
+            String rawText,
+            Long askedBy) {
         jdbc.sql(
                         "INSERT INTO question (question_id, place_id, card_id, period_start,"
-                                + " period_end, raw_text) VALUES (?, ?, ?, ?, ?, ?)")
-                .params(questionId, placeId, cardId, start, end, rawText)
+                                + " period_end, raw_text, asked_by) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                .params(questionId, placeId, cardId, start, end, rawText, askedBy)
                 .update();
+    }
+
+    /** 그 사람이 물은 질문 하나(다시 실행). 남의 질문이면 비어 있다 */
+    public Optional<StoredQuestion> ownQuestion(String questionId, long userId) {
+        return jdbc.sql(
+                        "SELECT question_id, place_id, card_id, period_start, period_end, raw_text"
+                                + " FROM question WHERE question_id = ? AND asked_by = ?")
+                .params(questionId, userId)
+                .query(StoredQuestion.class)
+                .optional();
+    }
+
+    /** 그 사람이 물은 질문. 마지막 실행이 새로운 것부터 */
+    public List<MyQuestionRow> myQuestions(long userId) {
+        return jdbc.sql(
+                        """
+                SELECT q.question_id, q.place_id, p.name AS place_name, q.card_id, c.name AS card_name,
+                       q.period_start, q.period_end, q.raw_text, q.created_at
+                FROM question q
+                JOIN place p ON p.place_id = q.place_id
+                LEFT JOIN card c ON c.card_id = q.card_id
+                WHERE q.asked_by = ?
+                ORDER BY (SELECT max(r.created_at) FROM argument_run r
+                          WHERE r.question_id = q.question_id) DESC NULLS LAST,
+                         q.created_at DESC, q.question_id
+                """)
+                .param(userId)
+                .query(MyQuestionRow.class)
+                .list();
+    }
+
+    /** 그 사람 질문들의 실행(회차). 새것부터, 판단은 저장된 결과의 claim 그대로 */
+    public List<MyRunRow> myRuns(long userId) {
+        return jdbc.sql(
+                        """
+                SELECT r.question_id, r.run_id, r.run_status, r.created_at,
+                       r.result -> 'claim' ->> 'value' AS claim, r.result -> 'claim' ->> 'text' AS claim_text
+                FROM argument_run r JOIN question q ON q.question_id = r.question_id
+                WHERE q.asked_by = ?
+                ORDER BY r.created_at DESC, r.run_id DESC
+                """)
+                .param(userId)
+                .query(MyRunRow.class)
+                .list();
     }
 
     /** 같은 지역 × 카드 × 기간의 가장 최근 실행(재실행 로그의 앞 실행). 카드 없는 질문은 card_id 가 null 끼리 같다. */
@@ -475,6 +529,33 @@ public class QuestionRepository {
     }
 
     public record CardRow(String cardId, String name, int cardVersion, String taxonomyVersion) {}
+
+    public record StoredQuestion(
+            String questionId,
+            String placeId,
+            String cardId,
+            LocalDate periodStart,
+            LocalDate periodEnd,
+            String rawText) {}
+
+    public record MyQuestionRow(
+            String questionId,
+            String placeId,
+            String placeName,
+            String cardId,
+            String cardName,
+            LocalDate periodStart,
+            LocalDate periodEnd,
+            String rawText,
+            OffsetDateTime createdAt) {}
+
+    public record MyRunRow(
+            String questionId,
+            String runId,
+            String runStatus,
+            OffsetDateTime createdAt,
+            String claim,
+            String claimText) {}
 
     public record ObservationRow(
             String stationId, String whenUnit, String period, BigDecimal value, String status) {}

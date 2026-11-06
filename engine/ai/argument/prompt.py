@@ -10,35 +10,29 @@
 import re
 from datetime import date, timedelta
 
-PROMPT_VERSION = "argument-phrasing-v3"
+PROMPT_VERSION = "argument-phrasing-v4"
 MAX_SOURCES = 40
 STATUSES = ("supported", "not_found", "needs_review")
 # C2 「공통 규칙」: 문구에 쓰지 않는다. 카드 금지어와 합친다
 COMMON_FORBIDDEN = ("확산", "전파", "원인", "효과")
 
+# v4(S15P31C108-282): ① 판단 문장(연 값)은 규칙, ③ 보증은 카드 문장이라
+# 모델은 ⑤ 반박만 쓴다(Figma: AI 칩은 ⑤ 만)
 SYSTEM = "\n".join(
     [
-        "너는 논증 카드의 ③ 보증과 ⑤ 반박 칸을 쓰는 도우미다. 판정은 규칙 엔진이 이미 끝냈다.",
+        "너는 논증 카드의 ⑤ 반박 칸을 쓰는 도우미다."
+        " 판정과 다른 칸은 규칙 엔진과 카드가 이미 끝냈다.",
         "지킬 것:",
         "1. fixed 의 값(판단 값 · 수준 · 문장 · 한정어 · 비교 조건)은 바꾸지 않는다."
         " 출력 claim_value 에는 fixed.claim_value 를 그대로 적는다.",
-        "2. 숫자는 statistics 의 value · period 와 입력 문장에 이미 있는 숫자만 쓴다."
+        "2. 숫자는 statistics 의 value · period, 입력 문장, 인용한 구절에 이미 있는 숫자만 쓴다."
         " 더하기 · 빼기 · 비율 같은 새 계산을 하지 않는다.",
-        "3. warrant.text: 두 문장 이내. 첫 문장은 statistics 의 연 값(place 가 질문 지역인 값이"
-        " 있으면 그것, 첫해와 끝해는 꼭)을 그대로 써서 판정이 어떻게 나왔는지 보인다."
-        " 판정 이유는 fixed.rule_meaning 으로만 설명하고 다른 이유를 지어내지 않는다."
-        " 둘째 문장은 card_warrant 의 논리를 이 질문(지역 · 기간)에 맞게 쓴다."
-        " fixed 판단과 반대되는 말을 하지 않는다."
-        " 쓴 값의 evidence_id 를 warrant.citations 에 넣는다.",
-        "3-1. 값의 부호와 같은 뜻의 낱말을 겹쳐 쓰지 않는다"
-        "(순유출 -1,850명 ✗ → 순이동 -1,850명 또는 순유출 1,850명).",
-        "4. rebuttals: rebuttal_candidates 마다 같은 id 로 하나씩."
+        "3. rebuttals: rebuttal_candidates 마다 같은 id 로 하나씩."
         " passages 에 그 경쟁 설명을 뒷받침하는 내용이 있으면 status 를 supported 로 하고"
         " citations 에 passage id 와, 그 구절에서 글자 그대로 옮긴 quote 를 넣는다."
         " 관련 구절이 없으면 not_found, 애매하면 needs_review. note 는 한 문장 또는 null.",
-        "5. ceiling 에 있는 것은 말하지 않는다. forbidden_terms 의 낱말은 쓰지 않는다.",
-        '6. 출력은 JSON 하나: {"claim_value": "...",'
-        ' "warrant": {"text": "...", "citations": ["evidence_id"]},'
+        "4. ceiling 에 있는 것은 말하지 않는다. forbidden_terms 의 낱말은 쓰지 않는다.",
+        '5. 출력은 JSON 하나: {"claim_value": "...",'
         ' "rebuttals": [{"id": "R1", "status": "...", "note": null,'
         ' "citations": [{"passage": "P1", "quote": "..."}]}]}',
     ]
@@ -105,30 +99,14 @@ def period(start: str, end: str) -> str:
     return f"{first}~{last}"
 
 
-def outcome(judgment: dict, card: dict) -> dict | None:
-    """판정이 고른 규칙 결과.
-
-    승인본 rule.outcomes 중 판단 값이 같고 이름(label)이 판단 문장에 든 것(가장 긴 이름).
-    """
-    claim = judgment["claim"]
-    found = [
-        o
-        for o in card.get("rule", {}).get("outcomes", [])
-        if o.get("claim") == claim["value"]
-        and o.get("label")
-        and o["label"] in (claim["text"] or "")
-    ]
-    return max(found, key=lambda o: len(o["label"]), default=None)
-
-
 def build(judgment: dict, sources: list[dict], card: dict) -> dict:
     """card = 그 실행이 쓴 카드 승인본(DB card_version.spec).
 
-    카드마다 다른 설정(금지어 · 규칙 결과 뜻)은 여기서만 읽는다.
+    카드마다 다른 설정(금지어)은 여기서만 읽는다.
+    보증을 쓰지 않으므로(v4) 카드 보증 · 규칙 결과 뜻은 보내지 않는다.
     """
     question = judgment["question"]
     candidates = judgment["rebuttal_candidates"]
-    chosen = outcome(judgment, card)
     return {
         "question": {
             "place": question["place_name"],
@@ -141,15 +119,7 @@ def build(judgment: dict, sources: list[dict], card: dict) -> dict:
             "claim_text": judgment["claim"]["text"],
             "qualifier_grade": judgment["qualifier"]["grade"],
             "comparability": {k: v["note"] for k, v in judgment["comparability"].items()},
-            # 판정 이유는 이 뜻으로만 말한다(v3). 다른 결과들은 뜻을 견주어 보라고 함께 준다
-            "rule_meaning": chosen["meaning"] if chosen else None,
-            "rule_outcomes": [
-                {"label": o["label"], "meaning": o["meaning"]}
-                for o in card.get("rule", {}).get("outcomes", [])
-                if o.get("label") and o.get("meaning")
-            ],
         },
-        "card_warrant": judgment["warrant"]["text"],
         "statistics": [
             {
                 "evidence_id": p["evidence_id"],

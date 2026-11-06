@@ -66,7 +66,7 @@ class OpenApiContractTest {
                                                                                 .path("operationId")
                                                                                 .asString()))));
 
-        assertThat(expected).hasSize(11);
+        assertThat(expected).hasSize(12);
         assertThat(actual).containsAll(expected);
     }
 
@@ -125,7 +125,7 @@ class OpenApiContractTest {
                                                 }));
         assertThat(missing).isEmpty();
 
-        assertThat(paths.at("/~1v1~1questions/get/responses").has("401")).isTrue();
+        assertThat(paths.at("/~1v1~1me~1questions/get/responses").has("401")).isTrue();
         assertThat(paths.at("/~1v1~1places/get/responses").has("401")).isFalse();
         assertThat(paths.at("/~1v1~1admin~1jobs/get/responses").has("403")).isTrue();
         assertThat(paths.at("/~1v1~1evidence~1{evidence_id}/get/responses").has("404")).isTrue();
@@ -133,7 +133,7 @@ class OpenApiContractTest {
         // 예시 본문은 상태마다 실제 code 를 보여 준다
         assertThat(
                         paths.at(
-                                        "/~1v1~1questions/get/responses/401/content/application~1problem+json/example/code")
+                                        "/~1v1~1me~1questions/get/responses/401/content/application~1problem+json/example/code")
                                 .asString())
                 .isEqualTo("UNAUTHORIZED");
     }

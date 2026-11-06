@@ -1,9 +1,9 @@
 package com.c108.issueatlas.question.controller;
 
 import com.c108.issueatlas.question.dto.ArgumentResponse;
+import com.c108.issueatlas.question.dto.MyQuestionList;
 import com.c108.issueatlas.question.dto.QuestionCreateRequest;
 import com.c108.issueatlas.question.dto.QuestionCreateResponse;
-import com.c108.issueatlas.question.dto.QuestionListResponse;
 import com.c108.issueatlas.question.service.QuestionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.security.Principal;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -30,24 +31,31 @@ public class QuestionController {
         this.questions = questions;
     }
 
+    /** 로그인 없이도 묻는다. 로그인했으면 묻는 사람을 남겨 내 질문에 뜬다(익명이면 asker 가 null). */
     @Operation(
             operationId = "createQuestion",
             summary = "질문(지역 × 카드 × 기간) 저장 후 실행. card_id 가 null 이면 신규 카드 후보")
     @PostMapping("/v1/questions")
     @ResponseStatus(HttpStatus.CREATED)
-    public QuestionCreateResponse create(@Valid @RequestBody QuestionCreateRequest request) {
-        return questions.create(request);
+    public QuestionCreateResponse create(
+            @Valid @RequestBody QuestionCreateRequest request, Principal asker) {
+        return questions.create(request, asker == null ? null : asker.getName());
     }
 
     @Operation(
-            operationId = "listMyQuestions",
-            summary = "내 질문 목록 (로그인 필요, 최근 순). 목 — 지금은 고정 예시 3건",
-            description =
-                    "질문에 작성자 칸이 아직 없어 누가 불러도 contracts/c2/examples/question-list.json 과 같은 3건을 준다."
-                            + " 결과 화면은 run_id 로 GET /v1/arguments/{run_id}")
-    @GetMapping("/v1/questions")
-    public QuestionListResponse myQuestions() {
-        return questions.myQuestions();
+            operationId = "rerunQuestion",
+            summary = "내 질문을 같은 지역 · 카드 · 기간으로 다시 실행(같은 질문의 새 실행)")
+    @PostMapping("/v1/questions/{question_id}/runs")
+    @ResponseStatus(HttpStatus.CREATED)
+    public QuestionCreateResponse rerun(
+            @PathVariable("question_id") String questionId, Principal asker) {
+        return questions.rerun(questionId, asker.getName());
+    }
+
+    @Operation(operationId = "listMyQuestions", summary = "내 질문(로그인한 사람이 물은 질문)과 실행 회차")
+    @GetMapping("/v1/me/questions")
+    public MyQuestionList mine(Principal asker) {
+        return questions.mine(asker.getName());
     }
 
     /** 실행 때 저장한 C2 argument 를 그대로 준다. */

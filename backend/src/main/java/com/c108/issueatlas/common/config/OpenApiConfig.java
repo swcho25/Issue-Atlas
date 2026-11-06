@@ -42,7 +42,8 @@ public class OpenApiConfig {
     // ponytail: SecurityConfig 의 로그인 필요 경로(관리자 밖)를 손으로 옮겨 둔 것. 그쪽 공개 범위가 바뀌면 같이 고친다
     private static final Set<String> LOGIN_REQUIRED =
             Set.of(
-                    "GET /v1/questions",
+                    "GET /v1/me/questions",
+                    "POST /v1/questions/{question_id}/runs",
                     "GET /v1/auth/me",
                     "POST /v1/review-requests",
                     "POST /v1/auth/logout");
@@ -179,7 +180,7 @@ public class OpenApiConfig {
                                         응답 계약 원본: `contracts/c2/openapi.yaml` · `schemas/*.schema.json` (11/4 동결). \
                                         오류는 `application/problem+json` (`contracts/http-errors`).
 
-                                        - 일반 사용자 API(places · questions · arguments · evidence · observations · sources)는 로그인 없이 부른다. 내 질문 목록(`GET /v1/questions`)과 수정 제안은 로그인 필요
+                                        - 일반 사용자 API(places · questions · arguments · evidence · observations · sources)는 로그인 없이 부른다. 내 질문(`GET /v1/me/questions`) · 다시 실행 · 수정 제안은 로그인 필요
                                         - POST 는 먼저 `GET /v1/auth/csrf` 로 `XSRF-TOKEN` 쿠키를 받고 `X-XSRF-TOKEN` 헤더로 보낸다 (이 화면의 Try it out 은 자동)
                                         - `/v1/admin/**` 는 `POST /v1/auth/login` 세션 + ADMIN. 조회자는 403
                                         - 데모 흐름: `POST /v1/questions` → `run_id` → `GET /v1/arguments/{run_id}`
