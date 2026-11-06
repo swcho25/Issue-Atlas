@@ -20,7 +20,7 @@
 | ② | `GET /v1/places/{place_id}/cards?period_start&period_end` | 이슈 카드 목록 (근거 n/4) | `place-cards` | `place-cards-yeosu.json` |
 | ① | `GET /v1/places/{place_id}/boundaries` | 지도 테두리 · 행정동 고르기 (시군구 + 그 행정동 경계 한 번에) | `place-boundaries` | `place-boundaries-donggu.json` (좌표를 줄인 예시) |
 | ③ | `POST /v1/questions` | 질문 저장 | `question-create-request` · `-response` | `question-create-*.json` |
-| ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 4개 |
+| ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 5개 |
 | ④ | `GET /v1/evidence/{evidence_id}` | 원문 탭 · 각주 복사 | `evidence` | `evidence-kosis.json` |
 | ⑤ | `GET /v1/observations?place_id&card_id&period_start&period_end` | 지도 점 | `observations` | `observations-a3-yeosu.json` |
 | 보조 | `GET /v1/sources` | 근거 출처 · 이용 조건 · 마지막 수집 (8장 보조) | `source-list` | `source-list.json` |
@@ -84,11 +84,11 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 
 ## 논증 카드 (`argument`)
 
-근거 수요표(`evidence_table`)와 비교 조건(`comparability`) 다음에 6칸이 온다. 칸은 6개뿐이다.
+근거 수요표(`evidence_table`) · 적용 조건(`applicability`, C2 v1) · 비교 조건(`comparability`) 다음에 6칸이 온다. 칸은 6개뿐이다.
 
 | 칸 | 키 | 작성 주체(`provenance`) |
 | --- | --- | --- |
-| ① 판단 | `claim` `{value, level, text}` | `rule`·`card` 만 |
+| ① 판단 | `claim` `{value, label, level, text}` | `rule`·`card` 만 |
 | ② 근거 | `data` `{statistics[], documents[], existing_responses[], denominators[]}` | — |
 | ③ 보증 | `warrant` `{text}` | 보통 `card` |
 | ④ 한정어 | `qualifier` `{grade, components, formula_version}` | `rule`·`card` 만 |
@@ -105,6 +105,41 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 | `storage_scope` 가 `link_only` 면 `evidence.display` 는 `null` | FR-E3 |
 | `candidate: true` 면 `run_status` 는 `unsupported` | FR-A3 |
 | `qualifier.grade` 는 아래 규칙표와 `components` 가 맞아야 한다 | PRD 7.3 |
+| `run_status` 가 `blocked`·`unsupported` 면 `claim.label` 은 `null` | C2 v1 |
+| `applicability` 에 `passed: false` 가 하나라도 있으면 `run_status` 는 `unsupported` · 카드가 없으면(`card_id = null`) `applicability = []` | 카드 양식 B6 · C2 v1 |
+
+## 판단 배지 · 적용 조건 (C2 v1, S15P31C108-283)
+
+「오류」 페이지 결정 2 · 7(2026-11-06). Figma 04 · 05 결과의 판단 배지와 unsupported 화면의 「못 채운 적용 조건」 목록을 응답에 싣는다. **11/4 동결 대상이라 주는 쪽(backend P7) · 받는 쪽(프론트) 리뷰 MR 로 바꾼다**([동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」).
+
+`claim.label` (문자열 또는 null, 필수)
+
+- 판정한 실행은 고른 규칙 결과의 이름 = 승인본 `rule.outcomes[].label`([카드 계약](../cards/README.md)). C1: 청년 순유출 확대 · 청년 순유출 축소 · 순유입 전환 · 불분명 / A3: 악화 · 개선 · 불분명 · 비교 불가. 판정 코드가 이미 갖고 있는 값이다
+- 판정하지 않은 실행(`blocked` · `unsupported`)은 `null`. 화면은 `run_status` 로 「자료 부족」(blocked) · 「근거 부족」(unsupported) — Figma 08 상태 화면 글자
+- 화면은 배지에 이 값을 그대로 쓴다(Figma 메모 「판단 배지 글자는 API 의 claim.label 그대로」). `claim.value` 로 글자를 짓지 않는다
+
+`applicability[]` `{condition, label, passed, note}` (필수 배열)
+
+승인본 `applicability`(양식 B6)의 칸마다 한 줄, 승인본의 칸 순서. 카드가 없거나(`card_id = null`) 승인본이 없는 카드면 `[]`.
+
+| `condition` | `label` 예 | `passed` | `note` 예 |
+| --- | --- | --- | --- |
+| `place_level` | 시군구 단위 | 질문 지역의 단위가 카드 `place_level` 과 같으면 true | 여수시(시군구) |
+| `min_complete_years` | 완전한 연 값 3개 이상 | 판정에 쓴 완전한 연 값 수 ≥ N 이면 true, 아니면 false. 통계가 없어 판정 전에 멈추면(blocked) null | 3개(2023–2025) · 2개(2024–2025) |
+| `min_stations` | 측정소 1곳 이상 | 연평균이 있는 측정소 수 ≥ N | 측정소 9곳 |
+| `population` | 대상: 청년 19–39세 | 늘 null(표시만 하는 조건) | null |
+
+- `passed`: true 충족 · false 못 채움 · null 확인하지 못함 또는 표시만. 하나라도 false 면 `run_status = unsupported`(스키마가 검사)
+- 화면: unsupported 의 ✕ 목록 = `passed: false` 줄(`label` — `note`). 비교 조건 컴포넌트를 다시 쓴다. Figma 의 「해안 · 하구」 · 「측정지점 0곳」은 아직 없는 카드(하천 · 연안 수질)의 예시다. 지금 생길 수 있는 unsupported 사유는 카드 없음 · 규칙 없음 · 완전한 연 값 부족 셋
+- 승인본에 새 조건 칸이 생기면 backend 가 그 칸의 `label` · 확인 방법을 더한다(모르는 칸은 `passed: null`)
+
+구현 순서 (이 계약 리뷰 뒤)
+
+1. 이 계약 MR 리뷰 — backend(P7 장성우) · 프론트. 머지는 아래 구현과 함께(계약만 먼저 들어가면 backend 계약 테스트 `C2Contract` 가 깨진다)
+2. engine: 코드 변경 없음. 문장화 요청의 판정 입력이 C2 `claim` 을 그대로 `$ref` 하고 engine 은 요청을 `contracts/` 스키마로 엄격히 검사한다(모르는 칸 거절) → **배포 순서는 계약 → engine → backend**. engine 이미지가 `contracts/` 를 싣으므로 계약이 들어간 engine 이 먼저 떠야 한다. 거꾸로면 문장화 요청이 `INPUT_INVALID` 로 거절돼 ⑤ 가 빈 반박이 된다(판단은 그대로). `applicability` 는 판정 입력에 넣지 않는다
+3. backend: `ArgumentResponse.Claim.label` · `applicability` 를 채운다. 저장된 지난 실행 결과(`argument_run.result`)에는 칸이 없으므로 Flyway 로 `claim.label = null` · `applicability = []` 를 채운다(지난 실행은 다시 계산하지 않는다)
+4. 프론트: `shared/api/c2/argument.ts` zod 에 두 칸, 배지는 `claim.label`(null 이면 run_status 문구), unsupported 화면의 ✕ 목록
+- `schema_version` 은 `c2-0.1` 그대로 둔다(모든 엔드포인트가 같은 값을 쓴다). C2 v1 로 올릴지는 리뷰에서 정한다
 
 ## 근거 충실도 규칙표 (`qualifier-0.1`)
 
@@ -202,3 +237,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-05): 상한선 ⑥ `ceiling.items` 끝에 카드 예상 빈칸(`expected_gaps`)을 「무엇: 문장 (상태)」로 붙인다(S15P31C108-265). 칸 그대로(값만 바뀜). 구조 칸 `expected_gaps[]` 는 C2 v1 에서 주는 쪽 · 받는 쪽 리뷰 MR 로
 - v0.1 (2026-11-05): 카드 목록 근거 상태 = 등록된 `card_evidence_status` → 없으면 같은 지역 · 카드 · 카드 버전 · 기간의 최근 실행 근거 수요표 → 없으면 `not_collected`(S15P31C108-264). 응답 모양 그대로(동결 규칙의 「값이 바뀌는 것」)
 - v0.1 (2026-11-05): 통계 · 분모 근거 시점(`observed_at`, 한정어 `latest_observed_at`)을 마지막 관측 기간의 끝 경계(다음 달 1일 0시)에서 그 기간의 마지막 날(한국 0시)로(S15P31C108-272). 화면 ④ 가 「최신 2026-01-01」(기간 밖)로 보이고 「1년 이내」가 하루 후했다. 저장된 근거 행은 V0048 이 고치고, 저장된 실행 결과는 그대로(다시 실행하면 새 값). 응답 모양 그대로(값만 바뀜)
+- C2 v1 계약 제안 (2026-11-06, S15P31C108-283): argument 에 `claim.label`(결과 이름, 판정 안 함은 null) · 최상위 `applicability[]`(`{condition, label, passed, note}`, 카드 적용 조건 B6 를 조건마다)를 더한다. 둘 다 필수. 스키마 검사 2개(blocked · unsupported → label null, passed false → unsupported) · 카드 없음 → `[]`. 예시 4개에 두 칸, 예시 `argument-c1-unsupported-years.json`(완전한 연 값 2개 → ✕) 추가. 「오류」 페이지 결정 2 · 7. 동결 대상 — backend · 프론트 리뷰 뒤 구현과 함께 머지. 「판단 배지 · 적용 조건」

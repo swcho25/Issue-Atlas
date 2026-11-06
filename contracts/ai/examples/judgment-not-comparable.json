@@ -69,6 +69,7 @@
   },
   "claim": {
     "value": "not_comparable",
+    "label": "비교 불가",
     "level": "observed_fact",
     "text": "여수시 측정소 9곳의 2023–2025 PM2.5 관측값은 있지만, 측정 위치가 같은지 확인되지 않아 증가·감소를 말하지 않습니다.",
     "provenance": "rule"
