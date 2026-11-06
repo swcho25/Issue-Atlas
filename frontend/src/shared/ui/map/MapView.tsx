@@ -87,10 +87,23 @@ function ourLayers(c: Colors, theme: Theme): LayerSpecification[] {
   ];
 }
 
-/** 바탕을 새로 불러온 뒤마다: 한국어 지명, 고르는 화면이면 지명을 흐리게 */
-function dressBasemap(m: MapLibreMap, opts: { picking: boolean }) {
+/**
+ * 크게 축소하면 평면 지도 대신 지구로 보인다(MapLibre globe). 가까이 오면 저절로 평면처럼 펴진다.
+ * 지구 둘레의 옅은 대기는 밝은 화면에서 축소했을 때만(어두운 화면에서는 밝은 테두리로 튀어서 끈다)
+ */
+function showGlobe(m: MapLibreMap, theme: Theme) {
+  m.setProjection({ type: "globe" });
+  m.setSky({
+    "atmosphere-blend":
+      theme === "dark" ? 0 : ["interpolate", ["linear"], ["zoom"], 0, 1, 5, 1, 7, 0],
+  });
+}
+
+/** 바탕을 새로 불러온 뒤마다: 한국어 지명, 고르는 화면이면 지명을 흐리게, 지구 보기 */
+function dressBasemap(m: MapLibreMap, opts: { theme: Theme; picking: boolean; globe: boolean }) {
   showKoreanLabels(m);
   if (opts.picking) fadeBasemapLabels(m);
+  if (opts.globe) showGlobe(m, opts.theme);
 }
 
 /** 토큰 색을 지금 테마로 읽는다. 토큰 글자색을 단 숨은 요소(data-color)의 계산값 */
@@ -243,11 +256,14 @@ export function MapView({
   boundaries,
   choices,
   onPick,
+  globe = false,
   padding = 80,
   className = "",
   children,
 }: {
   boundaries?: PlaceBoundaries;
+  /** 크게 축소하면 지구로 보이게 한다(새 질문처럼 지역을 넓게 둘러보는 지도) */
+  globe?: boolean;
   /**
    * 눌러서 고를 수 있는 다른 지역(시군구). 가는 선 · 점 + 이름으로 그리고(고른 지역은 앰버 점 + 크고 굵게),
    * 마우스를 올리면 그 지역이 밝게 떠오르며, 지역이나 이름표를 누르면 onPick. 넘기면 바탕 지도의 지명은 흐려진다
@@ -269,9 +285,9 @@ export function MapView({
   const data = useRef({ choices: collection([]), boundaries: collection([]) });
   const theme = useTheme();
   // 지도를 만들 때 · 바탕을 갈아 끼울 때 읽는 지금 상태(효과 밖에서 바뀌는 값)
-  const now = useRef({ theme, picking: choices !== undefined });
+  const now = useRef({ theme, globe, picking: choices !== undefined });
   useEffect(() => {
-    now.current = { theme, picking: choices !== undefined };
+    now.current = { theme, globe, picking: choices !== undefined };
   });
 
   // 지금 바탕이 어느 테마로 그려졌는지. 처음 그린 뒤 화면 테마가 바로 바뀌는 경우(새로 고침 직후 다크)도 따라간다
