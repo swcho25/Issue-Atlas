@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.file.Files;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -93,6 +94,48 @@ class OpenApiContractTest {
                                                                         + p.getKey())));
 
         assertThat(missing).isEmpty();
+    }
+
+    /** 모든 API 에 공통 오류(400 · 500, problem+json)가 있고, 로그인 · 관리자 · 경로 변수에 따라 401 · 403 · 404 가 붙는다. */
+    @Test
+    void everyOperationDocumentsCommonErrors() throws Exception {
+        JsonNode paths = docs().get("paths");
+        Set<String> missing = new TreeSet<>();
+        paths.properties()
+                .forEach(
+                        p ->
+                                p.getValue().properties().stream()
+                                        .filter(op -> METHODS.contains(op.getKey()))
+                                        .forEach(
+                                                op -> {
+                                                    for (String code : List.of("400", "500")) {
+                                                        if (!op.getValue()
+                                                                .path("responses")
+                                                                .path(code)
+                                                                .path("content")
+                                                                .has("application/problem+json")) {
+                                                            missing.add(
+                                                                    code
+                                                                            + " "
+                                                                            + op.getKey()
+                                                                            + " "
+                                                                            + p.getKey());
+                                                        }
+                                                    }
+                                                }));
+        assertThat(missing).isEmpty();
+
+        assertThat(paths.at("/~1v1~1questions/get/responses").has("401")).isTrue();
+        assertThat(paths.at("/~1v1~1places/get/responses").has("401")).isFalse();
+        assertThat(paths.at("/~1v1~1admin~1jobs/get/responses").has("403")).isTrue();
+        assertThat(paths.at("/~1v1~1evidence~1{evidence_id}/get/responses").has("404")).isTrue();
+        assertThat(paths.at("/~1v1~1questions/post/responses").has("429")).isTrue();
+        // 예시 본문은 상태마다 실제 code 를 보여 준다
+        assertThat(
+                        paths.at(
+                                        "/~1v1~1questions/get/responses/401/content/application~1problem+json/example/code")
+                                .asString())
+                .isEqualTo("UNAUTHORIZED");
     }
 
     /** 문서의 칸 이름이 실제 JSON(snake_case)과 같아야 Swagger 의 Try it out 요청이 400 이 안 난다. */
