@@ -86,6 +86,13 @@ describe("argumentSchema — 계약 규칙을 어긴 응답", () => {
     expect(issuePaths(a)).toContain("series.0");
   });
 
+  it("그림 줄의 부호 낱말(sign_words)이 하나라도 비면 실패한다", () => {
+    const a = copyReady();
+    const line = a.series[0] as Record<string, unknown>;
+    line.sign_words = { negative: "순유출" };
+    expect(issuePaths(a).some((p) => p.startsWith("series.0"))).toBe(true);
+  });
+
   it("근거 충실도 등급이 규칙과 다르면 실패한다", () => {
     const a = copyReady();
     a.qualifier.components.independent_evidence = 1;

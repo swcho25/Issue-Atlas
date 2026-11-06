@@ -359,6 +359,10 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.series[0].values[1]").value(-40))
                 .andExpect(jsonPath("$.series[0].values[2]").isEmpty())
                 .andExpect(jsonPath("$.series[0].statuses[2]").value("not_collected"))
+                // 카드 승인본 claim_items[].sign_words(카드 계약 v0.5) 그대로 — 낱말이 있는 주 지표 줄에만
+                .andExpect(jsonPath("$.series[0].sign_words.negative").value("순유출"))
+                .andExpect(jsonPath("$.series[0].sign_words.positive").value("순유입"))
+                .andExpect(jsonPath("$.series[1].sign_words").doesNotExist())
                 .andExpect(jsonPath("$.series[1].from").value("kr-12130"))
                 .andExpect(jsonPath("$.series[1].to").value("kr-11"))
                 .andExpect(jsonPath("$.series[1].to_name").value("서울특별시"))
@@ -384,7 +388,9 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.series[0].name").value("서강동"))
                 .andExpect(jsonPath("$.series[0].coordinates.length()").value(2))
                 .andExpect(jsonPath("$.series[0].values[0]").value(15.3))
-                .andExpect(jsonPath("$.series[0].statuses[1]").value("not_collected"));
+                .andExpect(jsonPath("$.series[0].statuses[1]").value("not_collected"))
+                // A3 카드에는 부호 낱말이 없어 칸을 내보내지 않는다
+                .andExpect(jsonPath("$.series[0].sign_words").doesNotExist());
     }
 
     @Test

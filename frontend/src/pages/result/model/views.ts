@@ -132,17 +132,12 @@ export function barLayout(values: (number | null)[]) {
 }
 
 /**
- * 0 선 위아래 뜻(사용자 결정 11/06). 부호가 방향인 지표만 「+ 순유입 · − 순유출」처럼 적고 값 · 막대는 그대로 둔다.
- * 순이동 = 전입 − 전출(KOSIS)이라 음수가 순유출. 지금은 지표 ID 로 정하고,
- * 카드 sign_words(카드 계약 v0.5)가 C2 series 로 오면 그 낱말로 바꾼다
+ * 0 선 위아래 뜻(사용자 결정 11/06). 응답 series 의 sign_words(카드 승인본 claim_items[].sign_words)가 있는
+ * 줄만 「+ 순유입 · − 순유출」처럼 적고 값 · 막대는 그대로 둔다. 낱말은 카드가 정하고 화면은 받기만 한다
  */
-const SIGN_AXES = [
-  { prefix: "population_net_migration", positive: "순유입", negative: "순유출" },
-] as const;
-
-export function signAxis(indicatorId: string) {
-  const axis = SIGN_AXES.find((a) => indicatorId.startsWith(a.prefix));
-  return axis ? { positive: `+ ${axis.positive}`, negative: `− ${axis.negative}` } : null;
+export function signAxis(series: PlaceSeries) {
+  const words = series.sign_words;
+  return words ? { positive: `+ ${words.positive}`, negative: `− ${words.negative}` } : null;
 }
 
 /** 막대 숫자: 「−1,537」(빼기 기호), 평균은 소수 한 자리 */

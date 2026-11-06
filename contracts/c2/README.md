@@ -76,6 +76,7 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 | 기사 건수 | `tag` · `place_id` · `name` · `coordinates`, `values` = 그 달 근거 기사 수 | 확산 |
 
 - 공통 칸 `unit` · `periods[]`(`YYYY-MM`, 질문 기간의 달 모두) · `values[]` · `statuses[]`. 세 배열 길이가 같고, `available` 이 아니면 값은 null. 그 달 관측 행이 없으면 `not_collected`. 연으로 묶지 않는다
+- `sign_words`(선택, 통계 모양만): 실행이 쓴 카드 승인본의 `claim_items[].sign_words`([카드 계약](../cards/README.md) v0.5)가 그 지표에 있으면 그대로 싣는다. 화면은 0 선 위 = `positive` · 아래 = `negative`(C1 순이동: 순유입 · 순유출)로 읽는다. 값은 부호 그대로이고, 낱말이 없는 지표 · 지난 실행에는 칸이 없다
 - 카드에 연결한 지표(명세 7절 그림 순서): C1 = `population_net_migration_19_39`(순이동 막대) → `population_movers`(이동, 도착 시도마다 한 줄), A3 = `air_pm25`(측정소마다 한 줄). 카드가 늘면 카드 ↔ 지표 표로 옮긴다
 - `articles[]`: `id`(news_id) · `date`(한국 날짜) · `place_id` · `point` · `precision` · `summary` · `place_name` · `url`(원문 링크 — 빅카인즈 원본 레코드의 언론사 링크, 없으면 null. 본문은 저장하지 않는다). 카드 태그가 있고 질문 지역(앞자리가 같은 읍면동 포함) · 기간 안인 기사. **지금은 기사에 카드 태그가 없어(기사 분류 P4 전) 늘 빈 배열**이고 기사 건수 series 도 나오지 않는다
 
@@ -210,3 +211,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-05): 카드 목록 근거 상태 = 등록된 `card_evidence_status` → 없으면 같은 지역 · 카드 · 카드 버전 · 기간의 최근 실행 근거 수요표 → 없으면 `not_collected`(S15P31C108-264). 응답 모양 그대로(동결 규칙의 「값이 바뀌는 것」)
 - v0.1 (2026-11-05): 통계 · 분모 근거 시점(`observed_at`, 한정어 `latest_observed_at`)을 마지막 관측 기간의 끝 경계(다음 달 1일 0시)에서 그 기간의 마지막 날(한국 0시)로(S15P31C108-272). 화면 ④ 가 「최신 2026-01-01」(기간 밖)로 보이고 「1년 이내」가 하루 후했다. 저장된 근거 행은 V0048 이 고치고, 저장된 실행 결과는 그대로(다시 실행하면 새 값). 응답 모양 그대로(값만 바뀜)
 - v0.1 (2026-11-06): 카드 목록 근거 상태를 고를 때마다 질문 실행과 같은 규칙으로 센다(S15P31C108-281, 「오류」 페이지 결정 1). 등록된 `card_evidence_status` 가 먼저이고, 없으면 통계 관측 · 기존 대응 후보 · 보도자료 · 분모 관측을 근거 행을 만들지 않고 센다. -264 의 「최근 실행 근거 수요표」는 읽지 않는다. 응답 모양 그대로(값만 바뀜). 개발 DB 여수 2023–2025 C1 · A3 4/4, 카드 2개 약 0.8초(첫 조회 2.5초)
+- v0.1 (2026-11-06): argument `series[]` 에 선택 칸 `sign_words {negative, positive}` — 카드 승인본 `claim_items[].sign_words` 그대로(카드 계약 v0.5). 화면이 0 선 위아래 뜻(순유입 · 순유출)을 카드에서 받는다. 동결 뒤 추가라 [동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」에 기록, 예시 `argument-c1-ready.json` 에 값 (S15P31C108-286)

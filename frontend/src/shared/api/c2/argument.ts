@@ -62,6 +62,11 @@ const seriesBase = {
   values: z.array(z.number().nullable()),
   statuses: z.array(evidenceStatus),
 };
+/**
+ * 값의 부호를 읽는 낱말(선택, 2026-11-06). 카드 승인본 claim_items[].sign_words 그대로 —
+ * 0 선 위 = positive · 아래 = negative(C1 순이동: 순유입 · 순유출). 낱말이 없는 지표 · 지난 실행에는 칸이 없다
+ */
+const signWords = z.object({ negative: z.string().min(1), positive: z.string().min(1) });
 /** 통계 한 지역 · 측정소(coordinates 가 있으면 지도 점, 없으면 막대) */
 const placeSeries = z.object({
   ...seriesBase,
@@ -70,6 +75,7 @@ const placeSeries = z.object({
   station_id: z.string().nullable(),
   name: z.string().nullable(),
   coordinates: lonLat.nullable(),
+  sign_words: signWords.optional(),
 });
 /** 이동: from → to */
 const flowSeries = z.object({

@@ -18,6 +18,7 @@ import com.c108.issueatlas.question.dto.ArgumentResponse.EvidenceRow;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Qualifier;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Question;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Ref;
+import com.c108.issueatlas.question.dto.ArgumentResponse.SignWords;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Text;
 import com.c108.issueatlas.question.dto.QuestionCreateRequest;
 import com.c108.issueatlas.question.dto.QuestionCreateResponse;
@@ -197,6 +198,9 @@ public class QuestionService {
                                         run.approved() == null
                                                 ? null
                                                 : indicators(run.approved().spec()),
+                                        run.approved() == null
+                                                ? Map.of()
+                                                : signWords(run.approved().spec()),
                                         request.placeId(),
                                         placeName,
                                         start,
@@ -658,6 +662,21 @@ public class QuestionService {
         List<String> result = new ArrayList<>();
         for (JsonNode item : spec.path("claim_items")) {
             result.add(item.path("indicator_id").asText());
+        }
+        return result;
+    }
+
+    /** 카드 승인본 claim_items[].sign_words(카드 계약 v0.5) → 지표마다 낱말. 그림 줄(series)에 그대로 싣는다. */
+    static Map<String, SignWords> signWords(JsonNode spec) {
+        Map<String, SignWords> result = new HashMap<>();
+        for (JsonNode item : spec.path("claim_items")) {
+            JsonNode words = item.path("sign_words");
+            if (words.isObject()) {
+                result.put(
+                        item.path("indicator_id").asText(),
+                        new SignWords(
+                                words.path("negative").asText(), words.path("positive").asText()));
+            }
         }
         return result;
     }

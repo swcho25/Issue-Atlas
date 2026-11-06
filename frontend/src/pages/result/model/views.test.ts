@@ -61,22 +61,21 @@ describe("변화형 막대", () => {
 });
 
 describe("0 선 위아래 뜻", () => {
-  it("여수 C1 순이동 그림은 0 선 위가 + 순유입, 아래가 − 순유출로 보인다", () => {
-    expect(signAxis(changeSeries(ready)!.indicator_id)).toEqual({
+  it("응답이 준 카드 낱말대로 여수 C1 순이동 그림은 0 선 위 + 순유입, 아래 − 순유출로 보인다", () => {
+    expect(signAxis(changeSeries(ready)!)).toEqual({
       positive: "+ 순유입",
       negative: "− 순유출",
     });
   });
 
-  it("다른 순이동 지표(19–34세 · 전체)도 같은 뜻으로 보인다", () => {
-    for (const id of ["population_net_migration_19_34", "population_net_migration_total"]) {
-      expect(signAxis(id)).toEqual({ positive: "+ 순유입", negative: "− 순유출" });
-    }
+  it("낱말은 지표가 아니라 응답에서 온다(카드가 다른 낱말을 주면 그 낱말)", () => {
+    const s = { ...changeSeries(ready)!, sign_words: { negative: "감소", positive: "증가" } };
+    expect(signAxis(s)).toEqual({ positive: "+ 증가", negative: "− 감소" });
   });
 
-  it("부호가 방향이 아닌 지표(초미세먼지 · 이동자 수)는 뜻 줄이 없다", () => {
-    expect(signAxis("air_pm25")).toBeNull();
-    expect(signAxis("population_movers")).toBeNull();
+  it("응답에 낱말이 없는 줄(지난 실행 · 낱말 없는 카드)은 뜻 줄이 없다", () => {
+    const s = { ...changeSeries(ready)!, sign_words: undefined };
+    expect(signAxis(s)).toBeNull();
   });
 });
 

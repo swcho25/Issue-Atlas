@@ -249,7 +249,17 @@
         "unit": { "type": ["string", "null"] },
         "periods": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } },
         "values": { "type": "array", "items": { "type": ["number", "null"] } },
-        "statuses": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/evidence_status" } }
+        "statuses": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/evidence_status" } },
+        "sign_words": {
+          "description": "값의 부호를 읽는 낱말(선택, 2026-11-06). 실행이 쓴 카드 승인본 claim_items[].sign_words 그대로. 있으면 화면이 0 선 위 = positive · 아래 = negative 로 읽는다(예 순이동: 순유입 · 순유출). 값은 부호 그대로",
+          "type": "object",
+          "properties": {
+            "negative": { "type": "string", "minLength": 1 },
+            "positive": { "type": "string", "minLength": 1 }
+          },
+          "required": ["negative", "positive"],
+          "additionalProperties": false
+        }
       },
       "required": ["unit", "periods", "values", "statuses"],
       "additionalProperties": false,
