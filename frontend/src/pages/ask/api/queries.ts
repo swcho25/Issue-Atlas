@@ -35,11 +35,15 @@ export const boundariesQuery = (placeId: string) =>
     staleTime: Infinity,
   });
 
-/** 질문을 저장하고 바로 실행한다. 실행이 끝나야 응답이 온다(run_id) */
+/**
+ * 질문을 저장하고 바로 실행한다. 실행이 끝나야 응답이 온다(run_id).
+ * 문장으로 물었으면 원래 문장(rawText)을 함께, 목록에 없는 이슈면 cardId null(새 이슈 후보로 저장 · 판단 안 함)
+ */
 export const createQuestion = (input: {
   placeId: string;
-  cardId: string;
+  cardId: string | null;
   period: Period;
+  rawText?: string | null;
   signal?: AbortSignal;
 }) =>
   browserPost(
@@ -49,7 +53,7 @@ export const createQuestion = (input: {
       card_id: input.cardId,
       period_start: input.period.start,
       period_end: input.period.end,
-      raw_text: null,
+      raw_text: input.rawText ?? null,
     },
     questionCreatedSchema,
     { signal: input.signal },
