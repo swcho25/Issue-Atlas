@@ -1154,7 +1154,7 @@ class QuestionApiTest {
         jdbc.execute(
                 Files.readString(
                         Path.of(
-                                "src/main/resources/db/migration/V0049__fill_argument_label_applicability.sql")));
+                                "src/main/resources/db/migration/V0051__fill_argument_label_applicability.sql")));
         argument(runId)
                 .andExpect(jsonPath("$.claim.label").value(nullValue()))
                 .andExpect(jsonPath("$.applicability.length()").value(0))
