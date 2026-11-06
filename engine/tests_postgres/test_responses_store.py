@@ -31,8 +31,14 @@ def responses_db(postgis):
             "V0009__store_air_monthly_only.sql",
             "V0011__seed_places.sql",
             "V0013__create_card_catalog.sql",
+            "V0014__create_evidence.sql",
             "V0015__create_local_expenditure.sql",
+            # 지역 코드 연결(광주 29 → kr-29)과 시군구 kr- ID 전환까지 실제 DB 와 같게
+            "V0017__seed_station_places.sql",
+            "V0018__seed_region_code_maps.sql",
             "V0022__create_existing_response.sql",
+            "V0023__create_question_run.sql",
+            "V0024__rename_sigungu_place_ids.sql",
             "V0026__track_local_expenditure_runs.sql",
         ),
     )
@@ -100,12 +106,12 @@ def test_candidates_link_source_versions_and_rerun_adds_nothing(responses_db):
         " r.payload->'youthcenter'->>'plcyNo' FROM existing_response e"
         " JOIN raw_record r ON r.content_hash = e.raw_content_hash"
     ).fetchall()
-    assert rows == [("C1", "A:12130", "plc_yeosu", YEOSU, "A")]
-    # 광주 본청(29)은 6곳에 없는 넓은 단위 → place_id null
+    assert rows == [("C1", "A:12130", "kr-12130", YEOSU, "A")]
+    # 광주 본청(29)은 시군구가 아니라 광주광역시(5개 구) kr-29 에 잇는다(V0018)
     assert conn.execute(
         "SELECT e.place_id, x.project_name FROM existing_response e"
         " JOIN local_expenditure x USING (expenditure_id) WHERE e.card_id = 'A3'"
-    ).fetchall() == [(None, "미세먼지 저감")]
+    ).fetchall() == [("kr-29", "미세먼지 저감")]
 
     again = extract(conn)
     assert (again["inserted"], again["unchanged"], again["changed"]) == (0, 3, 0)
