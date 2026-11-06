@@ -1,0 +1,52 @@
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: health
+    metrics_path: /probe
+    params: {module: [http_health]}
+    static_configs:
+      - targets: [http://issueatlas-development-backend:8080/actuator/health]
+        labels: {environment: development, service: backend}
+      - targets: [http://issueatlas-production-backend:8080/actuator/health]
+        labels: {environment: production, service: backend}
+      - targets: [http://issueatlas-development-frontend-frontend-1:3000/healthz]
+        labels: {environment: development, service: frontend}
+      # 운영 FE의 최초 EC2 배포가 확인되면 이 파일에 health 대상을 추가한다.
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+  - job_name: node
+    static_configs:
+      - targets: [node-exporter:9100]
+        labels: {environment: shared, service: ec2}
+  - job_name: containers
+    static_configs:
+      - targets: [cadvisor:8080]
+    metric_relabel_configs:
+      - source_labels: [container_label_com_docker_compose_project]
+        regex: issueatlas-(dev|development-frontend)
+        target_label: environment
+        replacement: development
+      - source_labels: [container_label_com_docker_compose_project]
+        regex: issueatlas-(prod|production-frontend)
+        target_label: environment
+        replacement: production
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service
+  - job_name: spring
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [issueatlas-development-backend:9091]
+        labels: {environment: development, service: backend}
+      - targets: [issueatlas-production-backend:9091]
+        labels: {environment: production, service: backend}
