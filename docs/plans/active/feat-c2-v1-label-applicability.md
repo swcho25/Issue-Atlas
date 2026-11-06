@@ -8,8 +8,8 @@
 - [x] 예시 5개가 스키마를 통과하고 깨져야 하는 변형 7개가 깨진다(engine jsonschema 로 검사 — ajv dlx 는 이 환경에서 막힘)
 - [x] backend(장성우, MR 리뷰어) · 프론트(정우현, MR 코멘트) 리뷰 요청 — !191 Draft
 - [x] backend 구현: `Claim.label`(승인본 결과 이름, 판정 안 함 null) · `applicability[]`(`CardApplicability`) · 지역 단위 다르면 unsupported · V0049 지난 실행 채움 · QuestionApiTest 단언 + 테스트 2개
-- [ ] CI backend 테스트 통과 (로컬 Docker 가 멈춰 로컬에서는 못 돌림)
-- [ ] 프론트 zod · 배지 · unsupported ✕ 목록
+- [x] CI backend 테스트 통과 — 파이프라인 #275563 5개 잡 모두 성공(로컬 Docker 가 멈춰 push 훅은 사람 허락으로 건너뜀)
+- [ ] 프론트 zod · 배지 · unsupported ✕ 목록 — 정우현 담당(2026-11-06 결정)
 
 ## 진행
 - 2026-11-06: 계약만(구현은 리뷰 뒤). 스키마 검사 2개를 더함: blocked · unsupported → label null, applicability 에 passed false → unsupported. 카드 없음 → applicability []
@@ -21,7 +21,7 @@
 - 2026-11-06: 프론트 zod 는 `z.object`(모르는 칸 버림)라 backend 가 먼저 나가도 화면은 그대로
 
 ## 다음 할 일 / 범위 밖
-- 프론트 구현: zod 두 칸 · 배지 `claim.label`(null 이면 run_status 문구) · unsupported ✕ 목록 — 정우현과 나눌지 정하기
+- 프론트 구현(정우현): `shared/api/c2/argument.ts` zod 두 칸 · 배지 `claim.label`(null 이면 run_status 문구) · unsupported ✕ 목록(`applicability` 의 `passed: false` 줄). 이 브랜치에 더할지 다음 MR 로 할지 정우현과 정하기
 - 배포 순서 계약 → engine → backend (engine 이 문장화 요청을 계약 스키마로 엄격히 검사)
 - `schema_version` 을 c2-1.0 으로 올릴지(모든 엔드포인트 공통 값) — 리뷰에서 정하기
 - #4 일반 사용자 로그인: 11/4 A안(일반 사용자 로그인 없음, S15P31C108-208)을 뒤집는 것이라 P7 장성우 합의 필요
