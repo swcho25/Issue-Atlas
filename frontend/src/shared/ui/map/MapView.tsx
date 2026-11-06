@@ -19,6 +19,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { PlaceBoundaries } from "@/shared/api";
 import { type Theme, useTheme } from "@/shared/lib/theme";
 
+import { ASIA, loadEarth, MERCATOR_LAT } from "./earth";
 import { groupName, labelPoint } from "./labels";
 
 // MapLibre 6 은 타일 처리 워커를 자기 파일 옆(import.meta.url)에서 찾는데, 번들러가 옮기면 못 찾는다.
@@ -87,22 +88,73 @@ function ourLayers(c: Colors, theme: Theme): LayerSpecification[] {
   ];
 }
 
+// 이보다 더 축소하지 않는다: 지구가 랜딩처럼 보이는 지도 칸 절반쯤 크기(확대 1.7 ≈ 지름 520px)
+const GLOBE_MIN_ZOOM = 1.7;
+
 /**
  * 크게 축소하면 평면 지도 대신 지구로 보인다(MapLibre globe). 가까이 오면 저절로 평면처럼 펴진다.
+ * 지구는 랜딩과 같은 NASA 사진으로 덮고(지명 아래), 확대 5 → 3 사이에 지도에서 사진으로 바뀐다.
+ * 랜딩 지구만큼만 축소되고, 지구는 보이는 지도 칸 가운데에 온다(MapView 의 카메라 여백).
  * 지구 둘레의 옅은 대기는 밝은 화면에서 축소했을 때만(어두운 화면에서는 밝은 테두리로 튀어서 끈다)
  */
 function showGlobe(m: MapLibreMap, theme: Theme) {
   m.setProjection({ type: "globe" });
+  m.setMinZoom(GLOBE_MIN_ZOOM);
   m.setSky({
     "atmosphere-blend":
       theme === "dark" ? 0 : ["interpolate", ["linear"], ["zoom"], 0, 1, 5, 1, 7, 0],
   });
+  // 사진은 다 만든 뒤 한 번에 얹는다(그 전엔 지도 그대로). 바탕을 갈아 끼우는 사이에 오면 새 바탕에서 다시 얹는다
+  void loadEarth()
+    .then(({ world, asia, pole }) => {
+      // 바탕을 갈아 끼우는 중이면 addSource 가 던진다 — 새 바탕의 style.load 에서 다시 얹으므로 넘긴다
+      if (m.getSource("earth-world")) return;
+      // 사진은 위도 85° 까지만 덮어(지도 투영의 끝) 극에는 바탕의 물 · 바탕색이 비친다.
+      // 지구로 보일 때만 그 자리를 사진 맨 윗줄 색으로 채워 이음매가 보이지 않게
+      for (const [id, prop] of [
+        ["background", "background-color"],
+        ["water", "fill-color"],
+      ] as const) {
+        const base = m.getLayer(id) ? m.getPaintProperty(id, prop) : undefined;
+        if (typeof base === "string") {
+          m.setPaintProperty(id, prop, ["interpolate", ["linear"], ["zoom"], 3, pole, 5, base]);
+        }
+      }
+      const box = (lon: readonly [number, number], lat: readonly [number, number]) =>
+        [
+          [lon[0], lat[0]],
+          [lon[1], lat[0]],
+          [lon[1], lat[1]],
+          [lon[0], lat[1]],
+        ] as [[number, number], [number, number], [number, number], [number, number]];
+      m.addSource("earth-world", {
+        type: "canvas",
+        canvas: world,
+        animate: false,
+        coordinates: box([-180, 180], [MERCATOR_LAT, -MERCATOR_LAT]),
+      });
+      m.addSource("earth-asia", {
+        type: "canvas",
+        canvas: asia,
+        animate: false,
+        coordinates: box(ASIA.lon, ASIA.lat),
+      });
+      const firstLabel = m.getStyle().layers.find((l) => l.type === "symbol")?.id;
+      const fade: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 3, 1, 5, 0];
+      for (const id of ["earth-world", "earth-asia"]) {
+        m.addLayer(
+          { id, type: "raster", source: id, maxzoom: 6, paint: { "raster-opacity": fade } },
+          firstLabel,
+        );
+      }
+    })
+    .catch(() => undefined); // 사진을 못 받았으면 지구는 지도 그림 그대로
 }
 
-/** 바탕을 새로 불러온 뒤마다: 한국어 지명, 고르는 화면이면 지명을 흐리게, 지구 보기 */
+/** 바탕을 새로 불러온 뒤마다: 한국어 지명, 지명 진하기(고르는 화면 · 지구), 지구 보기 */
 function dressBasemap(m: MapLibreMap, opts: { theme: Theme; picking: boolean; globe: boolean }) {
   showKoreanLabels(m);
-  if (opts.picking) fadeBasemapLabels(m);
+  fadeBasemapLabels(m, opts);
   if (opts.globe) showGlobe(m, opts.theme);
 }
 
@@ -158,12 +210,20 @@ const collection = (features: unknown[]) => ({ type: "FeatureCollection", featur
 const tokenColor = (el: HTMLElement | null, fallback: string) =>
   el ? getComputedStyle(el).color : fallback;
 
-/** 고르는 화면에서는 바탕 지도의 지명 · 기호를 흐리게 해 지역 이름표가 묻히지 않게 한다 */
-function fadeBasemapLabels(m: MapLibreMap) {
+/**
+ * 바탕 지도의 지명 · 기호 진하기. 고르는 화면에서는 흐리게 해 지역 이름표가 묻히지 않게 하고,
+ * 지구로 보일 만큼 축소하면(확대 3 이하) 사진 위에서 어지럽지 않게 지운다(확대 5 에서 다시 보임)
+ */
+function fadeBasemapLabels(m: MapLibreMap, opts: { picking: boolean; globe: boolean }) {
+  if (!opts.picking && !opts.globe) return;
+  const shown = opts.picking ? 0.45 : 1;
+  const opacity: ExpressionSpecification | number = opts.globe
+    ? ["interpolate", ["linear"], ["zoom"], 3, 0, 5, shown]
+    : shown;
   for (const layer of m.getStyle().layers) {
     if (layer.type !== "symbol" || layer.source !== "openmaptiles") continue;
-    m.setPaintProperty(layer.id, "text-opacity", 0.45);
-    m.setPaintProperty(layer.id, "icon-opacity", 0.45);
+    m.setPaintProperty(layer.id, "text-opacity", opacity);
+    m.setPaintProperty(layer.id, "icon-opacity", opacity);
   }
 }
 
@@ -215,8 +275,8 @@ function addTag(m: MapLibreMap, el: HTMLElement, at: [number, number]) {
   return new Marker({ element: el }).setLngLat(at).addTo(m);
 }
 
-/** 경계에 맞춰 화면을 옮긴다. 여백이 지도보다 넓으면 맞출 수 없어 MapLibre 가 크게 물러나므로 좁은 창에서는 여백을 줄인다 */
-function fitTo(m: MapLibreMap, bounds: LngLatBoundsLike, padding: Padding, duration: number) {
+/** 화면 여백. 여백이 지도보다 넓으면 맞출 수 없어 MapLibre 가 크게 물러나므로 좁은 창에서는 줄인다 */
+function scaledPadding(m: MapLibreMap, padding: Padding) {
   const { clientWidth: w, clientHeight: h } = m.getContainer();
   const p =
     typeof padding === "number"
@@ -224,10 +284,18 @@ function fitTo(m: MapLibreMap, bounds: LngLatBoundsLike, padding: Padding, durat
       : padding;
   const sx = Math.min(1, (w * 0.7) / (p.left + p.right));
   const sy = Math.min(1, (h * 0.7) / (p.top + p.bottom));
-  m.fitBounds(bounds, {
-    padding: { top: p.top * sy, bottom: p.bottom * sy, left: p.left * sx, right: p.right * sx },
-    duration,
-  });
+  return { top: p.top * sy, bottom: p.bottom * sy, left: p.left * sx, right: p.right * sx };
+}
+
+/** 경계에 맞춰 화면을 옮긴다. 지구 보기에서는 카메라 여백이 이미 카드 자리를 비우므로 작은 여백만 더한다 */
+function fitTo(
+  m: MapLibreMap,
+  bounds: LngLatBoundsLike,
+  padding: Padding,
+  duration: number,
+  globe: boolean,
+) {
+  m.fitBounds(bounds, { padding: globe ? 24 : scaledPadding(m, padding), duration });
 }
 
 type Padding = number | { top: number; right: number; bottom: number; left: number };
@@ -303,7 +371,10 @@ export function MapView({
       style: BASEMAPS[styled],
       center: KOREA,
       zoom: 6,
-      attributionControl: { compact: true },
+      attributionControl: {
+        compact: true,
+        customAttribution: now.current.globe ? "NASA Blue Marble" : undefined,
+      },
     });
     m.on("load", () => {
       dressBasemap(m, now.current);
@@ -342,6 +413,17 @@ export function MapView({
     map.once("style.load", () => dressBasemap(map, now.current));
   }, [map, theme]);
 
+  // 지구 보기에서는 카드가 덮는 자리를 카메라 여백으로 비운다 — 축소한 지구가 보이는 지도 칸 가운데 온다
+  useEffect(() => {
+    if (!map || !globe) return;
+    const apply = () => map.setPadding(scaledPadding(map, padding));
+    apply();
+    map.on("resize", apply);
+    return () => {
+      map.off("resize", apply);
+    };
+  }, [map, globe, padding]);
+
   // 경계가 바뀌면 데이터를 바꾸고 화면을 맞춘다
   useEffect(() => {
     if (!map || !boundaries) return;
@@ -353,13 +435,13 @@ export function MapView({
     // 창 크기가 바뀌면(창 늘리기 · 옆 패널) 다시 맞춘다
     const moved = shown.current !== undefined && shown.current !== boundaries;
     shown.current = boundaries;
-    fitTo(map, bounds, padding, moved ? 600 : 0);
-    const refit = () => fitTo(map, bounds, padding, 0);
+    fitTo(map, bounds, padding, moved ? 600 : 0, globe);
+    const refit = () => fitTo(map, bounds, padding, 0, globe);
     map.on("resize", refit);
     return () => {
       map.off("resize", refit);
     };
-  }, [map, boundaries, padding]);
+  }, [map, boundaries, padding, globe]);
 
   // 고르는 화면: 다른 지역의 시군구 경계와 이름표(고른 곳 + 고를 수 있는 곳), 바탕 지명은 흐리게
   useEffect(() => {
@@ -370,7 +452,7 @@ export function MapView({
     map.getSource<GeoJSONSource>("choices")?.setData(data.current.choices);
     if (!choices) return;
     // 바탕을 갈아 끼우는 중이면 다 불러온 뒤 dressBasemap 이 흐리게 한다
-    if (map.isStyleLoaded()) fadeBasemapLabels(map);
+    if (map.isStyleLoaded()) fadeBasemapLabels(map, now.current);
 
     const current = (boundaries?.features ?? []).filter(isSigungu);
     const tags = [
@@ -403,7 +485,7 @@ export function MapView({
           : null;
       if (!el) return [];
       const bounds = boundsOf(members.map((t) => t.f));
-      el.addEventListener("click", () => bounds && fitTo(map, bounds, padding, 600));
+      el.addEventListener("click", () => bounds && fitTo(map, bounds, padding, 600, globe));
       const at: [number, number] = [
         members.reduce((s, t) => s + t.at[0], 0) / members.length,
         members.reduce((s, t) => s + t.at[1], 0) / members.length,
@@ -453,7 +535,7 @@ export function MapView({
       for (const type of moves) map.off(type, declutter);
       for (const { marker } of [...tags, ...groups]) marker.remove();
     };
-  }, [map, choices, boundaries, padding]);
+  }, [map, choices, boundaries, padding, globe]);
 
   // 다른 지역 면에 마우스를 올리면 칠하고 손 모양, 누르면 고른다
   useEffect(() => {
