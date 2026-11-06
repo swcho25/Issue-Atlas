@@ -8,6 +8,7 @@ import com.c108.issueatlas.card.service.CardEvidenceStatus.Linked;
 import com.c108.issueatlas.common.exception.ResourceNotFoundException;
 import com.c108.issueatlas.question.dto.ApprovedCard;
 import com.c108.issueatlas.question.dto.ArgumentResponse;
+import com.c108.issueatlas.question.dto.ArgumentResponse.Applicability;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Ceiling;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Claim;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Comparability;
@@ -37,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -170,6 +172,7 @@ public class QuestionService {
                         run.status(),
                         OffsetDateTime.now(KST),
                         run.table(),
+                        run.applicability(),
                         run.comparability(),
                         run.claim(),
                         run.data(),
@@ -314,6 +317,7 @@ public class QuestionService {
                 null,
                 emptyRefs(),
                 Map.of(),
+                List.of(),
                 List.of());
     }
 
@@ -399,7 +403,29 @@ public class QuestionService {
                     null,
                     refs,
                     responses,
-                    pending);
+                    pending,
+                    List.of());
+        }
+        // 카드 적용 조건(B6). 지역 단위는 근거와 상관없이 정해지므로 먼저 본다 — 못 채우면 blocked 가 아니라 unsupported
+        JsonNode conditions = approved.spec().path("applicability");
+        String placeLevel = questions.placeLevel(placeId).orElse(null);
+        String requiredLevel = conditions.path(CardApplicability.PLACE_LEVEL).asText();
+        if (!requiredLevel.isEmpty() && !requiredLevel.equals(placeLevel)) {
+            return notJudged(
+                    "unsupported",
+                    table,
+                    "카드 적용 조건 미충족으로 검사하지 않음",
+                    "이 카드는 " + CardApplicability.levelName(requiredLevel) + " 단위 지역만 판단합니다.",
+                    approved,
+                    refs,
+                    responses,
+                    pending,
+                    CardApplicability.check(
+                            conditions,
+                            question.placeName(),
+                            placeLevel,
+                            null,
+                            "지역 단위가 맞지 않아 확인하지 않음"));
         }
         boolean missingRequired =
                 table.stream()
@@ -417,7 +443,13 @@ public class QuestionService {
                     approved,
                     refs,
                     responses,
-                    pending);
+                    pending,
+                    CardApplicability.check(
+                            conditions,
+                            question.placeName(),
+                            placeLevel,
+                            null,
+                            !statistics ? "필수 근거(통계)가 없어 확인하지 않음" : "필수 근거가 없어 확인하지 않음"));
         }
         if (judgment == null) {
             return notJudged(
@@ -428,21 +460,30 @@ public class QuestionService {
                     null,
                     refs,
                     responses,
-                    pending);
+                    pending,
+                    CardApplicability.check(
+                            conditions,
+                            question.placeName(),
+                            placeLevel,
+                            null,
+                            "판정 규칙이 연결되지 않아 확인하지 않음"));
         }
-        int minimumYears =
-                approved.spec().path("applicability").path("min_complete_years").asInt(0);
-        int completeYears = ((Number) judgment.facts().getOrDefault("yearCount", 0)).intValue();
-        if (completeYears < minimumYears) {
+        List<Applicability> applicability =
+                CardApplicability.check(
+                        conditions, question.placeName(), placeLevel, judgment.values(), null);
+        Optional<Applicability> unmet =
+                applicability.stream().filter(a -> Boolean.FALSE.equals(a.passed())).findFirst();
+        if (unmet.isPresent()) {
             return notJudged(
                     "unsupported",
                     table,
                     "카드 적용 조건 미충족으로 검사하지 않음",
-                    "완전한 연 값 " + minimumYears + "개 이상이 필요해 판단하지 않습니다.",
+                    unmet.get().label() + "이 필요해 판단하지 않습니다.",
                     approved,
                     refs,
                     responses,
-                    pending);
+                    pending,
+                    applicability);
         }
         Comparability c = judgment.comparability();
         List<String> failed =
@@ -457,8 +498,9 @@ public class QuestionService {
         return new Run(
                 optionalMissing ? "partial" : "ready",
                 table,
+                applicability,
                 c,
-                new Claim(judgment.claim(), judgment.level(), text, "rule"),
+                new Claim(judgment.claim(), judgment.label(), judgment.level(), text, "rule"),
                 data(refs),
                 approved,
                 refs,
@@ -475,13 +517,15 @@ public class QuestionService {
             ApprovedCard approved,
             Map<String, List<EvidenceRef>> refs,
             Map<String, String> responses,
-            List<String> pending) {
+            List<String> pending,
+            List<Applicability> applicability) {
         Condition none = new Condition(null, note);
         return new Run(
                 status,
                 table,
+                applicability,
                 new Comparability(none, none, none, none),
-                new Claim("insufficient", "insufficient_evidence", text, "rule"),
+                new Claim("insufficient", null, "insufficient_evidence", text, "rule"),
                 data(refs),
                 approved,
                 refs,
@@ -692,6 +736,7 @@ public class QuestionService {
     private record Run(
             String status,
             List<EvidenceRow> table,
+            List<Applicability> applicability,
             Comparability comparability,
             Claim claim,
             Data data,

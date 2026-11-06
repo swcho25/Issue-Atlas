@@ -51,7 +51,7 @@
       }
     },
     "applicability": {
-      "description": "카드 적용 조건(양식 B6)을 조건마다 확인한 결과(C2 v1). 승인본 applicability 의 칸 순서. 카드 · 승인본이 없으면 빈 배열. 하나라도 passed false 면 run_status 는 unsupported. 이 칸 전에 저장된 실행은 빈 배열",
+      "description": "카드 적용 조건(양식 B6)을 조건마다 확인한 결과(C2 v1). 카드 계약(card.schema.json) applicability 의 칸 순서(모르는 칸은 뒤). 카드 · 승인본이 없으면 빈 배열. 하나라도 passed false 면 run_status 는 unsupported. 이 칸 전에 저장된 실행은 빈 배열",
       "type": "array",
       "items": { "$ref": "#/$defs/applicability_item" }
     },

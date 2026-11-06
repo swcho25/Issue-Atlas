@@ -127,7 +127,9 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 
 `applicability[]` `{condition, label, passed, note}` (필수 배열)
 
-승인본 `applicability`(양식 B6)의 칸마다 한 줄, 승인본의 칸 순서. 카드가 없거나(`card_id = null`) 승인본이 없는 카드면 `[]`.
+승인본 `applicability`(양식 B6)의 칸마다 한 줄. 순서는 [카드 계약](../cards/card.schema.json)의 칸 순서(`place_level` · `min_complete_years` · `min_stations` · `population`, 모르는 칸은 뒤) — 승인본은 jsonb 라 칸 순서가 남지 않는다. 카드가 없거나(`card_id = null`) 승인본이 없는 카드면 `[]`.
+
+지역 단위는 근거와 상관없이 정해지므로 먼저 본다. 못 채우면 통계가 없어도 `blocked` 가 아니라 `unsupported` 이고, 나머지 조건은 `passed: null`(확인하지 않음).
 
 | `condition` | `label` 예 | `passed` | `note` 예 |
 | --- | --- | --- | --- |
@@ -137,7 +139,7 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 | `population` | 대상: 청년 19–39세 | 늘 null(표시만 하는 조건) | null |
 
 - `passed`: true 충족 · false 못 채움 · null 확인하지 못함 또는 표시만. 하나라도 false 면 `run_status = unsupported`(스키마가 검사)
-- 화면: unsupported 의 ✕ 목록 = `passed: false` 줄(`label` — `note`). 비교 조건 컴포넌트를 다시 쓴다. Figma 의 「해안 · 하구」 · 「측정지점 0곳」은 아직 없는 카드(하천 · 연안 수질)의 예시다. 지금 생길 수 있는 unsupported 사유는 카드 없음 · 규칙 없음 · 완전한 연 값 부족 셋
+- 화면: unsupported 의 ✕ 목록 = `passed: false` 줄(`label` — `note`). 비교 조건 컴포넌트를 다시 쓴다. Figma 의 「해안 · 하구」 · 「측정지점 0곳」은 아직 없는 카드(하천 · 연안 수질)의 예시다. 지금 생길 수 있는 unsupported 사유는 카드 없음 · 규칙 없음 · 지역 단위 다름 · 완전한 연 값 부족 · 측정소 부족
 - 승인본에 새 조건 칸이 생기면 backend 가 그 칸의 `label` · 확인 방법을 더한다(모르는 칸은 `passed: null`)
 
 구현 순서 (이 계약 리뷰 뒤)

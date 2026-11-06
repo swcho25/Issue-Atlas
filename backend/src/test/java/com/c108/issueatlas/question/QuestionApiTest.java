@@ -1,6 +1,8 @@
 package com.c108.issueatlas.question;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -432,8 +434,33 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.formula_version").value("c1-net-migration-0.1"))
                 .andExpect(jsonPath("$.claim.value").value("insufficient"))
                 .andExpect(jsonPath("$.claim.text").value("필수 근거(통계)가 없어 판단하지 않습니다."))
+                .andExpect(jsonPath("$.claim.label").value(nullValue()))
+                // 지역 단위는 늘 확인하고, 연 값 조건은 판정 전에 멈춰 확인하지 못한다. 대상은 표시만
+                .andExpect(
+                        jsonPath("$.applicability[*].condition")
+                                .value(contains("place_level", "min_complete_years", "population")))
+                .andExpect(jsonPath("$.applicability[0].passed").value(true))
+                .andExpect(jsonPath("$.applicability[0].note").value("여수시(시군구)"))
+                .andExpect(jsonPath("$.applicability[1].passed").value(nullValue()))
+                .andExpect(jsonPath("$.applicability[1].note").value("필수 근거(통계)가 없어 확인하지 않음"))
+                .andExpect(jsonPath("$.applicability[2].label").value("대상: 청년 19–39세"))
+                .andExpect(jsonPath("$.applicability[2].passed").value(nullValue()))
                 .andExpect(jsonPath("$.evidence_table[0].status").value("not_collected"))
                 .andExpect(jsonPath("$.data.statistics.length()").value(0));
+    }
+
+    @Test
+    void placeOfOtherLevelIsUnsupportedBeforeEvidence() throws Exception {
+        jdbc.update("INSERT INTO place(place_id,name,level) VALUES ('q-emd', '중앙동', 'emd')");
+        argument(runId(ask(body("C1", "2023-01-01", "2026-01-01").replace(PLACE, "q-emd"))))
+                .andExpect(jsonPath("$.run_status").value("unsupported"))
+                .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(jsonPath("$.claim.label").value(nullValue()))
+                .andExpect(jsonPath("$.claim.text").value("이 카드는 시군구 단위 지역만 판단합니다."))
+                .andExpect(jsonPath("$.applicability[0].label").value("시군구 단위"))
+                .andExpect(jsonPath("$.applicability[0].passed").value(false))
+                .andExpect(jsonPath("$.applicability[0].note").value("중앙동(읍면동)"))
+                .andExpect(jsonPath("$.applicability[1].passed").value(nullValue()));
     }
 
     @Test
@@ -472,7 +499,9 @@ class QuestionApiTest {
         argument(JsonPath.read(created, "$.run_id"))
                 .andExpect(jsonPath("$.question.card_id").doesNotExist())
                 .andExpect(jsonPath("$.card_version").isEmpty())
-                .andExpect(jsonPath("$.claim.value").value("insufficient"));
+                .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(jsonPath("$.claim.label").value(nullValue()))
+                .andExpect(jsonPath("$.applicability.length()").value(0));
         assertThat(jdbc.queryForObject("SELECT card_id FROM question", String.class)).isNull();
     }
 
@@ -540,10 +569,13 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.formula_version").value("c1-net-migration-0.1"))
                 .andExpect(jsonPath("$.evidence_table[0].status").value("available"))
                 .andExpect(jsonPath("$.claim.value").value("increasing"))
+                .andExpect(jsonPath("$.claim.label").value("청년 순유출 확대"))
                 .andExpect(jsonPath("$.claim.level").value("calculated"))
                 .andExpect(
                         jsonPath("$.claim.text")
                                 .value("여수시에서 2023–2025 청년(19–39세) 순이동이 청년 순유출 확대."))
+                .andExpect(jsonPath("$.applicability[1].passed").value(true))
+                .andExpect(jsonPath("$.applicability[1].note").value("3개(2023–2025)"))
                 .andExpect(jsonPath("$.comparability.same_period_length.passed").value(true))
                 .andExpect(jsonPath("$.data.statistics.length()").value(1))
                 .andExpect(jsonPath("$.data.statistics[0].source_grade").value("A"))
@@ -969,6 +1001,11 @@ class QuestionApiTest {
         argument(runId)
                 .andExpect(jsonPath("$.run_status").value("unsupported"))
                 .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(jsonPath("$.claim.label").value(nullValue()))
+                .andExpect(jsonPath("$.claim.text").value("완전한 연 값 3개 이상이 필요해 판단하지 않습니다."))
+                .andExpect(jsonPath("$.applicability[1].label").value("완전한 연 값 3개 이상"))
+                .andExpect(jsonPath("$.applicability[1].passed").value(false))
+                .andExpect(jsonPath("$.applicability[1].note").value("2개(2023–2024)"))
                 .andExpect(jsonPath("$.evidence_table[0].status").value("available"))
                 .andExpect(jsonPath("$.data.statistics.length()").value(1));
     }
@@ -984,6 +1021,16 @@ class QuestionApiTest {
         argument(runId)
                 .andExpect(jsonPath("$.run_status").value("unsupported"))
                 .andExpect(jsonPath("$.claim.value").value("insufficient"))
+                .andExpect(
+                        jsonPath("$.applicability[*].condition")
+                                .value(
+                                        contains(
+                                                "place_level",
+                                                "min_complete_years",
+                                                "min_stations")))
+                .andExpect(jsonPath("$.applicability[1].passed").value(false))
+                .andExpect(jsonPath("$.applicability[2].passed").value(true))
+                .andExpect(jsonPath("$.applicability[2].note").value("측정소 1곳"))
                 .andExpect(jsonPath("$.evidence_table[0].status").value("available"));
     }
 
@@ -1036,10 +1083,13 @@ class QuestionApiTest {
         argument(runId)
                 .andExpect(jsonPath("$.formula_version").value("a3-pm25-diff-0.2"))
                 .andExpect(jsonPath("$.claim.value").value("increasing"))
+                .andExpect(jsonPath("$.claim.label").value("악화"))
                 .andExpect(jsonPath("$.claim.level").value("calculated"))
                 .andExpect(
                         jsonPath("$.claim.text")
                                 .value("여수시의 측정소 1곳에서 2023–2025 초미세먼지(PM2.5) 연평균이 악화."))
+                // 적용 조건의 측정소 수는 연평균이 있는 측정소 모두, 판정은 공통 측정소만
+                .andExpect(jsonPath("$.applicability[2].note").value("측정소 2곳"))
                 .andExpect(jsonPath("$.comparability.same_boundary.passed").value(true))
                 .andExpect(jsonPath("$.data.statistics.length()").value(1));
     }
@@ -1081,7 +1131,26 @@ class QuestionApiTest {
         argument(runId(ask(body("Z9", "2023-01-01", "2026-01-01"))))
                 .andExpect(jsonPath("$.run_status").value("unsupported"))
                 .andExpect(jsonPath("$.formula_version").isEmpty())
-                .andExpect(jsonPath("$.claim.text").value("이 카드의 판정 규칙이 아직 연결되지 않아 판단하지 않습니다."));
+                .andExpect(jsonPath("$.claim.text").value("이 카드의 판정 규칙이 아직 연결되지 않아 판단하지 않습니다."))
+                .andExpect(jsonPath("$.applicability.length()").value(0));
+    }
+
+    @Test
+    void runsSavedBeforeLabelAndApplicabilityAreFilledByMigration() throws Exception {
+        String runId = runId(ask(body("C1", "2023-01-01", "2026-01-01")));
+        // C2 v1 전에 저장된 모양: 두 칸이 없다
+        jdbc.update(
+                "UPDATE argument_run SET result = (result - 'applicability') #- '{claim,label}'"
+                        + " WHERE run_id = ?",
+                runId);
+        jdbc.execute(
+                Files.readString(
+                        Path.of(
+                                "src/main/resources/db/migration/V0049__fill_argument_label_applicability.sql")));
+        argument(runId)
+                .andExpect(jsonPath("$.claim.label").value(nullValue()))
+                .andExpect(jsonPath("$.applicability.length()").value(0))
+                .andExpect(jsonPath("$.run_status").value("blocked"));
     }
 
     @Test

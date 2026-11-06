@@ -73,6 +73,14 @@ public class QuestionRepository {
                 .optional();
     }
 
+    /** 지역 단위(sido · sigungu · emd · station). 카드 적용 조건 place_level 과 맞춘다. */
+    public Optional<String> placeLevel(String placeId) {
+        return jdbc.sql("SELECT level FROM place WHERE place_id = ?")
+                .param(placeId)
+                .query(String.class)
+                .optional();
+    }
+
     public Optional<CardRow> card(String cardId) {
         return jdbc.sql(
                         "SELECT card_id, name, card_version, taxonomy_version FROM card"
