@@ -15,6 +15,7 @@ export function ResultMap({ placeId, children }: { placeId: string; children: Re
     <MapView
       boundaries={boundaries}
       padding={{ top: 64, right: 64, bottom: 64, left: 488 }}
+      controls
       className="h-full"
     >
       {children}
