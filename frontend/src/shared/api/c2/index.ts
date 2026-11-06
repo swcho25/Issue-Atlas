@@ -8,6 +8,7 @@ export {
 } from "./argument";
 export { type PlaceBoundaries, placeBoundariesSchema } from "./boundaries";
 export { type Evidence, evidenceSchema } from "./evidence";
+export { type QuestionCreated, questionCreatedSchema } from "./question";
 export type {
   ClaimValue,
   EvidenceKind,
