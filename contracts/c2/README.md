@@ -130,8 +130,9 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 `claim.label` (문자열 또는 null, 필수)
 
 - 판정한 실행은 고른 규칙 결과의 이름 = 승인본 `rule.outcomes[].label`([카드 계약](../cards/README.md)). C1: 청년 순유출 확대 · 청년 순유출 축소 · 순유입 전환 · 불분명 / A3: 악화 · 개선 · 불분명 · 비교 불가. 판정 코드가 이미 갖고 있는 값이다
-- 판정하지 않은 실행(`blocked` · `unsupported`)은 `null`. 화면은 `run_status` 로 「자료 부족」(blocked) · 「근거 부족」(unsupported) — Figma 08 상태 화면 글자
+- 판정하지 않은 실행(`blocked` · `unsupported`)은 `null`. 이때만 화면은 `run_status` 로 「자료 부족」(blocked) · 「근거 부족」(unsupported) — Figma 08 상태 화면 글자
 - 화면은 배지에 이 값을 그대로 쓴다(Figma 메모 「판단 배지 글자는 API 의 claim.label 그대로」). `claim.value` 로 글자를 짓지 않는다
+- 예외: `ready` · `partial` 인데 `null` 이면 C2 v1 전에 저장된 실행이다(V0051 이 `null` 로 채움). 화면은 이전 배지(`claim.value`: 증가 · 감소 · 뚜렷하지 않음 · 비교 불가)로 대신한다. 새 실행은 판정하면 늘 값이 있다(카드 계약이 `rule.outcomes[].label` 을 필수로 둔다)
 
 `applicability[]` `{condition, label, passed, note}` (필수 배열)
 
@@ -142,20 +143,20 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 | `condition` | `label` 예 | `passed` | `note` 예 |
 | --- | --- | --- | --- |
 | `place_level` | 시군구 단위 | 질문 지역의 단위가 카드 `place_level` 과 같으면 true | 여수시(시군구) |
-| `min_complete_years` | 완전한 연 값 3개 이상 | 판정에 쓴 완전한 연 값 수 ≥ N 이면 true, 아니면 false. 통계가 없어 판정 전에 멈추면(blocked) null | 3개(2023–2025) · 2개(2024–2025) |
-| `min_stations` | 측정소 1곳 이상 | 연평균이 있는 측정소 수 ≥ N | 측정소 9곳 |
+| `min_complete_years` | 완전한 연 값 3개 이상 | 판정에 쓴 완전한 연 값 수 ≥ N 이면 true, 아니면 false. 통계가 없어 판정 전에 멈추면(blocked) null | 3개(2023–2025) · 2개(2024–2025) · 빠진 해가 있으면 2개(2023 · 2025) · 1개(2025) |
+| `min_stations` | 측정소 1곳 이상 | 연평균이 있는 측정소 수 ≥ N. 판정 전에 멈추면(blocked · 규칙 없음) null | 측정소 9곳 |
 | `population` | 대상: 청년 19–39세 | 늘 null(표시만 하는 조건) | null |
 
 - `passed`: true 충족 · false 못 채움 · null 확인하지 못함 또는 표시만. 하나라도 false 면 `run_status = unsupported`(스키마가 검사)
 - 화면: unsupported 의 ✕ 목록 = `passed: false` 줄(`label` — `note`). 비교 조건 컴포넌트를 다시 쓴다. Figma 의 「해안 · 하구」 · 「측정지점 0곳」은 아직 없는 카드(하천 · 연안 수질)의 예시다. 지금 생길 수 있는 unsupported 사유는 카드 없음 · 규칙 없음 · 지역 단위 다름 · 완전한 연 값 부족 · 측정소 부족
 - 승인본에 새 조건 칸이 생기면 backend 가 그 칸의 `label` · 확인 방법을 더한다(모르는 칸은 `passed: null`)
 
-구현 순서 (이 계약 리뷰 뒤)
+구현 순서
 
-1. 이 계약 MR 리뷰 — backend(P7 장성우) · 프론트. 머지는 아래 구현과 함께(계약만 먼저 들어가면 backend 계약 테스트 `C2Contract` 가 깨진다)
+1. 계약 + backend 구현을 한 MR 로(!191). 계약만 먼저 들어가면 backend 계약 테스트 `C2Contract` 가 깨진다. 프론트는 다음 MR(정우현) — 지금 zod 는 모르는 칸을 버려서 이 MR 만으로 화면이 깨지지 않는다
 2. engine: 코드 변경 없음. 문장화 요청의 판정 입력이 C2 `claim` 을 그대로 `$ref` 하고 engine 은 요청을 `contracts/` 스키마로 엄격히 검사한다(모르는 칸 거절) → **배포 순서는 계약 → engine → backend**. engine 이미지가 `contracts/` 를 싣으므로 계약이 들어간 engine 이 먼저 떠야 한다. 거꾸로면 문장화 요청이 `INPUT_INVALID` 로 거절돼 ⑤ 가 빈 반박이 된다(판단은 그대로). `applicability` 는 판정 입력에 넣지 않는다
 3. backend: `ArgumentResponse.Claim.label` · `applicability` 를 채운다. 저장된 지난 실행 결과(`argument_run.result`)에는 칸이 없으므로 Flyway 로 `claim.label = null` · `applicability = []` 를 채운다(지난 실행은 다시 계산하지 않는다)
-4. 프론트: `shared/api/c2/argument.ts` zod 에 두 칸, 배지는 `claim.label`(null 이면 run_status 문구), unsupported 화면의 ✕ 목록
+4. 프론트(다음 MR): `shared/api/c2/argument.ts` zod 에 두 칸, 배지는 `claim.label`(blocked · unsupported 의 null 은 run_status 문구, ready · partial 의 null 은 이전 배지), unsupported 화면의 ✕ 목록
 - `schema_version` 은 `c2-0.1` 그대로 둔다(모든 엔드포인트가 같은 값을 쓴다). C2 v1 로 올릴지는 리뷰에서 정한다
 
 ## 근거 충실도 규칙표 (`qualifier-0.1`)
@@ -256,4 +257,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-05): 통계 · 분모 근거 시점(`observed_at`, 한정어 `latest_observed_at`)을 마지막 관측 기간의 끝 경계(다음 달 1일 0시)에서 그 기간의 마지막 날(한국 0시)로(S15P31C108-272). 화면 ④ 가 「최신 2026-01-01」(기간 밖)로 보이고 「1년 이내」가 하루 후했다. 저장된 근거 행은 V0048 이 고치고, 저장된 실행 결과는 그대로(다시 실행하면 새 값). 응답 모양 그대로(값만 바뀜)
 - v0.1 (2026-11-06): 카드 목록 근거 상태를 고를 때마다 질문 실행과 같은 규칙으로 센다(S15P31C108-281, 「오류」 페이지 결정 1). 등록된 `card_evidence_status` 가 먼저이고, 없으면 통계 관측 · 기존 대응 후보 · 보도자료 · 분모 관측을 근거 행을 만들지 않고 센다. -264 의 「최근 실행 근거 수요표」는 읽지 않는다. 응답 모양 그대로(값만 바뀜). 개발 DB 여수 2023–2025 C1 · A3 4/4, 카드 2개 약 0.8초(첫 조회 2.5초)
 - c2-0.1 값 변경 (2026-11-06): 판단 ① 문장에 첫해 · 끝해 연 값(카드 v0.5 `rule.outcomes[].claim_text`), 보증 ③ 은 늘 카드 문장(`provenance: card`), engine 문장화는 반박 ⑤ 만(AI v0.3). 「오류」 페이지 결정 3 · Figma ① · ③ (S15P31C108-282). 칸 · enum · 스키마는 그대로(동결 규칙의 「값이 바뀌는 것」). 결과 문장은 카드 v3 승인본부터 — 개발 · 운영 DB 는 카드 seed 를 다시 돌리면 v3
-- C2 v1 계약 제안 (2026-11-06, S15P31C108-283): argument 에 `claim.label`(결과 이름, 판정 안 함은 null) · 최상위 `applicability[]`(`{condition, label, passed, note}`, 카드 적용 조건 B6 를 조건마다)를 더한다. 둘 다 필수. 스키마 검사 2개(blocked · unsupported → label null, passed false → unsupported) · 카드 없음 → `[]`. 예시 4개에 두 칸, 예시 `argument-c1-unsupported-years.json`(완전한 연 값 2개 → ✕) 추가. 「오류」 페이지 결정 2 · 7. 동결 대상 — backend · 프론트 리뷰 뒤 구현과 함께 머지. 「판단 배지 · 적용 조건」
+- C2 v1 계약 제안 (2026-11-06, S15P31C108-283): argument 에 `claim.label`(결과 이름, 판정 안 함은 null) · 최상위 `applicability[]`(`{condition, label, passed, note}`, 카드 적용 조건 B6 를 조건마다)를 더한다. 둘 다 필수. 스키마 검사 2개(blocked · unsupported → label null, passed false → unsupported) · 카드 없음 → `[]`. 예시 4개에 두 칸, 예시 `argument-c1-unsupported-years.json`(완전한 연 값 2개 → ✕) 추가. 「오류」 페이지 결정 2 · 7. 동결 대상 — backend · 프론트 리뷰. backend 구현 · V0051(지난 실행 채움)은 같은 MR, 프론트는 다음 MR. 리뷰 반영: ready · partial 인데 label null(지난 실행)이면 이전 배지, 연 값 note 는 빠진 해를 나열. 「판단 배지 · 적용 조건」

@@ -19,6 +19,7 @@
 - 2026-11-06: 리뷰를 기다리지 않고 backend 구현을 먼저 넣음(CI 빨간불 해소). 승인본이 jsonb 라 칸 순서가 남지 않아 줄 순서는 카드 계약 순서로 고정(README · 스키마 설명 고침). 지역 단위는 근거와 상관없이 정해져 blocked 보다 먼저 본다. 측정소 수는 연평균이 있는 측정소 모두(판정의 공통 측정소와 다름)
 - 2026-11-06: 로컬 Testcontainers 가 Docker ping 에서 멈춤(`docker_engine` · `dockerDesktopLinuxEngine` 두 파이프 모두, `docker ps -a` 도 응답 없음). Docker Desktop 은 재시작하지 않고 CI 로 검증. 포맷 · 컴파일 · ArchitectureTest 는 통과
 - 2026-11-06: 정호성 MR(S15P31C108-295, V0050)이 먼저 develop 에 들어가 dev DB 에 V0050 이 먼저 적용된다. out-of-order 가 꺼져 있어 V0049 그대로면 Flyway 가 막는다 → V0051 로 이름만 바꿈(내용 그대로, 서로 다른 테이블이라 순서 무관). develop(!190 · -295) 받으며 QuestionService import · QuestionApiTest 판단 문장 · c2 README 변경 이력 충돌을 양쪽 합쳐 풂
+- 2026-11-06: 리뷰 반영 — 장성우 1(blocked 면 측정소 조건도 null: 코드는 이미 그렇고 README 표만 고침) · 3 = 정우현 1(ready · partial 인데 label null 은 지난 실행 → 화면은 이전 배지, run_status 문구는 blocked · unsupported 만) · 정우현 2(연 값 note 빠진 해 나열, 1개는 「1개(2025)」). 장성우 2(광역 질문)는 의도 — 화면은 시군구만 보낸다(정우현 4). 프론트는 다음 MR(정우현 6)
 - 2026-11-06: 프론트 zod 는 `z.object`(모르는 칸 버림)라 backend 가 먼저 나가도 화면은 그대로
 
 ## 다음 할 일 / 범위 밖
