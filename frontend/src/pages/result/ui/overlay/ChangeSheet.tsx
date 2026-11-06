@@ -10,6 +10,7 @@ import {
   barNumber,
   CHART_WIDTH,
   changeSeries,
+  signAxis,
   yearlyAggregate,
   yearlyBars,
 } from "../../model/views";
@@ -34,6 +35,7 @@ function Chart({
   const agg = yearlyAggregate(series.unit);
   const bars = yearlyBars(series);
   const layout = barLayout(bars.map((b) => b.value));
+  const axis = signAxis(series.indicator_id);
   const source = argument.data.statistics[0];
   const scroller = useRef<HTMLDivElement>(null);
   // 스크롤이 생기면 최근 해(오른쪽 끝)부터 보인다
@@ -62,6 +64,13 @@ function Chart({
             .join(" · ")}
         </p>
       </header>
+
+      {/* 부호가 방향인 지표(순이동)만: 0 선 위아래 뜻. 막대가 많아도 겹치지 않게 그림 위 한 줄로 */}
+      {axis && (
+        <p className="text-caption-12 leading-3.5 text-text-2">
+          0 선 위 {axis.positive} · 아래 {axis.negative}
+        </p>
+      )}
 
       {/* 막대가 많아 그림 칸이 시트(422)보다 넓으면 좌우 스크롤, 처음엔 최근 해(오른쪽 끝)를 보인다.
           넓지 않으면 스크롤 칸을 두지 않는다(양끝 연도 글자가 칸 밖으로 조금 넘쳐도 잘리지 않게) */}

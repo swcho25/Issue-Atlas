@@ -13,6 +13,7 @@ import {
   changeSeries,
   MIN_BAR,
   openViews,
+  signAxis,
   yearlyBars,
 } from "./views";
 
@@ -56,6 +57,26 @@ describe("변화형 막대", () => {
       { year: "2025", value: null },
     ]);
     expect(barNumber(11.04, "mean")).toBe("11.0");
+  });
+});
+
+describe("0 선 위아래 뜻", () => {
+  it("여수 C1 순이동 그림은 0 선 위가 + 순유입, 아래가 − 순유출로 보인다", () => {
+    expect(signAxis(changeSeries(ready)!.indicator_id)).toEqual({
+      positive: "+ 순유입",
+      negative: "− 순유출",
+    });
+  });
+
+  it("다른 순이동 지표(19–34세 · 전체)도 같은 뜻으로 보인다", () => {
+    for (const id of ["population_net_migration_19_34", "population_net_migration_total"]) {
+      expect(signAxis(id)).toEqual({ positive: "+ 순유입", negative: "− 순유출" });
+    }
+  });
+
+  it("부호가 방향이 아닌 지표(초미세먼지 · 이동자 수)는 뜻 줄이 없다", () => {
+    expect(signAxis("air_pm25")).toBeNull();
+    expect(signAxis("population_movers")).toBeNull();
   });
 });
 
