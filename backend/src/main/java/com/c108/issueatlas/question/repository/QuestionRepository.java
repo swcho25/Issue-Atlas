@@ -1,5 +1,6 @@
 package com.c108.issueatlas.question.repository;
 
+import com.c108.issueatlas.card.repository.EvidenceMatchSql;
 import com.c108.issueatlas.question.dto.ApprovedCard;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -13,17 +14,9 @@ import tools.jackson.databind.ObjectMapper;
 
 @Repository
 public class QuestionRepository {
-    // -136 기존 대응 후보 중 이 카드 · 지역 · 기간에 맞는 현재 판. 세출은 회계연도, 온통청년은 사업 기간이 겹치는지 본다.
-    // 기간을 모르는 후보와 광역(place_id null) 후보는 고르지 않는다
-    private static final String MATCHED =
-            """
-            SELECT r.* FROM existing_response r
-            WHERE r.is_current AND r.card_id = :card AND r.place_id = :place
-              AND CASE WHEN r.origin = 'lofin'
-                    THEN daterange(make_date(r.fiscal_year, 1, 1), make_date(r.fiscal_year + 1, 1, 1))
-                    ELSE daterange(r.period_start, r.period_end) END && daterange(:start, :end)
-              AND (r.origin = 'lofin' OR r.period_start IS NOT NULL OR r.period_end IS NOT NULL)
-            """;
+    // 기존 대응 · 보도자료 고르기 SQL 은 카드 목록 ②와 같이 쓴다(EvidenceMatchSql). 한쪽만 고치면 두 화면 상태가 어긋난다
+    private static final String MATCHED = EvidenceMatchSql.RESPONSES;
+    private static final String PRESS_MATCHES = EvidenceMatchSql.PRESS;
 
     // 화면 series(「시공간 표시 개발 명세」 5 · 6절): 질문 지역의 월 단위 통계 관측(observation view, V0025).
     // 측정소 행은 place_id 가 측정소의 시군구라 같이 잡힌다. 이동은 도착 시도 이름 · 대표점을 붙인다
@@ -159,31 +152,6 @@ public class QuestionRepository {
     }
 
     /**
-     * 지표의 질문 기간 월 관측으로 정한 필수 근거(통계) 상태: available 한 달이 있으면 available, 없고 미공표 달이 있으면 not_published,
-     * 관측 행이 없으면 not_collected.
-     */
-    public String statisticsStatus(
-            String indicatorId, String placeId, LocalDate start, LocalDate end) {
-        return jdbc.sql(
-                        """
-                SELECT CASE WHEN bool_or(o.status = 'available') THEN 'available'
-                            WHEN bool_or(o.status = 'not_published') THEN 'not_published'
-                            ELSE 'not_collected' END
-                FROM observation o
-                WHERE o.what_type = 'indicator' AND o.when_unit = 'M' AND o.what_id = :indicator
-                  AND o.place_id = :place
-                  AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
-                  AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
-                """)
-                .param("indicator", indicatorId)
-                .param("place", placeId)
-                .param("start", start)
-                .param("end", end)
-                .query(String.class)
-                .single();
-    }
-
-    /**
      * 통계 근거 한 건(지역 · 기간 · 지표의 월 관측 묶음)을 만들고 ID 를 준다. 같은 묶음은 같은 ID 라 다시 실행해도 한 행. 출처 등급이 없는 출처면 만들지
      * 않는다(기존 대응 근거와 같은 규칙).
      */
@@ -210,15 +178,7 @@ public class QuestionRepository {
             LocalDate start,
             LocalDate end) {
         boolean observed =
-                jdbc.sql(
-                                """
-                SELECT EXISTS (
-                    SELECT 1 FROM observation o
-                    WHERE o.what_type = 'indicator' AND o.what_id = :indicator
-                      AND o.place_id = :place AND o.status = 'available'
-                      AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
-                      AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul')
-                """)
+                jdbc.sql("SELECT " + EvidenceMatchSql.DENOMINATOR_OBSERVED)
                         .param("indicator", indicatorId)
                         .param("place", placeId)
                         .param("start", start)
@@ -296,41 +256,6 @@ public class QuestionRepository {
                 .query(String.class)
                 .optional();
     }
-
-    /**
-     * 정제된 보도자료(C1 문서 kind = press_release) 가운데 카드 문서 명세 · 질문 지역 · 기간 · 키워드에 맞는 글. 발행 기관
-     * 지역(place_code_raw)이 질문 place 와 같아야 한다 — 광주광역시(시 전체 kr-29) 글은 구 질문에 잇지 않는다. 키워드는 띄어쓰기로 나눈 낱말이
-     * 제목에 모두 있으면 맞다. 출처 등급이 없는 출처는 뺀다.
-     */
-    private static final String PRESS_MATCHES =
-            """
-            WITH keyword AS (
-                SELECT regexp_split_to_array(btrim(k), '\\s+') AS words
-                FROM unnest(ARRAY[:keywords]::text[]) k WHERE btrim(k) <> ''
-            )
-            SELECT 'ev_doc_' || md5(n.obs_key || '|' || n.content_hash) AS evidence_id,
-                   n.record -> 'document' ->> 'title' AS title, n.source_id, s.reliability_grade,
-                   n.record ->> 'license_type' AS license_type, n.storage_scope,
-                   (n.record ->> 'published_at')::timestamptz AS published_at,
-                   (n.record ->> 'collected_at')::timestamptz AS collected_at,
-                   n.record -> 'document' ->> 'link' AS url,
-                   jsonb_build_object('spec_id', n.spec_id, 'locator', n.record -> 'locator',
-                                      'obs_key', n.obs_key, 'content_hash', n.content_hash) AS locator
-            FROM normalized_ready n
-            JOIN place_code_map m ON m.code_system = n.place_code_system AND m.place_code = n.place_code_raw
-            JOIN source s ON s.source_id = n.source_id
-            WHERE n.spec_id IN (:specs) AND n.record -> 'document' ->> 'kind' = 'press_release'
-              AND m.place_id = :place AND s.reliability_grade IS NOT NULL
-              AND (n.record ->> 'published_at')::timestamptz
-                  >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
-              AND (n.record ->> 'published_at')::timestamptz
-                  < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
-              AND EXISTS (
-                  SELECT 1 FROM keyword kw
-                  WHERE NOT EXISTS (
-                      SELECT 1 FROM unnest(kw.words) w
-                      WHERE strpos(n.record -> 'document' ->> 'title', w) = 0))
-            """;
 
     /**
      * 카드 문서 명세의 보도자료를 문서 근거(ID {@code ev_doc_<md5(obs_key|content_hash)>})로 만들고 ID 를 등록일 순으로 준다. 같은

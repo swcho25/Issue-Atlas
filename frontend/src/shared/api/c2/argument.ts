@@ -81,7 +81,7 @@ const flowSeries = z.object({
   from_coordinates: lonLat,
   to_coordinates: lonLat,
 });
-/** 기사 건수(확산) */
+/** 기사 건수(관측 순서 그림) */
 const tagSeries = z.object({
   ...seriesBase,
   tag: z.string(),

@@ -46,6 +46,9 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       SERVER_PORT: "8080"
+      # 별도 내부 포트만 Prometheus에 제공. 호스트에는 publish하지 않는다.
+      MONITORING_ENABLED: "true"
+      MONITORING_PORT: "9091"
       # 논증 문장화 engine 주소. 비우면 부르지 않고 카드 문구로 응답한다(ENGINE_DISABLED).
       # 켤 때 .env 에 http://engine:8000 (익명 질문 요청 수 제한이 배포된 뒤)
       ENGINE_URL: ${ENGINE_URL:-}

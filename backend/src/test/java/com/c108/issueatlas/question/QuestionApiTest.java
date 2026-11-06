@@ -840,6 +840,121 @@ class QuestionApiTest {
                 .isTrue();
     }
 
+    /** 여수 C1 2023–2025: 통계(SP01) · 문서(보도자료 1) · 기존 대응(세출 2024, 등급 grade) · 분모(SP10). */
+    private void yeosuC1(String grade) {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < YEOSU.length; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        for (int i = 0; i < YEOSU_REGISTERED.length; i++) {
+            String year = LocalDate.of(2023 + i, 1, 1).toString();
+            kosis(
+                    "SP10",
+                    "population_registered",
+                    "{\"C2\": \"000\"}",
+                    "Y",
+                    year,
+                    YEOSU_REGISTERED[i]);
+        }
+        press("yeosu", "yeosu:1", "여수시, 2024년 청년어촌정착지원 사업 대상자 모집", "2023-11-12");
+        lofin(grade);
+        jdbc.update("UPDATE existing_response SET place_id = 'kr-12130' WHERE card_id = 'C1'");
+    }
+
+    private ResultActions cards(String place) throws Exception {
+        return mvc.perform(
+                        get("/v1/places/{place}/cards", place)
+                                .with(user("u"))
+                                .param("period_start", "2023-01-01")
+                                .param("period_end", "2026-01-01"))
+                .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("place-cards"));
+    }
+
+    private int evidenceRows() {
+        return jdbc.queryForObject("SELECT count(*) FROM evidence", Integer.class);
+    }
+
+    @Test
+    void cardListCountsEvidenceLiveWithoutSavingAndMatchesTheRun() throws Exception {
+        yeosuC1("A");
+        int before = evidenceRows();
+        // 질문을 실행하기 전에도 고른 기간으로 바로 센다. 근거 행은 만들지 않는다(조회)
+        String list =
+                cards("kr-12130")
+                        .andExpect(jsonPath("$.cards[1].card_id").value("C1"))
+                        .andExpect(jsonPath("$.cards[1].available_kinds").value(4))
+                        .andExpect(jsonPath("$.cards[1].review_pending_count").value(0))
+                        // A3 는 이 지역 측정 자료 · 후보가 없다
+                        .andExpect(jsonPath("$.cards[0].card_id").value("A3"))
+                        .andExpect(jsonPath("$.cards[0].available_kinds").value(0))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(evidenceRows()).isEqualTo(before);
+
+        String body =
+                """
+                {"place_id": "kr-12130", "card_id": "C1", "period_start": "2023-01-01",
+                 "period_end": "2026-01-01", "raw_text": null}
+                """;
+        String result =
+                argument(runId(ask(body)))
+                        .andExpect(jsonPath("$.run_status").value("ready"))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        // 두 화면이 같은 규칙: 카드 목록의 4종 상태 = 실행의 근거 수요표
+        assertThat(JsonPath.<List<String>>read(list, "$.cards[1].evidence[*].status"))
+                .containsExactly("available", "available", "available", "available")
+                .isEqualTo(JsonPath.read(result, "$.evidence_table[*].status"));
+        // 실행 뒤 다시 골라도 그대로(지난 실행 결과가 아니라 같은 자료를 다시 센다)
+        cards("kr-12130").andExpect(jsonPath("$.cards[1].available_kinds").value(4));
+    }
+
+    @Test
+    void cardListKeepsRegisteredStatusAndCountsUngradedResponsesAsPending() throws Exception {
+        yeosuC1(null);
+        // 등록된 확보 상태(수동)가 센 값보다 먼저다
+        jdbc.update(
+                "INSERT INTO card_evidence_status VALUES ('kr-12130', 'C1', 2, '2023-01-01',"
+                        + " '2026-01-01', 'denominators', 'license_blocked', 0)");
+        String list =
+                cards("kr-12130")
+                        .andExpect(
+                                jsonPath("$.cards[1].evidence[2].status").value("review_pending"))
+                        .andExpect(jsonPath("$.cards[1].review_pending_count").value(1))
+                        .andExpect(
+                                jsonPath("$.cards[1].evidence[3].status").value("license_blocked"))
+                        .andExpect(jsonPath("$.cards[1].available_kinds").value(2))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        String body =
+                """
+                {"place_id": "kr-12130", "card_id": "C1", "period_start": "2023-01-01",
+                 "period_end": "2026-01-01", "raw_text": null}
+                """;
+        String result = argument(runId(ask(body))).andReturn().getResponse().getContentAsString();
+        assertThat(JsonPath.<List<String>>read(list, "$.cards[1].evidence[*].status"))
+                .isEqualTo(JsonPath.read(result, "$.evidence_table[*].status"));
+        assertThat(JsonPath.<List<Integer>>read(result, "$.evidence_table[*].review_pending_count"))
+                .containsExactly(0, 0, 1, 0);
+    }
+
+    @Test
+    void cardListDoesNotLinkDocumentsWithoutStatistics() throws Exception {
+        // 통계가 없으면 실행은 판정하지 않아 문서 · 분모를 잇지 않는다 — 목록도 같다
+        press("yeosu", "yeosu:1", "여수시, 2024년 청년어촌정착지원 사업 대상자 모집", "2023-11-12");
+        cards("kr-12130")
+                .andExpect(jsonPath("$.cards[1].evidence[0].status").value("not_collected"))
+                .andExpect(jsonPath("$.cards[1].evidence[1].status").value("not_collected"))
+                .andExpect(jsonPath("$.cards[1].available_kinds").value(0));
+    }
+
     @Test
     void c1TwoCompleteYearsAreUnsupportedByCardApplicability() throws Exception {
         jdbc.update(
