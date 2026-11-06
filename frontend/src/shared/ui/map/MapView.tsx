@@ -323,6 +323,7 @@ function setHover(m: MapLibreMap, hovered: { current?: string | number }, id?: s
 export function MapView({
   boundaries,
   choices,
+  focus,
   onPick,
   globe = false,
   padding = 80,
@@ -337,6 +338,8 @@ export function MapView({
    * 마우스를 올리면 그 지역이 밝게 떠오르며, 지역이나 이름표를 누르면 onPick. 넘기면 바탕 지도의 지명은 흐려진다
    */
   choices?: Feature[];
+  /** 고른 곳이 없을 때 보여 줄 곳(「광주」 처럼 고를 후보가 여럿이면 그 구들로 옮겨 간다) */
+  focus?: Feature[];
   onPick?: (placeId: string) => void;
   /** 경계에 맞출 때 가장자리 여백(px). 결과 카드가 덮는 쪽은 더 크게 { left: 440, … } */
   padding?: Padding;
@@ -424,7 +427,8 @@ export function MapView({
     };
   }, [map, globe, padding]);
 
-  // 경계가 바뀌면 데이터를 바꾸고 화면을 맞춘다. 고르고 있던 지역을 비우면(boundaries 없음) 그려 둔 것도 지운다
+  // 경계가 바뀌면 데이터를 바꾸고 화면을 맞춘다. 고르고 있던 지역을 비우면(boundaries 없음) 그려 둔 것도 지우고,
+  // 보여 줄 곳(focus)이 있으면 그쪽으로 옮긴다
   useEffect(() => {
     if (!map) return;
     if (!boundaries) {
@@ -433,6 +437,8 @@ export function MapView({
         map.getSource<GeoJSONSource>("boundaries")?.setData(data.current.boundaries);
         shown.current = undefined;
       }
+      const bounds = focus?.length ? boundsOf(focus) : null;
+      if (bounds) fitTo(map, bounds, padding, 600, globe);
       return;
     }
     data.current.boundaries = boundaries as Data;
@@ -449,7 +455,7 @@ export function MapView({
     return () => {
       map.off("resize", refit);
     };
-  }, [map, boundaries, padding, globe]);
+  }, [map, boundaries, focus, padding, globe]);
 
   // 고르는 화면: 다른 지역의 시군구 경계와 이름표(고른 곳 + 고를 수 있는 곳), 바탕 지명은 흐리게
   useEffect(() => {

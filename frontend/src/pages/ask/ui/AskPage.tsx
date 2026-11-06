@@ -155,6 +155,13 @@ export function AskPage() {
     setPickedCard(undefined);
   };
 
+  // 「광주」 처럼 고를 후보가 여럿이면 지역 칩은 그 후보만 보여 주고, 지도도 그 구들로 옮긴다
+  const options = !placeId && said?.place.options.length ? said.place.options : undefined;
+  const focus = useMemo(
+    () => (options ? sigungu.filter((f) => options.includes(f.properties.place_id)) : undefined),
+    [sigungu, options],
+  );
+
   const notes: string[] = [];
   if (said) {
     const { place: p, period: t } = said;
@@ -172,7 +179,7 @@ export function AskPage() {
     <SentenceBuilder
       state={{
         text: said?.text,
-        placeOptions: placeList,
+        placeOptions: options ? placeList.filter((p) => options.includes(p.place_id)) : placeList,
         placeId,
         notes,
         period,
@@ -203,6 +210,7 @@ export function AskPage() {
         <MapView
           boundaries={boundaries.data}
           choices={choices}
+          focus={focus}
           globe
           onPick={pickPlace}
           padding={MAP_PADDING}

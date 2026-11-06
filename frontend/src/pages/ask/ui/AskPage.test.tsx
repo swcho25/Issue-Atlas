@@ -320,10 +320,16 @@ describe("AskPage — 문장으로 질문", () => {
     ]);
   });
 
-  it("「광주」 만 있으면 지역을 비우고 어느 곳인지 고르게 한다", async () => {
+  it("「광주」 만 있으면 지역을 비우고 광주의 구 가운데서 고르게 한다", async () => {
     await askSentence("광주 미세먼지");
 
     expect(await screen.findByText(/「광주」의 어느 곳인지 골라 주세요/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "질문 실행" })).toBeDisabled();
+    const chip = screen.getByRole("combobox", { name: "지역 바꾸기" });
+    expect(
+      within(chip)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["골라 주세요", "광주 동구"]);
   });
 });
