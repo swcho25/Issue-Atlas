@@ -8,7 +8,7 @@ import { AtlasMark } from "@/shared/ui/logo";
 import { useLoginDialog } from "../model/login-dialog";
 import styles from "./LandingPage.module.css";
 
-/** 맨 위에선 심벌만, 조금이라도 내리면 워드마크가 심벌 뒤에서 튀어나온다. 오른쪽은 유리 「로그인」 하나(관리자용) */
+/** 맨 위에선 심벌만, 조금이라도 내리면 워드마크가 심벌 뒤에서 튀어나온다. 오른쪽은 유리 「로그인」 하나 */
 export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const login = useLoginDialog();

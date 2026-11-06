@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { getArgument } from "../api/getResult";
 import { ResultCard } from "./ResultCard";
 import { ResultMap } from "./ResultMap";
+import { MapOverlays } from "./overlay/MapOverlays";
 
 // /results/[id] — 04 · 결과 · 지도 먼저. id 는 백엔드 run_id(질문 실행 한 번 = 결과 하나).
 // Cache Components: params · 데이터 읽기는 <Suspense> 안에서 한다(밖에서 읽으면 화면 전체가 막힌다).
@@ -24,6 +25,7 @@ async function ResultContent({ params }: { params: Promise<{ id: string }> }) {
   return (
     <ResultMap placeId={argument.question.place_id}>
       <ResultCard argument={argument} />
+      <MapOverlays argument={argument} />
     </ResultMap>
   );
 }

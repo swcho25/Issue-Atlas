@@ -22,8 +22,8 @@ const emptyMessage = (e: Empty) =>
       : "비밀번호를 입력해 주세요";
 
 /**
- * 랜딩 위 로그인 창. 일반 사용자는 로그인 없이 쓰고, 로그인은 관리자만 한다(로그인 정책 A안).
- * 닫기 · 바깥 · Esc 로 닫고, Tab 은 창 안에서만 돈다. 계정은 관리자가 만든다(가입 화면 없음)
+ * 랜딩 위 로그인 창. 계정은 관리자가 발급한다(일반 · 관리자 계정, 가입 화면 없음).
+ * 로그인하면 일반 계정은 새 질문, 관리자는 운영 요약으로. 닫기 · 바깥 · Esc 로 닫고, Tab 은 창 안에서만 돈다
  */
 export function LoginDialog() {
   const dialog = useLoginDialog();
@@ -43,14 +43,17 @@ export function LoginDialog() {
       ),
   });
 
-  // 열면 첫 칸에 초점, 페이지 스크롤은 막는다
+  // 열면 첫 칸에 초점, 페이지 스크롤은 막는다. 스크롤바 자리는 비워 둔다(stable) — 스크롤바가 사라지면
+  // 화면 폭이 그만큼 넓어져 지구 · 지도 캔버스가 가로로 늘어난다
   useEffect(() => {
     if (!dialog.isOpen) return;
     const root = document.documentElement;
     root.style.overflow = "hidden";
+    root.style.scrollbarGutter = "stable";
     const focus = window.setTimeout(() => form.current?.querySelector("input")?.focus(), 50);
     return () => {
       root.style.overflow = "";
+      root.style.scrollbarGutter = "";
       window.clearTimeout(focus);
     };
   }, [dialog.isOpen]);

@@ -32,7 +32,14 @@
 
 현재 카드 seed는 C1·A3 두 개다. 카드 목록은 대분류 → 한국어 가나다 → 카드 ID로 고정 정렬하며 확보 수와 무관하다. 네 종류는 statistics·documents·existing_responses·denominators 순서로 각각 한 번씩 반환한다.
 
-상태는 [DB 계약](../database/README.md)의 `card_evidence_status`에서 정확히 같은 지역·조회 기간·카드 버전만 읽는다. 등록이 없는 종류는 같은 지역·카드·카드 버전·조회 기간으로 가장 최근에 돌린 실행(`argument_run`)의 근거 수요표 상태와 보류 수를 쓰고(S15P31C108-264), 그런 실행도 없으면 `not_collected`다. 질문 실행은 지금처럼 등록된 상태만 읽는다(지난 실행 결과를 다음 실행의 입력으로 쓰지 않는다). `available_kinds`는 available 종류 수, `review_pending_count`는 종류별 보류 항목 수의 합이다. 예시 JSON의 가상 확보 상태를 실서비스 seed에 복사하지 않는다. P3/P4의 근거 연결·상태 작성은 후속 작업이며, 연결 전 0/4 응답은 자료가 없다는 판정이 아니라 확보 상태가 등록되지 않았다는 뜻이다.
+상태는 고를 때마다 **질문 실행과 같은 규칙으로 바로 센다**(S15P31C108-281). 규칙은 backend `CardEvidenceStatus` 하나이고, 질문 실행은 근거 행을 만든 뒤 이은 수로, 카드 목록은 근거 행을 만들지 않고 같은 고르기 SQL 로 센 수로 부른다 — 그래서 같은 지역 · 기간 · 카드 판이면 카드 목록의 4종 상태와 실행의 근거 수요표 상태가 같다. 사용자가 고른 아무 기간이나 되고, 상태 표를 미리 채우지 않는다.
+
+1. [DB 계약](../database/README.md)의 `card_evidence_status`(정확히 같은 지역 · 조회 기간 · 카드 판)에 등록된 상태가 먼저다(수동 등록 `not_published` · `license_blocked` 등). 등록이 없으면 `not_collected` 로 보고 아래로 센다
+2. 통계: 승인본이 있으면 규칙 주 지표의 월 관측 — available 한 달이 있으면 `available`, 없고 미공표 달이 있으면 `not_published`
+3. 기존 대응: 아래 「질문 · 실행 구현」의 「기존 대응」 후보가 있으면 `available`, 출처 등급이 없는 후보만 있으면 `review_pending`(보류 수 = 그 후보 수)
+4. 문서 · 분모: 통계가 `available` 이고 카드 규칙을 지원할 때만(질문 실행이 판정까지 갈 때만) 「문서」 · 「분모」 항목대로 맞는 근거가 있으면 `available`
+
+`available_kinds`는 available 종류 수, `review_pending_count`는 종류별 보류 항목 수의 합이다. 지난 실행 결과(`argument_run`)는 읽지 않는다(S15P31C108-264 의 「최근 실행」 대신). 「비교 조건 4가지 충족」은 카드 목록에 칸이 없어 내지 않는다. 예시 JSON의 가상 확보 상태를 실서비스 seed에 복사하지 않는다. 개발 DB(11/6): 여수 2023–2025 C1 · A3 모두 4/4(통계 available · 보도자료 8 · 기존 대응 115 · 18 · 분모 1).
 
 ## 질문 · 실행 구현 (S15P31C108-133)
 
@@ -52,7 +59,7 @@
 - 필수 근거(통계) 상태: 카드 확보 상태(`card_evidence_status`)가 `not_collected`(등록 없음 포함)면 규칙의 주 지표 월 관측(observation)으로 정한다 — available 한 달이 있으면 `available`, 없고 미공표 달이 있으면 `not_published`. 통계 근거는 실행 때 지역 · 기간 · 지표마다 한 행(`ev_stat_<md5>`)을 만들고, 출처 등급이 없는 출처면 만들지 않는다(기존 대응과 같은 규칙)
 - 6칸 문장은 템플릿으로 만든다. 보증 ③ · 상한선 ⑥ 은 카드 정의(규칙이 함께 줌), 반박 ⑤ 는 `[]`. 상한선 ⑥ 끝에는 카드 설계도의 예상 빈칸(`expected_gaps`)을 「무엇: 문장 (상태)」로 붙인다 — `license_blocked` 「이용 허락이 없어 쓰지 않는다」 · `not_published` 「공표되지 않는다」 · `not_collected` 「수집하지 않는다」(예: 「민원: 이용 허락이 없어 쓰지 않는다 (license_blocked)」). 인수 기준 ③ 을 C2 v1 `expected_gaps[]` 칸 전까지 이 칸으로 보인다(S15P31C108-265). 승인본이 있는 실행은 engine 논증 문장화([AI 계약](../ai/README.md) v0.3 「문장화」)를 부르고, 결과가 `done` 이면 ⑤ 만 카드 경쟁 설명마다 근거 유무(`supported` · `not_found` · `needs_review`, `llm_judgment` · 규칙이 정한 것은 `rule`)로 바꾼다. 판단 ① · 근거 ② · 보증 ③(늘 카드 문장, `card`) · 한정어 ④ · 상한선 ⑥ 은 바꾸지 않는다(S15P31C108-282, Figma: 「AI」 칩은 ⑤ 만). engine 이 꺼져 있거나(`ENGINE_URL` 없음) 실패 · 시간 초과(40초) · 검사 탈락이면 위 템플릿 그대로이고, 사유는 [DB](../database/README.md) `argument_phrasing` 에 남긴다. 칸 · enum 은 그대로(동결 문서 「해도 된다」: 빈 배열이 차는 것 · 값이 바뀌는 것)
 - 「기존 대응」: [-136 후보](../existing-response/) 중 같은 카드 · 지역(`place_id`)이고 기간이 겹치는 현재 판만 잇는다. 세출은 회계연도 `[Y-01-01, Y+1-01-01)`, 온통청년은 사업 기간으로 겹침을 본다. 기간을 모르는 후보와 광역 후보(광주 본청 `kr-29` · `place_id` null)는 시군구 질문에 잇지 않는다. 출처 등급(`source.reliability_grade`)이 정해진 출처의 후보만 근거(`evidence`, ID `ev_<후보 해시>`)로 만들고, 등급 없는 후보는 근거 수요표에 `review_pending`(보류 수 = 후보 수)으로만 센다
-- 근거 수요표 상태는 `card_evidence_status`(정확히 같은 기간 · 카드 판)를 읽는다. 기존 대응은 이번 실행이 이은 후보가 있으면 그것으로 정한다
+- 근거 수요표 상태는 「카드 목록 구현」과 같은 규칙(`CardEvidenceStatus`)이다: 등록된 `card_evidence_status`(정확히 같은 기간 · 카드 판)가 먼저, 기존 대응은 이번 실행이 이은 후보가 있으면 그것으로 정한다
 - 「분모」: 승인본 `evidence.denominators` 의 지표마다 질문 지역 · 기간에 available 관측(observation) 행이 있으면 근거 한 행(`ev_den_<md5>`, 이름은 지표 사전 `label`)을 만들어 `data.denominators` 에 넣는다. 판정이 이은 분모 · 문서 근거가 있으면 확보 상태 `not_collected`(등록 없음 포함)를 `available` 로 본다(통계와 같은 임시 방식). 분모는 한정어 구성 값에서 뺀다. 지금 C1 · A3 승인본의 분모는 SP10 전체 인구(`population_registered_total`)뿐 — 19–39세 인구는 관측 view 에 합계 행이 없어 아직 잇지 않는다
 - 「문서」: 정제된 보도자료(`normalized_ready`, C1 문서 `kind = press_release`, [보도자료 계약](../press/README.md)) 가운데 ① 승인본 `evidence.documents` 의 명세(`press_release_yeosu` · `press_release_gwangju`) ② 발행 기관 지역(`place_code_raw` → `place_code_map`)이 질문 `place_id` 와 같고 ③ 등록일(`published_at`)이 질문 기간 `[start, end)`(한국 날짜) 안이고 ④ 제목에 승인본 `keywords` 중 하나의 낱말(띄어쓰기로 나눔)이 **모두** 든 글마다 근거 한 행(`ev_doc_<md5(obs_key|content_hash)>`)을 만들어 `data.documents` 에 등록일 순으로 넣는다. 근거는 제목 · 등록일 · 원문 링크(`url`)만 두고 본문 · `display` 는 없다(목록만 수집). 광주광역시 글은 발행 기관이 시 전체(`kr-29`)라 구 질문에 잇지 않는다(기존 대응 광역 후보와 같은 규칙). 출처 등급 없는 출처는 뺀다. 빅카인즈 기사는 문서 근거로 세지 않고 `articles[]`(P4 카드 태그)로만 낸다. 개발 DB(11/5): 여수 2023–2025 에 C1 8건 · A3 8건
 - 근거 수요표 `reason`: `available` 이면 null, 아니면 「없는 이유」 문장(회사 플랜 Goal ①). 상태가 `not_published` · `license_blocked` · `review_pending` 이면 상태별 문장, `not_collected` 면 근거 종류별 문장(예: 분모 「카드의 분모 지표에 이 지역 · 기간 관측 값이 없습니다.」, 문서 「이 지역 · 기간 보도자료 가운데 카드 키워드에 맞는 글이 없습니다.」)
@@ -202,4 +209,5 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-05): 상한선 ⑥ `ceiling.items` 끝에 카드 예상 빈칸(`expected_gaps`)을 「무엇: 문장 (상태)」로 붙인다(S15P31C108-265). 칸 그대로(값만 바뀜). 구조 칸 `expected_gaps[]` 는 C2 v1 에서 주는 쪽 · 받는 쪽 리뷰 MR 로
 - v0.1 (2026-11-05): 카드 목록 근거 상태 = 등록된 `card_evidence_status` → 없으면 같은 지역 · 카드 · 카드 버전 · 기간의 최근 실행 근거 수요표 → 없으면 `not_collected`(S15P31C108-264). 응답 모양 그대로(동결 규칙의 「값이 바뀌는 것」)
 - v0.1 (2026-11-05): 통계 · 분모 근거 시점(`observed_at`, 한정어 `latest_observed_at`)을 마지막 관측 기간의 끝 경계(다음 달 1일 0시)에서 그 기간의 마지막 날(한국 0시)로(S15P31C108-272). 화면 ④ 가 「최신 2026-01-01」(기간 밖)로 보이고 「1년 이내」가 하루 후했다. 저장된 근거 행은 V0048 이 고치고, 저장된 실행 결과는 그대로(다시 실행하면 새 값). 응답 모양 그대로(값만 바뀜)
+- v0.1 (2026-11-06): 카드 목록 근거 상태를 고를 때마다 질문 실행과 같은 규칙으로 센다(S15P31C108-281, 「오류」 페이지 결정 1). 등록된 `card_evidence_status` 가 먼저이고, 없으면 통계 관측 · 기존 대응 후보 · 보도자료 · 분모 관측을 근거 행을 만들지 않고 센다. -264 의 「최근 실행 근거 수요표」는 읽지 않는다. 응답 모양 그대로(값만 바뀜). 개발 DB 여수 2023–2025 C1 · A3 4/4, 카드 2개 약 0.8초(첫 조회 2.5초)
 - c2-0.1 값 변경 (2026-11-06): 판단 ① 문장에 첫해 · 끝해 연 값(카드 v0.5 `rule.outcomes[].claim_text`), 보증 ③ 은 늘 카드 문장(`provenance: card`), engine 문장화는 반박 ⑤ 만(AI v0.3). 「오류」 페이지 결정 3 · Figma ① · ③ (S15P31C108-282). 칸 · enum · 스키마는 그대로(동결 규칙의 「값이 바뀌는 것」). 결과 문장은 카드 v3 승인본부터 — 개발 · 운영 DB 는 카드 seed 를 다시 돌리면 v3

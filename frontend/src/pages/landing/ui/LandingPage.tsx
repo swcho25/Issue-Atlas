@@ -9,7 +9,7 @@ import { SiteHeader } from "./SiteHeader";
 
 /**
  * 랜딩(공개): 히어로 지구 → 구름 → 서울 지도 도착 → 설명 섹션 셋 → 시작 버튼 → 푸터.
- * 일반 사용자는 시작 버튼으로 바로 새 질문, 헤더 「로그인」 은 관리자용(로그인 정책 A안)
+ * 로그인하지 않은 사람만 본다. 헤더 「로그인」 · OPEN THE ATLAS 가 로그인 창을 열고, 로그인하면 새 질문(관리자는 운영 요약)
  */
 export function LandingPage() {
   return (
