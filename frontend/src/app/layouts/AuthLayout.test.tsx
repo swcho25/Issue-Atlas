@@ -52,3 +52,32 @@ describe("AuthGate", () => {
     expect(redirect).not.toHaveBeenCalled();
   });
 });
+
+describe("AuthGate admin (관리자 화면)", () => {
+  beforeEach(() => {
+    redirect.mockClear();
+  });
+
+  it("관리자(ADMIN)는 화면을 그대로 본다", async () => {
+    mswServer.use(http.get(`${API_BASE_URL}/v1/auth/me`, () => HttpResponse.json(me)));
+
+    await expect(AuthGate({ children: "관리", admin: true })).resolves.toBe("관리");
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("조회자(VIEWER)는 로그인했어도 랜딩(/)으로 보낸다", async () => {
+    mswServer.use(
+      http.get(`${API_BASE_URL}/v1/auth/me`, () => HttpResponse.json({ ...me, role: "VIEWER" })),
+    );
+
+    await expect(AuthGate({ children: "관리", admin: true })).rejects.toThrow("NEXT_REDIRECT /");
+  });
+
+  it("로그인이 없으면 랜딩(/)으로 보낸다", async () => {
+    mswServer.use(
+      http.get(`${API_BASE_URL}/v1/auth/me`, () => new HttpResponse(null, { status: 401 })),
+    );
+
+    await expect(AuthGate({ children: "관리", admin: true })).rejects.toThrow("NEXT_REDIRECT /");
+  });
+});
