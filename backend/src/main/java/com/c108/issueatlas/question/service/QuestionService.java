@@ -19,13 +19,18 @@ import com.c108.issueatlas.question.dto.ArgumentResponse.Qualifier;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Question;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Ref;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Text;
+import com.c108.issueatlas.question.dto.MyQuestionList;
+import com.c108.issueatlas.question.dto.MyQuestionList.MyQuestion;
+import com.c108.issueatlas.question.dto.MyQuestionList.MyRun;
 import com.c108.issueatlas.question.dto.QuestionCreateRequest;
 import com.c108.issueatlas.question.dto.QuestionCreateResponse;
 import com.c108.issueatlas.question.repository.QuestionRepository;
 import com.c108.issueatlas.question.repository.QuestionRepository.CardRow;
 import com.c108.issueatlas.question.repository.QuestionRepository.EvidenceRef;
 import com.c108.issueatlas.question.repository.QuestionRepository.MatchedResponse;
+import com.c108.issueatlas.question.repository.QuestionRepository.MyRunRow;
 import com.c108.issueatlas.question.repository.QuestionRepository.PreviousRun;
+import com.c108.issueatlas.question.repository.QuestionRepository.StoredQuestion;
 import com.c108.issueatlas.question.service.ArgumentPhraser.Phrased;
 import com.c108.issueatlas.question.service.CardJudge.Judgment;
 import java.time.LocalDate;
@@ -102,13 +107,79 @@ public class QuestionService {
      * engine 문장화(최대 ENGINE_TIMEOUT)는 트랜잭션 밖에서 불러 그동안 DB 연결을 잡지 않는다(S15P31C108-254). ① 판정 · 결과 조립(짧은
      * 트랜잭션) → ② 문장화(트랜잭션 없음) → ③ 질문 · 실행 · 문장화 · 근거 행 저장(짧은 트랜잭션). 실행 결과는 ③에서 한 번만 쓴다. 이 메서드에
      * {@code @Transactional} 을 달면 ②가 다시 트랜잭션 안으로 들어간다.
+     *
+     * <p>asker 는 로그인한 사람의 이메일(질문의 묻는 사람), 로그인 없이 물었으면 null.
      */
-    public QuestionCreateResponse create(QuestionCreateRequest request) {
-        long started = System.nanoTime();
+    public QuestionCreateResponse create(QuestionCreateRequest request, String asker) {
         if (!request.periodStart().isBefore(request.periodEnd())) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST);
         }
-        Draft draft = Objects.requireNonNull(tx.execute(status -> draft(request)));
+        return execute(request, null, asker);
+    }
+
+    /** 내 질문을 같은 지역 · 카드 · 기간으로 다시 실행한다(같은 질문의 새 실행). 남의 질문 · 없는 질문은 404 */
+    public QuestionCreateResponse rerun(String questionId, String asker) {
+        StoredQuestion q =
+                tx.execute(
+                                status ->
+                                        questions
+                                                .userId(asker)
+                                                .flatMap(
+                                                        id ->
+                                                                questions.ownQuestion(
+                                                                        questionId, id)))
+                        .orElseThrow(ResourceNotFoundException::new);
+        return execute(
+                new QuestionCreateRequest(
+                        q.placeId(), q.cardId(), q.periodStart(), q.periodEnd(), q.rawText()),
+                q.questionId(),
+                asker);
+    }
+
+    /** 로그인한 사람이 물은 질문과 실행(회차). 마지막 실행이 새로운 질문부터 */
+    @Transactional(readOnly = true)
+    public MyQuestionList mine(String asker) {
+        long userId = questions.userId(asker).orElseThrow(ResourceNotFoundException::new);
+        Map<String, List<MyRun>> runs =
+                questions.myRuns(userId).stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        MyRunRow::questionId,
+                                        LinkedHashMap::new,
+                                        Collectors.mapping(
+                                                r ->
+                                                        new MyRun(
+                                                                r.runId(),
+                                                                r.runStatus(),
+                                                                r.createdAt(),
+                                                                r.claim(),
+                                                                r.claimText()),
+                                                Collectors.toList())));
+        return new MyQuestionList(
+                SCHEMA_VERSION,
+                questions.myQuestions(userId).stream()
+                        .map(
+                                q ->
+                                        new MyQuestion(
+                                                q.questionId(),
+                                                q.placeId(),
+                                                q.placeName(),
+                                                q.cardId(),
+                                                q.cardName(),
+                                                q.periodStart(),
+                                                q.periodEnd(),
+                                                q.rawText(),
+                                                q.cardId() == null,
+                                                q.createdAt(),
+                                                runs.getOrDefault(q.questionId(), List.of())))
+                        .toList());
+    }
+
+    /** questionId 가 있으면 그 질문의 새 실행, 없으면 새 질문과 첫 실행 */
+    private QuestionCreateResponse execute(
+            QuestionCreateRequest request, String questionId, String asker) {
+        long started = System.nanoTime();
+        Draft draft = Objects.requireNonNull(tx.execute(status -> draft(request, questionId)));
         Run run = draft.run();
         Phrased phrased =
                 run.approved() == null
@@ -119,7 +190,20 @@ public class QuestionService {
                         ? draft.result()
                         : draft.result().withArgumentText(phrased.warrant(), phrased.rebuttals());
         tx.executeWithoutResult(
-                status -> save(request, draft.questionId(), run, result, phrased, started));
+                status -> {
+                    if (questionId == null) {
+                        Long askedBy = asker == null ? null : questions.userId(asker).orElse(null);
+                        questions.insertQuestion(
+                                draft.questionId(),
+                                request.placeId(),
+                                request.cardId(),
+                                request.periodStart(),
+                                request.periodEnd(),
+                                request.rawText(),
+                                askedBy);
+                    }
+                    save(request, draft.questionId(), run, result, phrased, started);
+                });
         return new QuestionCreateResponse(
                 SCHEMA_VERSION,
                 draft.questionId(),
@@ -129,7 +213,7 @@ public class QuestionService {
     }
 
     /** ① 판정과 C2 결과 조립(카드 문구). 기존 대응 후보 → 근거만 쓰고, 질문 · 실행 행은 ③에서 쓴다. */
-    private Draft draft(QuestionCreateRequest request) {
+    private Draft draft(QuestionCreateRequest request, String existingQuestionId) {
         LocalDate start = request.periodStart();
         LocalDate end = request.periodEnd();
         String placeName =
@@ -140,7 +224,8 @@ public class QuestionService {
                         : questions
                                 .card(request.cardId())
                                 .orElseThrow(ResourceNotFoundException::new);
-        String questionId = "q_" + UUID.randomUUID();
+        String questionId =
+                existingQuestionId != null ? existingQuestionId : "q_" + UUID.randomUUID();
         String runId = "run_" + UUID.randomUUID();
 
         Question question =
@@ -207,7 +292,10 @@ public class QuestionService {
         return new Draft(questionId, run, result);
     }
 
-    /** ③ 질문 · 실행 · 문장화 · 근거 행. result 는 문장화를 반영한 최종 응답, phrased 는 engine 을 안 불렀으면 null. */
+    /**
+     * ③ 실행 · 문장화 · 근거 행(새 질문이면 질문 행은 바로 앞에서 쓴다). result 는 문장화를 반영한 최종 응답, phrased 는 engine 을 안 불렀으면
+     * null.
+     */
     private void save(
             QuestionCreateRequest request,
             String questionId,
@@ -218,8 +306,6 @@ public class QuestionService {
         LocalDate start = request.periodStart();
         LocalDate end = request.periodEnd();
         String runId = result.runId();
-        questions.insertQuestion(
-                questionId, request.placeId(), request.cardId(), start, end, request.rawText());
         PreviousRun previous =
                 questions.previousRun(request.placeId(), request.cardId(), start, end).orElse(null);
         int filled = filledCells(result);

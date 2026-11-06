@@ -24,6 +24,8 @@
 | ④ | `GET /v1/evidence/{evidence_id}` | 원문 탭 · 각주 복사 | `evidence` | `evidence-kosis.json` |
 | ⑤ | `GET /v1/observations?place_id&card_id&period_start&period_end` | 지도 점 | `observations` | `observations-a3-yeosu.json` |
 | 보조 | `GET /v1/sources` | 근거 출처 · 이용 조건 · 마지막 수집 (8장 보조) | `source-list` | `source-list.json` |
+| 보조 | `GET /v1/me/questions` | 내 질문 (저장한 질문 · 새 이슈 후보 · 회차 비교) | `my-question-list` | `my-question-list.json` |
+| 보조 | `POST /v1/questions/{question_id}/runs` | 내 질문 다시 실행 (새 회차) | `question-create-response` | `question-create-response.json` |
 | 보조 | `GET /v1/admin/jobs?status&source_id&spec_id&page&size` · `GET /v1/admin/jobs/{job_run_id}` | 관리자 수집 이력 (FR-F5) | `job-list` · `job` | `job-list.json` · `job-failed.json` |
 
 ## 카드 목록 구현 (S15P31C108-132)
@@ -64,6 +66,12 @@
 - 「문서」: 정제된 보도자료(`normalized_ready`, C1 문서 `kind = press_release`, [보도자료 계약](../press/README.md)) 가운데 ① 승인본 `evidence.documents` 의 명세(`press_release_yeosu` · `press_release_gwangju`) ② 발행 기관 지역(`place_code_raw` → `place_code_map`)이 질문 `place_id` 와 같고 ③ 등록일(`published_at`)이 질문 기간 `[start, end)`(한국 날짜) 안이고 ④ 제목에 승인본 `keywords` 중 하나의 낱말(띄어쓰기로 나눔)이 **모두** 든 글마다 근거 한 행(`ev_doc_<md5(obs_key|content_hash)>`)을 만들어 `data.documents` 에 등록일 순으로 넣는다. 근거는 제목 · 등록일 · 원문 링크(`url`)만 두고 본문 · `display` 는 없다(목록만 수집). 광주광역시 글은 발행 기관이 시 전체(`kr-29`)라 구 질문에 잇지 않는다(기존 대응 광역 후보와 같은 규칙). 출처 등급 없는 출처는 뺀다. 빅카인즈 기사는 문서 근거로 세지 않고 `articles[]`(P4 카드 태그)로만 낸다. 개발 DB(11/5): 여수 2023–2025 에 C1 8건 · A3 8건
 - 근거 수요표 `reason`: `available` 이면 null, 아니면 「없는 이유」 문장(회사 플랜 Goal ①). 상태가 `not_published` · `license_blocked` · `review_pending` 이면 상태별 문장, `not_collected` 면 근거 종류별 문장(예: 분모 「카드의 분모 지표에 이 지역 · 기간 관측 값이 없습니다.」, 문서 「이 지역 · 기간 보도자료 가운데 카드 키워드에 맞는 글이 없습니다.」)
 - 한정어 ④ 는 위 「정하지 않은 것」의 임시 방식으로 센다
+
+## 내 질문 · 다시 실행
+
+- 로그인한 사람이 `POST /v1/questions` 로 물으면 질문에 묻는 사람(`question.asked_by`, V0050)을 남긴다. 로그인 없이 묻는 질문과 그 전 질문은 비어 있어 누구의 내 질문에도 뜨지 않는다
+- `GET /v1/me/questions`(로그인 필요, 없으면 `401`): 내가 물은 질문을 마지막 실행이 새로운 것부터. 질문마다 `runs[]` 는 실행(회차)을 새것부터 주고, `claim` · `claim_text` 는 그 실행에 저장된 결과의 `claim.value` · `claim.text` 그대로다(다시 계산하지 않는다). `card_id` 가 null 이면 `candidate: true`(새 이슈 후보)
+- `POST /v1/questions/{question_id}/runs`(로그인 필요): 내 질문을 같은 지역 · 카드 · 기간으로 다시 실행해 **같은 질문의 새 실행**을 만든다. 응답은 `POST /v1/questions` 와 같은 `question-create-response`(같은 `question_id`, 새 `run_id`). 없는 질문 · 남이 물은 질문은 `404 RESOURCE_NOT_FOUND`. 회차 비교는 화면이 두 실행의 `GET /v1/arguments/{run_id}` 를 읽어 한다
 
 ## 그림 자료 `series[]` · 근거 기사 `articles[]`
 
