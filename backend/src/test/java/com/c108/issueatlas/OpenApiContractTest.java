@@ -65,7 +65,7 @@ class OpenApiContractTest {
                                                                                 .path("operationId")
                                                                                 .asString()))));
 
-        assertThat(expected).hasSize(10);
+        assertThat(expected).hasSize(12);
         assertThat(actual).containsAll(expected);
     }
 
