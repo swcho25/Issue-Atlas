@@ -44,7 +44,26 @@ type Colors = { region: string; regionFill: string; boundary: string };
  * 고를 수 있는 지역은 평소엔 가는 선, 마우스를 올리면 흰빛으로 떠오르며 선이 진해진다
  * (고른 지역의 남색 칠과 헷갈리지 않게 흰빛. 어두운 바탕에서는 흰빛을 옅게)
  */
-function ourLayers(c: Colors, theme: Theme): LayerSpecification[] {
+/** 레이어 패널에서 켜고 끄는 경계 층과 그 MapLibre 층들 */
+const BOUNDARY_LAYERS = {
+  sigungu: { label: "시군구 경계", ids: ["sigungu-fill", "sigungu-line"] },
+  emd: { label: "행정동 경계", ids: ["emd-line"] },
+} as const;
+type BoundaryLayer = keyof typeof BOUNDARY_LAYERS;
+const layerOf = (id: string) =>
+  (Object.keys(BOUNDARY_LAYERS) as BoundaryLayer[]).find((k) =>
+    (BOUNDARY_LAYERS[k].ids as readonly string[]).includes(id),
+  );
+
+/** 숨긴 경계 층은 처음부터 안 보이게(바탕을 갈아 끼울 때도 그대로) */
+function ourLayers(c: Colors, theme: Theme, hidden: Set<BoundaryLayer>): LayerSpecification[] {
+  return baseLayers(c, theme).map((layer) => {
+    const group = layerOf(layer.id);
+    return group && hidden.has(group) ? { ...layer, layout: { visibility: "none" } } : layer;
+  });
+}
+
+function baseLayers(c: Colors, theme: Theme): LayerSpecification[] {
   return [
     {
       id: "choice-fill",
@@ -376,6 +395,18 @@ export function MapView({
 
   // 지금 바탕이 어느 테마로 그려졌는지. 처음 그린 뒤 화면 테마가 바로 바뀌는 경우(새로 고침 직후 다크)도 따라간다
   const styledTheme = useRef<Theme>(undefined);
+  // 레이어 패널에서 숨긴 경계 층. 바탕을 갈아 끼울 때 읽도록 ref 로도 둔다
+  const [hidden, setHidden] = useState<Set<BoundaryLayer>>(() => new Set());
+  const hiddenNow = useRef(hidden);
+  useEffect(() => {
+    hiddenNow.current = hidden;
+    if (!map) return;
+    for (const [group, { ids }] of Object.entries(BOUNDARY_LAYERS)) {
+      const visibility = hidden.has(group as BoundaryLayer) ? "none" : "visible";
+      for (const id of ids)
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visibility);
+    }
+  }, [map, hidden]);
 
   // 지도는 한 번만 만든다. 층도 이때 그리는 순서대로(아래 → 위) 쌓아 두고, 경계가 오면 데이터만 바꾼다
   useEffect(() => {
@@ -400,7 +431,8 @@ export function MapView({
         promoteId: "place_id",
       });
       m.addSource("boundaries", { type: "geojson", data: data.current.boundaries });
-      for (const layer of ourLayers(readColors(palette.current), styled)) m.addLayer(layer);
+      for (const layer of ourLayers(readColors(palette.current), styled, hiddenNow.current))
+        m.addLayer(layer);
       setMap(m);
     });
     return () => {
@@ -423,7 +455,10 @@ export function MapView({
           choices: { type: "geojson", data: data.current.choices, promoteId: "place_id" },
           boundaries: { type: "geojson", data: data.current.boundaries },
         },
-        layers: [...next.layers, ...ourLayers(readColors(palette.current), theme)],
+        layers: [
+          ...next.layers,
+          ...ourLayers(readColors(palette.current), theme, hiddenNow.current),
+        ],
       }),
     });
     map.once("style.load", () => dressBasemap(map, now.current));
@@ -604,6 +639,18 @@ export function MapView({
         <MapControls
           map={map}
           onLocate={bounds ? () => fitTo(map, bounds, padding, 600, globe) : undefined}
+          layers={(Object.keys(BOUNDARY_LAYERS) as BoundaryLayer[]).map((id) => ({
+            id,
+            label: BOUNDARY_LAYERS[id].label,
+            on: !hidden.has(id),
+          }))}
+          onToggleLayer={(id) =>
+            setHidden((now) => {
+              const next = new Set(now);
+              if (!next.delete(id as BoundaryLayer)) next.add(id as BoundaryLayer);
+              return next;
+            })
+          }
         />
       )}
       {children}
