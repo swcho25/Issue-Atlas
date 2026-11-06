@@ -424,9 +424,17 @@ export function MapView({
     };
   }, [map, globe, padding]);
 
-  // 경계가 바뀌면 데이터를 바꾸고 화면을 맞춘다
+  // 경계가 바뀌면 데이터를 바꾸고 화면을 맞춘다. 고르고 있던 지역을 비우면(boundaries 없음) 그려 둔 것도 지운다
   useEffect(() => {
-    if (!map || !boundaries) return;
+    if (!map) return;
+    if (!boundaries) {
+      if (shown.current) {
+        data.current.boundaries = collection([]);
+        map.getSource<GeoJSONSource>("boundaries")?.setData(data.current.boundaries);
+        shown.current = undefined;
+      }
+      return;
+    }
     data.current.boundaries = boundaries as Data;
     map.getSource<GeoJSONSource>("boundaries")?.setData(data.current.boundaries);
     const bounds = boundsOf(boundaries.features.filter((f) => f.properties.level === "sigungu"));
