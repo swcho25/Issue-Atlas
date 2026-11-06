@@ -27,9 +27,11 @@ describe("유형 전환", () => {
     expect(availableViews(unsupported).size).toBe(0);
   });
 
-  it("켤 수 있는 건 그림을 만든 유형뿐이고, 처음엔 변화형이 열린다", () => {
+  it("켤 수 있는 건 그림을 만든 유형뿐이고, 처음엔 변화형이(없으면 켤 수 있는 첫 유형이) 열린다", () => {
+    // C1 은 이동(flow) 줄도 있지만 이동형은 아직 그림이 없다
     expect(openViews(ready)).toEqual({ enabled: new Set(["change"]), initial: "change" });
-    expect(openViews(a3)).toEqual({ enabled: new Set(), initial: null });
+    // A3 는 측정소 지도 점만 있어 분포형
+    expect(openViews(a3)).toEqual({ enabled: new Set(["distribution"]), initial: "distribution" });
   });
 });
 
