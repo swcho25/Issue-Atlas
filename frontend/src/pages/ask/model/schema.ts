@@ -49,13 +49,6 @@ export const placeCardsSchema = z.object({
 });
 export type IssueCard = z.infer<typeof placeCardsSchema>["cards"][number];
 
-export const questionCreatedSchema = z.object({
-  question_id: z.string(),
-  run_id: z.string(),
-  run_status: z.enum(["ready", "partial", "blocked", "unsupported"]),
-  candidate: z.boolean(),
-});
-
 /** 근거 4종 이름(근거 수요표와 같은 말) */
 export const evidenceLabel: Record<EvidenceKind, string> = {
   statistics: "통계",

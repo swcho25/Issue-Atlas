@@ -1,0 +1,54 @@
+{
+  "schema_version": "c2-0.1",
+  "questions": [
+    {
+      "question_id": "q_0001",
+      "place_id": "kr-12130",
+      "place_name": "여수시",
+      "card_id": "C1",
+      "card_name": "청년 유출·정착",
+      "period_start": "2023-01-01",
+      "period_end": "2026-01-01",
+      "raw_text": "여수 청년은 어디로 떠나고 있나",
+      "candidate": false,
+      "created_at": "2026-11-05T10:12:03+09:00",
+      "runs": [
+        {
+          "run_id": "run_0002",
+          "run_status": "ready",
+          "created_at": "2026-11-06T14:30:11+09:00",
+          "claim": "increasing",
+          "claim_text": "여수시에서 2023–2025 청년(19–39세) 순유출이 커졌습니다."
+        },
+        {
+          "run_id": "run_0001",
+          "run_status": "blocked",
+          "created_at": "2026-11-05T10:12:04+09:00",
+          "claim": "insufficient",
+          "claim_text": "근거가 부족해 판단하지 않습니다."
+        }
+      ]
+    },
+    {
+      "question_id": "q_0002",
+      "place_id": "kr-12130",
+      "place_name": "여수시",
+      "card_id": null,
+      "card_name": null,
+      "period_start": "2024-01-01",
+      "period_end": "2025-01-01",
+      "raw_text": "2024년 여수 관광객 수는 어떻게 변했나\n이슈 이름: 관광객 수",
+      "candidate": true,
+      "created_at": "2026-11-05T09:40:00+09:00",
+      "runs": [
+        {
+          "run_id": "run_0003",
+          "run_status": "unsupported",
+          "created_at": "2026-11-05T09:40:01+09:00",
+          "claim": "insufficient",
+          "claim_text": "목록에 없는 질문이라 신규 카드 후보로 저장했습니다. 판단하지 않습니다."
+        }
+      ]
+    }
+  ]
+}

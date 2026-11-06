@@ -1,0 +1,6 @@
+# External HTTPS terminates at Nginx; Spring ports remain loopback-only.
+services:
+  backend:
+    environment:
+      SESSION_COOKIE_SECURE: "true"
+      SERVER_FORWARD_HEADERS_STRATEGY: framework

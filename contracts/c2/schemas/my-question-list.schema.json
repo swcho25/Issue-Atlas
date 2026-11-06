@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/c2/my-question-list.schema.json",
+  "title": "GET /v1/me/questions 응답",
+  "description": "로그인한 사람이 물은 질문. 마지막 실행이 새로운 질문부터",
+  "type": "object",
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "questions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/question" }
+    }
+  },
+  "required": ["schema_version", "questions"],
+  "additionalProperties": false,
+  "$defs": {
+    "question": {
+      "type": "object",
+      "properties": {
+        "question_id": { "$ref": "common.schema.json#/$defs/id" },
+        "place_id": { "$ref": "common.schema.json#/$defs/id" },
+        "place_name": { "type": "string" },
+        "card_id": { "type": ["string", "null"] },
+        "card_name": { "type": ["string", "null"] },
+        "period_start": { "$ref": "common.schema.json#/$defs/date" },
+        "period_end": { "$ref": "common.schema.json#/$defs/date" },
+        "raw_text": {
+          "description": "문장으로 물었으면 그 문장(새 이슈 후보는 이름 · 궁금한 까닭이 줄로 함께 있다)",
+          "$ref": "common.schema.json#/$defs/text_or_null"
+        },
+        "candidate": {
+          "description": "card_id 가 null 이라 신규 카드 후보로 저장한 질문",
+          "type": "boolean"
+        },
+        "created_at": { "$ref": "common.schema.json#/$defs/date_time" },
+        "runs": {
+          "description": "실행(회차). 새것부터",
+          "type": "array",
+          "items": { "$ref": "#/$defs/run" }
+        }
+      },
+      "required": [
+        "question_id",
+        "place_id",
+        "place_name",
+        "card_id",
+        "card_name",
+        "period_start",
+        "period_end",
+        "raw_text",
+        "candidate",
+        "created_at",
+        "runs"
+      ],
+      "additionalProperties": false,
+      "if": { "properties": { "card_id": { "const": null } } },
+      "then": { "properties": { "candidate": { "const": true } } },
+      "else": { "properties": { "candidate": { "const": false } } }
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "run_id": { "$ref": "common.schema.json#/$defs/id" },
+        "run_status": { "$ref": "common.schema.json#/$defs/run_status" },
+        "created_at": { "$ref": "common.schema.json#/$defs/date_time" },
+        "claim": {
+          "description": "그 실행에 저장된 결과의 claim.value",
+          "$ref": "common.schema.json#/$defs/claim"
+        },
+        "claim_text": {
+          "description": "그 실행에 저장된 결과의 claim.text",
+          "$ref": "common.schema.json#/$defs/text_or_null"
+        }
+      },
+      "required": ["run_id", "run_status", "created_at", "claim", "claim_text"],
+      "additionalProperties": false
+    }
+  }
+}

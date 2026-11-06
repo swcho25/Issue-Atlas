@@ -1,4 +1,4 @@
-import { cleanup, screen } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,15 @@ import { AskPage } from "./AskPage";
 
 const push = vi.fn();
 const replace = vi.fn();
+
+// jsdom 의 <dialog> 에는 showModal · close 가 없다(새 이슈 후보 창)
+HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+  this.open = true;
+});
+HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
+  this.open = false;
+  this.dispatchEvent(new Event("close"));
+});
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
 // 지도(WebGL)는 jsdom 에서 그릴 수 없다. 고를 수 있는 다른 지역(choices)만 버튼으로 세워 누르기를 흉내 낸다
 vi.mock("@/shared/ui/map", () => ({
@@ -222,5 +231,105 @@ describe("AskPage", () => {
     renderWithQuery(<AskPage />);
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+  });
+});
+
+describe("AskPage — 문장으로 질문", () => {
+  beforeEach(() => {
+    document.cookie = "XSRF-TOKEN=tok; path=/";
+    mockApi();
+  });
+
+  afterEach(() => {
+    cleanup();
+    push.mockReset();
+    document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+  });
+
+  const capture = () => {
+    const sent: unknown[] = [];
+    mswServer.use(
+      http.post("*/api/v1/questions", async ({ request }) => {
+        const body = (await request.json()) as { card_id: string | null };
+        sent.push(body);
+        return HttpResponse.json(
+          {
+            schema_version: "c2-0.1",
+            question_id: "q_1",
+            run_id: "run_s",
+            run_status: body.card_id ? "partial" : "unsupported",
+            candidate: body.card_id === null,
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    return sent;
+  };
+
+  const askSentence = async (text: string) => {
+    renderWithQuery(<AskPage />);
+    await screen.findByRole("radio", { name: /청년 유출·정착/ });
+    await userEvent.click(screen.getByRole("tab", { name: /문장으로 질문/ }));
+    await userEvent.type(screen.getByRole("textbox", { name: "문장으로 질문" }), `${text}{Enter}`);
+  };
+
+  it("문장에서 지역 · 이슈 · 기간을 읽어 칩으로 보여 주고, 원래 문장(raw_text)과 함께 실행한다", async () => {
+    const sent = capture();
+    await askSentence("여수 청년은 어디로 떠나고 있나");
+
+    expect(await screen.findByRole("combobox", { name: "이슈 바꾸기" })).toHaveValue("C1");
+    expect(screen.getByRole("combobox", { name: "지역 바꾸기" })).toHaveValue("kr-12130");
+    expect(
+      screen.getByText(/문장에 기간이 없어서 자료 범위 전체\(2023–2025\)로 채웠어요/),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "질문 실행" }));
+
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/results/run_s"));
+    expect(sent).toEqual([
+      {
+        place_id: "kr-12130",
+        card_id: "C1",
+        period_start: "2023-01-01",
+        period_end: "2026-01-01",
+        raw_text: "여수 청년은 어디로 떠나고 있나",
+      },
+    ]);
+  });
+
+  it("맞는 이슈가 없으면 새 이슈 후보로 만든다(card_id null · 판단 안 함)", async () => {
+    const sent = capture();
+    await askSentence("2024년 여수 관광객 수는 어떻게 변했나");
+
+    await userEvent.click(await screen.findByRole("button", { name: "새 이슈 후보 만들기" }));
+    const dialog = await screen.findByRole("dialog", { name: "새 이슈 후보로 만들까요?" });
+    expect(within(dialog).getByLabelText("이슈 이름")).toHaveValue("관광객 수");
+    await userEvent.click(within(dialog).getByRole("button", { name: "새 이슈 후보 만들기" }));
+
+    expect(await screen.findByText("새 이슈 후보로 만들었어요")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+    expect(sent).toEqual([
+      {
+        place_id: "kr-12130",
+        card_id: null,
+        period_start: "2024-01-01",
+        period_end: "2025-01-01",
+        raw_text: "2024년 여수 관광객 수는 어떻게 변했나\n이슈 이름: 관광객 수",
+      },
+    ]);
+  });
+
+  it("「광주」 만 있으면 지역을 비우고 광주의 구 가운데서 고르게 한다", async () => {
+    await askSentence("광주 미세먼지");
+
+    expect(await screen.findByText(/「광주」의 어느 곳인지 골라 주세요/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "질문 실행" })).toBeDisabled();
+    const chip = screen.getByRole("combobox", { name: "지역 바꾸기" });
+    expect(
+      within(chip)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["골라 주세요", "광주 동구"]);
   });
 });

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://issue-atlas.c108/contracts/ai/phrasing-result.schema.json",
-  "title": "AI 모듈 문장화 결과 v0.2 — engine POST /v1/argument/phrase 응답",
-  "description": "warrant · rebuttals 는 C2 칸 모양 그대로라 done 이면 backend 가 응답 칸을 바꿔 끼운다. done 이 아니면 카드 보증 문구와 빈 반박(지금 응답과 같음)",
+  "title": "AI 모듈 문장화 결과 v0.3 — engine POST /v1/argument/phrase 응답",
+  "description": "rebuttals 는 C2 칸 모양 그대로라 done 이면 backend 가 ⑤ 반박 칸을 바꿔 끼운다. done 이 아니면 빈 반박. ① 판단은 규칙 · ③ 보증은 카드 문장이라 AI 가 쓰지 않는다(v0.3)",
   "type": "object",
   "properties": {
-    "schema_version": { "const": "ai-phrasing-result-0.2" },
+    "schema_version": { "const": "ai-phrasing-result-0.3" },
     "run_id": { "$ref": "../c2/common.schema.json#/$defs/id" },
     "status": { "enum": ["done", "skipped", "failed"] },
     "reason_code": {
@@ -21,12 +21,10 @@
       ]
     },
     "retryable": { "description": "같은 입력으로 다시 부르면 달라질 수 있는가(모델 호출 실패만 true)", "type": "boolean" },
-    "warrant": { "$ref": "../c2/argument.schema.json#/properties/warrant" },
     "rebuttals": { "$ref": "../c2/argument.schema.json#/properties/rebuttals" },
     "citations": {
-      "description": "칸 → 인용. warrant 는 근거 ID, 반박(id)은 구절과 원문 위치. C2 응답으로 나가지 않는다(감사용)",
+      "description": "반박 ID → 구절과 원문 위치. C2 응답으로 나가지 않는다(감사용)",
       "type": "object",
-      "properties": { "warrant": { "type": "array", "items": { "type": "string" } } },
       "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/citation" } }
     },
     "problems": {
@@ -62,7 +60,6 @@
     "status",
     "reason_code",
     "retryable",
-    "warrant",
     "rebuttals",
     "citations",
     "problems",

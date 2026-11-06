@@ -1,10 +1,10 @@
 "use client";
 
-import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 
 import type { Provenance } from "@/shared/api";
-import { Icon } from "@/shared/ui/icon";
 
+import { Toast } from "../toast/Toast";
 import { SuggestionDialog } from "./SuggestionDialog";
 
 // 오류 신고: 칸의 ⋯ → 「오류 신고 · 수정 제안」이 어느 칸인지 담아 수정 제안 창을 연다(Figma 06).
@@ -55,28 +55,12 @@ export function ReportProvider({
           onSent={() => setSent(true)}
         />
       )}
-      {sent && <SentToast onDone={() => setSent(false)} />}
+      {/* 보낸 뒤 알림(초록 체크). 「보기」(내 수정 제안)는 그 화면이 생기면 붙인다 */}
+      {sent && (
+        <Toast icon="check" iconClassName="text-status-green" onDone={() => setSent(false)}>
+          수정 제안을 보냈어요 — 검수 대기
+        </Toast>
+      )}
     </ReportContext>
-  );
-}
-
-/**
- * 보낸 뒤 알림(Figma v5/Toast Info: 높이 44 · 모서리 8 · 왼쪽 14 · 오른쪽 8 · 사이 10 · text-1 바탕 · Shadow md,
- * check 16 + Body 13). Figma 의 흰 글자 · 초록 체크는 토큰이 아니라 반대색(surface-1) · status-green 으로.
- * 「보기」(내 수정 제안)는 그 화면이 생기면 붙인다. 4초 뒤 사라진다
- */
-function SentToast({ onDone }: { onDone: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 4000);
-    return () => clearTimeout(t);
-  }, [onDone]);
-  return (
-    <div
-      role="status"
-      className="fixed bottom-8 left-1/2 z-toast flex h-11 -translate-x-1/2 items-center gap-2.5 rounded-lg bg-text-1 pr-4 pl-3.5 text-body-13 text-surface-1 shadow-md"
-    >
-      <Icon name="check" className="size-4 text-status-green" />
-      수정 제안을 보냈어요 — 검수 대기
-    </div>
   );
 }

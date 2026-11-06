@@ -117,6 +117,46 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
+  /v1/questions/{question_id}/runs:
+    post:
+      tags: [questions]
+      operationId: rerunQuestion
+      summary: 내 질문을 같은 지역 · 카드 · 기간으로 다시 실행(같은 질문의 새 실행 = 새 회차). 로그인 필요
+      parameters:
+        - name: question_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: 같은 question_id 와 새 run_id
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/question-create-response.schema.json
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          description: 없는 질문이거나 남이 물은 질문(로그인 없이 물은 질문 포함). code RESOURCE_NOT_FOUND
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/me/questions:
+    get:
+      tags: [questions]
+      operationId: listMyQuestions
+      summary: 내 질문 — 로그인한 사람이 물은 질문과 실행 회차(새것부터). 로그인 필요
+      responses:
+        "200":
+          description: 마지막 실행이 새로운 질문부터
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/my-question-list.schema.json
+        "401":
+          $ref: "#/components/responses/Problem"
   /v1/arguments/{run_id}:
     get:
       tags: [questions]

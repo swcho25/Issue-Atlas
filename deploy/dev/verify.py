@@ -11,6 +11,10 @@ import urllib.request
 from pathlib import Path
 
 BASE = "http://127.0.0.1:8080"
+SESSION_AUTH_ORIGINS = {
+    "https://dev-backend.issue-atlas.kr": "issueatlas-dev-backend-1",
+    "https://backend.issue-atlas.kr": "issueatlas-prod-backend-1",
+}
 COMPOSE = ["sudo", "docker", "compose", "-f", str(Path(__file__).with_name("compose.yaml"))]
 
 
@@ -31,7 +35,7 @@ def request(opener, path, method="GET", body=None, token=None, expected=200):
     try:
         with opener.open(req, timeout=20) as response:
             status, content = response.status, response.read()
-            if BASE == "https://backend.issue-atlas.kr":
+            if BASE in SESSION_AUTH_ORIGINS:
                 assert "no-store" in response.headers.get("Cache-Control", "")
                 assert response.headers.get("CF-Cache-Status", "").upper() != "HIT"
     except urllib.error.HTTPError as error:
@@ -54,8 +58,8 @@ def main():
     parser.add_argument("--session-auth", action="store_true", help="Verify existing ADMIN session without creating accounts")
     args = parser.parse_args()
     BASE = args.base_url.rstrip("/")
-    if args.session_auth and BASE != "https://backend.issue-atlas.kr":
-        parser.error("--session-auth only sends credentials to https://backend.issue-atlas.kr")
+    if args.session_auth and BASE not in SESSION_AUTH_ORIGINS:
+        parser.error("--session-auth only sends credentials to the configured development/production API origins")
     if args.auth and BASE != "http://127.0.0.1:8080":
         parser.error("--auth is restricted to the original loopback development endpoint")
     anonymous, _ = client()
@@ -66,7 +70,8 @@ def main():
         return
 
     # Consume bootstrap credentials locally; never return inspect output to the terminal.
-    container = subprocess.check_output(COMPOSE + ["ps", "-q", "backend"], text=True).strip()
+    container = SESSION_AUTH_ORIGINS.get(BASE) if args.session_auth else subprocess.check_output(
+        COMPOSE + ["ps", "-q", "backend"], text=True).strip()
     info = json.loads(subprocess.check_output(["sudo", "docker", "inspect", container]))[0]
     env = dict(item.split("=", 1) for item in info["Config"]["Env"] if "=" in item)
     admin, admin_jar = client()

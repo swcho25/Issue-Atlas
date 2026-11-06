@@ -1,5 +1,7 @@
 # 백엔드 CI/CD — S15P31C108-103
 
+> 현재 290번 구성: 백엔드 전용 주소는 [Nginx·HTTPS 직접 연결](../backend/README.md). 두 환경의 Compose는 `compose.yaml` + `compose.https.yaml` + `compose.release.yaml`이며 Tunnel은 사용하지 않는다. 아래 137번 최초 전환의 Tunnel 설명은 과거 설치 기록이다. 공개 API·health 주소와 환경 분리는 유지한다.
+
 수집기 이미지 자동 갱신·수동 실행은 [수집기 배포](../collector/README.md)를 참고한다.
 
 ## 실행 조건
