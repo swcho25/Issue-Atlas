@@ -3,6 +3,7 @@ package com.c108.issueatlas.csvimport.controller;
 import com.c108.issueatlas.csvimport.dto.CsvImportDto.*;
 import com.c108.issueatlas.csvimport.service.CsvImportService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -37,7 +38,11 @@ public class CsvImportController {
     @PostMapping(value = "/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public Request upload(
-            @RequestParam MultipartFile file,
+            @Parameter(
+                            description =
+                                    "업로드할 CSV (양식: GET /v1/admin/import-templates/normalized-record/file)")
+                    @RequestParam
+                    MultipartFile file,
             @RequestParam(name = "template_version") String version,
             @RequestParam(name = "assignee_id") long assignee,
             @RequestParam(name = "request_key") String key,

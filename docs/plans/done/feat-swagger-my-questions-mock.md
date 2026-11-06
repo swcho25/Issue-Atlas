@@ -12,6 +12,7 @@
 - 2026-11-06: 인증 · 관리자 33개 @Operation · @Tag, 로그아웃(보안 필터)은 OpenApiConfig 에 문서만. `everyOperationHasSummary` 테스트로 빠짐을 막는다. Swagger UI 48개 모두 설명 있음. redocly lint · backend check · build 통과
 - 2026-11-06: 사람 요청으로 공통 오류 응답 추가 — `OpenApiConfig.commonErrors` 가 경로 · 메서드로 400 · 401 · 403 · 404 · 429 · 500(problem+json, 상태별 예시)을 단다. 잘못된 입력 81개를 전 엔드포인트에 보내 500 이 없는 것을 확인(임시 테스트, 커밋 안 함)
 - 2026-11-06: develop 반영 때 -295(실제 내 질문 · 다시 실행 API)와 겹쳐 목(API · C2 스키마 · 예시 · 문서)을 모두 뺐다. Swagger 401 규칙을 `/v1/me/questions` · `POST /v1/questions/{question_id}/runs` 로 맞춤
+- 2026-11-06: 사람 요청으로 파라미터 81개 · 요청 본문 칸 52개 설명(OpenApiConfig 표 + CSV file 만 @Parameter). 이름이 같은 안쪽 record(Submit · Decide · Request · Page · Detail · Validation · Feature · Properties)가 한 스키마로 합쳐져 카드 승인 요청에 검수 칸이 보이던 것을 바깥 클래스 이름을 붙여 나눔(NestedTypeNames). 응답 칸 설명은 계약(contracts/c2/schemas)에 두고 Swagger 에는 싣지 않음
 
 ## 다음 할 일 / 범위 밖
 - `OpenApiConfig.LOGIN_REQUIRED` 는 SecurityConfig 공개 범위를 손으로 옮긴 것 — 공개 범위가 바뀌면 같이 고친다
