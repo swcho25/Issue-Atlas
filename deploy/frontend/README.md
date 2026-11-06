@@ -32,7 +32,7 @@ FE만 변경되면 BE·수집기는 배포하지 않는다. 계약 JSON/YAML만 
 3. nginx.conf.template의 FRONTEND_HOST·NEXT_PORT·BACKEND_PORT를 각 검증 호스트와 포트로 치환한다. HTTP ACME 경로만 먼저 설치하고 기존 Certbot 계정의 webroot(`/var/www/issueatlas-acme`)로 인증서를 발급한 뒤 전체 HTTPS 설정을 적용한다. `nginx -t` 후 reload한다. 검증 호스트도 DNS only이다.
 4. 이 MR을 develop에 병합하고 `frontend-image`·`frontend-deploy`를 확인한다. ec2-dev에서 세션·CSRF·화면·이미지·API와 동시 CI 자원을 점검한다. main은 develop→main MR 이후에만 운영 코드를 배포한다.
 5. 환경별 첫 자동 배포가 정상이면 실제 호스트의 인증서·Nginx를 준비하고 해당 Worker의 Custom Domain 연결을 해제한 뒤 같은 호스트 A 레코드를 EC2 IP/DNS only로 연결한다. 코드·인증서·정상 후보 없이 DNS만 먼저 바꾸지 않는다. 실제 호스트를 인증서 발급에 사용할 때는 ACME 요청이 EC2로 전달되는지도 확인한다.
-6. 실제 주소에서 인증·페이지·정적 파일·API·각각의 DB 연결을 검증한 뒤 cicd.json의 frontend_url을 실제 주소로 바꾼다. 개발부터 마친 다음 운영을 전환한다. 기존 backend·dev-backend Tunnel 주소는 팀 사용 여부 확인 전 유지한다.
+6. 실제 주소에서 인증·페이지·정적 파일·API·각각의 DB 연결을 검증한 뒤 cicd.json의 frontend_url을 실제 주소로 바꾼다. 개발부터 마친 다음 운영을 전환한다. backend·dev-backend 주소는 유지하며 290번에서 Nginx 직접 연결로 전환한다.
 7. 두 환경의 정식 전환 이후에만 복구용 Workers를 정리한다. 초기 preview(127.0.0.1:3000)는 새 개발 FE 검증 후 이미 중단·정리했고 설정은 서버 백업에 보관했다. worker 스크립트·Wrangler·의존성은 복구 기간 동안 유지하지만 새 CI는 호출하지 않는다. 임시 검증 DNS·Nginx·인증서도 사용 종료 후 정리한다.
 
 검증 주소가 준비되어도 **운영 Next.js가 배포됐다는 의미는 아니다**. main 첫 CI 배포와 실제 도메인 검증까지 구분해 기록한다.
