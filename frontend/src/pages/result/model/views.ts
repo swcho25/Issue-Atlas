@@ -1,20 +1,26 @@
 import { type Argument, type ArgumentSeries, seriesShape } from "@/shared/api";
 
 // 04 지도 위 유형 전환(Figma Map/유형 전환): 시공간 유형 5가지. 결과가 가진 그림 줄(series) 모양으로 켜진다
-// (시공간 표시 개발 명세 5절: 지도 점 → 분포, 막대 → 변화, 이동 → 이동, 기사 건수 → 확산, 기사 점 → 사건)
+// (시공간 표시 개발 명세 5절: 지도 점 → 분포, 막대 → 변화, 이동 → 이동, 기사 건수 → 관측 순서, 기사 점 → 사건)
+// 기사 건수 그림의 이름은 「관측 순서」(11/01 대표 결정 #5 — 「확산」 「전파」는 PRD §5 금지 표현이라 쓰지 않는다. Figma 글자와 다름)
 
 export const viewTypes = [
   { key: "distribution", label: "분포형" },
   { key: "change", label: "변화형" },
   { key: "movement", label: "이동형" },
-  { key: "spread", label: "확산형" },
+  { key: "observationOrder", label: "관측 순서" },
   { key: "event", label: "사건형" },
 ] as const;
 export type ViewType = (typeof viewTypes)[number]["key"];
 
-const shapeView = { map: "distribution", bar: "change", flow: "movement", tag: "spread" } as const;
+const shapeView = {
+  map: "distribution",
+  bar: "change",
+  flow: "movement",
+  tag: "observationOrder",
+} as const;
 
-/** 그림을 이미 만든 유형(나머지는 데이터가 있어도 꺼 둔다 — 이동형은 M2, 분포 · 확산 · 사건은 다음 단위) */
+/** 그림을 이미 만든 유형(나머지는 데이터가 있어도 꺼 둔다 — 이동형 · 분포 · 관측 순서 · 사건은 다음 단위) */
 export const builtViews: ReadonlySet<ViewType> = new Set(["change"]);
 
 /** 결과가 가진 유형(데이터 기준) */
