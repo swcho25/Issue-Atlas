@@ -96,6 +96,7 @@ export function AskPage() {
         <MapView
           boundaries={boundaries.data}
           choices={choices}
+          globe
           onPick={pickPlace}
           padding={MAP_PADDING}
           className="size-full"
