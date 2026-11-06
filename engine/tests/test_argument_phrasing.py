@@ -15,7 +15,7 @@ from ai.argument import gms
 from ai.argument.__main__ import main
 from ai.argument.check import check
 from ai.argument.phrase import phrase
-from ai.argument.prompt import article_sources, build, passages
+from ai.argument.prompt import article_sources, build, passages, value_text
 from api.main import app
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
@@ -273,6 +273,129 @@ def test_forbidden_terms_are_rejected(term):
     output = c1_output()
     output["rebuttals"][2]["note"] = f"산단 고용 변동이 {term}일 수 있다."
     assert problems(output) == {("forbidden_term", "R3")}
+
+
+# ── 부호 낱말(카드 sign_words, 프롬프트 v4) ──
+
+SIGN_WORDS = {"negative": "순유출", "positive": "순유입"}
+# C1 카드 계약 v0.5 처럼 주 지표에 sign_words 가 있는 승인본
+SIGN_CARD = {
+    **C1_CARD,
+    "claim_items": [
+        {"indicator_id": "population_net_migration", "role": "main", "sign_words": SIGN_WORDS}
+    ],
+}
+
+
+def signed_output(text):
+    output = c1_output()
+    output["warrant"]["text"] = text
+    return output
+
+
+def mixed():
+    """해마다 부호가 바뀌는 가상 입력(광주 동구 같은 순유입 → 순유출)"""
+    record = c1()
+    for point, value in zip(record["statistics_points"], [916, -101, -294], strict=True):
+        point["value"] = value
+    return record
+
+
+@pytest.mark.parametrize(
+    ("value", "unit", "words", "text"),
+    [
+        (-1537, "명", SIGN_WORDS, "순유출 1,537명"),
+        (916, "명", SIGN_WORDS, "순유입 916명"),
+        (-1537.0, "명", SIGN_WORDS, "순유출 1,537명"),
+        (-1.5, "명", SIGN_WORDS, "순유출 1.5명"),
+        (0, "명", SIGN_WORDS, "0명"),
+        (None, "명", SIGN_WORDS, None),
+        (-1537, "명", None, None),
+    ],
+)
+def test_value_text_reads_the_sign_as_a_word(value, unit, words, text):
+    assert value_text(value, unit, words) == text
+
+
+def test_card_sign_words_add_value_text_and_keep_the_value():
+    sent = build(c1(), SOURCES, SIGN_CARD)
+    assert [s["value"] for s in sent["statistics"]] == [-1850, -2010, -2240]
+    assert [s["value_text"] for s in sent["statistics"]] == [
+        "순유출 1,850명",
+        "순유출 2,010명",
+        "순유출 2,240명",
+    ]
+    assert sent["sign_words"] == {"population_net_migration": SIGN_WORDS}
+
+
+@pytest.mark.parametrize(
+    ("judgment", "card"),
+    [
+        (c1(), C1_CARD),
+        (
+            c1(),
+            {
+                **C1_CARD,
+                "claim_items": [{"indicator_id": "population_net_migration", "role": "main"}],
+            },
+        ),
+        (a3(), A3_CARD),
+    ],
+)
+def test_cards_without_sign_words_send_the_v3_input(judgment, card):
+    sent = build(judgment, SOURCES, card)
+    assert "sign_words" not in sent
+    assert all("value_text" not in s for s in sent["statistics"])
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "여수시 청년(19–39세) 순유출은 2023년 1,850명, 2024년 2,010명, 2025년 2,240명으로 해마다 커졌다.",
+        "여수시 청년 순유출이 2023년 1,850명에서 2025년 2,240명으로 커졌다. 순이동은 공식 지표다.",
+    ],
+)
+def test_sign_words_written_as_words_pass(text):
+    assert problems(signed_output(text), card=SIGN_CARD) == set()
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 부호 그대로(v3 까지 나오던 문장)
+        "여수시의 청년(19–39세) 순이동은 2023년 -1,850명, 2024년 -2,010명, 2025년 -2,240명으로 커졌다.",
+        # 부호와 낱말이 겹침
+        "여수시 청년 순유출은 2023년 −1,850명에서 2025년 −2,240명으로 커졌다.",
+        # 부호도 낱말도 없음 — 순유입으로 읽힐 수 있다
+        "여수시 청년 순이동은 2023년 1,850명에서 2025년 2,240명으로 커졌다.",
+        # 반대 낱말
+        "여수시 청년 순유입이 2023년 1,850명에서 2025년 2,240명으로 커졌다.",
+    ],
+)
+def test_sign_words_written_with_a_minus_or_a_wrong_word_are_rejected(text):
+    assert problems(signed_output(text), card=SIGN_CARD) == {("sign_wording", "warrant")}
+
+
+def test_each_value_needs_the_word_for_its_own_sign():
+    good = "2023년 순유입 916명에서 2024년 순유출 101명, 2025년 순유출 294명으로 바뀌었다."
+    assert problems(signed_output(good), mixed(), SIGN_CARD) == set()
+    bad = "2023년 916명, 2024년 101명, 2025년 294명으로 순유출이 이어졌다."
+    assert problems(signed_output(bad), mixed(), SIGN_CARD) == {("sign_wording", "warrant")}
+    bad = "순유출이 2023년 916명, 2024년 101명, 2025년 294명이다."
+    assert problems(signed_output(bad), mixed(), SIGN_CARD) == {("sign_wording", "warrant")}
+
+
+def test_cards_without_sign_words_keep_signed_numbers():
+    assert problems(c1_output(), card=C1_CARD) == set()
+
+
+def test_minus_signed_sentence_falls_back_to_card_text():
+    call, calls = answer(c1_output())
+    result = phrase(c1(), SOURCES, SIGN_CARD, call)
+    assert (result.status, result.reason_code) == ("failed", "OUTPUT_REJECTED")
+    assert {p.check for p in result.problems} == {"sign_wording"}
+    assert result.warrant == c1()["warrant"]
+    assert calls[0]["statistics"][0]["value_text"] == "순유출 1,850명"
 
 
 @pytest.mark.parametrize(

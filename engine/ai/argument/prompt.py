@@ -9,8 +9,9 @@
 
 import re
 from datetime import date, timedelta
+from decimal import Decimal
 
-PROMPT_VERSION = "argument-phrasing-v3"
+PROMPT_VERSION = "argument-phrasing-v4"
 MAX_SOURCES = 40
 STATUSES = ("supported", "not_found", "needs_review")
 # C2 「공통 규칙」: 문구에 쓰지 않는다. 카드 금지어와 합친다
@@ -30,7 +31,10 @@ SYSTEM = "\n".join(
         " 둘째 문장은 card_warrant 의 논리를 이 질문(지역 · 기간)에 맞게 쓴다."
         " fixed 판단과 반대되는 말을 하지 않는다."
         " 쓴 값의 evidence_id 를 warrant.citations 에 넣는다.",
-        "3-1. 값의 부호와 같은 뜻의 낱말을 겹쳐 쓰지 않는다"
+        "3-1. statistics 에 value_text 가 있는 값은 value_text 글자 그대로 쓴다"
+        "(부호 대신 sign_words 의 낱말. 예: 순유출 1,537명). 숫자 앞에 - 를 붙이지 않고,"
+        " 낱말 없이 숫자만 쓰지 않는다."
+        " value_text 가 없는 값은 부호와 같은 뜻의 낱말을 겹쳐 쓰지 않는다"
         "(순유출 -1,850명 ✗ → 순이동 -1,850명 또는 순유출 1,850명).",
         "4. rebuttals: rebuttal_candidates 마다 같은 id 로 하나씩."
         " passages 에 그 경쟁 설명을 뒷받침하는 내용이 있으면 status 를 supported 로 하고"
@@ -105,6 +109,50 @@ def period(start: str, end: str) -> str:
     return f"{first}~{last}"
 
 
+def sign_words(card: dict) -> dict[str, dict]:
+    """카드 claim_items 의 sign_words(지표 → {negative, positive}). 카드 계약 v0.5"""
+    return {
+        item["indicator_id"]: item["sign_words"]
+        for item in card.get("claim_items", [])
+        if item.get("sign_words")
+    }
+
+
+def value_text(value, unit: str | None, words: dict | None) -> str | None:
+    """sign_words 가 있는 값을 부호 대신 낱말로: -1537 → 「순유출 1,537명」, 0 → 「0명」.
+
+    값이 없거나 낱말이 없으면 None(그 값은 지금처럼 value 로만 보낸다)
+    """
+    if value is None or not words:
+        return None
+    number = Decimal(str(value))
+    if number == number.to_integral_value():
+        number = number.quantize(Decimal(1))
+    shown = f"{abs(number):,}{unit or ''}"
+    if number == 0:
+        return shown
+    return f"{words['negative'] if number < 0 else words['positive']} {shown}"
+
+
+def statistic(point: dict, question: dict, words: dict | None) -> dict:
+    entry = {
+        "evidence_id": point["evidence_id"],
+        "indicator_id": point["indicator_id"],
+        # 질문 지역 값인지(측정소가 여럿이면 지역 값 = 공통 측정소 평균) 측정소 값인지
+        "place": question["place_name"]
+        if point["place_id"] == question["place_id"]
+        else point["place_id"],
+        "period": period(point["period_start"], point["period_end"]),
+        "value": point["value"],
+        "unit": point["unit"],
+        "missing_reason": point["missing_reason"],
+    }
+    text = value_text(point["value"], point["unit"], words)
+    if text is not None:
+        entry["value_text"] = text
+    return entry
+
+
 def outcome(judgment: dict, card: dict) -> dict | None:
     """판정이 고른 규칙 결과.
 
@@ -124,12 +172,14 @@ def outcome(judgment: dict, card: dict) -> dict | None:
 def build(judgment: dict, sources: list[dict], card: dict) -> dict:
     """card = 그 실행이 쓴 카드 승인본(DB card_version.spec).
 
-    카드마다 다른 설정(금지어 · 규칙 결과 뜻)은 여기서만 읽는다.
+    카드마다 다른 설정(금지어 · 규칙 결과 뜻 · 부호 낱말)은 여기서만 읽는다.
+    부호 낱말이 없는 카드는 v3 와 같은 입력이다(value_text · sign_words 칸이 없다).
     """
     question = judgment["question"]
     candidates = judgment["rebuttal_candidates"]
     chosen = outcome(judgment, card)
-    return {
+    words = sign_words(card)
+    sent = {
         "question": {
             "place": question["place_name"],
             "card": question["card_name"],
@@ -151,18 +201,7 @@ def build(judgment: dict, sources: list[dict], card: dict) -> dict:
         },
         "card_warrant": judgment["warrant"]["text"],
         "statistics": [
-            {
-                "evidence_id": p["evidence_id"],
-                "indicator_id": p["indicator_id"],
-                # 질문 지역 값인지(측정소가 여럿이면 지역 값 = 공통 측정소 평균) 측정소 값인지
-                "place": question["place_name"]
-                if p["place_id"] == question["place_id"]
-                else p["place_id"],
-                "period": period(p["period_start"], p["period_end"]),
-                "value": p["value"],
-                "unit": p["unit"],
-                "missing_reason": p["missing_reason"],
-            }
+            statistic(p, question, words.get(p["indicator_id"]))
             for p in judgment["statistics_points"]
         ],
         "evidence": [
@@ -189,3 +228,7 @@ def build(judgment: dict, sources: list[dict], card: dict) -> dict:
             dict.fromkeys([*COMMON_FORBIDDEN, *card.get("forbidden_terms", [])])
         ),
     }
+    used = {s["indicator_id"] for s in sent["statistics"] if "value_text" in s}
+    if used:
+        sent["sign_words"] = {k: words[k] for k in sorted(used)}
+    return sent

@@ -22,7 +22,20 @@
       "maxItems": 3,
       "items": {
         "type": "object",
-        "properties": { "indicator_id": { "type": "string" }, "role": { "enum": ["main", "related"] } },
+        "properties": {
+          "indicator_id": { "type": "string" },
+          "role": { "enum": ["main", "related"] },
+          "sign_words": {
+            "description": "값의 부호를 문장에서 읽는 낱말(선택). 있으면 문장화가 값을 부호 없이 「<낱말> <절댓값><단위>」로 쓴다(예 -1537 → 순유출 1,537명). 0 은 낱말 없이 숫자만. 값(API · DB)은 부호 그대로",
+            "type": "object",
+            "properties": {
+              "negative": { "type": "string", "minLength": 1 },
+              "positive": { "type": "string", "minLength": 1 }
+            },
+            "required": ["negative", "positive"],
+            "additionalProperties": false
+          }
+        },
         "required": ["indicator_id", "role"],
         "additionalProperties": false
       },
