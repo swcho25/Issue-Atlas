@@ -68,11 +68,23 @@ final class CardApplicability {
         if (values == null) return new Applicability(name, label, null, unchecked);
         SortedSet<Integer> years = new TreeSet<>();
         values.bySeries().values().forEach(series -> years.addAll(series.keySet()));
-        String note =
-                years.isEmpty()
-                        ? "0개"
-                        : years.size() + "개(" + years.first() + "–" + years.last() + ")";
-        return new Applicability(name, label, years.size() >= minimum, note);
+        return new Applicability(name, label, years.size() >= minimum, yearsNote(years));
+    }
+
+    /**
+     * 연 값 수와 해. 이어지면 「3개(2023–2025)」, 빠진 해가 있으면 「2개(2023 · 2025)」, 하나면 「1개(2025)」. 화면은 ✕ 목록에 그대로
+     * 쓰므로 빠진 해를 이어진 기간처럼 쓰지 않는다.
+     */
+    static String yearsNote(SortedSet<Integer> years) {
+        if (years.isEmpty()) return "0개";
+        boolean contiguous = years.last() - years.first() + 1 == years.size();
+        String span =
+                years.size() == 1
+                        ? String.valueOf(years.first())
+                        : contiguous
+                                ? years.first() + "–" + years.last()
+                                : String.join(" · ", years.stream().map(String::valueOf).toList());
+        return years.size() + "개(" + span + ")";
     }
 
     private static Applicability stations(
