@@ -2,6 +2,9 @@ package com.c108.issueatlas.question.service;
 
 import com.c108.issueatlas.card.repository.CardRepository;
 import com.c108.issueatlas.card.repository.CardRepository.CardEvidenceRow;
+import com.c108.issueatlas.card.service.CardEvidenceStatus;
+import com.c108.issueatlas.card.service.CardEvidenceStatus.KindStatus;
+import com.c108.issueatlas.card.service.CardEvidenceStatus.Linked;
 import com.c108.issueatlas.common.exception.ResourceNotFoundException;
 import com.c108.issueatlas.question.dto.ApprovedCard;
 import com.c108.issueatlas.question.dto.ArgumentResponse;
@@ -69,6 +72,7 @@ public class QuestionService {
 
     private final QuestionRepository questions;
     private final CardRepository cards;
+    private final CardEvidenceStatus evidence;
     private final CardJudge judge;
     private final SeriesService series;
     private final ArgumentPhraser phraser;
@@ -78,6 +82,7 @@ public class QuestionService {
     public QuestionService(
             QuestionRepository questions,
             CardRepository cards,
+            CardEvidenceStatus evidence,
             CardJudge judge,
             SeriesService series,
             ArgumentPhraser phraser,
@@ -85,6 +90,7 @@ public class QuestionService {
             PlatformTransactionManager transactions) {
         this.questions = questions;
         this.cards = cards;
+        this.evidence = evidence;
         this.judge = judge;
         this.series = series;
         this.phraser = phraser;
@@ -317,7 +323,7 @@ public class QuestionService {
         LocalDate end = question.periodEnd();
         ApprovedCard approved =
                 questions.approvedCard(card.cardId(), card.cardVersion()).orElse(null);
-        Map<String, CardEvidenceRow> status =
+        Map<String, CardEvidenceRow> registered =
                 cards.findCards(placeId, start, end).stream()
                         .filter(
                                 r ->
@@ -348,29 +354,11 @@ public class QuestionService {
                 "existing_responses",
                 questions.evidence(responses.keySet().stream().sorted().toList()));
 
-        if (approved != null && "not_collected".equals(statusOf(status, "statistics"))) {
-            // ponytail: 카드 확보 상태를 쓰는 곳(P3/P4)이 아직 없어 실행 때 규칙 주 지표의 관측 행으로 정한다.
-            // 등록된 available · not_published 는 그 값이 먼저다(등록 없음 = not_collected)
-            String observed =
-                    questions.statisticsStatus(
-                            approved.spec().path("rule").path("indicator_id").asText(),
-                            placeId,
-                            start,
-                            end);
-            status.put(
-                    "statistics",
-                    new CardEvidenceRow(
-                            card.cardId(),
-                            card.name(),
-                            null,
-                            null,
-                            card.cardVersion(),
-                            card.taxonomyVersion(),
-                            "statistics",
-                            observed,
-                            0));
-        }
-        boolean statistics = "available".equals(statusOf(status, "statistics"));
+        // 근거 상태 규칙은 카드 목록 ②와 같이 쓴다(CardEvidenceStatus) — 여기서는 근거 행을 만든 뒤 이은 수로 부른다
+        KindStatus statisticsStatus =
+                evidence.statistics(
+                        registered, approved == null ? null : approved.spec(), placeId, start, end);
+        boolean statistics = "available".equals(statisticsStatus.status());
         Judgment judgment =
                 statistics && approved != null
                         ? judge.judge(approved, placeId, start, end).orElse(null)
@@ -379,25 +367,16 @@ public class QuestionService {
             refs.put("statistics", load(judgment.statistics()));
             refs.put("documents", load(judgment.documents()));
             refs.put("denominators", load(judgment.denominators()));
-            // ponytail: 통계와 같은 임시 방식 — 확보 상태를 쓰는 곳(P3/P4)이 아직 없어, 판정이 이은 근거가 있으면
-            // not_collected(등록 없음 포함)를 available 로 본다. 등록된 not_published · license_blocked 는 그대로
-            for (String kind : List.of("documents", "denominators")) {
-                if (!refs.get(kind).isEmpty() && "not_collected".equals(statusOf(status, kind))) {
-                    status.put(
-                            kind,
-                            new CardEvidenceRow(
-                                    card.cardId(),
-                                    card.name(),
-                                    null,
-                                    null,
-                                    card.cardVersion(),
-                                    card.taxonomyVersion(),
-                                    kind,
-                                    "available",
-                                    0));
-                }
-            }
         }
+        Map<String, KindStatus> status =
+                CardEvidenceStatus.resolve(
+                        registered,
+                        statisticsStatus,
+                        new Linked(
+                                refs.get("existing_responses").size(),
+                                pending.size(),
+                                refs.get("documents").size(),
+                                refs.get("denominators").size()));
         List<EvidenceRow> table = new ArrayList<>();
         for (String kind : KINDS) {
             boolean required =
@@ -409,7 +388,7 @@ public class QuestionService {
                                                     .path("required_for_claim")
                                                     .path(kind)
                                                     .asText());
-            table.add(row(kind, status.get(kind), refs.get(kind).size(), pending.size(), required));
+            table.add(row(status.get(kind), refs.get(kind).size(), pending.size(), required));
         }
         if (approved == null) {
             return notJudged(
@@ -523,40 +502,18 @@ public class QuestionService {
         return ids.stream().map(byId::get).toList();
     }
 
-    private static String statusOf(Map<String, CardEvidenceRow> status, String kind) {
-        CardEvidenceRow row = status.get(kind);
-        return row == null ? "not_collected" : row.status();
-    }
-
-    /** 근거 수요표 한 줄. 상태는 P3/P4 가 확정한 card_evidence_status, 기존 대응은 이번 실행이 이은 후보로 정한다. */
-    private static EvidenceRow row(
-            String kind, CardEvidenceRow status, int count, int pending, boolean required) {
-        int review = status == null ? 0 : status.reviewPendingCount();
-        if (kind.equals("existing_responses") && (count > 0 || pending > 0)) {
-            String reason =
-                    pending == 0 ? null : "출처 등급이 정해지지 않은 후보 " + pending + "건은 근거로 쓰지 않았습니다.";
-            return new EvidenceRow(
-                    kind,
-                    required,
-                    count > 0 ? "available" : "review_pending",
-                    count,
-                    pending,
-                    reason);
-        }
-        if (status == null) {
-            String reason =
-                    kind.equals("existing_responses")
-                            ? "이 지역 · 기간 · 카드에 맞는 기존 대응 후보가 없습니다."
-                            : "이 지역 · 기간의 확보 상태가 등록되지 않았습니다.";
-            return new EvidenceRow(kind, required, "not_collected", count, 0, reason);
-        }
+    /**
+     * 근거 수요표 한 줄. 상태 · 보류 수는 {@link CardEvidenceStatus#resolve}(카드 목록과 같은 규칙), count 는 이번 실행이 이은 근거
+     * 수.
+     */
+    private static EvidenceRow row(KindStatus status, int count, int pending, boolean required) {
+        String kind = status.kind();
+        String reason =
+                kind.equals("existing_responses") && (count > 0 || pending > 0)
+                        ? pending == 0 ? null : "출처 등급이 정해지지 않은 후보 " + pending + "건은 근거로 쓰지 않았습니다."
+                        : missingReason(kind, status.status());
         return new EvidenceRow(
-                kind,
-                required,
-                status.status(),
-                count,
-                review,
-                missingReason(kind, status.status()));
+                kind, required, status.status(), count, status.reviewPendingCount(), reason);
     }
 
     /** 근거 수요표의 「없는 이유」(회사 플랜 Goal ①). available 이면 null, 아니면 상태 · 근거 종류별 문장. */
