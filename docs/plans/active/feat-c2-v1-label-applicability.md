@@ -6,7 +6,7 @@
 - [x] argument.schema.json: `claim.label`(string|null, 필수), 최상위 `applicability[]`(`{condition, label, passed, note}`, 필수, 카드 없음 [], 확인 못 한 조건 passed null)
 - [x] 예시 JSON 4개 + 적용 조건 ✕ 예시 1개 · c2 README · freeze-2026-11-04.md 변경 이력 · 배포 순서(계약 → engine → backend) · 지난 실행 Flyway 채움 계획
 - [x] 예시 5개가 스키마를 통과하고 깨져야 하는 변형 7개가 깨진다(engine jsonschema 로 검사 — ajv dlx 는 이 환경에서 막힘)
-- [ ] backend(장성우) · 프론트 리뷰 요청 — GitLab 로그인 뒤
+- [x] backend(장성우, MR 리뷰어) · 프론트(정우현, MR 코멘트) 리뷰 요청 — !191 Draft
 
 ## 진행
 - 2026-11-06: 계약만(구현은 리뷰 뒤). 스키마 검사 2개를 더함: blocked · unsupported → label null, applicability 에 passed false → unsupported. 카드 없음 → applicability []
