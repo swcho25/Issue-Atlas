@@ -13,6 +13,8 @@ export {
   type PlaceBoundaries,
   placeBoundariesSchema,
   type Provenance,
+  type QuestionCreated,
+  questionCreatedSchema,
   type RunStatus,
   type StorageScope,
   seriesShape,

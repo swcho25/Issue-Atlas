@@ -9,8 +9,9 @@ import { claimBadge } from "../../model/labels";
 import { openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
 import { ChangeSheet } from "./ChangeSheet";
+import { GlassActions } from "./GlassActions";
 
-// 04 지도 위 부품(Figma 04): 위 유형 전환 · 그림 시트 · 아래 유리 바.
+// 04 지도 위 부품(Figma 04): 위 유형 전환 · 오른쪽 위 유리 아이콘 · 그림 시트 · 아래 유리 바.
 // 셋 다 결과 카드(왼쪽 24 + 폭 400 + 사이 24 = 448) 오른쪽의 빈 지도 위에 둔다. 유형 전환은 그 왼쪽 끝,
 // 시트 · 유리 바는 그 영역 가운데(Figma 520 ~ 1600 의 가운데 1060)
 const FREE_LEFT = "left-[448px]";
@@ -22,6 +23,7 @@ export function MapOverlays({ argument }: { argument: Argument }) {
   return (
     <>
       <TypeSwitch enabled={enabled} current={view} onChange={setView} />
+      <GlassActions argument={argument} />
       {view === "change" && (
         <div
           className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
