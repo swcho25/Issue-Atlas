@@ -13,7 +13,8 @@
 | `StatusBadge` ← `@/shared/ui/badge` | 근거 · 작업 상태(확보 · 미수집 · 검수 대기 …) | `v5/Status` |
 | `ProvBadge` ← `@/shared/ui/badge` | 논증 카드 칸을 누가 채웠는지(규칙 · 카드 · AI · 검수) | `v5/Prov badge` |
 | `TabBar` ← `@/shared/ui/tab-bar` | 결과 화면 요약 · 수요표 · 논증 · 원문 오가기 | `Tab bar/Item` |
-| `Icon` ← `@/shared/ui/icon` | 모든 줄 아이콘(30개) | `v3/Icon` |
+| `Toggle` ← `@/shared/ui/toggle` | 켜고 끄는 것(지도 레이어 · 테마). 켜짐은 앰버, 누르는 동안 손잡이가 유리 방울로 | `Toggle` |
+| `Icon` ← `@/shared/ui/icon` | 모든 줄 아이콘(32개) | `v3/Icon` |
 | `MapView` ← `@/shared/ui/map` | 지도 바탕(OpenFreeMap Liberty · 한국어 지명) + 시군구 · 행정동 경계. 지도 위 부품은 children, `controls` 로 오른쪽 아래 확대 · 축소 · 위치 버튼 | 04 지도 · `v5/Map controls` |
 | `AtlasMark` · `Lockup` ← `@/shared/ui/logo` | 로고(띠 · 랜딩 · 바닥글) | 로고 |
 
@@ -34,13 +35,14 @@ import { Icon } from "@/shared/ui/icon";
 | `StatusBadge` | `tone` green · red · amber · blue · gray · primary | 글자는 children. 색만으로 뜻을 전하지 않게 글자를 꼭 쓴다 |
 | `ProvBadge` | `kind` rule · card · ai · human | 글자는 종류로 정해져 있다 |
 | `TabBar` | `variant` clear(무색 렌즈 · 04 결과 카드 안) · amber(앰버 렌즈 · 유리 틀 · 05 패널), `items`, `current` | 링크 탭이다. 이동은 각 칸 `href`, 고른 칸은 `current` |
+| `Toggle` | `checked`, `onChange`, `label`(필수), `knob`(손잡이 안 그림), `disabled`, `animate` | `role="switch"` 단추. 처음 그릴 때 저장된 값으로 건너뛰려면 `animate={false}` |
 | `BackButton` | `onClick` | 모양만 담은 `button`(이름 「뒤로」). 링크로 쓸 때는 `<Link className={backButtonClass()}><BackIcon /></Link>` |
 | `GlassIconButton` | `icon`, `label`(필수), `showLabel` | 아이콘만이면 `label` 이 화면 낭독기 · 툴팁 이름. 흰 화면 위에는 쓰지 않는다 |
 | `Icon` | `name`, `className`(크기), `label`, `weight` | 기본 20. 색은 글자색. 글자 없이 아이콘만 쓰면 `label` 로 이름을 준다. `weight` 는 Figma 가 선 굵기를 덮어쓴 곳만 |
 
 ## 아이콘
 
-- 이름: alert · bookmark · cards · chart · check · chevronDown · chevronRight · close · compare · copy · db · doc · download · external · grid · home · layers · locate · lock · map · minus · more · play · plus · refresh · search · settings · shield · sparkle · table
+- 이름: alert · bookmark · cards · chart · check · chevronDown · chevronRight · close · compare · copy · db · doc · download · external · grid · home · layers · locate · lock · map · minus · moon · more · play · plus · refresh · search · settings · shield · sparkle · sun · table
 - v5 화면에서 쓰는 것만 있다. 새 아이콘은 Figma `v3/Icon` 에서 `exportAsync({ format: "SVG_STRING" })` 로 받아 `icon/paths.ts` 에 더한다(좌표 소수 둘째 자리). 아이콘 SVG 를 화면 파일에 직접 쓰지 않는다
 - 크기를 바꾸면 선 굵기도 같은 비율로 바뀐다(Figma 와 같다: 16 → 1.17 · 24 → 1.75)
 
