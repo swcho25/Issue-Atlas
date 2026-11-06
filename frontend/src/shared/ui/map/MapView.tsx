@@ -7,6 +7,7 @@ import {
   type FilterSpecification,
   type GeoJSONSource,
   type GeoJSONSourceSpecification,
+  type LayerSpecification,
   type LngLatBoundsLike,
   Map as MapLibreMap,
   Marker,
@@ -16,6 +17,7 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { PlaceBoundaries } from "@/shared/api";
+import { type Theme, useTheme } from "@/shared/lib/theme";
 
 import { groupName, labelPoint } from "./labels";
 
@@ -23,9 +25,84 @@ import { groupName, labelPoint } from "./labels";
 // 워커 파일을 번들러가 함께 내보내게 하고 그 주소를 알려 준다
 setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).href);
 
-// 바탕 지도: OpenFreeMap Liberty(키 · 요청 제한 없음, 11/5 positron 에서 바꿈). 지명은 한국어.
+// 바탕 지도: OpenFreeMap(키 · 요청 제한 없음). 밝은 화면은 Liberty(11/5 positron 에서 바꿈), 다크 모드는 Fiord(푸른 회색, 11/06 Dark 에서 바꿈).
+// 화면 테마를 바꾸면 바탕만 갈아 끼우고 우리 층(경계 · 고를 지역)은 그대로 옮겨 온다. 지명은 한국어.
 // Liberty 는 낮은 확대에서 음영(Natural Earth) · 높은 확대에서 건물 입체를 스타일 안에 갖고 있다
-const BASEMAP = "https://tiles.openfreemap.org/styles/liberty";
+const BASEMAPS: Record<Theme, string> = {
+  light: "https://tiles.openfreemap.org/styles/liberty",
+  dark: "https://tiles.openfreemap.org/styles/fiord",
+};
+const HOVERED: ExpressionSpecification = ["boolean", ["feature-state", "hover"], false];
+const SIGUNGU: FilterSpecification = ["==", ["get", "level"], "sigungu"];
+
+type Colors = { region: string; regionFill: string; boundary: string };
+
+/**
+ * 바탕 위에 얹는 층(아래 → 위): 고를 수 있는 다른 지역 → 고른 지역. 색은 토큰에서 읽은 값.
+ * 고를 수 있는 지역은 평소엔 가는 선, 마우스를 올리면 흰빛으로 떠오르며 선이 진해진다
+ * (고른 지역의 남색 칠과 헷갈리지 않게 흰빛. 어두운 바탕에서는 흰빛을 옅게)
+ */
+function ourLayers(c: Colors, theme: Theme): LayerSpecification[] {
+  return [
+    {
+      id: "choice-fill",
+      type: "fill",
+      source: "choices",
+      paint: {
+        "fill-color": "#ffffff",
+        "fill-opacity": ["case", HOVERED, theme === "dark" ? 0.16 : 0.55, 0],
+      },
+    },
+    {
+      id: "choice-line",
+      type: "line",
+      source: "choices",
+      paint: {
+        "line-color": c.region,
+        "line-width": ["case", HOVERED, 1.5, 1],
+        "line-opacity": ["case", HOVERED, 0.9, 0.45],
+      },
+    },
+    {
+      id: "sigungu-fill",
+      type: "fill",
+      source: "boundaries",
+      filter: SIGUNGU,
+      paint: { "fill-color": c.regionFill },
+    },
+    {
+      id: "emd-line",
+      type: "line",
+      source: "boundaries",
+      filter: ["==", ["get", "level"], "emd"],
+      paint: { "line-color": c.boundary, "line-width": 0.75 },
+    },
+    {
+      id: "sigungu-line",
+      type: "line",
+      source: "boundaries",
+      filter: SIGUNGU,
+      paint: { "line-color": c.region, "line-width": 2 },
+    },
+  ];
+}
+
+/** 바탕을 새로 불러온 뒤마다: 한국어 지명, 고르는 화면이면 지명을 흐리게 */
+function dressBasemap(m: MapLibreMap, opts: { picking: boolean }) {
+  showKoreanLabels(m);
+  if (opts.picking) fadeBasemapLabels(m);
+}
+
+/** 토큰 색을 지금 테마로 읽는다. 토큰 글자색을 단 숨은 요소(data-color)의 계산값 */
+function readColors(palette: HTMLElement | null): Colors {
+  const color = (name: string, fallback: string) =>
+    tokenColor(palette?.querySelector<HTMLElement>(`[data-color=${name}]`) ?? null, fallback);
+  return {
+    region: color("region", "#2e4a7d"),
+    regionFill: color("region-fill", "rgba(46,74,125,0.08)"),
+    boundary: color("boundary", "#9aa0b4"),
+  };
+}
 // 경계가 오기 전 처음 자리(남한 가운데쯤)
 const KOREA: [number, number] = [127.8, 36.0];
 
@@ -188,70 +265,39 @@ export function MapView({
   const pick = useRef(onPick);
   const shown = useRef<PlaceBoundaries>(undefined);
   const hovered = useRef<string | number>(undefined);
+  // 우리 원본의 마지막 데이터(바탕을 갈아 끼울 때 다시 넣는다)
+  const data = useRef({ choices: collection([]), boundaries: collection([]) });
+  const theme = useTheme();
+  // 지도를 만들 때 · 바탕을 갈아 끼울 때 읽는 지금 상태(효과 밖에서 바뀌는 값)
+  const now = useRef({ theme, picking: choices !== undefined });
+  useEffect(() => {
+    now.current = { theme, picking: choices !== undefined };
+  });
+
+  // 지금 바탕이 어느 테마로 그려졌는지. 처음 그린 뒤 화면 테마가 바로 바뀌는 경우(새로 고침 직후 다크)도 따라간다
+  const styledTheme = useRef<Theme>(undefined);
 
   // 지도는 한 번만 만든다. 층도 이때 그리는 순서대로(아래 → 위) 쌓아 두고, 경계가 오면 데이터만 바꾼다
   useEffect(() => {
     if (!box.current) return;
+    const styled = now.current.theme;
+    styledTheme.current = styled;
     const m = new MapLibreMap({
       container: box.current,
-      style: BASEMAP,
+      style: BASEMAPS[styled],
       center: KOREA,
       zoom: 6,
       attributionControl: { compact: true },
     });
     m.on("load", () => {
-      showKoreanLabels(m);
-      const color = (name: string, fallback: string) =>
-        tokenColor(
-          palette.current?.querySelector<HTMLElement>(`[data-color=${name}]`) ?? null,
-          fallback,
-        );
-      const regionColor = color("region", "#2e4a7d");
-      const fillColor = color("region-fill", "rgba(46,74,125,0.08)");
-      const hoveredState: ExpressionSpecification = ["boolean", ["feature-state", "hover"], false];
-      // 고를 수 있는 다른 지역: 평소엔 가는 선으로 나누고, 마우스를 올리면 흰빛으로 떠오르며 선이 진해진다.
-      // 고른 지역(남색으로 옅게 칠함)과 헷갈리지 않게 흰빛으로. 바탕 지도는 다크 모드에도 밝아서 흰색 그대로
-      m.addSource("choices", { type: "geojson", data: collection([]), promoteId: "place_id" });
-      m.addLayer({
-        id: "choice-fill",
-        type: "fill",
-        source: "choices",
-        paint: { "fill-color": "#ffffff", "fill-opacity": ["case", hoveredState, 0.55, 0] },
+      dressBasemap(m, now.current);
+      m.addSource("choices", {
+        type: "geojson",
+        data: data.current.choices,
+        promoteId: "place_id",
       });
-      m.addLayer({
-        id: "choice-line",
-        type: "line",
-        source: "choices",
-        paint: {
-          "line-color": regionColor,
-          "line-width": ["case", hoveredState, 1.5, 1],
-          "line-opacity": ["case", hoveredState, 0.9, 0.45],
-        },
-      });
-      // 고른 지역
-      m.addSource("boundaries", { type: "geojson", data: collection([]) });
-      const sigungu: FilterSpecification = ["==", ["get", "level"], "sigungu"];
-      m.addLayer({
-        id: "sigungu-fill",
-        type: "fill",
-        source: "boundaries",
-        filter: sigungu,
-        paint: { "fill-color": fillColor },
-      });
-      m.addLayer({
-        id: "emd-line",
-        type: "line",
-        source: "boundaries",
-        filter: ["==", ["get", "level"], "emd"],
-        paint: { "line-color": color("boundary", "#9aa0b4"), "line-width": 0.75 },
-      });
-      m.addLayer({
-        id: "sigungu-line",
-        type: "line",
-        source: "boundaries",
-        filter: sigungu,
-        paint: { "line-color": regionColor, "line-width": 2 },
-      });
+      m.addSource("boundaries", { type: "geojson", data: data.current.boundaries });
+      for (const layer of ourLayers(readColors(palette.current), styled)) m.addLayer(layer);
       setMap(m);
     });
     return () => {
@@ -260,10 +306,31 @@ export function MapView({
     };
   }, []);
 
+  // 화면 테마가 바뀌면 바탕을 갈아 끼운다. 우리 원본은 마지막 데이터로, 우리 층은 새 테마 색으로 다시 얹는다
+  // (갈아 끼우는 동안 들어온 경계 · 고를 지역도 data 에 남아 있어 빠지지 않는다)
+  useEffect(() => {
+    if (!map || styledTheme.current === theme) return;
+    styledTheme.current = theme;
+    map.setStyle(BASEMAPS[theme], {
+      diff: false,
+      transformStyle: (_, next) => ({
+        ...next,
+        sources: {
+          ...next.sources,
+          choices: { type: "geojson", data: data.current.choices, promoteId: "place_id" },
+          boundaries: { type: "geojson", data: data.current.boundaries },
+        },
+        layers: [...next.layers, ...ourLayers(readColors(palette.current), theme)],
+      }),
+    });
+    map.once("style.load", () => dressBasemap(map, now.current));
+  }, [map, theme]);
+
   // 경계가 바뀌면 데이터를 바꾸고 화면을 맞춘다
   useEffect(() => {
     if (!map || !boundaries) return;
-    map.getSource<GeoJSONSource>("boundaries")?.setData(boundaries as Data);
+    data.current.boundaries = boundaries as Data;
+    map.getSource<GeoJSONSource>("boundaries")?.setData(data.current.boundaries);
     const bounds = boundsOf(boundaries.features.filter((f) => f.properties.level === "sigungu"));
     if (!bounds) return;
     // 처음은 바로, 고른 지역이 바뀌면 그쪽으로 옮겨 간다(움직임 줄이기 설정이면 MapLibre 가 바로 옮긴다).
@@ -283,9 +350,11 @@ export function MapView({
     if (!map) return;
     const isSigungu = (f: Feature) => f.properties.level === "sigungu";
     const others = (choices ?? []).filter(isSigungu);
-    map.getSource<GeoJSONSource>("choices")?.setData(collection(others));
+    data.current.choices = collection(others);
+    map.getSource<GeoJSONSource>("choices")?.setData(data.current.choices);
     if (!choices) return;
-    fadeBasemapLabels(map);
+    // 바탕을 갈아 끼우는 중이면 다 불러온 뒤 dressBasemap 이 흐리게 한다
+    if (map.isStyleLoaded()) fadeBasemapLabels(map);
 
     const current = (boundaries?.features ?? []).filter(isSigungu);
     const tags = [
