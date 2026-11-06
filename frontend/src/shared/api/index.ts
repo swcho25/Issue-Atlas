@@ -10,6 +10,7 @@ export {
   type EvidenceRow,
   type EvidenceStatus,
   evidenceSchema,
+  questionCreatedSchema,
   type PlaceBoundaries,
   placeBoundariesSchema,
   type Provenance,

@@ -1,9 +1,14 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import { browserGet, browserPost, placeBoundariesSchema } from "@/shared/api";
+import {
+  browserGet,
+  browserPost,
+  placeBoundariesSchema,
+  questionCreatedSchema,
+} from "@/shared/api";
 
 import type { Period } from "../model/period";
-import { placeCardsSchema, placeListSchema, questionCreatedSchema } from "../model/schema";
+import { placeCardsSchema, placeListSchema } from "../model/schema";
 
 /** 질문할 수 있는 지역(시군구) */
 export const placesQuery = () =>
