@@ -1,12 +1,8 @@
 {
-  "schema_version": "ai-phrasing-result-0.2",
+  "schema_version": "ai-phrasing-result-0.3",
   "run_id": "run_c1_yeosu_2023_2025",
   "status": "done",
   "reason_code": null,
-  "warrant": {
-    "text": "여수시에서 2023년부터 2025년까지 청년 순유출이 지속적으로 커지는 현상은 청년 정착 기반이 약화되고 있음을 보여줍니다. 순이동은 청년 정착 여부를 직접적으로 측정하는 공식 지표입니다.",
-    "provenance": "llm_phrasing"
-  },
   "rebuttals": [
     {
       "text": "대학 진학·군 입대 연령(19–24세)의 구조적 전출",
@@ -25,9 +21,6 @@
     }
   ],
   "citations": {
-    "warrant": [
-      "ev_kosis_net_yeosu"
-    ],
     "R1": [
       {
         "passage": "P3",

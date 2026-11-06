@@ -25,6 +25,10 @@ import com.c108.issueatlas.question.repository.QuestionRepository.MatchedRespons
 import com.c108.issueatlas.question.repository.QuestionRepository.PreviousRun;
 import com.c108.issueatlas.question.service.ArgumentPhraser.Phrased;
 import com.c108.issueatlas.question.service.CardJudge.Judgment;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -32,10 +36,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.SortedMap;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,8 +57,9 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * 질문 저장 → 실행 → 결과 저장(S15P31C108-133). 판단(claim · 비교 조건 · 근거 고르기)은 승인본 기반 {@link CardJudge}가 하고,
- * 여기서는 근거 수요표 · 실행 상태 · 한정어 · 6칸 문장(템플릿)을 만든다. 승인본이 있으면 ③ 보증 · ⑤ 반박만 {@link ArgumentPhraser}(engine
- * LLM 문장화)가 바꿔 쓸 수 있고, 못 받으면 템플릿 그대로다. 실행 결과는 한 번 쓰고 고치지 않는다.
+ * 여기서는 근거 수요표 · 실행 상태 · 한정어 · 6칸 문장(템플릿)을 만든다. ① 판단은 규칙 문장(연 값), ③ 보증은 카드 문장이고, 승인본이 있으면 ⑤ 반박만
+ * {@link ArgumentPhraser}(engine LLM 문장화)가 바꿔 쓸 수 있다(S15P31C108-282). 못 받으면 템플릿 그대로다. 실행 결과는 한 번 쓰고
+ * 고치지 않는다.
  */
 @Service
 public class QuestionService {
@@ -111,7 +119,7 @@ public class QuestionService {
         ArgumentResponse result =
                 phrased == null
                         ? draft.result()
-                        : draft.result().withArgumentText(phrased.warrant(), phrased.rebuttals());
+                        : draft.result().withRebuttals(phrased.rebuttals());
         tx.executeWithoutResult(
                 status -> save(request, draft.questionId(), run, result, phrased, started));
         return new QuestionCreateResponse(
@@ -590,21 +598,75 @@ public class QuestionService {
                 .toList();
     }
 
-    /** 판단 ①은 승인된 카드 문장과 규칙 결과 이름으로 만든다. */
+    /**
+     * 판단 ①(규칙): 고른 결과의 문장(승인본 rule.outcomes[].claim_text)에 판정에 쓴 첫해 · 끝해 연 값을 넣는다(「오류」 결정 3, Figma
+     * ①). 결과 문장이 없거나(v3 전 승인본) 연 값이 필요한데 없으면 승인 claim_template 에 결과 이름(label)을 넣는다.
+     */
     static String claimText(Judgment judgment, Question question, ApprovedCard approved) {
+        Ends ends = ends(judgment);
+        String template = judgment.claimText();
+        if (template == null || (ends == null && YEAR_SLOT.matcher(template).find())) {
+            template = approved.spec().path("claim_template").asText();
+        }
         String result =
-                approved.spec()
-                        .path("claim_template")
-                        .asText()
-                        .replace("{지역}", question.placeName())
+                template.replace("{지역}", question.placeName())
                         .replace("{기간}", period(question.periodStart(), question.periodEnd()))
                         .replace("{판정값}", judgment.label())
                         .replace(
                                 "{n}",
                                 String.valueOf(
                                         judgment.facts().getOrDefault("commonStationCount", 0)));
+        if (ends != null) {
+            result =
+                    result.replace("{첫해}", String.valueOf(ends.firstYear()))
+                            .replace("{첫값}", number(ends.first()))
+                            .replace("{끝해}", String.valueOf(ends.lastYear()))
+                            .replace("{끝값}", number(ends.last()));
+        }
         return result.endsWith(".") ? result : result + ".";
     }
+
+    private static final Pattern YEAR_SLOT = Pattern.compile("\\{(첫해|첫값|끝해|끝값)\\}");
+
+    /**
+     * 판정에 쓴 첫해 · 끝해 연 값. 규칙이 시군구 값을 계산했으면(A3 공통 측정소 연평균의 평균 firstMean · lastMean) 그것, 계열이 하나면(C1
+     * 시군구) 그 계열의 첫 해 · 끝 해. 그 밖(측정소 여럿인데 공통 측정소 없음 등)은 null.
+     */
+    static Ends ends(Judgment judgment) {
+        Map<String, Object> facts = judgment.facts();
+        if (facts.get("firstYear") instanceof Integer firstYear
+                && facts.get("lastYear") instanceof Integer lastYear
+                && facts.get("firstMean") instanceof BigDecimal first
+                && facts.get("lastMean") instanceof BigDecimal last) {
+            return new Ends(firstYear, first, lastYear, last);
+        }
+        if (judgment.values() == null || judgment.values().bySeries().size() != 1) {
+            return null;
+        }
+        SortedMap<Integer, BigDecimal> years =
+                judgment.values().bySeries().values().iterator().next();
+        return years.isEmpty()
+                ? null
+                : new Ends(
+                        years.firstKey(),
+                        years.get(years.firstKey()),
+                        years.lastKey(),
+                        years.get(years.lastKey()));
+    }
+
+    /** 문장 속 연 값: 절댓값(방향은 문장 낱말이 말한다), 천 단위 쉼표, 정수가 아니면 소수 한 자리(반올림). */
+    static String number(BigDecimal value) {
+        BigDecimal abs = value.abs();
+        DecimalFormat format =
+                new DecimalFormat(
+                        abs.stripTrailingZeros().scale() <= 0 ? "#,##0" : "#,##0.0",
+                        DecimalFormatSymbols.getInstance(Locale.ROOT));
+        format.setRoundingMode(RoundingMode.HALF_UP);
+        return format.format(abs);
+    }
+
+    /** 판단 ① 문장의 첫해 · 끝해 연 값. */
+    record Ends(int firstYear, BigDecimal first, int lastYear, BigDecimal last) {}
 
     /** [start, end) 를 끝을 빼고 적는다: 연 단위 「2023–2025」, 그 밖 「2024-03-01~2024-06-30」. */
     static String period(LocalDate start, LocalDate end) {

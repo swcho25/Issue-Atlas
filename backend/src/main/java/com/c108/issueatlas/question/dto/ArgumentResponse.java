@@ -24,8 +24,8 @@ public record ArgumentResponse(
         Ceiling ceiling,
         List<Series> series,
         List<Article> articles) {
-    /** ③ 보증 · ⑤ 반박만 바꾼 같은 응답(문장화 결과를 끼울 때). 다른 칸은 그대로다. */
-    public ArgumentResponse withArgumentText(Text warrant, List<Rebuttal> rebuttals) {
+    /** ⑤ 반박만 바꾼 같은 응답(문장화 결과를 끼울 때). ③ 보증은 늘 카드 문장이고 다른 칸도 그대로다. */
+    public ArgumentResponse withRebuttals(List<Rebuttal> rebuttals) {
         return new ArgumentResponse(
                 schemaVersion,
                 runId,

@@ -2,8 +2,9 @@
 
 떨어진 곳마다 Problem 하나. 검사 이름
 - format: 모양 · judgment_changed: 판단 값 · 경쟁 설명 목록이 입력과 다름
-- unknown_citation: 입력에 없는 ID · quote_not_in_source: 구절에 글자 그대로 없음
-- number_mismatch: 입력에 없는 숫자 · unsupported: 근거 부족 · forbidden_term: 금지어
+- unknown_citation: 입력에 없는 구절 ID · quote_not_in_source: 구절에 글자 그대로 없음
+- number_mismatch: 입력에 없는 숫자 · unsupported: 근거 구절 없이 supported · forbidden_term: 금지어
+v4 부터 모델은 ⑤ 반박만 쓴다(보증 칸 없음).
 """
 
 import re
@@ -23,15 +24,6 @@ OUTPUT = Draft202012Validator(
         "type": "object",
         "properties": {
             "claim_value": {"type": "string"},
-            "warrant": {
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string", "minLength": 1, "maxLength": 400},
-                    "citations": {"type": "array", "items": {"type": "string"}},
-                },
-                "required": ["text", "citations"],
-                "additionalProperties": False,
-            },
             "rebuttals": {
                 "type": "array",
                 "items": {
@@ -58,7 +50,7 @@ OUTPUT = Draft202012Validator(
                 },
             },
         },
-        "required": ["claim_value", "warrant", "rebuttals"],
+        "required": ["claim_value", "rebuttals"],
         "additionalProperties": False,
     }
 )
@@ -95,9 +87,6 @@ def base_numbers(sent: dict) -> set[Decimal]:
         *sent["question"].values(),
         fixed["claim_text"],
         *fixed["comparability"].values(),
-        fixed.get("rule_meaning"),
-        *(f"{o['label']} {o['meaning']}" for o in fixed.get("rule_outcomes", [])),
-        sent["card_warrant"],
         *(s["period"] for s in sent["statistics"]),
         *(e["title"] for e in sent["evidence"]),
         *(c["text"] for c in sent["rebuttal_candidates"]),
@@ -126,9 +115,6 @@ def check(sent: dict, output) -> list[Problem]:
         problems.append(Problem("judgment_changed", "rebuttals", "경쟁 설명 목록이 다릅니다"))
 
     base = base_numbers(sent)
-    evidence = {s["evidence_id"] for s in sent["statistics"]} | {
-        e["evidence_id"] for e in sent["evidence"]
-    }
     source = {p["id"]: p["text"] for p in sent["passages"]}
     terms = sent["forbidden_terms"]
 
@@ -137,14 +123,6 @@ def check(sent: dict, output) -> list[Problem]:
             Problem("number_mismatch", where, n) for n in numbers(text) if not known(n, allowed)
         )
         problems.extend(Problem("forbidden_term", where, t) for t in terms if t in (text or ""))
-
-    warrant = output["warrant"]
-    problems.extend(
-        Problem("unknown_citation", "warrant", c) for c in warrant["citations"] if c not in evidence
-    )
-    if numbers(warrant["text"]) and not warrant["citations"]:
-        problems.append(Problem("unsupported", "warrant", "숫자를 썼지만 인용한 근거가 없습니다"))
-    wording("warrant", warrant["text"], base)
 
     for rebuttal in output["rebuttals"]:
         where, cited = rebuttal["id"], []

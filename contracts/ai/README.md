@@ -1,6 +1,6 @@
-# AI 모듈 입력 · 문장화 v0.2
+# AI 모듈 입력 · 문장화 v0.3
 
-AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지, backend 에 알릴 처리 상태, 논증 문장화 요청 · 결과(v0.2).
+AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지, backend 에 알릴 처리 상태, 논증 문장화 요청 · 결과(v0.3).
 주는 쪽: 정제(P2) · 지역 · 시간(P3) · 규칙 엔진(P5) → 받는 쪽: AI 모듈(P4 · P5) · backend(P7).
 계약 변경은 박준우(P2) · 정우현(P3) · 장성우(P7) 리뷰가 필요하다. 연동은 문장화(backend → engine `POST /v1/argument/phrase`)부터다. 입력 예시는 모두 가상(`fixture: true`)이고, 샘플 요청 목록은 요청할 실제 문서의 목록일 뿐 추출 결과가 아니다.
 
@@ -10,7 +10,7 @@ AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지, bac
 | `judgment-input.schema.json` | 판정 입력 — 실행 1건의 통계 · 규칙 판정 결과. 칸 모양은 [C2](../c2/) argument 를 `$ref` 로 쓴다 |
 | `status.schema.json` | 처리 상태 — backend 공유용. 문장화 결과 모양은 아래 `phrasing-result` |
 | `phrasing-request.schema.json` | 문장화 요청 — 판정 입력 + 그 실행의 C2 `articles[]` + 카드 승인본 (v0.2) |
-| `phrasing-result.schema.json` | 문장화 결과 — ③ 보증 · ⑤ 반박(C2 칸 모양) + 상태 · 사유 · 인용 (v0.2) |
+| `phrasing-result.schema.json` | 문장화 결과 — ⑤ 반박(C2 칸 모양) + 상태 · 사유 · 인용 (v0.3) |
 | `examples/` | 가상 입력 · 상태 · 문장화 결과 예시 (아래 「예시」) |
 | `samples/` | P3 에 요청할 실제 문서 목록 (본문 없음) |
 
@@ -104,18 +104,18 @@ AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지, bac
 
 `task` 는 `classify_document`(입력 `doc_id`) · `write_argument`(입력 `run_id`). `write_argument` 의 결과는 아래 「문장화」의 결과 모양을 쓴다.
 
-## 문장화 (`write_argument`) v0.2
+## 문장화 (`write_argument`) v0.3
 
-backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argument/phrase` 로 부른다. AI 는 논증 카드 ③ 보증 · ⑤ 반박만 쓴다 — C2 동결(11/4)에서 ① 판단 · ④ 한정어 · ⑥ 상한선의 `provenance` 는 `rule` · `card` 만이다. 코드는 `engine/ai/argument/`.
+backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argument/phrase` 로 부른다. AI 는 논증 카드 **⑤ 반박만** 쓴다(v0.3, S15P31C108-282 — Figma: ① 판단 = 규칙이 쓴 연 값 문장, ③ 보증 = 카드 문장, 「AI」 칩은 ⑤ 만). C2 동결(11/4)에서 ① 판단 · ④ 한정어 · ⑥ 상한선의 `provenance` 는 `rule` · `card` 만이다. 코드는 `engine/ai/argument/`.
 
 | | 모양 | 비고 |
 | --- | --- | --- |
 | 요청 | `{judgment, articles, card}` | `judgment` = 판정 입력, `articles` = 그 실행의 C2 `articles[]`, `card` = 카드 승인본(`card_version.spec`) 그대로. `card_id` · `card_version` 이 판정 입력과 다르면 `INPUT_INVALID`(다른 판의 금지어 · 경쟁 설명이 섞이지 않게) |
-| 결과 | `{schema_version, run_id, status, reason_code, retryable, warrant, rebuttals, citations, problems, model, prompt_version}` | `warrant` · `rebuttals` 는 C2 칸 모양. `done` 이면 backend 가 응답 칸을 바꿔 끼우고, 아니면 카드 보증 문구 · `rebuttals = []`(지금 응답과 같음) |
+| 결과 | `{schema_version, run_id, status, reason_code, retryable, rebuttals, citations, problems, model, prompt_version}` | `rebuttals` 는 C2 칸 모양. `done` 이면 backend 가 ⑤ 칸을 바꿔 끼우고, 아니면 `rebuttals = []`. v0.2 의 `warrant` 칸은 없다 — backend 는 옛 engine 이 보내도 쓰지 않는다 |
 | 계약 위반 | HTTP 422 `{reason_code: "INPUT_INVALID", problems}` | `problems` 는 어긴 칸 경로와 규칙 이름만. 값은 돌려주지 않는다 |
 
-- 보증 ③ 은 두 문장 이내: 첫 문장에 판정에 쓴 연 값(질문 지역 값이 있으면 그것, 첫해 · 끝해는 꼭)과 판정 이유. 판정 이유는 카드 승인본 `rule.outcomes[]` 중 고른 결과의 `meaning` 으로만 말한다(v3, 지어낸 이유 방지). 둘째 문장은 카드 보증의 논리
-- `provenance`: 보증은 `llm_phrasing`, 모델이 근거 유무를 정한 반박은 `llm_judgment`, 규칙이 정한 반박(`decided_by_rule`)은 `rule`. 반박 문장은 카드 경쟁 설명 그대로(+ 모델이 쓴 한 문장 `note`)
+- 모델에 보내는 입력(프롬프트 `argument-phrasing-v4`): 질문 · 고정 판단(값 · 수준 · ① 문장 · 한정어 · 비교 조건) · 통계 연 값 · 근거 제목 · 경쟁 설명 · 구절 · 상한선 · 금지어. 보증을 쓰지 않으므로 카드 보증 · 규칙 결과 뜻은 보내지 않는다(v3 의 보증 규칙을 뺐다)
+- `provenance`: 모델이 근거 유무를 정한 반박은 `llm_judgment`, 규칙이 정한 반박(`decided_by_rule`)은 `rule`. 반박 문장은 카드 경쟁 설명 그대로(+ 모델이 쓴 한 문장 `note`)
 - 근거 구절: 기사 요약을 문장 하나씩 나눈 P1 … (앞 40건). 원문 위치 = `{kind, source_id, field, sentence, date, url}`. 보도자료 · 정책 문서도 같은 모양으로 넣는다(-161)
 - `citations` 는 C2 응답에 나가지 않는다. backend 가 실행마다 따로 남긴다([DB 계약](../database/README.md) `argument_phrasing`)
 
@@ -125,12 +125,12 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 
 | 검사 | 떨어지는 경우 |
 | --- | --- |
-| `format` | 정한 칸 · enum 밖, 보증 400자 · 반박 note 200자 초과 |
+| `format` | 정한 칸 · enum 밖(보증 `warrant` 를 쓰면 탈락), 반박 note 200자 초과 |
 | `judgment_changed` | 판단 값이 입력과 다름, 경쟁 설명 목록(ID)이 입력과 다름 |
-| `unknown_citation` | 입력에 없는 근거 ID · 구절 ID |
+| `unknown_citation` | 입력에 없는 구절 ID |
 | `quote_not_in_source` | 인용 구절이 그 구절 원문에 글자 그대로 없음, 8자 미만 |
 | `number_mismatch` | 문장 속 숫자가 입력 값(통계 값 · 입력 문장 속 숫자, 또는 그 자릿수로 반올림)에 없음. 기사 숫자는 그 구절을 인용한 반박에서만. 부호는 보지 않는다 |
-| `unsupported` | `supported` 인데 맞는 인용 구절이 없음, 보증에 숫자가 있는데 근거 ID 인용이 없음 |
+| `unsupported` | `supported` 인데 맞는 인용 구절이 없음 |
 | `forbidden_term` | 카드 `forbidden_terms` + C2 공통(확산 · 전파 · 원인 · 효과) |
 
 ### 시간 제한 · 비용
@@ -140,7 +140,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | engine → 모델(GMS Gemini 2.5 Flash) | 한 번에 30초. 429 · 5xx 만 두 번까지 다시 부른다 → `LLM_TIMEOUT` · `LLM_ERROR` |
 | backend → engine | 연결 2초 · 응답 40초. 넘거나 못 닿으면 backend 가 `ENGINE_TIMEOUT` · `ENGINE_ERROR`, 주소 설정이 없으면 `ENGINE_DISABLED` 로 남기고 카드 문구로 응답 |
 
-실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v3`, 결과에 `model` · `prompt_version` 을 남긴다.
+실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v4`, 결과에 `model` · `prompt_version` 을 남긴다.
 
 ## 예시 · 샘플
 
@@ -156,8 +156,8 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | `judgment-insufficient.json` | 자료 부족 — C2 `argument-c1-insufficient`, 필수 통계 미공표 |
 | `judgment-not-comparable.json` | 비교 불가 — C2 `argument-a3-not-comparable` + 가상 여천동(여수) PM2.5 |
 | `status-done.json` · `status-waiting-input.json` · `status-failed.json` | 처리 상태 |
-| `phrasing-result-done.json` | 문장화 성공 — `judgment-ready` + 가상 기사 4건으로 GMS 를 실제로 부른 결과(v0.2) |
-| `phrasing-result-rejected.json` | 문장화 검사 탈락 — 보증에 입력에 없는 숫자(`number_mismatch`) → 카드 문구 |
+| `phrasing-result-done.json` | 문장화 성공 — `judgment-ready` + 가상 기사 4건으로 GMS 를 실제로 부른 결과(v0.2, `prompt_version` 그대로)에서 v0.3 에 없는 `warrant` 칸만 뺀 것 |
+| `phrasing-result-rejected.json` | 문장화 검사 탈락 — 반박 note 에 입력에 없는 숫자(`number_mismatch`) → 빈 반박 |
 
 판정 예시의 근거 수요표 · 비교 조건 · 판단 · 한정어는 C2 예시를 그대로 옮겼다. `statistics_points` 의 값은 가상이다.
 
@@ -194,6 +194,7 @@ pnpm --package=ajv-cli@5 --package=ajv-formats@3 dlx ajv validate --spec=draft20
 
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
+| v0.3 | 2026-11-06 | 문장화 결과에서 `warrant` · `citations.warrant` 를 뺀다 — AI 는 ⑤ 반박만(「오류」 페이지 결정 3, Figma). 프롬프트 v4(보증 규칙 · 카드 보증 · 규칙 결과 뜻 입력을 뺌), 출력 검사에서 보증 검사 제거, 예시 2개 갱신. 요청 · 판정 입력은 그대로 (S15P31C108-282) |
 | v0.2 | 2026-11-04 | 문장화 요청 · 결과 스키마와 예시 2개, 출력 검사 · 시간 제한, 처리 상태 `NOT_JUDGED`, 판정 입력 `rebuttal_candidates[].id`, 실제 기사 제목 · 요약의 GMS 전송 허용 (S15P31C108-231) |
 | v0.1.1 | 2026-11-02 | 기사 `body = null` 의 뜻: 요약 뒤 지운 본문 — 제목 · 요약으로 분류 (S15P31C108-189) |
 | v0.1 초안 | 2026-10-30 | 문서 입력 · 판정 입력 · 처리 상태 스키마, 빈 칸의 뜻, 가상 예시 10개, 실제 문서 샘플 요청 목록 2개 (S15P31C108-153) |
