@@ -9,11 +9,11 @@ import {
   availableViews,
   barLayout,
   barNumber,
+  baselineNote,
   CHART_WIDTH,
   changeSeries,
   MIN_BAR,
   openViews,
-  signAxis,
   yearlyBars,
 } from "./views";
 
@@ -60,22 +60,23 @@ describe("변화형 막대", () => {
   });
 });
 
-describe("0 선 위아래 뜻", () => {
-  it("응답이 준 카드 낱말대로 여수 C1 순이동 그림은 0 선 위 + 순유입, 아래 − 순유출로 보인다", () => {
-    expect(signAxis(changeSeries(ready)!)).toEqual({
-      positive: "+ 순유입",
-      negative: "− 순유출",
-    });
+describe("그래프 기준선 문구", () => {
+  it("응답이 준 기준선대로 여수 C1 순이동 그림은 「기준선 0 · 위 순유입 · 아래 순유출」로 보인다", () => {
+    expect(baselineNote(changeSeries(ready)!)).toBe("기준선 0 · 위 순유입 · 아래 순유출");
   });
 
-  it("낱말은 지표가 아니라 응답에서 온다(카드가 다른 낱말을 주면 그 낱말)", () => {
-    const s = { ...changeSeries(ready)!, sign_words: { negative: "감소", positive: "증가" } };
-    expect(signAxis(s)).toEqual({ positive: "+ 증가", negative: "− 감소" });
+  it("뜻은 지표가 아니라 응답에서 온다(카드가 다른 낱말을 주면 그 낱말)", () => {
+    const s = { ...changeSeries(ready)!, baseline: { value: 0, above: "증가", below: "감소" } };
+    expect(baselineNote(s)).toBe("기준선 0 · 위 증가 · 아래 감소");
   });
 
-  it("응답에 낱말이 없는 줄(지난 실행 · 낱말 없는 카드)은 뜻 줄이 없다", () => {
-    const s = { ...changeSeries(ready)!, sign_words: undefined };
-    expect(signAxis(s)).toBeNull();
+  it("응답에 기준선이 없는 줄(지난 실행 · 낱말 없는 카드)은 문구가 없다", () => {
+    expect(baselineNote({ ...changeSeries(ready)!, baseline: undefined })).toBeNull();
+  });
+
+  it("0 이 아닌 기준선은 막대가 그 선을 그리지 않아 아직 적지 않는다", () => {
+    const s = { ...changeSeries(ready)!, baseline: { value: 15, above: "나쁨", below: "좋음" } };
+    expect(baselineNote(s)).toBeNull();
   });
 });
 

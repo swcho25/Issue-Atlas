@@ -63,10 +63,14 @@ const seriesBase = {
   statuses: z.array(evidenceStatus),
 };
 /**
- * 값의 부호를 읽는 낱말(선택, 2026-11-06). 카드 승인본 claim_items[].sign_words 그대로 —
- * 0 선 위 = positive · 아래 = negative(C1 순이동: 순유입 · 순유출). 낱말이 없는 지표 · 지난 실행에는 칸이 없다
+ * 그래프 기준선(선택, 2026-11-06): 기준 값과 그 위 · 아래 뜻. 카드 승인본 claim_items[].sign_words 가 있는 지표만
+ * (C1 순이동: 0 · 순유입 · 순유출). 낱말이 없는 지표 · 지난 실행에는 칸이 없다
  */
-const signWords = z.object({ negative: z.string().min(1), positive: z.string().min(1) });
+const baseline = z.object({
+  value: z.number(),
+  above: z.string().min(1),
+  below: z.string().min(1),
+});
 /** 통계 한 지역 · 측정소(coordinates 가 있으면 지도 점, 없으면 막대) */
 const placeSeries = z.object({
   ...seriesBase,
@@ -75,7 +79,7 @@ const placeSeries = z.object({
   station_id: z.string().nullable(),
   name: z.string().nullable(),
   coordinates: lonLat.nullable(),
-  sign_words: signWords.optional(),
+  baseline: baseline.optional(),
 });
 /** 이동: from → to */
 const flowSeries = z.object({

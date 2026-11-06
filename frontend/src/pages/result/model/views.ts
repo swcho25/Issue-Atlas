@@ -132,12 +132,14 @@ export function barLayout(values: (number | null)[]) {
 }
 
 /**
- * 0 선 위아래 뜻(사용자 결정 11/06). 응답 series 의 sign_words(카드 승인본 claim_items[].sign_words)가 있는
- * 줄만 「+ 순유입 · − 순유출」처럼 적고 값 · 막대는 그대로 둔다. 낱말은 카드가 정하고 화면은 받기만 한다
+ * 그래프 기준선 문구(사용자 결정 11/06): 응답 series 의 baseline(카드가 정하고 API 가 보낸다)이 있는 줄만
+ * 「기준선 0 · 위 순유입 · 아래 순유출」처럼 적고 값 · 막대는 그대로 둔다.
+ * 막대는 0 선을 기준으로 그리므로, 0 이 아닌 기준선은 그 선을 그리기 전까지 적지 않는다
  */
-export function signAxis(series: PlaceSeries) {
-  const words = series.sign_words;
-  return words ? { positive: `+ ${words.positive}`, negative: `− ${words.negative}` } : null;
+export function baselineNote(series: PlaceSeries) {
+  const b = series.baseline;
+  if (!b || b.value !== 0) return null;
+  return `기준선 ${b.value} · 위 ${b.above} · 아래 ${b.below}`;
 }
 
 /** 막대 숫자: 「−1,537」(빼기 기호), 평균은 소수 한 자리 */

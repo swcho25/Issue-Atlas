@@ -55,8 +55,8 @@ public record ArgumentResponse(
     public sealed interface Series permits StatSeries, MoveSeries, CountSeries {}
 
     /**
-     * 통계 한 줄. signWords 는 카드 승인본 claim_items[].sign_words(값의 부호를 읽는 낱말, C2 선택 칸) — 없는 지표는 칸을 내보내지
-     * 않는다.
+     * 통계 한 줄. baseline 은 그래프 기준선과 그 위 · 아래 뜻(C2 선택 칸) — 카드 승인본 claim_items[].sign_words 가 있는 지표만,
+     * 없으면 칸을 내보내지 않는다.
      */
     public record StatSeries(
             String indicatorId,
@@ -68,11 +68,11 @@ public record ArgumentResponse(
             List<String> periods,
             List<Number> values,
             List<String> statuses,
-            @JsonInclude(JsonInclude.Include.NON_NULL) SignWords signWords)
+            @JsonInclude(JsonInclude.Include.NON_NULL) Baseline baseline)
             implements Series {}
 
-    /** 값의 부호를 읽는 낱말(카드 계약 v0.5 sign_words). 0 선 아래 = negative · 위 = positive. */
-    public record SignWords(String negative, String positive) {}
+    /** 그래프 기준선: 기준 값과 그 위 · 아래 뜻(C1 순이동: 0 · 순유입 · 순유출). */
+    public record Baseline(Number value, String above, String below) {}
 
     public record MoveSeries(
             String indicatorId,

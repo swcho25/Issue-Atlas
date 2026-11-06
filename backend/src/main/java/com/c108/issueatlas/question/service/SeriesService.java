@@ -1,10 +1,10 @@
 package com.c108.issueatlas.question.service;
 
 import com.c108.issueatlas.question.dto.ArgumentResponse.Article;
+import com.c108.issueatlas.question.dto.ArgumentResponse.Baseline;
 import com.c108.issueatlas.question.dto.ArgumentResponse.CountSeries;
 import com.c108.issueatlas.question.dto.ArgumentResponse.MoveSeries;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Series;
-import com.c108.issueatlas.question.dto.ArgumentResponse.SignWords;
 import com.c108.issueatlas.question.dto.ArgumentResponse.StatSeries;
 import com.c108.issueatlas.question.repository.QuestionRepository;
 import com.c108.issueatlas.question.repository.QuestionRepository.ArticleRow;
@@ -57,11 +57,11 @@ public class SeriesService {
         return series(cardId, approvedIndicators, Map.of(), placeId, placeName, start, end);
     }
 
-    /** signWords: 카드 승인본 claim_items[].sign_words(지표 → 낱말). 그 지표의 통계 줄에 그대로 싣는다(C2 선택 칸). */
+    /** baselines: 지표 → 그래프 기준선(카드 승인본 sign_words 에서 만든 것). 그 지표의 통계 줄에 싣는다(C2 선택 칸). */
     public List<Series> series(
             String cardId,
             List<String> approvedIndicators,
-            Map<String, SignWords> signWords,
+            Map<String, Baseline> baselines,
             String placeId,
             String placeName,
             LocalDate start,
@@ -99,7 +99,7 @@ public class SeriesService {
                                                     placeName,
                                                     from,
                                                     periods,
-                                                    signWords.get(rows.get(0).whatId()))));
+                                                    baselines.get(rows.get(0).whatId()))));
         }
         out.addAll(counts(cardId, placeId, start, end, periods));
         return out;
@@ -127,7 +127,7 @@ public class SeriesService {
             String placeName,
             List<Double> from,
             List<String> periods,
-            SignWords words) {
+            Baseline baseline) {
         SeriesRow first = rows.get(0);
         Map<String, SeriesRow> byPeriod = new HashMap<>();
         rows.forEach(r -> byPeriod.put(r.period(), r));
@@ -163,7 +163,7 @@ public class SeriesService {
                 periods,
                 values,
                 statuses,
-                words);
+                baseline);
     }
 
     /** 기사 건수 series: 카드 태그가 붙은 근거 기사를 기사 지역마다 월별로 센다(확산 그림). */

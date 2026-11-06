@@ -8,6 +8,7 @@ import com.c108.issueatlas.card.service.CardEvidenceStatus.Linked;
 import com.c108.issueatlas.common.exception.ResourceNotFoundException;
 import com.c108.issueatlas.question.dto.ApprovedCard;
 import com.c108.issueatlas.question.dto.ArgumentResponse;
+import com.c108.issueatlas.question.dto.ArgumentResponse.Baseline;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Ceiling;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Claim;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Comparability;
@@ -18,7 +19,6 @@ import com.c108.issueatlas.question.dto.ArgumentResponse.EvidenceRow;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Qualifier;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Question;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Ref;
-import com.c108.issueatlas.question.dto.ArgumentResponse.SignWords;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Text;
 import com.c108.issueatlas.question.dto.QuestionCreateRequest;
 import com.c108.issueatlas.question.dto.QuestionCreateResponse;
@@ -200,7 +200,7 @@ public class QuestionService {
                                                 : indicators(run.approved().spec()),
                                         run.approved() == null
                                                 ? Map.of()
-                                                : signWords(run.approved().spec()),
+                                                : baselines(run.approved().spec()),
                                         request.placeId(),
                                         placeName,
                                         start,
@@ -666,16 +666,21 @@ public class QuestionService {
         return result;
     }
 
-    /** 카드 승인본 claim_items[].sign_words(카드 계약 v0.5) → 지표마다 낱말. 그림 줄(series)에 그대로 싣는다. */
-    static Map<String, SignWords> signWords(JsonNode spec) {
-        Map<String, SignWords> result = new HashMap<>();
+    /**
+     * 카드 승인본 claim_items[].sign_words(카드 계약 v0.5, 부호를 읽는 낱말) → 지표마다 그래프 기준선 { 0, 위 = positive, 아래 =
+     * negative }. 그림 줄(series)에 싣는다.
+     */
+    static Map<String, Baseline> baselines(JsonNode spec) {
+        Map<String, Baseline> result = new HashMap<>();
         for (JsonNode item : spec.path("claim_items")) {
             JsonNode words = item.path("sign_words");
             if (words.isObject()) {
                 result.put(
                         item.path("indicator_id").asText(),
-                        new SignWords(
-                                words.path("negative").asText(), words.path("positive").asText()));
+                        new Baseline(
+                                0,
+                                words.path("positive").asText(),
+                                words.path("negative").asText()));
             }
         }
         return result;
