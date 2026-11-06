@@ -20,6 +20,7 @@
 | ② | `GET /v1/places/{place_id}/cards?period_start&period_end` | 이슈 카드 목록 (근거 n/4) | `place-cards` | `place-cards-yeosu.json` |
 | ① | `GET /v1/places/{place_id}/boundaries` | 지도 테두리 · 행정동 고르기 (시군구 + 그 행정동 경계 한 번에) | `place-boundaries` | `place-boundaries-donggu.json` (좌표를 줄인 예시) |
 | ③ | `POST /v1/questions` | 질문 저장 | `question-create-request` · `-response` | `question-create-*.json` |
+| 보조 | `GET /v1/questions` | 내 질문 목록 (로그인 필요, 최근 순). **목** — 고정 예시 3건 | `question-list` | `question-list.json` |
 | ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 4개 |
 | ④ | `GET /v1/evidence/{evidence_id}` | 원문 탭 · 각주 복사 | `evidence` | `evidence-kosis.json` |
 | ⑤ | `GET /v1/observations?place_id&card_id&period_start&period_end` | 지도 점 | `observations` | `observations-a3-yeosu.json` |
@@ -210,3 +211,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-11-05): 카드 목록 근거 상태 = 등록된 `card_evidence_status` → 없으면 같은 지역 · 카드 · 카드 버전 · 기간의 최근 실행 근거 수요표 → 없으면 `not_collected`(S15P31C108-264). 응답 모양 그대로(동결 규칙의 「값이 바뀌는 것」)
 - v0.1 (2026-11-05): 통계 · 분모 근거 시점(`observed_at`, 한정어 `latest_observed_at`)을 마지막 관측 기간의 끝 경계(다음 달 1일 0시)에서 그 기간의 마지막 날(한국 0시)로(S15P31C108-272). 화면 ④ 가 「최신 2026-01-01」(기간 밖)로 보이고 「1년 이내」가 하루 후했다. 저장된 근거 행은 V0048 이 고치고, 저장된 실행 결과는 그대로(다시 실행하면 새 값). 응답 모양 그대로(값만 바뀜)
 - v0.1 (2026-11-06): 카드 목록 근거 상태를 고를 때마다 질문 실행과 같은 규칙으로 센다(S15P31C108-281, 「오류」 페이지 결정 1). 등록된 `card_evidence_status` 가 먼저이고, 없으면 통계 관측 · 기존 대응 후보 · 보도자료 · 분모 관측을 근거 행을 만들지 않고 센다. -264 의 「최근 실행 근거 수요표」는 읽지 않는다. 응답 모양 그대로(값만 바뀜). 개발 DB 여수 2023–2025 C1 · A3 4/4, 카드 2개 약 0.8초(첫 조회 2.5초)
+- v0.1 (2026-11-06): 내 질문 목록 `GET /v1/questions`(`listMyQuestions`, 스키마 `question-list`) 추가 — **목**: 질문에 작성자 칸이 아직 없어 로그인하면 누구에게나 예시 3건(실행 ID 는 argument 예시)을 준다. 로그인 필요(없으면 401). 새 엔드포인트라 기존 응답 칸은 그대로. 실제 구현(작성자 칸 Flyway · 사용자별 거르기) 때 응답 모양은 이대로 둔다

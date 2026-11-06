@@ -21,6 +21,7 @@ import com.c108.issueatlas.question.dto.ArgumentResponse.Ref;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Text;
 import com.c108.issueatlas.question.dto.QuestionCreateRequest;
 import com.c108.issueatlas.question.dto.QuestionCreateResponse;
+import com.c108.issueatlas.question.dto.QuestionListResponse;
 import com.c108.issueatlas.question.repository.QuestionRepository;
 import com.c108.issueatlas.question.repository.QuestionRepository.CardRow;
 import com.c108.issueatlas.question.repository.QuestionRepository.EvidenceRef;
@@ -264,6 +265,79 @@ public class QuestionService {
     @Transactional(readOnly = true)
     public String argument(String runId) {
         return questions.result(runId).orElseThrow(ResourceNotFoundException::new);
+    }
+
+    /**
+     * 내 질문 목록(C2 question-list). ponytail: 목 — 질문에 작성자 칸이 아직 없어 누가 불러도 계약 예시(question-list.json)와
+     * 같은 3건을 준다. 실제 구현은 question 에 작성자 칸(Flyway) · 로그인 사용자로 거르기 · 질문마다 마지막 실행.
+     */
+    public QuestionListResponse myQuestions() {
+        return new QuestionListResponse("c2-0.1", MOCK_QUESTIONS);
+    }
+
+    private static final List<QuestionListResponse.Item> MOCK_QUESTIONS =
+            List.of(
+                    mockQuestion(
+                            "q_0003",
+                            "kr-12130",
+                            "여수시",
+                            "A3",
+                            "대기질",
+                            2023,
+                            2026,
+                            "10:10",
+                            "run_a3_yeosu_2023_2025",
+                            "partial",
+                            "not_comparable"),
+                    mockQuestion(
+                            "q_0002",
+                            "kr-12210",
+                            "광주 동구",
+                            "C1",
+                            "청년 유출·정착",
+                            2026,
+                            2027,
+                            "10:05",
+                            "run_c1_gwangju_donggu_2026",
+                            "blocked",
+                            "insufficient"),
+                    mockQuestion(
+                            "q_0001",
+                            "kr-12130",
+                            "여수시",
+                            "C1",
+                            "청년 유출·정착",
+                            2023,
+                            2026,
+                            "10:00",
+                            "run_c1_yeosu_2023_2025",
+                            "ready",
+                            "increasing"));
+
+    private static QuestionListResponse.Item mockQuestion(
+            String questionId,
+            String placeId,
+            String placeName,
+            String cardId,
+            String cardName,
+            int startYear,
+            int endYear,
+            String time,
+            String runId,
+            String runStatus,
+            String claim) {
+        return new QuestionListResponse.Item(
+                questionId,
+                placeId,
+                placeName,
+                cardId,
+                cardName,
+                LocalDate.of(startYear, 1, 1),
+                LocalDate.of(endYear, 1, 1),
+                OffsetDateTime.parse("2026-10-28T" + time + ":00+09:00"),
+                runId,
+                runStatus,
+                claim);
     }
 
     /** 재실행 로그 「자동 채움」: 6칸 중 내용이 찬 칸. 판단은 근거 부족 · 비교 불가가 아닌 문장이 있을 때만 찬 것으로 본다. */

@@ -4,7 +4,11 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.Operation;
+import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.responses.ApiResponse;
+import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.tags.Tag;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
@@ -39,7 +43,7 @@ public class OpenApiConfig {
                                         응답 계약 원본: `contracts/c2/openapi.yaml` · `schemas/*.schema.json` (11/4 동결). \
                                         오류는 `application/problem+json` (`contracts/http-errors`).
 
-                                        - 일반 사용자 API(places · questions · arguments · evidence · observations · sources)는 로그인 없이 부른다
+                                        - 일반 사용자 API(places · questions · arguments · evidence · observations · sources)는 로그인 없이 부른다. 내 질문 목록(`GET /v1/questions`)과 수정 제안은 로그인 필요
                                         - POST 는 먼저 `GET /v1/auth/csrf` 로 `XSRF-TOKEN` 쿠키를 받고 `X-XSRF-TOKEN` 헤더로 보낸다 (이 화면의 Try it out 은 자동)
                                         - `/v1/admin/**` 는 `POST /v1/auth/login` 세션 + ADMIN. 조회자는 403
                                         - 데모 흐름: `POST /v1/questions` → `run_id` → `GET /v1/arguments/{run_id}`
@@ -49,6 +53,23 @@ public class OpenApiConfig {
                                 new Tag().name("places").description("지역과 지역별 카드 목록"),
                                 new Tag().name("questions").description("질문 저장과 논증 카드"),
                                 new Tag().name("evidence").description("근거 상세와 지도 점"),
-                                new Tag().name("admin").description("관리자 전용 (/v1/admin/**)")));
+                                new Tag().name("auth").description("로그인 · 로그아웃 · 내 정보"),
+                                new Tag().name("admin").description("관리자 전용 (/v1/admin/**)")))
+                // 로그아웃은 컨트롤러가 아니라 보안 필터(SecurityConfig logout)라 springdoc 이 못 찾는다. 문서에만 적는다
+                .path(
+                        "/v1/auth/logout",
+                        new PathItem()
+                                .post(
+                                        new Operation()
+                                                .addTagsItem("auth")
+                                                .operationId("logout")
+                                                .summary("로그아웃 (세션을 끝낸다, X-XSRF-TOKEN 필요)")
+                                                .responses(
+                                                        new ApiResponses()
+                                                                .addApiResponse(
+                                                                        "204",
+                                                                        new ApiResponse()
+                                                                                .description(
+                                                                                        "로그아웃됨")))));
     }
 }

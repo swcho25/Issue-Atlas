@@ -3,6 +3,7 @@ package com.c108.issueatlas.question.controller;
 import com.c108.issueatlas.question.dto.ArgumentResponse;
 import com.c108.issueatlas.question.dto.QuestionCreateRequest;
 import com.c108.issueatlas.question.dto.QuestionCreateResponse;
+import com.c108.issueatlas.question.dto.QuestionListResponse;
 import com.c108.issueatlas.question.service.QuestionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -36,6 +37,17 @@ public class QuestionController {
     @ResponseStatus(HttpStatus.CREATED)
     public QuestionCreateResponse create(@Valid @RequestBody QuestionCreateRequest request) {
         return questions.create(request);
+    }
+
+    @Operation(
+            operationId = "listMyQuestions",
+            summary = "내 질문 목록 (로그인 필요, 최근 순). 목 — 지금은 고정 예시 3건",
+            description =
+                    "질문에 작성자 칸이 아직 없어 누가 불러도 contracts/c2/examples/question-list.json 과 같은 3건을 준다."
+                            + " 결과 화면은 run_id 로 GET /v1/arguments/{run_id}")
+    @GetMapping("/v1/questions")
+    public QuestionListResponse myQuestions() {
+        return questions.myQuestions();
     }
 
     /** 실행 때 저장한 C2 argument 를 그대로 준다. */

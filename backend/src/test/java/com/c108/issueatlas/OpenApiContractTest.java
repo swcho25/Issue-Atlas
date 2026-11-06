@@ -65,8 +65,34 @@ class OpenApiContractTest {
                                                                                 .path("operationId")
                                                                                 .asString()))));
 
-        assertThat(expected).hasSize(10);
+        assertThat(expected).hasSize(11);
         assertThat(actual).containsAll(expected);
+    }
+
+    /** Swagger 의 모든 API 에 한 줄 설명(summary)이 있다. 새 API 에 @Operation 을 빠뜨리면 여기서 걸린다. */
+    @Test
+    void everyOperationHasSummary() throws Exception {
+        Set<String> missing = new TreeSet<>();
+        docs().get("paths")
+                .properties()
+                .forEach(
+                        p ->
+                                p.getValue().properties().stream()
+                                        .filter(op -> METHODS.contains(op.getKey()))
+                                        .filter(
+                                                op ->
+                                                        op.getValue()
+                                                                .path("summary")
+                                                                .asString("")
+                                                                .isBlank())
+                                        .forEach(
+                                                op ->
+                                                        missing.add(
+                                                                op.getKey().toUpperCase()
+                                                                        + " "
+                                                                        + p.getKey())));
+
+        assertThat(missing).isEmpty();
     }
 
     /** 문서의 칸 이름이 실제 JSON(snake_case)과 같아야 Swagger 의 Try it out 요청이 400 이 안 난다. */

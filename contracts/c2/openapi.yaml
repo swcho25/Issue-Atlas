@@ -85,6 +85,22 @@ paths:
         "404":
           $ref: "#/components/responses/Problem"
   /v1/questions:
+    get:
+      tags: [questions]
+      operationId: listMyQuestions
+      summary: 내 질문 목록 (로그인 필요, 최근 순). 목 — 지금은 고정 예시 3건
+      description: |
+        로그인한 사용자가 저장한 질문과 질문마다 마지막 실행. 결과 화면은 run_id 로 GET /v1/arguments/{run_id}.
+        목(mock): 질문에 작성자 칸이 아직 없어 누가 불러도 examples/question-list.json 과 같은 3건을 준다(실행 ID 는 argument 예시의 것).
+      responses:
+        "200":
+          description: 내 질문 목록
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/question-list.schema.json
+        "401":
+          $ref: "#/components/responses/Problem"
     post:
       tags: [questions]
       operationId: createQuestion

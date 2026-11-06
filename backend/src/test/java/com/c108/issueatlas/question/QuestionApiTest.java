@@ -1319,4 +1319,23 @@ class QuestionApiTest {
         mvc.perform(get("/v1/arguments/" + runId)).andExpect(status().isOk());
         mvc.perform(get("/v1/arguments/run_missing")).andExpect(status().isNotFound());
     }
+
+    /** 내 질문 목록은 목: 로그인하면 계약 예시와 같은 고정 3건, 로그인 없으면 401. */
+    @Test
+    void myQuestionsMockReturnsContractExample() throws Exception {
+        String body =
+                mvc.perform(get("/v1/questions").with(user("viewer@test").roles("VIEWER")))
+                        .andExpect(status().isOk())
+                        .andExpect(C2Contract.matches("question-list"))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(StandardCharsets.UTF_8);
+
+        assertThat(json.readTree(body))
+                .isEqualTo(
+                        json.readTree(
+                                Files.readString(
+                                        Path.of("../contracts/c2/examples/question-list.json"))));
+        mvc.perform(get("/v1/questions")).andExpect(status().isUnauthorized());
+    }
 }
