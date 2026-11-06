@@ -14,7 +14,7 @@
 | `ProvBadge` ← `@/shared/ui/badge` | 논증 카드 칸을 누가 채웠는지(규칙 · 카드 · AI · 검수) | `v5/Prov badge` |
 | `TabBar` ← `@/shared/ui/tab-bar` | 결과 화면 요약 · 수요표 · 논증 · 원문 오가기 | `Tab bar/Item` |
 | `Icon` ← `@/shared/ui/icon` | 모든 줄 아이콘(30개) | `v3/Icon` |
-| `MapView` ← `@/shared/ui/map` | 지도 바탕(OpenFreeMap Liberty · 한국어 지명) + 시군구 · 행정동 경계. 지도 위 부품은 children | 04 지도 |
+| `MapView` ← `@/shared/ui/map` | 지도 바탕(OpenFreeMap Liberty · 한국어 지명) + 시군구 · 행정동 경계. 지도 위 부품은 children, `controls` 로 오른쪽 아래 확대 · 축소 · 위치 버튼 | 04 지도 · `v5/Map controls` |
 | `AtlasMark` · `Lockup` ← `@/shared/ui/logo` | 로고(띠 · 랜딩 · 바닥글) | 로고 |
 
 ## 쓰는 법
@@ -57,7 +57,7 @@ import { Icon } from "@/shared/ui/icon";
 
 | Figma | 쓰는 곳 |
 | --- | --- |
-| `v5/Map controls` | 지도 오른쪽 확대 · 위치 · 층(폭 36 세로 묶음) |
+| `v5/Map controls` 레이어 버튼 | 「지도 레이어」 패널(토글)을 여는 버튼. 확대 · 축소 · 위치는 `MapView controls` 에 있다 |
 | `Button/키 컬러` | 유리 바 안의 큰 앰버 버튼(L 56 · M 36) |
 | `v5/Button` AI · Danger | v5 화면에서 0번. 필요해지면 `Button` 에 변형으로 더한다 |
 
