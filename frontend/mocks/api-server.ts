@@ -1,7 +1,7 @@
 // 개발용 목 API 서버. `pnpm --filter frontend mock:api` 로 띄우고, 개발 서버는 API_BASE_URL=http://localhost:4010 으로 붙인다.
 // - GET /v1/arguments/{run_id}: 계약 예시(contracts/c2/examples/argument-*.json)의 run_id 면 그 예시를 답한다
 // - GET /v1/evidence/{evidence_id}: 계약 예시(evidence-*.json)의 evidence_id 면 그 예시를 답한다
-// - 그 밖의 요청(경계 · 지역 목록 …)은 MOCK_UPSTREAM(기본: dev 백엔드)으로 그대로 넘긴다
+// - 그 밖의 요청(경계 · 지역 목록 · 로그인 …)은 MOCK_UPSTREAM(기본: dev 백엔드)으로 그대로 넘기고, 로그인 쿠키도 브라우저로 넘긴다
 // Node 의 타입 지우기로 바로 실행한다(빌드 없음). 앱 코드가 아니라 배포에 들어가지 않는다
 import { readdirSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -60,8 +60,14 @@ const server = createServer(async (req, res) => {
       body: hasBody ? Buffer.concat(chunks) : undefined,
     });
     const body = Buffer.from(await upstream.arrayBuffer());
+    // 로그인 세션(JSESSIONID) · CSRF(XSRF-TOKEN) 쿠키를 브라우저(localhost)에 넘긴다. dev 도메인 · https 전용 표시는 떼어 localhost 에서도 붙게
+    // (빠뜨리면 로그인 필수 화면을 목 서버로 볼 때 로그인 POST 가 CSRF 로 403, 세션도 안 남는다)
+    const cookies = upstream.headers
+      .getSetCookie()
+      .map((c) => c.replace(/;\s*Domain=[^;]*/gi, "").replace(/;\s*Secure/gi, ""));
     res.writeHead(upstream.status, {
       "Content-Type": upstream.headers.get("content-type") ?? "application/json",
+      ...(cookies.length ? { "Set-Cookie": cookies } : {}),
     });
     res.end(body);
     console.info(`[mock] ${req.method} ${url.pathname} → ${UPSTREAM} ${upstream.status}`);
