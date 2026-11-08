@@ -19,6 +19,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { PlaceBoundaries } from "@/shared/api";
 import { type Theme, useTheme } from "@/shared/lib/theme";
 
+import { MapContext } from "./context";
 import { ASIA, loadEarth, MERCATOR_LAT } from "./earth";
 import { groupName, labelPoint } from "./labels";
 import { MapControls } from "./MapControls";
@@ -653,7 +654,7 @@ export function MapView({
           }
         />
       )}
-      {children}
+      <MapContext value={map}>{children}</MapContext>
     </div>
   );
 }
