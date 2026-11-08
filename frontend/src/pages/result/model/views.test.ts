@@ -33,6 +33,29 @@ describe("유형 전환", () => {
     // A3 는 측정소 지도 점만 있어 분포형
     expect(openViews(a3)).toEqual({ enabled: new Set(["distribution"]), initial: "distribution" });
   });
+
+  it("기사 건수 줄이 있으면 관측 순서도 켜진다(처음 열리는 건 그대로 변화형)", () => {
+    const withCounts = {
+      ...ready,
+      series: [
+        ...ready.series,
+        {
+          tag: "C1",
+          place_id: "kr-12130",
+          name: "여수시",
+          coordinates: [127.66, 34.76] as [number, number],
+          unit: "건",
+          periods: ["2023-01"],
+          values: [3],
+          statuses: ["available" as const],
+        },
+      ],
+    };
+    expect(openViews(withCounts)).toEqual({
+      enabled: new Set(["change", "observationOrder"]),
+      initial: "change",
+    });
+  });
 });
 
 describe("변화형 막대", () => {

@@ -16,12 +16,14 @@ import {
   stationSeries,
 } from "../../model/distribution";
 import { judgmentBadge } from "../../model/labels";
+import { observationOrder } from "../../model/observationOrder";
 import { openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
 import { ArticleDots, ArticleLegend } from "./ArticleDots";
 import { ChangeSheet } from "./ChangeSheet";
 import { DistributionLegend } from "./DistributionLegend";
 import { GlassActions } from "./GlassActions";
+import { OrderMarkers, OrderSheet } from "./OrderView";
 import { StationDots } from "./StationDots";
 
 // 04 지도 위 부품(Figma 04): 위 유형 전환(+ 분포형이면 시점) · 오른쪽 위 유리 아이콘 · 그림 시트 · 범례 · 아래 유리 바.
@@ -42,6 +44,8 @@ export function MapOverlays({ argument }: { argument: Argument }) {
 
   // 변화형 위 기사 점
   const articles = useMemo(() => articleMarks(argument), [argument]);
+  // 관측 순서: 지역마다 첫 기사 달 순서
+  const order = useMemo(() => observationOrder(argument), [argument]);
 
   return (
     <>
@@ -78,6 +82,16 @@ export function MapOverlays({ argument }: { argument: Argument }) {
               </div>
             </>
           )}
+        </>
+      )}
+      {view === "observationOrder" && (
+        <>
+          <OrderMarkers stops={order} />
+          <div
+            className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
+          >
+            <OrderSheet stops={order} />
+          </div>
         </>
       )}
       <div
