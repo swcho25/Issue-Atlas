@@ -9,7 +9,7 @@ import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 
 import { decideReview } from "../api/decide";
-import { actionHint, actionLabel, scopeLabel } from "../model/labels";
+import { actionLabel, scopeLabel } from "../model/labels";
 import { type DecisionAction, decisionActions, type ReviewDetail } from "../model/schema";
 
 // 오른쪽 처리 패널(Figma 「처리」 360 폭). 켜지는 행위는 서버가 알려 준 supported_actions 만.
@@ -19,12 +19,11 @@ const MAX_REASON = 2000;
 
 const failText = (e: unknown) => {
   if (e instanceof ApiError && e.status === 409)
-    return "다른 관리자가 먼저 처리했거나 값이 바뀌었어요. 새로 고친 내용을 보고 다시 처리해 주세요.";
-  if (e instanceof ApiError && e.status === 400)
-    return "입력을 확인해 주세요. 사유는 꼭 적어야 해요.";
+    return "이미 처리됐거나 값이 바뀌었어요. 최신 내용으로 다시 불러왔어요.";
+  if (e instanceof ApiError && e.status === 400) return "사유를 확인해 주세요.";
   if (e instanceof ApiError && (e.status === 401 || e.status === 403))
-    return "관리자 세션이 끝났어요. 다시 로그인해 주세요.";
-  return "처리하지 못했어요. 잠시 뒤 다시 시도해 주세요.";
+    return "세션이 끝났어요. 다시 로그인해 주세요.";
+  return "처리하지 못했어요. 다시 시도해 주세요.";
 };
 
 export function DecisionPanel({ detail }: { detail: ReviewDetail }) {
@@ -61,9 +60,7 @@ export function DecisionPanel({ detail }: { detail: ReviewDetail }) {
       <h2 className="text-heading-20 text-text-1">처리</h2>
       {closed ? (
         <p className="text-body-13 text-text-2">
-          {detail.request.status === "approval_pending"
-            ? "카드 승인 요청으로 넘어갔어요. 지정 승인자가 카드 화면에서 처리해요."
-            : "처리가 끝난 요청이에요. 다시 요청하려면 새 검수로 등록해요."}
+          {detail.request.status === "approval_pending" ? "카드 승인 대기" : "처리 완료"}
         </p>
       ) : (
         <form
@@ -92,12 +89,9 @@ export function DecisionPanel({ detail }: { detail: ReviewDetail }) {
               </button>
             ))}
           </div>
-          {action && <p className="text-body-13 text-text-2">{actionHint[action]}</p>}
           {detail.supported_actions.includes("correct") &&
             detail.request.target_type === "card" && (
-              <p className="text-caption-12 text-text-3">
-                카드 초안 수정은 카드 화면에서 해요(승인자 지정 포함).
-              </p>
+              <p className="text-caption-12 text-text-3">카드 수정은 카드 화면에서</p>
             )}
 
           <div className="flex flex-col gap-1">
@@ -112,7 +106,7 @@ export function DecisionPanel({ detail }: { detail: ReviewDetail }) {
               onChange={(e) => setReason(e.target.value.slice(0, MAX_REASON))}
               rows={4}
               required
-              placeholder="왜 이렇게 처리하는지 남겨요. 변경 이력에 그대로 남아요"
+              placeholder="처리 사유"
               className="resize-none rounded-lg border border-border-1 bg-surface-1 px-3 py-2 text-body-14 text-text-1 outline-none placeholder:text-text-3 focus:border-border-2"
             />
             <span className="self-end text-caption-11 text-text-3">

@@ -30,13 +30,7 @@ import {
 export function AdminReviewsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
     <main className="flex h-full flex-col gap-4 overflow-y-auto bg-bg-app px-7 pt-6 pb-10">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-heading-24 text-text-1">검수</h1>
-        <p className="text-body-13 text-text-3">
-          조회자 신고와 관리자가 등록한 검수 요청이 같은 줄에 모여요 · 확정은 지금 값이 맞다는
-          확인이에요
-        </p>
-      </header>
+      <h1 className="text-heading-24 text-text-1">검수</h1>
       <Suspense
         fallback={<p className="text-body-13 text-text-3">검수 요청을 불러오는 중이에요</p>}
       >
@@ -75,7 +69,7 @@ async function ReviewsContent({ searchParams }: { searchParams: Promise<SearchPa
       </div>
       {list.items.length === 0 ? (
         <p className="rounded-xl border border-border-1 px-4 py-10 text-center text-body-13 text-text-3">
-          {statusBadge[q.status].label} 상태의 검수 요청이 없어요
+          {statusBadge[q.status].label} 요청 없음
         </p>
       ) : (
         <ReviewTable reviews={list.items} />

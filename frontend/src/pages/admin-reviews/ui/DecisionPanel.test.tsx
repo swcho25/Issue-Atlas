@@ -98,9 +98,7 @@ describe("DecisionPanel", () => {
     await userEvent.click(radio("반려"));
     await userEvent.type(screen.getByRole("textbox"), "범위 밖 요청");
     await userEvent.click(screen.getByRole("button", { name: /반려 처리/ }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "다른 관리자가 먼저 처리했거나 값이 바뀌었어요",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("이미 처리됐거나 값이 바뀌었어요");
     expect(body.action).toBe("reject");
     expect(body).not.toHaveProperty("expected_value");
     expect(refresh).toHaveBeenCalled();
@@ -119,7 +117,7 @@ describe("DecisionPanel", () => {
       />,
     );
     expect(radio("수정")).toBeDisabled();
-    expect(screen.getByText(/카드 초안 수정은 카드 화면에서/)).toBeInTheDocument();
+    expect(screen.getByText(/카드 수정은 카드 화면에서/)).toBeInTheDocument();
   });
 
   it("처리가 끝난 요청은 버튼 대신 상태를 알린다", () => {
@@ -127,6 +125,6 @@ describe("DecisionPanel", () => {
       <DecisionPanel detail={detailOf({ status: "resolved", supported_actions: [] })} />,
     );
     expect(screen.queryByRole("radio")).toBeNull();
-    expect(screen.getByText(/처리가 끝난 요청이에요/)).toBeInTheDocument();
+    expect(screen.getByText(/처리 완료/)).toBeInTheDocument();
   });
 });

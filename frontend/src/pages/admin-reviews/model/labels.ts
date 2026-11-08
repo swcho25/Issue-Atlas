@@ -1,14 +1,6 @@
 import type { StatusTone } from "@/shared/ui/badge";
 
-import type {
-  ChangeAction,
-  DecisionAction,
-  IssueType,
-  Origin,
-  ReviewStatus,
-  Scope,
-  TargetType,
-} from "./schema";
+import type { ChangeAction, IssueType, Origin, ReviewStatus, Scope, TargetType } from "./schema";
 
 // 검수 화면 글자. 계약(contracts/reviews)의 영문 값을 사람이 읽는 말로
 
@@ -50,14 +42,6 @@ export const actionLabel: Record<ChangeAction, string> = {
   hold: "보류",
   reject: "반려",
   approve: "최종 승인",
-};
-
-/** 처리 패널의 행위 설명. 확정은 「지금 값이 맞다」는 확인이지 제안을 적용하는 것이 아니다(계약 README) */
-export const actionHint: Record<DecisionAction, string> = {
-  confirm: "지금 값이 맞다고 확인해요. 수정 제안은 적용하지 않아요",
-  correct: "값을 고쳐 저장해요",
-  hold: "담당자 확인을 기다리며 미뤄 둬요. 나중에 확정하거나 반려할 수 있어요",
-  reject: "요청을 받아들이지 않아요. 자료는 바뀌지 않아요",
 };
 
 export const scopeLabel: Record<Scope, string> = {

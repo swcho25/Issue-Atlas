@@ -41,13 +41,7 @@ async function OverviewContent({ searchParams }: { searchParams: Promise<SearchP
   return (
     <>
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-heading-24 text-text-1">운영 요약</h1>
-          <p className="text-body-13 text-text-3">
-            처리 건수는 {monthDay(o.period.from)} – {monthDay(o.period.to)} 기준 · 쌓인 건수는 지금
-            · 조회 {monthDayTime(o.generated_at)}
-          </p>
-        </div>
+        <h1 className="text-heading-24 text-text-1">운영 요약</h1>
         <PeriodTabs days={days} />
       </header>
 
@@ -143,7 +137,7 @@ function QueueCard({
 /** 기간 안 처리 기록. 항목끼리 더해 자료 건수로 쓰지 않는다(계약). 검수 「수정」은 초안 저장 · 승인 요청이지 적용 완료가 아니다 */
 function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays }) {
   const a = o.period_activity;
-  const groups: { title: string; note?: string; items: [string, number][] }[] = [
+  const groups: { title: string; items: [string, number][] }[] = [
     {
       title: "검수 처리",
       items: [
@@ -163,7 +157,6 @@ function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays 
     },
     {
       title: "CSV 결과 보고",
-      note: "담당자가 남긴 보고",
       items: [
         ["완료", a.import_results.completed],
         ["실패", a.import_results.failed],
@@ -171,7 +164,6 @@ function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays 
     },
     {
       title: "수집 작업 시작",
-      note: "그때 시작한 작업의 지금 상태",
       items: [
         ["성공", a.jobs_started.ok],
         ["실패", a.jobs_started.failed],
@@ -182,7 +174,12 @@ function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays 
   ];
   return (
     <section aria-label={`최근 ${days}일 처리`} className={`${card} flex flex-col gap-3 p-4`}>
-      <h2 className="text-heading-16 text-text-1">최근 {days}일 처리</h2>
+      <h2 className="text-heading-16 text-text-1">
+        최근 {days}일 처리{" "}
+        <span className="text-caption-12 text-text-3">
+          {monthDay(o.period.from)} – {monthDay(o.period.to)}
+        </span>
+      </h2>
       <div className="grid grid-cols-4 gap-3">
         {groups.map((g) => (
           <div key={g.title} className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
@@ -199,7 +196,6 @@ function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays 
                 </li>
               ))}
             </ul>
-            {g.note && <p className="text-caption-11 text-text-3">{g.note}</p>}
           </div>
         ))}
       </div>
@@ -210,24 +206,23 @@ function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays 
 /** 자료 단계별 건수. 서로 다른 단계라 더하지 않는다 */
 function Inventory({ overview: o }: { overview: Overview }) {
   const inv = o.current_inventory;
-  const rows: [string, string, number][] = [
-    ["원본", "수집한 그대로", inv.raw_records],
-    ["정제", "형식 맞춤 · 검사", inv.normalized_records],
-    ["사용 가능", "정제 통과(normalized_ready)", inv.ready_records],
+  const rows: [string, number][] = [
+    ["원본", inv.raw_records],
+    ["정제", inv.normalized_records],
+    ["사용 가능", inv.ready_records],
   ];
   return (
     <section aria-label="수집 현황" className={`${card} flex flex-col gap-2 p-4`}>
       <h2 className="text-heading-16 text-text-1">수집 현황</h2>
-      {rows.map(([label, note, v]) => (
-        <div key={label} className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5">
+      {rows.map(([label, v]) => (
+        <div
+          key={label}
+          className="flex items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-2.5"
+        >
           <span className="text-body-13 text-text-1">{label}</span>
-          <span className="min-w-0 flex-1 truncate text-right text-caption-12 text-text-3">
-            {note}
-          </span>
           <span className="text-title-14 text-text-1 tabular-nums">{num(v)}</span>
         </div>
       ))}
-      <p className="text-caption-11 text-text-3">단계가 달라 세 숫자를 더하지 않아요</p>
     </section>
   );
 }
@@ -238,7 +233,6 @@ function Sources({ sources }: { sources: SourceStatus[] }) {
     <section aria-label="출처 상태" className={`${card} overflow-hidden`}>
       <div className="flex items-baseline justify-between gap-3 px-4 pt-4 pb-2">
         <h2 className="text-heading-16 text-text-1">출처 상태</h2>
-        <p className="text-caption-12 text-text-3">출처마다 가장 최근 수집 작업 하나의 상태예요</p>
       </div>
       <ul>
         {sources.map((s) => (

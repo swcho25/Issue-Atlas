@@ -30,12 +30,7 @@ import {
 export function AdminChangesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
     <main className="flex h-full flex-col gap-4 overflow-y-auto bg-bg-app px-7 pt-6 pb-10">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-heading-24 text-text-1">변경 이력</h1>
-        <p className="text-body-13 text-text-3">
-          검수 처리와 카드 최종 승인이 모두 남아요 · 이력은 고치거나 지울 수 없어요
-        </p>
-      </header>
+      <h1 className="text-heading-24 text-text-1">변경 이력</h1>
       <Suspense
         fallback={<p className="text-body-13 text-text-3">변경 이력을 불러오는 중이에요</p>}
       >
@@ -72,7 +67,7 @@ async function ChangesContent({ searchParams }: { searchParams: Promise<SearchPa
       </div>
       {list.items.length === 0 ? (
         <p className="rounded-xl border border-border-1 px-4 py-10 text-center text-body-13 text-text-3">
-          남은 변경 이력이 없어요
+          변경 이력 없음
         </p>
       ) : (
         <div className={tableWrap}>

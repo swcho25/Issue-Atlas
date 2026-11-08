@@ -74,7 +74,7 @@ async function DetailContent({ params }: { params: Promise<{ id: string }> }) {
         <ValueCompare detail={detail} />
 
         {r.proposed_value && (
-          <Block title="수정 제안" note="저장만 돼요 — 확정해도 이 제안이 자료에 적용되지는 않아요">
+          <Block title="수정 제안" note="보관 · 자료에 미적용">
             <dl className="grid grid-cols-[minmax(0,10rem)_1fr] gap-x-4 gap-y-1.5 text-body-13">
               {flatValues(r.proposed_value).map(([k, v]) => (
                 <div key={k} className="contents">
@@ -88,7 +88,7 @@ async function DetailContent({ params }: { params: Promise<{ id: string }> }) {
 
         <Block title="처리 이력">
           {detail.decisions.length === 0 ? (
-            <p className="text-body-13 text-text-3">아직 처리한 적이 없어요</p>
+            <p className="text-body-13 text-text-3">처리 이력 없음</p>
           ) : (
             <ol className="flex flex-col gap-2">
               {detail.decisions.map((c) => (
