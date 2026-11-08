@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import styles from "./LandingPage.module.css";
+import { ThemeImage } from "./ThemeImage";
 
 // 실제 결과 화면(dev 데이터 · 여수시 청년 유출·정착)을 1600 × 900 으로 찍은 것. 어두운 화면에서는 같은 장면의 다크 캡처를 보인다
 const SHOTS = [
@@ -46,19 +46,17 @@ export function Tour() {
   return (
     <div ref={root} className={`${styles.tour} ${paused ? styles.paused : ""}`}>
       <div className={styles.screen}>
-        {SHOTS.flatMap((s, i) =>
-          (["light", "dark"] as const).map((theme) => (
-            <Image
-              key={`${s.src}-${theme}`}
-              className={`${styles[theme]} ${i === current ? styles.on : ""}`}
-              src={`${s.src}${theme === "dark" ? "-dark" : ""}.webp`}
-              width={1600}
-              height={900}
-              alt={s.alt}
-              aria-hidden={i !== current}
-            />
-          )),
-        )}
+        {SHOTS.map((s, i) => (
+          <ThemeImage
+            key={s.src}
+            className={i === current ? styles.on : ""}
+            src={s.src}
+            width={1600}
+            height={900}
+            alt={s.alt}
+            hidden={i !== current}
+          />
+        ))}
       </div>
       <div className={styles.tabs} role="tablist" aria-label="결과 화면 둘러보기">
         {SHOTS.map((s, i) => (
