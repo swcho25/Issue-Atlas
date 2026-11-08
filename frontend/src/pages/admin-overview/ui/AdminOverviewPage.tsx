@@ -1,12 +1,274 @@
-// /admin — 관리자 첫 화면(운영 요약 자리). 들어오는 것은 app/(app)/admin/layout.tsx 의 AdminLayout 이 ADMIN 만 통과시킨다.
-// 운영 요약 숫자(GET /v1/admin/overview)는 화면 작업에서 채운다
-export function AdminOverviewPage() {
+import Link from "next/link";
+import { Suspense } from "react";
+
+import { StatusBadge } from "@/shared/ui/badge";
+import { Icon, type IconName } from "@/shared/ui/icon";
+
+import { getOverview } from "../api/getOverview";
+import {
+  daysOf,
+  jobBadge,
+  monthDay,
+  monthDayTime,
+  num,
+  type PeriodDays,
+  periodDays,
+  storageLabel,
+} from "../model/labels";
+import type { Overview, SourceStatus } from "../model/schema";
+
+// /admin — 07 · 운영 요약(Figma 2374:6586). 관리자 첫 화면. 들어오는 것은 AdminLayout 이 ADMIN 만 통과시킨다.
+// 값은 모두 GET /v1/admin/overview. Figma 초안 맨 위 「자동 채움률 · 검수 수정 · 정답 일치율」 은 이 API 에 없어
+// (실행 비교 · 정답 세트가 필요) 기간 안 처리 건수로 바꿨다. 카드 · 데이터 소스 화면이 생기면 그 칸도 링크로 잇는다
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export function AdminOverviewPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
-    <main className="flex flex-col gap-2 p-8">
-      <h1 className="text-heading-24 text-text-1">운영 요약</h1>
-      <p className="text-body-14 text-text-2">
-        관리자 화면입니다. 왼쪽 띠의 관리 메뉴에서 검수 · 카드 · 데이터 소스로 이동합니다.
-      </p>
+    <main className="flex h-full flex-col gap-4 overflow-y-auto bg-bg-app px-7 pt-6 pb-10">
+      <Suspense
+        fallback={<p className="text-body-13 text-text-3">운영 요약을 불러오는 중이에요</p>}
+      >
+        <OverviewContent searchParams={searchParams} />
+      </Suspense>
     </main>
+  );
+}
+
+async function OverviewContent({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const days = daysOf((await searchParams).days);
+  const o = await getOverview(days);
+  const { reviews, approvals, imports } = o.current_queues;
+  return (
+    <>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-heading-24 text-text-1">운영 요약</h1>
+          <p className="text-body-13 text-text-3">
+            처리 건수는 {monthDay(o.period.from)} – {monthDay(o.period.to)} 기준 · 쌓인 건수는 지금
+            · 조회 {monthDayTime(o.generated_at)}
+          </p>
+        </div>
+        <PeriodTabs days={days} />
+      </header>
+
+      <div className="grid grid-cols-3 gap-3">
+        <QueueCard
+          icon="shield"
+          title="검수 대기"
+          value={reviews.pending}
+          sub={`보류 ${reviews.on_hold} · 승인 대기 ${reviews.approval_pending}`}
+          href="/admin/reviews"
+        />
+        <QueueCard
+          icon="cards"
+          title="카드 승인 대기"
+          value={approvals.pending}
+          sub={`보류 ${approvals.on_hold} · 승인 ${approvals.approved} · 반려 ${approvals.rejected}`}
+        />
+        <QueueCard
+          icon="db"
+          title="CSV 적재 대기"
+          value={imports.pending}
+          sub={`검증 실패 ${imports.validation_failed} · 실패 ${imports.failed} · 완료 보고 ${imports.completed}`}
+        />
+      </div>
+
+      <Activity overview={o} days={days} />
+
+      <div className="grid grid-cols-[minmax(0,22rem)_minmax(0,1fr)] items-start gap-3">
+        <Inventory overview={o} />
+        <Sources sources={o.source_statuses} />
+      </div>
+    </>
+  );
+}
+
+function PeriodTabs({ days }: { days: PeriodDays }) {
+  return (
+    <nav aria-label="기간" className="inline-flex w-fit gap-0.5 rounded-lg bg-surface-2 p-0.75">
+      {periodDays.map((d) => (
+        <Link
+          key={d}
+          href={d === 7 ? "/admin" : `/admin?days=${d}`}
+          aria-current={days === d ? "page" : undefined}
+          className={`flex h-7.5 items-center rounded-md px-3 text-label-13 ${
+            days === d ? "bg-surface-1 text-text-1 shadow-xs" : "text-text-2 hover:text-text-1"
+          }`}
+        >
+          최근 {d}일
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+const card = "rounded-xl border border-border-1 bg-surface-1";
+
+function QueueCard({
+  icon,
+  title,
+  value,
+  sub,
+  href,
+}: {
+  icon: IconName;
+  title: string;
+  value: number;
+  sub: string;
+  href?: string;
+}) {
+  const body = (
+    <>
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-text">
+        <Icon name={icon} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-label-13 text-text-1">{title}</span>
+        <span className="truncate text-caption-12 text-text-3">{sub}</span>
+      </span>
+      <span className="text-heading-24 text-text-1 tabular-nums">{num(value)}</span>
+      {href && <Icon name="chevronRight" className="size-4 text-text-3" />}
+    </>
+  );
+  const cls = `${card} flex items-center gap-3 px-4 py-3.5`;
+  return href ? (
+    <Link href={href} className={`${cls} hover:bg-surface-2`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
+  );
+}
+
+/** 기간 안 처리 기록. 항목끼리 더해 자료 건수로 쓰지 않는다(계약). 검수 「수정」은 초안 저장 · 승인 요청이지 적용 완료가 아니다 */
+function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays }) {
+  const a = o.period_activity;
+  const groups: { title: string; note?: string; items: [string, number][] }[] = [
+    {
+      title: "검수 처리",
+      items: [
+        ["확정", a.review_decisions.confirm],
+        ["수정 요청", a.review_decisions.correct],
+        ["보류", a.review_decisions.hold],
+        ["반려", a.review_decisions.reject],
+      ],
+    },
+    {
+      title: "카드 승인 결정",
+      items: [
+        ["승인", a.approval_decisions.approve],
+        ["보류", a.approval_decisions.hold],
+        ["반려", a.approval_decisions.reject],
+      ],
+    },
+    {
+      title: "CSV 결과 보고",
+      note: "담당자가 남긴 보고",
+      items: [
+        ["완료", a.import_results.completed],
+        ["실패", a.import_results.failed],
+      ],
+    },
+    {
+      title: "수집 작업 시작",
+      note: "그때 시작한 작업의 지금 상태",
+      items: [
+        ["성공", a.jobs_started.ok],
+        ["실패", a.jobs_started.failed],
+        ["중단", a.jobs_started.aborted],
+        ["끝 기록 없음", a.jobs_started.running],
+      ],
+    },
+  ];
+  return (
+    <section aria-label={`최근 ${days}일 처리`} className={`${card} flex flex-col gap-3 p-4`}>
+      <h2 className="text-heading-16 text-text-1">최근 {days}일 처리</h2>
+      <div className="grid grid-cols-4 gap-3">
+        {groups.map((g) => (
+          <div key={g.title} className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-label-13 text-text-1">{g.title}</span>
+              <span className="text-heading-20 text-text-1 tabular-nums">
+                {num(g.items.reduce((n, [, v]) => n + v, 0))}
+              </span>
+            </div>
+            <ul className="flex flex-wrap gap-x-3 gap-y-1 text-caption-12 text-text-2">
+              {g.items.map(([label, v]) => (
+                <li key={label}>
+                  {label} <span className="text-text-1 tabular-nums">{num(v)}</span>
+                </li>
+              ))}
+            </ul>
+            {g.note && <p className="text-caption-11 text-text-3">{g.note}</p>}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** 자료 단계별 건수. 서로 다른 단계라 더하지 않는다 */
+function Inventory({ overview: o }: { overview: Overview }) {
+  const inv = o.current_inventory;
+  const rows: [string, string, number][] = [
+    ["원본", "수집한 그대로", inv.raw_records],
+    ["정제", "형식 맞춤 · 검사", inv.normalized_records],
+    ["사용 가능", "정제 통과(normalized_ready)", inv.ready_records],
+  ];
+  return (
+    <section aria-label="수집 현황" className={`${card} flex flex-col gap-2 p-4`}>
+      <h2 className="text-heading-16 text-text-1">수집 현황</h2>
+      {rows.map(([label, note, v]) => (
+        <div key={label} className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5">
+          <span className="text-body-13 text-text-1">{label}</span>
+          <span className="min-w-0 flex-1 truncate text-right text-caption-12 text-text-3">
+            {note}
+          </span>
+          <span className="text-title-14 text-text-1 tabular-nums">{num(v)}</span>
+        </div>
+      ))}
+      <p className="text-caption-11 text-text-3">단계가 달라 세 숫자를 더하지 않아요</p>
+    </section>
+  );
+}
+
+/** 출처별 최근 작업. 최신 작업 하나의 상태라 출처 전체가 정상인지 판정하지 않는다 */
+function Sources({ sources }: { sources: SourceStatus[] }) {
+  return (
+    <section aria-label="출처 상태" className={`${card} overflow-hidden`}>
+      <div className="flex items-baseline justify-between gap-3 px-4 pt-4 pb-2">
+        <h2 className="text-heading-16 text-text-1">출처 상태</h2>
+        <p className="text-caption-12 text-text-3">출처마다 가장 최근 수집 작업 하나의 상태예요</p>
+      </div>
+      <ul>
+        {sources.map((s) => (
+          <li
+            key={s.source_id}
+            className="flex items-center gap-3 border-t border-border-1 px-4 py-2.5"
+          >
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-body-13 text-text-1">
+                {s.name} <span className="text-caption-12 text-text-3">{s.source_id}</span>
+              </span>
+              <span className="truncate text-caption-12 text-text-3">
+                {[
+                  s.storage_scope && (storageLabel[s.storage_scope] ?? s.storage_scope),
+                  s.reliability_grade && `등급 ${s.reliability_grade}`,
+                  `명세 ${s.spec_count}${s.never_run_spec_count ? ` (안 돈 것 ${s.never_run_spec_count})` : ""}`,
+                  s.last_successful_at
+                    ? `마지막 성공 ${monthDayTime(s.last_successful_at)}`
+                    : "성공 기록 없음",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </div>
+            <StatusBadge tone={jobBadge[s.latest_job_status].tone}>
+              {jobBadge[s.latest_job_status].label}
+            </StatusBadge>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
