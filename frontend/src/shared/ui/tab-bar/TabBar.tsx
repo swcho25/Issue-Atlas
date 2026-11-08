@@ -19,9 +19,10 @@ const frames: Record<TabBarVariant, string> = {
   clear: "bg-surface-2",
   amber: "tab-glass",
 };
+// 앰버 렌즈 위 글자는 어두운 화면에서도 먹색(text-1 은 밝아져 앰버 위에서 안 읽힌다)
 const lenses: Record<TabBarVariant, string> = {
-  clear: "lens-clear",
-  amber: "lens-amber",
+  clear: "lens-clear text-text-1",
+  amber: "lens-amber text-text-on-primary",
 };
 
 export function TabBar({
@@ -49,7 +50,7 @@ export function TabBar({
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-14 w-19 flex-col items-center justify-center gap-0.75 rounded-full text-text-1 [&_svg]:size-6 ${active ? lenses[variant] : "hover:bg-text-1/5"}`}
+                className={`flex h-14 w-19 flex-col items-center justify-center gap-0.75 rounded-full [&_svg]:size-6 ${active ? lenses[variant] : "text-text-1 hover:bg-text-1/5"}`}
               >
                 {item.icon}
                 <span className="text-label-12 leading-[15px] font-semibold whitespace-nowrap">

@@ -70,7 +70,7 @@ function TypeSwitch({
             aria-checked={selected}
             disabled={!on}
             onClick={() => onChange(v.key)}
-            className={`h-7 w-[77px] rounded-full text-label-12 font-bold text-text-1 disabled:opacity-32 ${selected ? "lens-amber" : on ? "hover:bg-white/30" : ""}`}
+            className={`h-7 w-[77px] rounded-full text-label-12 font-bold disabled:opacity-32 ${selected ? "lens-amber text-text-on-primary" : on ? "text-text-1 hover:bg-glass-hover" : "text-text-1"}`}
           >
             {v.label}
           </button>
@@ -100,7 +100,7 @@ function ResultBar({ argument }: { argument: Argument }) {
       </p>
       <Link
         href={`${base}/evidence`}
-        className="shrink-0 rounded-full px-3 py-2 text-body-14 text-text-2 hover:bg-white/30"
+        className="shrink-0 rounded-full px-3 py-2 text-body-14 text-text-2 hover:bg-glass-hover"
       >
         근거 수요표
       </Link>

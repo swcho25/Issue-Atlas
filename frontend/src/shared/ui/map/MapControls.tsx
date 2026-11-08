@@ -34,7 +34,7 @@ function ControlButton({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className={`grid w-full place-items-center text-text-1 outline-none hover:bg-white/30 focus-visible:bg-white/50 disabled:pointer-events-none disabled:opacity-32 aria-expanded:bg-white/50 ${className}`}
+      className={`grid w-full place-items-center text-text-1 outline-none hover:bg-glass-hover focus-visible:bg-glass-press disabled:pointer-events-none disabled:opacity-32 aria-expanded:bg-glass-press ${className}`}
       {...rest}
     >
       <Icon name={icon} className="size-4" />
@@ -202,14 +202,14 @@ function LayerPanel({
 }
 
 /**
- * Figma Toggle(52 × 32): 켬 = 앰버 80% 렌즈(lens-amber), 끔 = 먹색 14% + 흰 테두리 빛, 손잡이 28 흰색 · 그림자.
+ * Figma Toggle(52 × 32): 켬 = 앰버 80% 렌즈(lens-amber), 끔 = 맑은 유리 트랙(toggle-track, 어두운 화면에서 빛을 낮춘다), 손잡이 28 흰색 · 그림자.
  * 초점은 줄(스위치)이 받고 테두리는 여기에 그린다
  */
 function Toggle({ on }: { on: boolean }) {
   return (
     <span
       aria-hidden
-      className={`relative h-8 w-13 shrink-0 rounded-full group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-text-1 ${on ? "lens-amber" : "bg-text-1/14 inset-ring inset-ring-white/60"}`}
+      className={`relative h-8 w-13 shrink-0 rounded-full group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-text-1 ${on ? "lens-amber" : "toggle-track"}`}
     >
       <span
         className={`absolute top-0.5 left-0.5 size-7 rounded-full bg-white shadow-md motion-safe:transition-transform ${on ? "translate-x-5" : ""}`}
