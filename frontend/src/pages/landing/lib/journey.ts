@@ -1,7 +1,5 @@
 import * as THREE from "three";
 
-import { onThemeChange } from "@/shared/lib/theme";
-
 import { SEOUL, type Site } from "./site";
 
 // 랜딩 스크롤 장면: 히어로 지구(석상이 받침) → 구름 → 도착 지역 지도.
@@ -446,19 +444,9 @@ async function run(
     const [x, y] = merc(lo, la);
     return new THREE.Vector3(x - CX, CY - y, 0);
   };
-  // 지도 사진은 테마와 상관없이 밝은 Liberty 하나(어두운 화면에서도 지도는 밝게 — 호성 결정 11/06).
-  // 안개만 멀리 갈수록 장면 바탕(--landing-bg-4)으로 옅어지게 그 색을 읽는다(어두우면 지평선이 어두운 바탕으로 녹는다)
-  let dirty = true;
-  const sceneBg = () => {
-    const probe = document.createElement("span");
-    probe.style.color = "var(--landing-bg-4)";
-    el.journey.append(probe);
-    const c = getComputedStyle(probe).color;
-    probe.remove();
-    return new THREE.Color(c);
-  };
+  // 지도 장면은 테마와 상관없이 밝다(어두운 화면에서도 지도는 밝은 Liberty — 호성 결정 11/06). 안개도 밝은 바탕색(--landing-map-bg)
   const ground = new THREE.Scene();
-  ground.fog = new THREE.Fog(sceneBg(), 1, 2);
+  ground.fog = new THREE.Fog(0xf7f8fc, 1, 2);
   const gcam = new THREE.PerspectiveCamera(MAP_FOV, 1, 1, 1e6);
   // 장면 가장자리를 부드럽게 지워, 안쪽 장면이 바깥 장면에 이음매 없이 녹아든다
   const feather = featherTexture(256, 0.08);
@@ -503,13 +491,6 @@ async function run(
   };
   window.addEventListener("scroll", markOverMap, { passive: true, signal });
   cleanups.push(() => document.documentElement.removeAttribute("data-landing-map"));
-  // 테마를 바꾸면 안개 색만 바꾼다(장면은 다시 만들지 않는다)
-  cleanups.push(
-    onThemeChange(() => {
-      (ground.fog as THREE.Fog).color = sceneBg();
-      dirty = true;
-    }),
-  );
   const fetchNext = async (): Promise<void> => {
     const L = pending.shift();
     if (!L || signal.aborted) return;
@@ -623,7 +604,7 @@ async function run(
   }
 
   // ---------- 스크롤 → 장면 ----------
-  dirty = true;
+  let dirty = true;
   function resize() {
     const w = window.innerWidth,
       h = window.innerHeight;

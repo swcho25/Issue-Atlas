@@ -1,7 +1,7 @@
 /*
  * 랜딩(Figma 「02 · 로그인 · 랜딩」). 시제품 docs/design/landing-scroll 을 옮겼다 — 값의 이유는 그 폴더 README 표에 있다.
  * --landing-* 토큰만 쓴다(밝은 · 어두운 값은 globals.css). 도착 지도와 그 위 표시(--landing-map-*)는 테마와 상관없이 밝다.
- * 테마를 따로 보는 곳은 지도 안개 색(journey.ts)과 구름 밝기뿐.
+ * 테마를 따로 보는 곳은 구름 밝기와 헤더(지도 위에서는 짙게)뿐.
  */
 .page {
   background: var(--landing-bg-2);
@@ -342,10 +342,11 @@
   top: 0;
   padding: 9vh 0 10vh;
   background: linear-gradient(
-    var(--landing-bg-2) 0%,
-    color-mix(in srgb, var(--landing-bg-2) 92%, transparent) 55%,
-    color-mix(in srgb, var(--landing-bg-2) 0%, transparent) 100%
+    var(--landing-map-bg) 0%,
+    color-mix(in srgb, var(--landing-map-bg) 92%, transparent) 55%,
+    color-mix(in srgb, var(--landing-map-bg) 0%, transparent) 100%
   );
+  color: var(--landing-map-ink);
   text-align: center;
   opacity: 0;
   pointer-events: none;
@@ -363,7 +364,7 @@
   left: 12px;
   bottom: 8px;
   font-size: 10px;
-  color: var(--landing-text-3);
+  color: var(--landing-map-muted);
   opacity: 0;
 }
 

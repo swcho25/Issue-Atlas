@@ -170,7 +170,9 @@
   /* 유리 단추 안쪽 빛: 밝은 화면은 거의 흰색, 어두운 화면에서는 낮춘다 */
   --landing-glass-hi: light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.32));
   --landing-glass-lo: light-dark(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.12));
-  /* 도착 지도 위 표시: 지도는 어두운 화면에서도 밝은 지도(Liberty)라 테마와 상관없이 밝은 화면 값 그대로 */
+  /* 도착 지도 장면(지도 · 그 위 표시 · 끝 제목 띠): 지도는 어두운 화면에서도 밝은 지도(Liberty)라 테마와 상관없이 밝은 화면 값 그대로 */
+  --landing-map-bg: #f7f8fc;
+  --landing-map-muted: #8a8f9c;
   --landing-map-place: #5a6b8c;
   --landing-map-navy: #2e4a7d;
   --landing-map-ink: #111318;
