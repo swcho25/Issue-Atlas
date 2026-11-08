@@ -14,7 +14,16 @@ import {
 } from "../model/labels";
 import { changeQuery, href, PAGE_SIZE, type SearchParams } from "../model/query";
 import { type Change, changeActions } from "../model/schema";
-import { bodyCell, headCell, headRow, Pager, ReviewsNav, SegmentLinks, tableBox } from "./parts";
+import {
+  bodyCell,
+  headCell,
+  headRow,
+  Pager,
+  ReviewsNav,
+  SegmentLinks,
+  tableBox,
+  tableWrap,
+} from "./parts";
 
 // /admin/reviews/changes — 07 · 변경 이력(Figma 2374:7220). 검수 처리와 카드 최종 승인이 한 줄에 모인다(GET /v1/admin/changes).
 // 「반영」 칸(2회차 반영 여부)은 API 에 없어 두지 않는다
@@ -66,31 +75,33 @@ async function ChangesContent({ searchParams }: { searchParams: Promise<SearchPa
           남은 변경 이력이 없어요
         </p>
       ) : (
-        <table className={`${tableBox} table-fixed`}>
-          <colgroup>
-            <col className="w-36" />
-            <col className="w-52" />
-            <col className="w-56" />
-            <col className="w-28" />
-            <col className="w-28" />
-            <col />
-          </colgroup>
-          <thead className={headRow}>
-            <tr>
-              <th className={headCell}>시각</th>
-              <th className={headCell}>처리자</th>
-              <th className={headCell}>대상</th>
-              <th className={headCell}>처리</th>
-              <th className={headCell}>적용 범위</th>
-              <th className={headCell}>사유 · 바뀐 칸</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.items.map((c) => (
-              <ChangeRow key={c.change_id} change={c} />
-            ))}
-          </tbody>
-        </table>
+        <div className={tableWrap}>
+          <table className={tableBox}>
+            <colgroup>
+              <col className="w-36" />
+              <col className="w-52" />
+              <col className="w-56" />
+              <col className="w-28" />
+              <col className="w-28" />
+              <col />
+            </colgroup>
+            <thead className={headRow}>
+              <tr>
+                <th className={headCell}>시각</th>
+                <th className={headCell}>처리자</th>
+                <th className={headCell}>대상</th>
+                <th className={headCell}>처리</th>
+                <th className={headCell}>적용 범위</th>
+                <th className={headCell}>사유 · 바뀐 칸</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.items.map((c) => (
+                <ChangeRow key={c.change_id} change={c} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       <Pager
         page={q.page}
