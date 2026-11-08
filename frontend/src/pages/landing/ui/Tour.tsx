@@ -10,19 +10,19 @@ const SHOTS = [
   {
     title: "지도로 보기",
     text: "고른 지역 경계 위에서 해마다의 값과 판단을 함께 봐요",
-    src: "/landing/tour-map",
+    src: "/landing/tour-summary",
     alt: "여수시 청년 유출·정착 결과 — 왼쪽 카드에 근거 4종과 판단, 지도 위에 여수시 경계와 3년 순이동 막대",
   },
   {
     title: "근거와 판단",
     text: "판단 하나마다 근거 · 보증 · 반박을 한 장에 붙여 둬요",
-    src: "/landing/tour-judge",
+    src: "/landing/tour-argument",
     alt: "논증 카드 — 판단 · 근거 4종 · 보증 · 근거 충실도 · 반박 · 말하지 않는 것",
   },
   {
     title: "원문까지",
     text: "근거를 누르면 원문 위치와 각주가 열리고, 바로 복사돼요",
-    src: "/landing/tour-source",
+    src: "/landing/tour-sources",
     alt: "원문 탭 — 여수시 보도자료 근거의 원문 위치와 각주 복사 · 원문 사이트 열기",
   },
 ];
