@@ -444,6 +444,7 @@ async function run(
     const [x, y] = merc(lo, la);
     return new THREE.Vector3(x - CX, CY - y, 0);
   };
+  // 지도 장면은 테마와 상관없이 밝다(어두운 화면에서도 지도는 밝은 Liberty — 호성 결정 11/06). 안개도 밝은 바탕색(--landing-map-bg)
   const ground = new THREE.Scene();
   ground.fog = new THREE.Fog(0xf7f8fc, 1, 2);
   const gcam = new THREE.PerspectiveCamera(MAP_FOV, 1, 1, 1e6);
@@ -479,6 +480,17 @@ async function run(
     L.mat.needsUpdate = true;
     queue.push(L);
   };
+  // 헤더가 밝은 도착 지도 위에 있는 동안 <html data-landing-map> 을 단다. 어두운 화면에서도 그때만 헤더 글자 · 로고를 짙게(LandingPage.module.css)
+  let mapShown = false,
+    overMap = false;
+  const markOverMap = () => {
+    const on = mapShown && el.journey.getBoundingClientRect().bottom > 80;
+    if (on === overMap) return;
+    overMap = on;
+    document.documentElement.toggleAttribute("data-landing-map", on);
+  };
+  window.addEventListener("scroll", markOverMap, { passive: true, signal });
+  cleanups.push(() => document.documentElement.removeAttribute("data-landing-map"));
   const fetchNext = async (): Promise<void> => {
     const L = pending.shift();
     if (!L || signal.aborted) return;
@@ -659,6 +671,8 @@ async function run(
     const halfDiag = Math.atan(Math.tan(deg(FOV / 2)) * Math.hypot(1, w / h));
     const zIn = Math.max(3.2, zoomOfAlt((1 / Math.sin(halfDiag) - 1) * 0.92, h));
     const mapIn = groundReady ? smooth(zIn, zIn + MAP_IN_SPAN, Z) : 0;
+    mapShown = mapIn > 0.5;
+    markOverMap();
     put(canvas, "opacity", (1 - mapIn).toFixed(3));
     put(canvas, "visibility", mapIn < 1 ? "visible" : "hidden");
     put(el.ground, "visibility", mapIn > 0 ? "visible" : "hidden");
