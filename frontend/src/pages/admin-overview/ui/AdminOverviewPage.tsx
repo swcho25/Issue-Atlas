@@ -1,26 +1,19 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { monthDay, monthDayTime, num } from "@/shared/lib/format";
+import { type SearchParams } from "@/shared/lib/url";
 import { StatusBadge } from "@/shared/ui/badge";
 import { Icon, type IconName } from "@/shared/ui/icon";
+import { SegmentLinks } from "@/shared/ui/segment";
 
 import { getOverview } from "../api/getOverview";
-import {
-  daysOf,
-  jobBadge,
-  monthDay,
-  monthDayTime,
-  num,
-  type PeriodDays,
-  periodDays,
-  storageLabel,
-} from "../model/labels";
+import { daysOf, jobBadge, type PeriodDays, periodDays, storageLabel } from "../model/labels";
 import type { Overview, SourceStatus } from "../model/schema";
 
 // /admin — 07 · 운영 요약(Figma 2374:6586). 관리자 첫 화면. 들어오는 것은 AdminLayout 이 ADMIN 만 통과시킨다.
 // 값은 모두 GET /v1/admin/overview. Figma 초안 맨 위 「자동 채움률 · 검수 수정 · 정답 일치율」 은 이 API 에 없어
 // (실행 비교 · 정답 세트가 필요) 기간 안 처리 건수로 바꿨다. 카드 · 데이터 소스 화면이 생기면 그 칸도 링크로 잇는다
-type SearchParams = Record<string, string | string[] | undefined>;
 
 export function AdminOverviewPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
@@ -79,20 +72,15 @@ async function OverviewContent({ searchParams }: { searchParams: Promise<SearchP
 
 function PeriodTabs({ days }: { days: PeriodDays }) {
   return (
-    <nav aria-label="기간" className="inline-flex w-fit gap-0.5 rounded-lg bg-surface-2 p-0.75">
-      {periodDays.map((d) => (
-        <Link
-          key={d}
-          href={d === 7 ? "/admin" : `/admin?days=${d}`}
-          aria-current={days === d ? "page" : undefined}
-          className={`flex h-7.5 items-center rounded-md px-3 text-label-13 ${
-            days === d ? "bg-surface-1 text-text-1 shadow-xs" : "text-text-2 hover:text-text-1"
-          }`}
-        >
-          최근 {d}일
-        </Link>
-      ))}
-    </nav>
+    <SegmentLinks
+      label="기간"
+      items={periodDays.map((d) => ({
+        key: String(d),
+        label: `최근 ${d}일`,
+        href: d === 7 ? "/admin" : `/admin?days=${d}`,
+        active: days === d,
+      }))}
+    />
   );
 }
 

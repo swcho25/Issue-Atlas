@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dateTime, flatValues, targetMeta, targetTitle } from "./labels";
+import { flatValues, targetMeta, targetTitle } from "./labels";
 
 describe("flatValues", () => {
   it("한 단계 아래 객체는 「부모.칸」 으로 펼치고, 글자 목록은 · 로 잇는다", () => {
@@ -68,9 +68,5 @@ describe("targetTitle · targetMeta", () => {
       }),
     ).toBe("기사 · 광주(5개 구) · 2023-01-24");
     expect(targetMeta("source", "S01", { org: "KOSIS" })).toBe("출처 · S01");
-  });
-
-  it("dateTime 은 한국 시간", () => {
-    expect(dateTime("2026-11-03T07:02:15.188659Z")).toBe("2026-11-03 16:02");
   });
 });

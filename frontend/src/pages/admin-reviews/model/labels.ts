@@ -1,3 +1,4 @@
+import { dateTime, day } from "@/shared/lib/format";
 import type { StatusTone } from "@/shared/ui/badge";
 
 import type { ChangeAction, IssueType, Origin, ReviewStatus, Scope, TargetType } from "./schema";
@@ -169,9 +170,3 @@ export function targetMeta(type: TargetType, id: string, v: Record<string, unkno
     .filter(Boolean)
     .join(" · ");
 }
-
-const kst = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600 * 1000).toISOString();
-/** 2026-11-03 (한국 시간) */
-export const day = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : kst(iso).slice(0, 10));
-/** 2026-11-03 16:02 (한국 시간) */
-export const dateTime = (iso: string) => kst(iso).slice(0, 16).replace("T", " ");

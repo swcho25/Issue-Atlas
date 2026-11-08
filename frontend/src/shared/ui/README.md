@@ -14,6 +14,9 @@
 | `ProvBadge` ← `@/shared/ui/badge` | 논증 카드 칸을 누가 채웠는지(규칙 · 카드 · AI · 검수) | `v5/Prov badge` |
 | `TabBar` ← `@/shared/ui/tab-bar` | 결과 화면 요약 · 수요표 · 논증 · 원문 오가기 | `Tab bar/Item` |
 | `Toggle` ← `@/shared/ui/toggle` | 켜고 끄는 것(지도 레이어 · 테마). 켜짐은 앰버, 누르는 동안 손잡이가 유리 방울로 | `Toggle` |
+| `SegmentLinks` ← `@/shared/ui/segment` | 링크 탭(상태 · 기간 거르기, 칸마다 건수). 칸이 링크라 주소가 상태 | 07 관리자 탭 |
+| `Pager` ← `@/shared/ui/pager` | 쪽 넘기기(이전 · n / 끝 · 다음). 한 쪽뿐이면 안 그린다 | 07 관리자 |
+| `table` ← `@/shared/ui/table` | 관리자 표 틀 class(`table.wrap` · `box` · `headRow` · `headCell` · `bodyCell`). 좁은 창에서 옆으로 넘긴다 | 07 관리자 표 |
 | `Icon` ← `@/shared/ui/icon` | 모든 줄 아이콘(32개) | `v3/Icon` |
 | `MapView` ← `@/shared/ui/map` | 지도 바탕(OpenFreeMap Liberty · 한국어 지명) + 시군구 · 행정동 경계. 지도 위 부품은 children, `controls` 로 오른쪽 아래 확대 · 축소 · 위치 버튼 | 04 지도 · `v5/Map controls` |
 | `AtlasMark` · `Lockup` ← `@/shared/ui/logo` | 로고(띠 · 랜딩 · 바닥글) | 로고 |

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { changeQuery, href, reviewQuery } from "./query";
+import { changeQuery, reviewQuery } from "./query";
 
 describe("reviewQuery", () => {
   it("값이 없거나 모르는 값이면 대기 · 전체 · 1쪽", () => {
@@ -21,16 +21,9 @@ describe("reviewQuery", () => {
   });
 });
 
-describe("changeQuery · href", () => {
+describe("changeQuery", () => {
   it("처리 종류는 계약 값만", () => {
     expect(changeQuery({ action: "approve" }).action).toBe("approve");
     expect(changeQuery({ action: "delete" }).action).toBeNull();
-  });
-
-  it("비어 있는 칸은 주소에서 뺀다", () => {
-    expect(href("/admin/reviews", { status: null, origin: "user", page: 2 })).toBe(
-      "/admin/reviews?origin=user&page=2",
-    );
-    expect(href("/admin/reviews", { status: null })).toBe("/admin/reviews");
   });
 });

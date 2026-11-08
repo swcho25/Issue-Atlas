@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { dateTime } from "@/shared/lib/format";
 import { StatusBadge } from "@/shared/ui/badge";
 import { BackIcon, backButtonClass } from "@/shared/ui/button";
 
 import { getReview } from "../api/server";
 import {
   actionLabel,
-  dateTime,
   fieldLabel,
   flatValues,
   issueLabel,

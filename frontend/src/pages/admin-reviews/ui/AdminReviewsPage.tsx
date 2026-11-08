@@ -1,29 +1,18 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { dateTime } from "@/shared/lib/format";
+import { href, type SearchParams } from "@/shared/lib/url";
 import { StatusBadge } from "@/shared/ui/badge";
+import { Pager } from "@/shared/ui/pager";
+import { SegmentLinks } from "@/shared/ui/segment";
+import { table } from "@/shared/ui/table";
 
 import { getChangeTotal, getReviewCounts, getReviews } from "../api/server";
-import {
-  dateTime,
-  issueLabel,
-  originLabel,
-  statusBadge,
-  targetMeta,
-  targetTitle,
-} from "../model/labels";
-import { href, originTabs, PAGE_SIZE, reviewQuery, type SearchParams } from "../model/query";
+import { issueLabel, originLabel, statusBadge, targetMeta, targetTitle } from "../model/labels";
+import { originTabs, PAGE_SIZE, reviewQuery } from "../model/query";
 import type { Review } from "../model/schema";
-import {
-  bodyCell,
-  headCell,
-  headRow,
-  Pager,
-  ReviewsNav,
-  SegmentLinks,
-  tableBox,
-  tableWrap,
-} from "./parts";
+import { ReviewsNav } from "./parts";
 
 // /admin/reviews — 07 · 검수 목록(Figma 2374:6701). 상태 · 출처 · 쪽은 주소에 두고 서버에서 관리자 세션으로 받는다.
 // Figma 초안의 「AI 확신」 칸은 API 에 없어 두지 않고, 계약에 있는 사유 · 제안 · 날짜를 보인다
@@ -95,8 +84,8 @@ const proposal = (r: Review) => {
 
 function ReviewTable({ reviews }: { reviews: Review[] }) {
   return (
-    <div className={tableWrap}>
-      <table className={tableBox}>
+    <div className={table.wrap}>
+      <table className={table.box}>
         <colgroup>
           <col className="w-24" />
           <col />
@@ -106,15 +95,15 @@ function ReviewTable({ reviews }: { reviews: Review[] }) {
           <col className="w-24" />
           <col className="w-36" />
         </colgroup>
-        <thead className={headRow}>
+        <thead className={table.headRow}>
           <tr>
-            <th className={headCell}>문제</th>
-            <th className={headCell}>대상</th>
-            <th className={headCell}>출처</th>
-            <th className={headCell}>사유</th>
-            <th className={headCell}>수정 제안</th>
-            <th className={headCell}>상태</th>
-            <th className={headCell}>등록</th>
+            <th className={table.headCell}>문제</th>
+            <th className={table.headCell}>대상</th>
+            <th className={table.headCell}>출처</th>
+            <th className={table.headCell}>사유</th>
+            <th className={table.headCell}>수정 제안</th>
+            <th className={table.headCell}>상태</th>
+            <th className={table.headCell}>등록</th>
           </tr>
         </thead>
         <tbody>
@@ -123,8 +112,8 @@ function ReviewTable({ reviews }: { reviews: Review[] }) {
               key={r.review_id}
               className="relative border-t border-border-1 text-body-13 hover:bg-surface-2"
             >
-              <td className={`${bodyCell} text-text-1`}>{issueLabel[r.issue_type]}</td>
-              <td className={bodyCell}>
+              <td className={`${table.bodyCell} text-text-1`}>{issueLabel[r.issue_type]}</td>
+              <td className={table.bodyCell}>
                 {/* 줄 전체를 누르면 상세(링크는 제목 하나, 나머지 칸은 덮개로) */}
                 <Link
                   href={`/admin/reviews/${encodeURIComponent(r.review_id)}`}
@@ -136,15 +125,15 @@ function ReviewTable({ reviews }: { reviews: Review[] }) {
                   {targetMeta(r.target_type, r.target_id, r.submitted_value)}
                 </span>
               </td>
-              <td className={`${bodyCell} text-text-2`}>{originLabel[r.origin]}</td>
-              <td className={`${bodyCell} truncate text-text-2`}>{r.reason}</td>
-              <td className={`${bodyCell} truncate text-text-2`}>{proposal(r)}</td>
-              <td className={bodyCell}>
+              <td className={`${table.bodyCell} text-text-2`}>{originLabel[r.origin]}</td>
+              <td className={`${table.bodyCell} truncate text-text-2`}>{r.reason}</td>
+              <td className={`${table.bodyCell} truncate text-text-2`}>{proposal(r)}</td>
+              <td className={table.bodyCell}>
                 <StatusBadge tone={statusBadge[r.status].tone}>
                   {statusBadge[r.status].label}
                 </StatusBadge>
               </td>
-              <td className={`${bodyCell} text-text-3`}>{dateTime(r.created_at)}</td>
+              <td className={`${table.bodyCell} text-text-3`}>{dateTime(r.created_at)}</td>
             </tr>
           ))}
         </tbody>
