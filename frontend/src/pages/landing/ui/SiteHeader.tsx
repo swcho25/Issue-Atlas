@@ -23,6 +23,7 @@ export function SiteHeader() {
   return (
     <header className={`${styles.site} ${scrolled ? styles.scrolled : ""} z-panel`}>
       <Link href="/" className={styles.brand} aria-label="Issue Atlas">
+        {/* 어두운 화면의 밝은 로고는 CSS 가 로고 색을 바꿔 끼운다(밝은 지도 위에서는 그대로) */}
         <AtlasMark className={styles.mark} />
         <span className={styles.wm} aria-hidden="true">
           <span>Issue Atlas</span>

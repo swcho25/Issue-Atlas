@@ -130,38 +130,52 @@
   --logo-highlight: #ffffff;
 }
 
-/* 랜딩 색(Figma 「02 · 로그인 · 랜딩」, 시제품 docs/design/landing-scroll). 밝은 화면 전용 디자인이라 어두운 모드 값을 두지 않는다 */
+/*
+ * 랜딩 색(Figma 「02 · 로그인 · 랜딩」, 시제품 docs/design/landing-scroll). 밝은 값은 시안에서 잰 값이다.
+ * 어두운 값은 Figma 시안이 없어 같은 차가운 회색 계열을 뒤집어 정했다(바탕 거의 검정 남색 · 글자 밝은 회색 · 데이터 남색은 밝게)
+ */
 :root {
-  /* 장면 바탕: 위 → 아래로 아주 옅게 푸른 흰색(시안에서 잰 값). bg-2 는 페이지 바탕 */
-  --landing-bg-0: #fafafe;
-  --landing-bg-1: #fafafd;
-  --landing-bg-2: #f7f8fc;
-  --landing-bg-3: #f6f8fc;
-  --landing-bg-4: #f5f6fd;
-  --landing-ink: #111318;
-  --landing-mast: #050608;
-  --landing-text-2: #5b606d;
-  --landing-text-3: #8a8f9c;
-  --landing-muted: #9aa0ac;
-  --landing-cue: #7b7f88;
-  --landing-place: #5a6b8c;
-  --landing-panel: #eef0f5;
-  --landing-chip: #f1f3f7;
-  --landing-chip-text: #7c8494;
-  --landing-hair: #e4e6ec;
-  --landing-caption: rgb(27 29 34 / 0.88);
-  --landing-surface: #ffffff;
-  /* 다크 값이 없는 랜딩 전용: 데이터 남색 · 앰버(누름 · 글자) · 경고 · 입력칸 선 · 로그인 창 뒤 막 */
-  --landing-navy: #2e4a7d;
+  /* 장면 바탕: 위 → 아래로 아주 옅게 푸른 흰색(어두우면 검정에 가까운 남색). bg-2 는 페이지 바탕 */
+  --landing-bg-0: light-dark(#fafafe, #0a0c11);
+  --landing-bg-1: light-dark(#fafafd, #0b0d12);
+  --landing-bg-2: light-dark(#f7f8fc, #0c0e13);
+  --landing-bg-3: light-dark(#f6f8fc, #0d1015);
+  --landing-bg-4: light-dark(#f5f6fd, #0e1117);
+  --landing-ink: light-dark(#111318, #eef0f5);
+  --landing-mast: light-dark(#050608, #f7f8fc);
+  --landing-text-2: light-dark(#5b606d, #a4aab6);
+  --landing-text-3: light-dark(#8a8f9c, #767d8b);
+  --landing-muted: light-dark(#9aa0ac, #646b78);
+  --landing-cue: light-dark(#7b7f88, #868c97);
+  --landing-panel: light-dark(#eef0f5, #151922);
+  --landing-chip: light-dark(#f1f3f7, #161a22);
+  --landing-chip-text: light-dark(#7c8494, #8d95a5);
+  --landing-hair: light-dark(#e4e6ec, #232833);
+  --landing-surface: light-dark(#ffffff, #141821);
+  /* 데이터 남색은 어두운 지도 위에서 밝게. 앰버(누름 · 글자) · 경고 · 입력칸 선 · 로그인 창 뒤 막 */
+  --landing-navy: light-dark(#2e4a7d, #9db7e8);
   --landing-amber: #ffb000;
   --landing-amber-hover: #e69e00;
-  --landing-amber-text: #9a6700;
-  --landing-alert: #c2412a;
-  --landing-field-line: #d6d6cf;
-  --landing-scrim: rgb(14 16 22 / 0.32);
-  /* 투명도와 함께 쓰는 r g b: rgb(var(--landing-ink-rgb) / 0.14) */
-  --landing-ink-rgb: 17 19 24;
-  --landing-bg-rgb: 247 248 252;
+  --landing-amber-text: light-dark(#9a6700, #ffc64d);
+  /* 앰버 위 글자는 테마와 상관없이 짙게(어두운 화면에서도 앰버 단추의 글자는 검정) */
+  --landing-on-amber: #111318;
+  /* 로고 글자(워드마크)는 로고 먹색, 어두운 화면에서는 로고 종이색 */
+  --landing-logo: light-dark(#252624, #f2efe7);
+  --landing-alert: light-dark(#c2412a, #ff8a73);
+  --landing-field-line: light-dark(#d6d6cf, #333a47);
+  --landing-scrim: light-dark(rgb(14 16 22 / 0.32), rgb(0 0 0 / 0.55));
+  /* 구름 뒤 안개(지구 → 지도 바꾸는 순간을 덮는다) · 그림자 */
+  --landing-fog: light-dark(#ffffff, #0e1117);
+  --landing-shadow: light-dark(#111318, #000000);
+  /* 유리 단추 안쪽 빛: 밝은 화면은 거의 흰색, 어두운 화면에서는 낮춘다 */
+  --landing-glass-hi: light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.32));
+  --landing-glass-lo: light-dark(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.12));
+  /* 도착 지도 위 표시: 지도는 어두운 화면에서도 밝은 지도(Liberty)라 테마와 상관없이 밝은 화면 값 그대로 */
+  --landing-map-place: #5a6b8c;
+  --landing-map-navy: #2e4a7d;
+  --landing-map-ink: #111318;
+  --landing-map-surface: #ffffff;
+  --landing-map-caption: rgb(27 29 34 / 0.88);
 }
 
 /*

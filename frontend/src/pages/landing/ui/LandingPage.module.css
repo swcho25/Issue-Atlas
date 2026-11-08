@@ -1,6 +1,7 @@
 /*
  * 랜딩(Figma 「02 · 로그인 · 랜딩」). 시제품 docs/design/landing-scroll 을 옮겼다 — 값의 이유는 그 폴더 README 표에 있다.
- * 밝은 화면 전용이라 다크 값이 없는 --landing-* 토큰만 쓴다.
+ * --landing-* 토큰만 쓴다(밝은 · 어두운 값은 globals.css). 도착 지도와 그 위 표시(--landing-map-*)는 테마와 상관없이 밝다.
+ * 테마를 따로 보는 곳은 지도 안개 색(journey.ts)과 구름 밝기뿐.
  */
 .page {
   background: var(--landing-bg-2);
@@ -177,15 +178,26 @@
   transform: translateZ(0);
 }
 
+/* 어두운 화면: 흰 구름이 밤하늘에서 튀지 않게 밝기를 낮춘다(테마를 고른 경우 · 고르지 않고 OS 가 어두운 경우) */
+:global(:root[data-theme="dark"]) .cloud {
+  filter: brightness(0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"])) .cloud {
+    filter: brightness(0.55);
+  }
+}
+
 .fog {
   position: absolute;
   inset: 0;
   background: radial-gradient(
     circle at 50% 50%,
-    white 0%,
-    white 45%,
-    rgb(255 255 255 / 0.85) 70%,
-    rgb(255 255 255 / 0.6) 100%
+    var(--landing-fog) 0%,
+    var(--landing-fog) 45%,
+    color-mix(in srgb, var(--landing-fog) 85%, transparent) 70%,
+    color-mix(in srgb, var(--landing-fog) 60%, transparent) 100%
   );
   opacity: 0;
   pointer-events: none;
@@ -225,7 +237,7 @@
 .marks :global(.place) {
   font-size: clamp(14px, 0.9vw, 18px);
   font-weight: 700;
-  color: var(--landing-place);
+  color: var(--landing-map-place);
   letter-spacing: 0.04em;
   white-space: nowrap;
   text-shadow:
@@ -237,13 +249,13 @@
 .marks :global(.place.city) {
   font-size: clamp(19px, 1.25vw, 25px);
   font-weight: 800;
-  color: var(--landing-navy);
+  color: var(--landing-map-navy);
 }
 
 .marks :global(.place.gu) {
   font-size: clamp(17px, 1.1vw, 22px);
   font-weight: 800;
-  color: var(--landing-navy);
+  color: var(--landing-map-navy);
   letter-spacing: 0.08em;
 }
 
@@ -262,8 +274,9 @@
   margin-bottom: 0.6em;
   padding: 0.6em 1.05em 0.6em 0.9em;
   border-radius: 999px;
-  background: var(--landing-surface);
+  background: var(--landing-map-surface);
   box-shadow: 0 4px 14px rgb(0 0 0 / 0.14);
+  color: var(--landing-map-ink);
   white-space: nowrap;
   font-size: clamp(15px, 1vw, 20px);
   font-weight: 500;
@@ -272,7 +285,7 @@
 .marks :global(.bubble b) {
   font-size: 0.86em;
   font-weight: 700;
-  color: var(--landing-navy);
+  color: var(--landing-map-navy);
 }
 
 .marks :global(.bubble)::after {
@@ -282,7 +295,7 @@
   left: 50%;
   width: 10px;
   height: 10px;
-  background: var(--landing-surface);
+  background: var(--landing-map-surface);
   transform: translateX(-50%) rotate(45deg);
 }
 
@@ -292,14 +305,14 @@
   height: var(--d);
   border: 4px solid white;
   border-radius: 50%;
-  background: var(--landing-navy);
+  background: var(--landing-map-navy);
   box-shadow:
     0 0 0 5px rgb(255 255 255 / 0.45),
     0 2px 10px rgb(0 0 0 / 0.28);
 }
 
 .marks :global(.dot.doc) {
-  border-color: var(--landing-navy);
+  border-color: var(--landing-map-navy);
   background: white;
 }
 
@@ -313,7 +326,7 @@
   bottom: 6vh;
   padding: 0.85em 1.5em;
   border-radius: 999px;
-  background: var(--landing-caption);
+  background: var(--landing-map-caption);
   color: white;
   font-weight: 700;
   font-size: clamp(16px, 1.05vw, 20px);
@@ -329,9 +342,9 @@
   top: 0;
   padding: 9vh 0 10vh;
   background: linear-gradient(
-    rgb(var(--landing-bg-rgb)) 0%,
-    rgb(var(--landing-bg-rgb) / 0.92) 55%,
-    rgb(var(--landing-bg-rgb) / 0) 100%
+    var(--landing-bg-2) 0%,
+    color-mix(in srgb, var(--landing-bg-2) 92%, transparent) 55%,
+    color-mix(in srgb, var(--landing-bg-2) 0%, transparent) 100%
   );
   text-align: center;
   opacity: 0;
@@ -366,6 +379,33 @@
   justify-content: space-between;
   align-items: center;
   pointer-events: none;
+}
+
+/*
+ * 헤더 색. 어두운 화면에서는 로고를 밝은 로고(paper)로 — 로고 토큰을 종이색으로 바꿔 끼운다.
+ * 다만 헤더가 밝은 도착 지도 위에 있을 때(<html data-landing-map>, journey.ts)는 테마와 상관없이 밝은 화면 색 그대로
+ */
+:global(:root[data-theme="dark"]:not([data-landing-map])) .site {
+  --logo-ink: var(--logo-paper);
+  --logo-clay-0: var(--logo-clay-paper-0);
+  --logo-clay-1: var(--logo-clay-paper-1);
+  --logo-clay-2: var(--logo-clay-paper-2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"]):not([data-landing-map])) .site {
+    --logo-ink: var(--logo-paper);
+    --logo-clay-0: var(--logo-clay-paper-0);
+    --logo-clay-1: var(--logo-clay-paper-1);
+    --logo-clay-2: var(--logo-clay-paper-2);
+  }
+}
+
+:global(:root[data-landing-map]) .site {
+  --landing-ink: #111318;
+  --landing-logo: #252624;
+  --landing-glass-hi: rgb(255 255 255 / 0.95);
+  --landing-glass-lo: rgb(255 255 255 / 0.3);
 }
 
 @media (max-width: 1279px) {
@@ -407,7 +447,7 @@
     400 21.6px / 1 var(--font-source-serif-4),
     serif;
   letter-spacing: -0.02em;
-  color: var(--logo-ink);
+  color: var(--landing-logo);
   white-space: nowrap;
   opacity: 0;
   transform: translateX(-104%);
@@ -446,13 +486,13 @@
   align-items: center;
   height: 36px;
   padding: 0 18px;
-  border: 1px solid rgb(var(--landing-ink-rgb) / 0.14);
+  border: 1px solid color-mix(in srgb, var(--landing-ink) 14%, transparent);
   border-radius: 999px;
   background: rgb(255 255 255 / 0.1);
   backdrop-filter: blur(6px) saturate(1.6);
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 0.95),
-    inset -1px -1px 0 rgb(255 255 255 / 0.3);
+    inset 1px 1px 0 var(--landing-glass-hi),
+    inset -1px -1px 0 var(--landing-glass-lo);
   color: var(--landing-ink);
   font-weight: 700;
   font-size: 13px;
@@ -556,8 +596,8 @@
   border-radius: 20px;
   background: var(--landing-surface);
   box-shadow:
-    0 0 0 1px rgb(var(--landing-ink-rgb) / 0.06),
-    0 40px 80px -40px rgb(var(--landing-ink-rgb) / 0.35);
+    0 0 0 1px color-mix(in srgb, var(--landing-ink) 6%, transparent),
+    0 40px 80px -40px color-mix(in srgb, var(--landing-shadow) 35%, transparent);
 }
 
 .screen img {
@@ -601,7 +641,7 @@
   height: 3px;
   overflow: hidden;
   border-radius: 3px;
-  background: rgb(var(--landing-ink-rgb) / 0.1);
+  background: color-mix(in srgb, var(--landing-ink) 10%, transparent);
 }
 
 .bar i {
@@ -741,7 +781,7 @@
   padding: 0 18px;
   border-radius: 999px;
   background: var(--landing-amber);
-  color: var(--landing-ink);
+  color: var(--landing-on-amber);
 }
 
 .verdict b {
@@ -894,7 +934,7 @@
   border: 0;
   border-radius: 999px;
   background: var(--landing-amber);
-  color: var(--landing-ink);
+  color: var(--landing-on-amber);
   font:
     800 16px var(--font-gothic-a1),
     sans-serif;
@@ -927,12 +967,20 @@
 
 .places::before {
   left: 0;
-  background: linear-gradient(90deg, rgb(var(--landing-bg-rgb)), rgb(var(--landing-bg-rgb) / 0));
+  background: linear-gradient(
+    90deg,
+    var(--landing-bg-2),
+    color-mix(in srgb, var(--landing-bg-2) 0%, transparent)
+  );
 }
 
 .places::after {
   right: 0;
-  background: linear-gradient(270deg, rgb(var(--landing-bg-rgb)), rgb(var(--landing-bg-rgb) / 0));
+  background: linear-gradient(
+    270deg,
+    var(--landing-bg-2),
+    color-mix(in srgb, var(--landing-bg-2) 0%, transparent)
+  );
 }
 
 .row {
@@ -996,7 +1044,7 @@
   max-width: 1036px;
   margin: 145px auto 0;
   padding: 32px 20px 64px;
-  border-top: 1px solid rgb(var(--landing-ink-rgb) / 0.08);
+  border-top: 1px solid color-mix(in srgb, var(--landing-ink) 8%, transparent);
 }
 
 .foot small {
