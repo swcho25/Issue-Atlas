@@ -55,8 +55,7 @@ async function ImportContent({ params }: { params: Promise<{ id: string }> }) {
           <div className="flex min-w-0 flex-col gap-1.5">
             <h1 className="text-heading-24 break-all text-text-1">{r.file_name}</h1>
             <p className="text-body-13 text-text-3">
-              {who(r.requested_by)} → {who(r.assignee_id)} · {dateTime(r.created_at)} · 양식{" "}
-              {r.template_version} · {r.file_sha256.slice(0, 12)}
+              {who(r.requested_by)} → {who(r.assignee_id)} · {dateTime(r.created_at)}
             </p>
           </div>
           <StatusBadge tone={importBadge[r.status].tone}>{importBadge[r.status].label}</StatusBadge>
