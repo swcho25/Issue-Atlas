@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ApiError, type Argument } from "@/shared/api";
 import { GlassIconButton } from "@/shared/ui/button";
 
-import { rerunQuestion } from "../../api/rerun";
+import { rerunResult } from "../../api/rerun";
 import { cardRefs } from "../../model/footnotes";
 import { copyIcon, useCopy } from "../copy/useCopy";
 import { useCardFootnotes } from "../copy/useCardFootnotes";
@@ -24,7 +24,7 @@ const failureText = (e: unknown) =>
 /**
  * 04 지도 오른쪽 위 유리 아이콘(Figma Actions · 유리 아이콘: 오른쪽 16 · 위 20, Glass/Icon button 40 · 사이 8).
  * - 각주 복사: 카드 근거 각주를 한 번에(논증 탭 「각주 전체 복사」와 같은 글). 근거가 없으면 꺼진다
- * - 다시 실행: 같은 지역 · 카드 · 기간으로 새 실행을 만들고 새 결과로 간다. 카드 밖 질문이면 꺼진다.
+ * - 다시 실행: 같은 질문의 새 회차를 만들고(남이 물은 질문이면 같은 지역 · 카드 · 기간의 새 질문) 새 결과로 간다. 카드 밖 질문이면 꺼진다.
  *   실행이 끝나야 응답이 와서 그동안 아이콘이 돈다. 실패하면 아래에 알림
  * Figma 의 저장(bookmark)은 받을 API 가 없어 아직 두지 않는다
  */
@@ -35,7 +35,7 @@ export function GlassActions({ argument }: { argument: Argument }) {
   const router = useRouter();
   const [failure, setFailure] = useState<string | null>(null);
   const rerun = useMutation({
-    mutationFn: () => rerunQuestion(argument),
+    mutationFn: () => rerunResult(argument),
     onSuccess: (created) => router.push(`/results/${created.run_id}`),
     onError: (e) => {
       // 세션이 끝났으면 랜딩으로 — 다시 로그인한다(새 질문 화면과 같다)

@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
 import { claimBadge } from "@/entities/argument";
+import { rerunQuestion } from "@/features/rerun-question";
 import { ApiError, type MyQuestion } from "@/shared/api";
 import { StatusBadge } from "@/shared/ui/badge";
 import { Button, buttonClass } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 
-import { rerunQuestion } from "../api/queries";
 import { questionMeta, questionTitle } from "../model/text";
 import { ComparePanel } from "./ComparePanel";
 

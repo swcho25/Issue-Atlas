@@ -29,12 +29,17 @@ describe("GlassActions", () => {
     document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
   });
 
-  it("다시 실행은 같은 지역 · 카드 · 기간으로 질문을 보내고 새 결과로 간다", async () => {
-    let body: Record<string, unknown> = {};
+  it("다시 실행은 같은 질문의 새 회차를 만들고(POST /v1/questions/{id}/runs) 새 결과로 간다", async () => {
+    let rerunOf: string | undefined;
+    let asked = false;
     mswServer.use(
-      http.post("*/api/v1/questions", async ({ request }) => {
-        body = (await request.json()) as Record<string, unknown>;
+      http.post("*/api/v1/questions/:id/runs", ({ params }) => {
+        rerunOf = params.id as string;
         return HttpResponse.json({ ...created, run_id: "run_new" }, { status: 201 });
+      }),
+      http.post("*/api/v1/questions", () => {
+        asked = true;
+        return HttpResponse.json(created, { status: 201 });
       }),
     );
     const user = userEvent.setup();
@@ -42,6 +47,24 @@ describe("GlassActions", () => {
     await user.click(screen.getByRole("button", { name: "다시 실행" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/results/run_new"));
+    expect(rerunOf).toBe(ready.question.question_id);
+    expect(asked).toBe(false);
+  });
+
+  it("남이 물은 질문이라 회차를 못 만들면(404) 같은 지역 · 카드 · 기간으로 새 질문을 만든다", async () => {
+    let body: Record<string, unknown> = {};
+    mswServer.use(
+      http.post("*/api/v1/questions/:id/runs", () => new HttpResponse(null, { status: 404 })),
+      http.post("*/api/v1/questions", async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ ...created, run_id: "run_mine" }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithQuery(<GlassActions argument={ready} />);
+    await user.click(screen.getByRole("button", { name: "다시 실행" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/results/run_mine"));
     expect(body).toEqual({
       place_id: "kr-12130",
       card_id: "C1",
@@ -51,20 +74,30 @@ describe("GlassActions", () => {
     });
   });
 
-  it("요청 제한(429)이면 새 결과로 가지 않고 알림을 띄운다", async () => {
-    mswServer.use(http.post("*/api/v1/questions", () => new HttpResponse(null, { status: 429 })));
+  it("요청 제한(429)이면 새 질문으로 돌리지 않고 알림을 띄운다", async () => {
+    let asked = false;
+    mswServer.use(
+      http.post("*/api/v1/questions/:id/runs", () => new HttpResponse(null, { status: 429 })),
+      http.post("*/api/v1/questions", () => {
+        asked = true;
+        return HttpResponse.json(created, { status: 201 });
+      }),
+    );
     const user = userEvent.setup();
     renderWithQuery(<GlassActions argument={ready} />);
     await user.click(screen.getByRole("button", { name: "다시 실행" }));
 
     expect(await screen.findByText("요청이 많아요. 1분 뒤 다시 실행해 주세요")).toBeVisible();
     expect(push).not.toHaveBeenCalled();
+    expect(asked).toBe(false);
     // 다시 누를 수 있다
     expect(screen.getByRole("button", { name: "다시 실행" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("세션이 끝났으면(401) 랜딩으로 보낸다", async () => {
-    mswServer.use(http.post("*/api/v1/questions", () => new HttpResponse(null, { status: 401 })));
+    mswServer.use(
+      http.post("*/api/v1/questions/:id/runs", () => new HttpResponse(null, { status: 401 })),
+    );
     const user = userEvent.setup();
     renderWithQuery(<GlassActions argument={ready} />);
     await user.click(screen.getByRole("button", { name: "다시 실행" }));
