@@ -9,7 +9,8 @@ import { type ApprovalDetail, approvalDetailSchema } from "../model/schema";
 import { ApprovalActions } from "./ApprovalActions";
 
 const refresh = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, replace }) }));
 
 // dev 의 GET /v1/admin/approval-requests/{id} 와 같은 모양(contracts/c3 ApprovalDetail)
 const request = {
@@ -48,6 +49,7 @@ describe("ApprovalActions", () => {
   afterEach(() => {
     cleanup();
     refresh.mockReset();
+    replace.mockReset();
     document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
   });
 
@@ -57,7 +59,7 @@ describe("ApprovalActions", () => {
     expect(button("승인 · 카드 공개")).toBeDisabled();
   });
 
-  it("승인자는 사유를 적어야 처리하고, 요청 번호를 expected_revision 으로 보낸다", async () => {
+  it("승인자는 사유를 적어야 처리하고, 요청 번호를 expected_revision 으로 보낸 뒤 새 상태 칸으로", async () => {
     let body: unknown = null;
     mswServer.use(
       http.post("*/api/v1/admin/approval-requests/:id/decisions", async ({ request: req }) => {
@@ -69,7 +71,9 @@ describe("ApprovalActions", () => {
     expect(button("보류")).toBeDisabled();
     await userEvent.type(screen.getByRole("textbox"), " 근거 확인 필요 ");
     await userEvent.click(button("보류"));
-    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith("/admin/cards?status=on_hold&id=approval_1"),
+    );
     expect(body).toEqual({ expected_revision: 3, decision: "hold", reason: "근거 확인 필요" });
   });
 

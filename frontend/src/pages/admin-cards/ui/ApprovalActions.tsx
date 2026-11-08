@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { ApiError } from "@/shared/api";
+import { href } from "@/shared/lib/url";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 
@@ -12,7 +13,7 @@ import { decideApproval } from "../api/decide";
 import type { ApprovalDetail, Decision } from "../model/schema";
 
 // 승인 요청 처리(Figma 「카드 승인」 아래 보류 · 반려 · 승인). 지정 승인자만 처리할 수 있다(그 밖은 403).
-// 같은 보류를 되풀이하면 409 라 보류 중에는 보류를 끈다. 처리하면 상세의 요청 번호가 바뀌어 새로 그린다(key = revision)
+// 같은 보류를 되풀이하면 409 라 보류 중에는 보류를 끈다. 처리하면 그 요청의 새 상태 칸으로 옮겨 목록에서 놓치지 않게 한다
 const MAX_REASON = 2000;
 
 const failText = (e: unknown) => {
@@ -31,9 +32,16 @@ export function ApprovalActions({ detail, meId }: { detail: ApprovalDetail; meId
   const r = detail.request;
   const decide = useMutation({
     mutationFn: (d: Decision) => decideApproval(detail, d, reason),
-    onSuccess: () => {
+    onSuccess: (next) => {
       setReason("");
-      startRefresh(() => router.refresh());
+      startRefresh(() =>
+        router.replace(
+          href("/admin/cards", {
+            status: next.status === "pending" ? null : next.status,
+            id: next.request_id,
+          }),
+        ),
+      );
     },
     onError: (e) => {
       if (e instanceof ApiError && e.status === 409) startRefresh(() => router.refresh());
