@@ -47,6 +47,17 @@ const evidenceRow = z.object({
 
 const condition = z.object({ passed: z.boolean().nullable(), note: textOrNull });
 
+/**
+ * 카드 적용 조건 한 줄(C2 v1, 카드 양식 B6). condition = 승인본 칸 이름(place_level · min_complete_years · min_stations · population),
+ * label = 화면 문구, passed = true 충족 · false 못 채움 · null 확인 못 함 또는 표시만, note 예 「2개(2024–2025)」
+ */
+const applicabilityItem = z.object({
+  condition: z.string().regex(/^[a-z][a-z0-9_]*$/),
+  label: z.string().min(1),
+  passed: z.boolean().nullable(),
+  note: textOrNull,
+});
+
 const qualifierComponents = z.object({
   a_grade_sources: z.number().int().min(0),
   ab_grade_sources: z.number().int().min(0),
@@ -114,6 +125,8 @@ const argumentObject = z.object({
   created_at: dateTime,
   /** 근거 수요표. 판단보다 먼저 보여준다(FR-B2). 항상 4행 */
   evidence_table: z.array(evidenceRow).length(4),
+  /** 카드 적용 조건(C2 v1). 카드 계약 칸 순서. 카드 · 승인본이 없거나 C2 v1 전에 저장된 실행이면 빈 배열 */
+  applicability: z.array(applicabilityItem),
   /** 비교 조건 4가지. 하나라도 false 면 증가 · 감소를 낼 수 없다(FR-C4) */
   comparability: z.object({
     same_indicator: condition,
@@ -123,6 +136,11 @@ const argumentObject = z.object({
   }),
   claim: z.object({
     value: claimValue,
+    /**
+     * 판단 배지 글자 = 카드 결과 이름(「청년 순유출 확대」 · 「비교 불가」, C2 v1). 판정하지 않은 실행(blocked · unsupported)은 null.
+     * ready · partial 인데 null 이면 C2 v1 전에 저장된 실행 — 화면은 이전 배지(claim.value)로 대신한다
+     */
+    label: z.string().min(1).nullable(),
     level: claimLevel,
     text: textOrNull,
     provenance: ruleProvenance,
@@ -164,12 +182,18 @@ export const argumentSchema = argumentObject.superRefine((a, ctx) => {
       fail(["run_status"], "card_id 가 null 이면 run_status 는 unsupported");
     if (a.card_version !== null)
       fail(["card_version"], "card_id 가 null 이면 card_version 도 null");
+    if (a.applicability.length)
+      fail(["applicability"], "card_id 가 null 이면 applicability 는 빈 배열");
   }
-  if (
-    (a.run_status === "blocked" || a.run_status === "unsupported") &&
-    a.claim.value !== "insufficient"
-  )
-    fail(["claim", "value"], `run_status ${a.run_status} 이면 claim 은 insufficient`);
+  if (a.run_status === "blocked" || a.run_status === "unsupported") {
+    if (a.claim.value !== "insufficient")
+      fail(["claim", "value"], `run_status ${a.run_status} 이면 claim 은 insufficient`);
+    if (a.claim.label !== null)
+      fail(["claim", "label"], `run_status ${a.run_status} 이면 claim.label 은 null`);
+  }
+  // 카드 적용 조건을 하나라도 못 채우면 실행하지 않는다(양식 B6)
+  if (a.applicability.some((c) => c.passed === false) && a.run_status !== "unsupported")
+    fail(["run_status"], "적용 조건에 passed false 가 있으면 run_status 는 unsupported");
   if (a.claim.value === "increasing" || a.claim.value === "decreasing") {
     for (const [key, cond] of Object.entries(a.comparability))
       if (cond.passed !== true)

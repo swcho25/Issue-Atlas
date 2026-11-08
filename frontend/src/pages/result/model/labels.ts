@@ -39,6 +39,24 @@ export const runStatusInfo: Record<RunStatus, { tone: StatusTone; legend: string
   unsupported: { tone: "gray", legend: "카드 조건 밖 · 카드 없음" },
 };
 
+/**
+ * 판단 배지(C2 v1): 글자는 API 의 claim.label 그대로(카드 결과 이름 「청년 순유출 확대」), 색은 claim.value 로.
+ * label 이 null 이면 판정하지 않은 실행 — blocked 「자료 부족」 · unsupported 「근거 부족」(Figma 08, 회색).
+ * ready · partial 인데 null 이면 C2 v1 전에 저장된 실행이라 이전 배지(증가 · 감소 …)로 대신한다(계약 c2 README)
+ */
+export function judgmentBadge({ claim, run_status }: Argument): {
+  tone: StatusTone;
+  label: string;
+} {
+  if (claim.label) return { tone: claimBadge[claim.value].tone, label: claim.label };
+  if (run_status === "blocked") return { tone: "gray", label: "자료 부족" };
+  if (run_status === "unsupported") return { tone: "gray", label: "근거 부족" };
+  return claimBadge[claim.value];
+}
+
+/** 못 채운 카드 적용 조건(C2 v1, passed false). 하나라도 있으면 unsupported */
+export const unmetConditions = (a: Argument) => a.applicability.filter((c) => c.passed === false);
+
 /** 비교 조건 4가지(FR-C4) */
 export const comparabilityLabel = {
   same_indicator: "같은 지표",

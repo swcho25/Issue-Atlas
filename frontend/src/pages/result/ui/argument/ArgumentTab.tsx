@@ -6,7 +6,7 @@ import { ProvBadge, StatusBadge } from "@/shared/ui/badge";
 import { Icon } from "@/shared/ui/icon";
 
 import {
-  claimBadge,
+  judgmentBadge,
   claimLevelLabel,
   evidenceKindShort,
   provKind,
@@ -80,7 +80,7 @@ function qualifierNote(c: Argument["qualifier"]["components"]) {
 export function ArgumentTab({ argument }: { argument: Argument }) {
   const { claim, data, warrant, qualifier, rebuttals, ceiling } = argument;
   const judged = claim.value !== "insufficient";
-  const badge = claimBadge[claim.value];
+  const badge = judgmentBadge(argument);
   const grade = qualifierGrade[qualifier.grade];
   const refs = cardRefs(argument);
   // 칸 메뉴: 원문 보기는 원문 탭(근거 칸은 첫 근거를 고른 채로), 각주 복사는 카드 각주, 오류 신고는 이 칸
