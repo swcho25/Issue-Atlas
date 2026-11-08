@@ -90,22 +90,6 @@ export const revisionsSchema = z.array(
 );
 export type Revision = z.infer<typeof revisionsSchema>[number];
 
-export const userPageSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.number().int(),
-      email: z.string(),
-      name: z.string(),
-      role: z.string(),
-      is_active: z.boolean(),
-    }),
-  ),
-  page: z.number().int(),
-  size: z.number().int(),
-  total: z.number().int(),
-});
-export type AdminUser = z.infer<typeof userPageSchema>["items"][number];
-
 export const versionSchema = z.object({
   card_id: z.string(),
   version: z.number().int(),

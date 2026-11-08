@@ -6,8 +6,9 @@ import { href } from "@/shared/lib/url";
 import { StatusBadge } from "@/shared/ui/badge";
 import { BackIcon, backButtonClass } from "@/shared/ui/button";
 
+import { getAdmins } from "@/entities/admin-user";
+
 import {
-  getAdmins,
   getCardApprovals,
   getCardChecks,
   getCardDraft,
