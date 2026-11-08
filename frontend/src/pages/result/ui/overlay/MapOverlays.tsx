@@ -14,7 +14,7 @@ import {
   stationPoints,
   stationSeries,
 } from "../../model/distribution";
-import { claimBadge } from "../../model/labels";
+import { judgmentBadge } from "../../model/labels";
 import { openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
 import { ChangeSheet } from "./ChangeSheet";
@@ -150,7 +150,7 @@ function TypeSwitch({
  * 점(앰버) · 결과 한 줄 · 「근거 수요표」(글자 버튼) · 「논증 카드 보기」(키 컬러 M 36)
  */
 function ResultBar({ argument, summary }: { argument: Argument; summary?: string }) {
-  const { question, claim } = argument;
+  const { question } = argument;
   const base = summaryHref(argument.run_id);
   return (
     <nav
@@ -161,7 +161,7 @@ function ResultBar({ argument, summary }: { argument: Argument; summary?: string
       <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-primary/80" />
       <p className="min-w-0 flex-1 truncate text-title-14 text-text-1">
         {summary ??
-          [question.place_name, question.card_name, claimBadge[claim.value].label]
+          [question.place_name, question.card_name, judgmentBadge(argument).label]
             .filter(Boolean)
             .join(" · ")}
       </p>
