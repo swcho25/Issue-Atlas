@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { Argument } from "@/shared/api";
 import { Icon } from "@/shared/ui/icon";
 
+import { articleMarks } from "../../model/articles";
 import {
   defaultMonth,
   distributionMonths,
@@ -17,6 +18,7 @@ import {
 import { judgmentBadge } from "../../model/labels";
 import { openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
+import { ArticleDots, ArticleLegend } from "./ArticleDots";
 import { ChangeSheet } from "./ChangeSheet";
 import { DistributionLegend } from "./DistributionLegend";
 import { GlassActions } from "./GlassActions";
@@ -38,6 +40,9 @@ export function MapOverlays({ argument }: { argument: Argument }) {
   const unit = stations[0]?.unit ?? null;
   const distribution = view === "distribution" && month !== null;
 
+  // 변화형 위 기사 점
+  const articles = useMemo(() => articleMarks(argument), [argument]);
+
   return (
     <>
       <TypeSwitch enabled={enabled} current={view} onChange={setView} />
@@ -55,11 +60,25 @@ export function MapOverlays({ argument }: { argument: Argument }) {
         </>
       )}
       {view === "change" && (
-        <div
-          className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
-        >
-          <ChangeSheet argument={argument} />
-        </div>
+        <>
+          <div
+            className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
+          >
+            <ChangeSheet argument={argument} />
+          </div>
+          {/* 순이동 막대 + 기사 점(Figma 「변화형 · 청년 유출」). 범례는 유리 아이콘 아래(오른쪽 16 · 위 72) */}
+          {(articles.dots.length > 0 || articles.groups.length > 0) && (
+            <>
+              <ArticleDots dots={articles.dots} groups={articles.groups} />
+              <div className="absolute top-[72px] right-4 z-control">
+                <ArticleLegend
+                  hasDots={articles.dots.length > 0}
+                  hasGroups={articles.groups.length > 0}
+                />
+              </div>
+            </>
+          )}
+        </>
       )}
       <div
         className={`pointer-events-none absolute right-0 bottom-6 ${FREE_LEFT} z-control flex justify-center`}
