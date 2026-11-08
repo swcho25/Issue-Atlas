@@ -5,24 +5,25 @@ import { useEffect, useRef, useState } from "react";
 
 import styles from "./LandingPage.module.css";
 
+// 실제 결과 화면(dev 데이터 · 여수시 청년 유출·정착)을 1600 × 900 으로 찍은 것. 어두운 화면에서는 같은 장면의 다크 캡처를 보인다
 const SHOTS = [
   {
     title: "지도로 보기",
-    text: "측정소와 기사가 놓인 지도에서 시점을 옮겨 가며 보세요",
-    src: "/landing/screen-map.webp",
-    alt: "광주 대기질 결과 — 측정소 점이 놓인 지도와 월별 막대",
+    text: "고른 지역 경계 위에서 해마다의 값과 판단을 함께 봐요",
+    src: "/landing/tour-map",
+    alt: "여수시 청년 유출·정착 결과 — 왼쪽 카드에 근거 4종과 판단, 지도 위에 여수시 경계와 3년 순이동 막대",
   },
   {
     title: "근거와 판단",
-    text: "근거 4종이 있는지 먼저 보고, 판단은 그다음에 확인해요",
-    src: "/landing/screen-judge.webp",
-    alt: "여수시 청년 유출 결과 — 왼쪽 카드에 근거 4종과 판단, 지도 위에 3년 순이동 막대",
+    text: "판단 하나마다 근거 · 보증 · 반박을 한 장에 붙여 둬요",
+    src: "/landing/tour-judge",
+    alt: "논증 카드 — 판단 · 근거 4종 · 보증 · 근거 충실도 · 반박 · 말하지 않는 것",
   },
   {
     title: "원문까지",
-    text: "점을 누르면 근거, 한 번 더 누르면 원문과 각주예요",
-    src: "/landing/screen-source.webp",
-    alt: "측정소를 누르면 열리는 상세 창 — 값의 근거 3건과 원문 · 각주 복사",
+    text: "근거를 누르면 원문 위치와 각주가 열리고, 바로 복사돼요",
+    src: "/landing/tour-source",
+    alt: "원문 탭 — 여수시 보도자료 근거의 원문 위치와 각주 복사 · 원문 사이트 열기",
   },
 ];
 
@@ -45,17 +46,19 @@ export function Tour() {
   return (
     <div ref={root} className={`${styles.tour} ${paused ? styles.paused : ""}`}>
       <div className={styles.screen}>
-        {SHOTS.map((s, i) => (
-          <Image
-            key={s.src}
-            className={i === current ? styles.on : undefined}
-            src={s.src}
-            width={1600}
-            height={900}
-            alt={s.alt}
-            aria-hidden={i !== current}
-          />
-        ))}
+        {SHOTS.flatMap((s, i) =>
+          (["light", "dark"] as const).map((theme) => (
+            <Image
+              key={`${s.src}-${theme}`}
+              className={`${styles[theme]} ${i === current ? styles.on : ""}`}
+              src={`${s.src}${theme === "dark" ? "-dark" : ""}.webp`}
+              width={1600}
+              height={900}
+              alt={s.alt}
+              aria-hidden={i !== current}
+            />
+          )),
+        )}
       </div>
       <div className={styles.tabs} role="tablist" aria-label="결과 화면 둘러보기">
         {SHOTS.map((s, i) => (

@@ -622,6 +622,29 @@
   opacity: 1;
 }
 
+/* 화면 테마에 맞는 캡처만 보인다(테마를 고른 경우 · 고르지 않고 OS 가 어두운 경우). 숨긴 쪽은 늦게 읽기라 받지 않는다 */
+.screen img.dark {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .screen img.light {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .screen img.dark {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"])) .screen img.light {
+    display: none;
+  }
+
+  :global(:root:not([data-theme="light"])) .screen img.dark {
+    display: block;
+  }
+}
+
 .tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
