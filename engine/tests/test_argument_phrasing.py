@@ -47,6 +47,7 @@ def a3():
     record["comparability"]["same_boundary"] = {"passed": True, "note": "같은 측정소끼리만 비교"}
     record["claim"] = {
         "value": "decreasing",
+        "label": "개선",
         "level": "calculated",
         "text": "여수시의 측정소 1곳에서 2023–2025 초미세먼지(PM2.5) 연평균이 개선.",
         "provenance": "rule",

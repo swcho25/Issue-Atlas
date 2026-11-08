@@ -5,6 +5,8 @@ import com.c108.issueatlas.user.dto.CreateUserRequest;
 import com.c108.issueatlas.user.dto.UpdateUserRequest;
 import com.c108.issueatlas.user.dto.UserResponse;
 import com.c108.issueatlas.user.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /** 관리자 전용. 권한은 경로({@code /v1/admin/**})로 보안 필터 체인 한 곳에서만 판정한다. */
+@Tag(name = "admin")
 @RestController
 @RequestMapping("/v1/admin/users")
 public class AdminUserController {
@@ -29,6 +32,7 @@ public class AdminUserController {
         this.users = users;
     }
 
+    @Operation(summary = "관리자 목록 (role=ADMIN, is_active=true 만)")
     @GetMapping
     public AdminUserPage list(
             @RequestParam(defaultValue = "ADMIN") String role,
@@ -40,6 +44,7 @@ public class AdminUserController {
         return users.activeAdministrators(page, size);
     }
 
+    @Operation(summary = "사용자 만들기")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse create(@Valid @RequestBody CreateUserRequest request, Principal actor) {
@@ -52,6 +57,7 @@ public class AdminUserController {
                         actor.getName()));
     }
 
+    @Operation(summary = "사용자 활성 · 비활성")
     @PatchMapping("/{id}")
     public UserResponse update(
             @PathVariable long id, @Valid @RequestBody UpdateUserRequest request, Principal actor) {

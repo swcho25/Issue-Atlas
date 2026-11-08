@@ -21,6 +21,11 @@
     { "kind": "existing_responses", "required": false, "status": "available", "count": 1, "review_pending_count": 0, "reason": null },
     { "kind": "denominators", "required": false, "status": "not_collected", "count": 0, "review_pending_count": 0, "reason": "기상(강수·풍향) 자료는 수집하지 않습니다." }
   ],
+  "applicability": [
+    { "condition": "place_level", "label": "시군구 단위", "passed": true, "note": "여수시(시군구)" },
+    { "condition": "min_complete_years", "label": "완전한 연 값 3개 이상", "passed": true, "note": "3개(2023–2025)" },
+    { "condition": "min_stations", "label": "측정소 1곳 이상", "passed": true, "note": "측정소 9곳" }
+  ],
   "comparability": {
     "same_indicator": { "passed": true, "note": "PM2.5 연평균 (µg/m³)" },
     "same_period_length": { "passed": true, "note": "연, 유효 월 9개 이상" },
@@ -32,6 +37,7 @@
   },
   "claim": {
     "value": "not_comparable",
+    "label": "비교 불가",
     "level": "observed_fact",
     "text": "여수시 측정소 9곳의 2023–2025 PM2.5 관측값은 있지만, 측정 위치가 같은지 확인되지 않아 증가·감소를 말하지 않습니다.",
     "provenance": "rule"

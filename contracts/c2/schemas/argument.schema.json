@@ -50,6 +50,11 @@
         "additionalProperties": false
       }
     },
+    "applicability": {
+      "description": "카드 적용 조건(양식 B6)을 조건마다 확인한 결과(C2 v1). 카드 계약(card.schema.json) applicability 의 칸 순서(모르는 칸은 뒤). 카드 · 승인본이 없으면 빈 배열. 하나라도 passed false 면 run_status 는 unsupported. 이 칸 전에 저장된 실행은 빈 배열",
+      "type": "array",
+      "items": { "$ref": "#/$defs/applicability_item" }
+    },
     "comparability": {
       "description": "비교 조건 4가지. 하나라도 false 면 increasing/decreasing 을 낼 수 없다 (FR-C4)",
       "type": "object",
@@ -66,11 +71,16 @@
       "type": "object",
       "properties": {
         "value": { "$ref": "common.schema.json#/$defs/claim" },
+        "label": {
+          "description": "판단 배지 글자 = 승인본 rule.outcomes[].label(카드 결과 이름, 예: 청년 순유출 확대 · 비교 불가). 판정하지 않은 실행(blocked · unsupported)은 null — 화면은 run_status 로 「자료 부족」 · 「근거 부족」. 이 칸 전에 저장된 실행도 null(ready · partial 이면 화면은 이전 배지로 대신) (C2 v1)",
+          "type": ["string", "null"],
+          "minLength": 1
+        },
         "level": { "$ref": "common.schema.json#/$defs/claim_level" },
         "text": { "$ref": "common.schema.json#/$defs/text_or_null" },
         "provenance": { "$ref": "common.schema.json#/$defs/rule_provenance" }
       },
-      "required": ["value", "level", "text", "provenance"],
+      "required": ["value", "label", "level", "text", "provenance"],
       "additionalProperties": false
     },
     "data": {
@@ -187,6 +197,7 @@
     "run_status",
     "created_at",
     "evidence_table",
+    "applicability",
     "comparability",
     "claim",
     "data",
@@ -201,11 +212,31 @@
   "allOf": [
     {
       "if": { "properties": { "question": { "properties": { "card_id": { "const": null } } } } },
-      "then": { "properties": { "run_status": { "const": "unsupported" }, "card_version": { "const": null } } }
+      "then": {
+        "properties": {
+          "run_status": { "const": "unsupported" },
+          "card_version": { "const": null },
+          "applicability": { "maxItems": 0 }
+        }
+      }
     },
     {
       "if": { "properties": { "run_status": { "enum": ["blocked", "unsupported"] } } },
-      "then": { "properties": { "claim": { "properties": { "value": { "const": "insufficient" } } } } }
+      "then": {
+        "properties": {
+          "claim": { "properties": { "value": { "const": "insufficient" }, "label": { "const": null } } }
+        }
+      }
+    },
+    {
+      "description": "카드 적용 조건을 하나라도 못 채우면 실행하지 않는다(양식 B6)",
+      "if": {
+        "properties": {
+          "applicability": { "contains": { "properties": { "passed": { "const": false } }, "required": ["passed"] } }
+        },
+        "required": ["applicability"]
+      },
+      "then": { "properties": { "run_status": { "const": "unsupported" } } }
     },
     {
       "if": {
@@ -272,6 +303,28 @@
         "url": { "type": ["string", "null"], "format": "uri" }
       },
       "required": ["id", "date", "place_id", "point", "precision", "summary", "place_name", "url"],
+      "additionalProperties": false
+    },
+    "applicability_item": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "description": "승인본 applicability 의 칸 이름(place_level · min_complete_years · min_stations · population). README 「적용 조건」",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "label": {
+          "description": "화면 문구(예: 시군구 단위 · 완전한 연 값 3개 이상 · 대상: 청년 19–39세)",
+          "type": "string",
+          "minLength": 1
+        },
+        "passed": {
+          "description": "true 충족 · false 못 채움 · null 확인하지 못함(판정 전에 멈춤) 또는 표시만 하는 조건(대상)",
+          "type": ["boolean", "null"]
+        },
+        "note": { "$ref": "common.schema.json#/$defs/text_or_null" }
+      },
+      "required": ["condition", "label", "passed", "note"],
       "additionalProperties": false
     },
     "condition": {

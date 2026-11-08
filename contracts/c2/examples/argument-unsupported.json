@@ -21,6 +21,7 @@
     { "kind": "existing_responses", "required": false, "status": "not_collected", "count": 0, "review_pending_count": 0, "reason": "카드가 없어 근거를 정하지 않았습니다." },
     { "kind": "denominators", "required": false, "status": "not_collected", "count": 0, "review_pending_count": 0, "reason": "카드가 없어 근거를 정하지 않았습니다." }
   ],
+  "applicability": [],
   "comparability": {
     "same_indicator": { "passed": null, "note": "판단하지 않아 검사하지 않음" },
     "same_period_length": { "passed": null, "note": "판단하지 않아 검사하지 않음" },
@@ -29,6 +30,7 @@
   },
   "claim": {
     "value": "insufficient",
+    "label": null,
     "level": "insufficient_evidence",
     "text": "목록에 없는 질문이라 신규 카드 후보로 저장했습니다. 판단하지 않습니다.",
     "provenance": "rule"
