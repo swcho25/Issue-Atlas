@@ -106,6 +106,9 @@ export function stationPoints(series: PlaceSeries[], month: string): StationPoin
   });
 }
 
+/** 상세 창 값: 소수 첫째 자리까지(유리 바 한 줄은 정수로 줄이지만, 창은 그 측정소 값을 본다) */
+export const stationValueText = (v: number) => String(Math.round(v * 10) / 10);
+
 /** 결측 점 이름표: 「서강동 · 미공표」 */
 export const missingLabel = (p: StationPoint) =>
   `${p.name} · ${p.status === "available" ? "값 없음" : evidenceStatusBadge[p.status].label}`;
