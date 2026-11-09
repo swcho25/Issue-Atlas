@@ -144,7 +144,7 @@ class SelectionTests(unittest.TestCase):
         fe = {"frontend", "frontend-image", "frontend-deploy"}
         be = {"backend", "backend-image", "backend-deploy"}
         collector = {"engine", "collector-image", "collector-deploy"}
-        # The phrasing API deploys to development only (243); main never builds it.
+        # Phrasing API deployments are isolated by environment on develop and main (315).
         api = {"engine-image", "engine-deploy"}
         baseline = {"harness", "infra"}
         scenarios = [
@@ -190,8 +190,6 @@ class SelectionTests(unittest.TestCase):
             for paths, expected in scenarios:
                 with self.subTest(branch=branch, paths=paths):
                     selected = self.selected(paths, branch=branch)
-                    if branch == "main":
-                        expected = expected - api
                     self.assertEqual(selected, baseline | expected)
                     for name in selected:
                         for need in self.jobs[name].get("needs", []):
@@ -236,8 +234,14 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(selected, {"harness", "infra", "frontend"})
 
     def test_unprotected_push_cannot_deploy(self):
-        selected = self.selected([".gitlab-ci.yml"], protected=False)
-        self.assertFalse(any(name.endswith(("-deploy", "-image")) for name in selected))
+        for branch in ("develop", "main"):
+            selected = self.selected([".gitlab-ci.yml"], branch=branch, protected=False)
+            self.assertFalse(any(name.endswith(("-deploy", "-image")) for name in selected))
+
+    def test_engine_mr_does_not_publish_images_or_deploy_to_either_environment(self):
+        for branch in ("develop", "main"):
+            selected = self.selected(["engine/api/main.py"], source="merge_request_event", branch=branch)
+            self.assertEqual(selected, {"harness", "infra", "engine"})
 
     def test_optional_backend_still_waits_when_present(self):
         for name in ("collector-deploy", "frontend-deploy"):

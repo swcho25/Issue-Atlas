@@ -14,7 +14,10 @@ class BackendProxyTests(unittest.TestCase):
         example = json.loads((ROOT / "deploy/ci/cicd.example.json").read_text(encoding="utf-8"))
         for branch in ("develop", "main"):
             files = example["environments"][branch]["compose_files"]
-            self.assertEqual(files, ["compose.yaml", "compose.https.yaml", "compose.release.yaml"])
+            expected = ["compose.yaml", "compose.https.yaml"]
+            if branch == "main":
+                expected.append("compose.production-engine.yaml")
+            self.assertEqual(files, [*expected, "compose.release.yaml"])
         https = yaml.safe_load((ROOT / "deploy/dev/compose.https.yaml").read_text(encoding="utf-8"))
         self.assertEqual(set(https["services"]), {"backend"})
         self.assertEqual(https["services"]["backend"]["environment"]["SESSION_COOKIE_SECURE"], "true")

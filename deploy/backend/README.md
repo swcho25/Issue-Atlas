@@ -23,7 +23,7 @@ sudo certbot renew --cert-name backend.issue-atlas.kr --dry-run \
   --run-deploy-hooks --no-random-sleep-on-renew
 ```
 
-6. 새 배포 프로그램을 `/usr/local/sbin/issueatlas-deploy.py`에 root:root 755로 설치한다. 서버 `/etc/issueatlas/cicd.json`의 **두 환경** `compose_files`를 `compose.yaml`, `compose.https.yaml`, `compose.release.yaml`로 바꾼다. 다른 경로·이미지·프론트 주소·자격 증명은 유지한다. `compose.https.yaml`을 두 환경의 `deploy/dev/`에 root:root 644로 설치한다.
+6. 새 배포 프로그램을 `/usr/local/sbin/issueatlas-deploy.py`에 root:root 755로 설치한다. 서버 `/etc/issueatlas/cicd.json`의 공통 `compose_files`는 `compose.yaml`, `compose.https.yaml`, `compose.release.yaml`이다. 315번 운영 engine 준비 이후 main은 release 앞에 `compose.production-engine.yaml`을 추가한다. 다른 경로·이미지·프론트 주소·자격 증명은 유지한다. 각 override를 해당 환경의 `deploy/dev/`에 root:root 644로 설치한다.
 7. 실행 중인 배포가 없고 두 경로가 정상일 때 `issueatlas-dev-cloudflared-1`을 중단·제거한다. 기존 Tunnel Compose·routing 파일은 서버 백업으로 이동한다. DB·Spring·engine·프론트는 중단하지 않는다. 인증 TXT와 사용 종료된 Cloudflare Tunnel 설정은 검증 후 정리한다.
 
 기본 `compose.yaml`만 실행하면 로컬 HTTP 기본값을 사용한다. 실제 배포는 HTTPS override와 현재 digest를 함께 적용한다. 이 설정 설치는 CD가 자동 수행하지 않으며, 애플리케이션 버전 배포는 기존 CI/CD를 따른다. 운영 FE 전환과 main 버전 갱신은 별도 작업이다.
