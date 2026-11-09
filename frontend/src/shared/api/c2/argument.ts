@@ -16,6 +16,7 @@ import {
   ruleProvenance,
   runStatus,
   schemaVersion,
+  sourceGrade,
   textOrNull,
 } from "./common";
 
@@ -121,6 +122,9 @@ const article = z.object({
   summary: z.string().nullable(),
   place_name: z.string().nullable(),
   url: z.url().nullable(),
+  /** 기사의 문서 근거(선택 칸, -318). 있으면 원문 탭이 근거 상세로 연다. 지난 실행 결과에는 칸이 없다 */
+  evidence_id: id.nullish(),
+  source_grade: sourceGrade.nullish(),
 });
 
 const argumentObject = z.object({

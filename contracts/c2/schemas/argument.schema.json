@@ -311,7 +311,15 @@
         "precision": { "$ref": "common.schema.json#/$defs/location_precision" },
         "summary": { "type": ["string", "null"] },
         "place_name": { "type": ["string", "null"] },
-        "url": { "type": ["string", "null"], "format": "uri" }
+        "url": { "type": ["string", "null"], "format": "uri" },
+        "evidence_id": {
+          "description": "기사의 문서 근거 ID(선택, 2026-11-09): ev_news_<md5(obs_key|content_hash)>. GET /v1/evidence/{evidence_id} 로 근거 상세를 연다. 출처 등급이 없거나 원본 레코드를 못 찾으면 null, 지난 실행 결과에는 칸이 없다",
+          "oneOf": [{ "$ref": "common.schema.json#/$defs/id" }, { "type": "null" }]
+        },
+        "source_grade": {
+          "description": "기사 출처 등급(선택, 2026-11-09). evidence_id 근거의 등급(빅카인즈 C). evidence_id 가 null 이면 null",
+          "oneOf": [{ "$ref": "common.schema.json#/$defs/source_grade" }, { "type": "null" }]
+        }
       },
       "required": ["id", "date", "place_id", "point", "precision", "summary", "place_name", "url"],
       "additionalProperties": false

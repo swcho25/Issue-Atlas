@@ -483,6 +483,78 @@ class QuestionApiTest {
     }
 
     @Test
+    void articleWithoutGradedSourceHasNoEvidence() throws Exception {
+        classifiedArticle("n-q-plain", "C1");
+        bigkindsRecord("n-q-plain");
+        argument(runId(ask(body("C1", "2023-01-01", "2026-01-01"))))
+                .andExpect(jsonPath("$.articles[0].url").value("https://news.test/n-q-plain"))
+                .andExpect(jsonPath("$.articles[0].evidence_id").value(nullValue()))
+                .andExpect(jsonPath("$.articles[0].source_grade").value(nullValue()));
+    }
+
+    @Test
+    void articleBecomesDocumentEvidenceOpenedByEvidenceApi() throws Exception {
+        classifiedArticle("n-q-ev", "C1");
+        bigkindsRecord("n-q-ev");
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('bigkinds','빅카인즈 뉴스','한국언론진흥재단','BIGKINDS-이용약관',"
+                        + "'metadata','C')");
+        String id = "ev_news_" + md5("obs:" + "e".repeat(64) + "|sha256:news-n-q-ev");
+        argument(runId(ask(body("C1", "2023-01-01", "2026-01-01"))))
+                .andExpect(jsonPath("$.articles[0].evidence_id").value(id))
+                .andExpect(jsonPath("$.articles[0].source_grade").value("C"))
+                // 기사는 문서 근거 목록에 섞지 않는다(C2 README)
+                .andExpect(jsonPath("$.data.documents.length()").value(0));
+        // 다시 물어도 같은 판이면 같은 근거 한 행
+        argument(runId(ask(body("C1", "2023-01-01", "2026-01-01"))))
+                .andExpect(jsonPath("$.articles[0].evidence_id").value(id));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM evidence WHERE evidence_id = ?",
+                                Integer.class,
+                                id))
+                .isEqualTo(1);
+        mvc.perform(get("/v1/evidence/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kind").value("documents"))
+                .andExpect(jsonPath("$.title").value("여수 청년 유출 기사"))
+                .andExpect(jsonPath("$.source_name").value("빅카인즈 뉴스"))
+                .andExpect(jsonPath("$.source_grade").value("C"))
+                .andExpect(jsonPath("$.license_type").value("BIGKINDS-이용약관"))
+                .andExpect(jsonPath("$.storage_scope").value("metadata"))
+                .andExpect(jsonPath("$.display").value(nullValue()))
+                .andExpect(jsonPath("$.url").value("https://news.test/n-q-ev"))
+                .andExpect(jsonPath("$.locator.locator.news_id").value("n-q-ev"))
+                .andExpect(jsonPath("$.locator.publisher").value("여수신문"));
+    }
+
+    /** classifiedArticle 의 원본 해시로 빅카인즈 정제 레코드 한 건(제목 · 언론사 · 링크 · 이용 조건, 본문 없음). */
+    private void bigkindsRecord(String newsId) {
+        jdbc.update(
+                """
+                INSERT INTO normalized_record(content_hash,source_id,spec_id,place_code_system,place_code_raw,
+                  observed_period_type,storage_scope,validation_status,issues,rule_version,obs_key,is_latest,record)
+                VALUES (?,'bigkinds','bigkinds_news_yeosu_gwangju','source_text','여수','none','metadata','pass',
+                  '[]','p2-test',?,true,jsonb_build_object(
+                    'locator', jsonb_build_object('news_id', ?::text),
+                    'license_type', 'BIGKINDS-이용약관',
+                    'published_at', '2024-05-01T00:00:00+09:00',
+                    'collected_at', '2026-11-02T01:00:00+09:00',
+                    'document', jsonb_build_object('kind', 'news', 'title', '여수 청년 유출 기사',
+                      'publisher', '여수신문', 'link', 'https://news.test/' || ?::text)))
+                """,
+                "sha256:news-" + newsId,
+                "obs:" + (newsId.equals("n-q-ev") ? "e" : "f").repeat(64),
+                newsId,
+                newsId);
+    }
+
+    private String md5(String value) {
+        return jdbc.queryForObject("SELECT md5(?)", String.class, value);
+    }
+
+    @Test
     void requiredStatisticsWithoutLinkedEvidenceDoesNotProduceClaim() throws Exception {
         statistics("A3");
         jdbc.update("DELETE FROM source_spec WHERE spec_id = 'airkorea_final_yeosu_gwangju'");

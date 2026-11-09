@@ -1,15 +1,17 @@
 import type { Argument } from "@/shared/api";
 
 import { evidenceKindLabel } from "../../model/labels";
-import { kindCount, sourcesTotal } from "../../model/sources";
+import { articleRef, kindCount, sourcesTotal } from "../../model/sources";
 
 // 05 · 원문 패널: 「원문 N건」 종류별 건수(surface-2 · 모서리 12 · 안쪽 14 · 칸 사이 6) +
-// 「링크만」 소스 안내(테두리 1 · 안쪽 14 · 칸 사이 6). 기사는 본문을 저장하지 않아 링크만으로 센다
+// 「링크만」 소스 안내(테두리 1 · 안쪽 14 · 칸 사이 6). 근거 상세가 없는 기사는 링크만으로 센다
 
 export function SourcesPanel({ argument }: { argument: Argument }) {
   const rows = argument.evidence_table.map((row) => {
     const refs = argument.data[row.kind];
-    const articles = row.kind === "documents" ? argument.articles.length : 0;
+    // 근거 상세가 없는 기사(지난 실행 결과 등)만 원문 사이트로만 열려 링크만으로 센다
+    const articles =
+      row.kind === "documents" ? argument.articles.filter((a) => !articleRef(a)).length : 0;
     const linkOnly = refs.filter((r) => r.storage_scope === "link_only").length + articles;
     // 건수는 수요표의 전체 건수, 링크만은 목록에 온 자료(대표 자료 · 기사)에서 센다
     return { kind: row.kind, count: kindCount(argument, row), linkOnly };

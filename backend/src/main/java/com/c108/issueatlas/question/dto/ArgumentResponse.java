@@ -100,7 +100,10 @@ public record ArgumentResponse(
             List<String> statuses)
             implements Series {}
 
-    /** 근거 기사 한 건. 기사는 series 가 아니라 이 목록으로 보낸다. 좌표를 못 정한 기사는 point null. */
+    /**
+     * 근거 기사 한 건. 기사는 series 가 아니라 이 목록으로 보낸다. 좌표를 못 정한 기사는 point null. evidenceId · sourceGrade 는
+     * 기사의 문서 근거 행(원문 탭 근거 상세). 출처 등급이 없거나 원본 레코드를 못 찾으면 둘 다 null.
+     */
     public record Article(
             String id,
             LocalDate date,
@@ -109,7 +112,9 @@ public record ArgumentResponse(
             String precision,
             String summary,
             String placeName,
-            String url) {}
+            String url,
+            String evidenceId,
+            String sourceGrade) {}
 
     public record Question(
             String questionId,
