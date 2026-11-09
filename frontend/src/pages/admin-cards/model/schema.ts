@@ -106,6 +106,16 @@ export const userPageSchema = z.object({
 });
 export type AdminUser = z.infer<typeof userPageSchema>["items"][number];
 
+/**
+ * 지표 하나(GET /v1/admin/indicators/{id}). 판정 규칙(rule)은 카드 초안이 아니라 주 지표 행에 있다
+ * (c3 「지표와 규칙의 단일 원본」 — 초안 저장 때 rule 은 지워진다). 이 화면은 규칙의 결과 목록만 읽어 model/spec 이 꺼낸다
+ */
+export const indicatorSchema = z.object({
+  indicator_id: z.string(),
+  rule_version: z.number().int(),
+  rule: z.unknown(),
+});
+
 export const versionSchema = z.object({
   card_id: z.string(),
   version: z.number().int(),

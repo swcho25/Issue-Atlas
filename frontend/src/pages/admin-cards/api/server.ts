@@ -9,6 +9,7 @@ import {
   approvalStatuses,
   cardDraftSchema,
   checksSchema,
+  indicatorSchema,
   revisionsSchema,
   userPageSchema,
   versionSchema,
@@ -59,6 +60,14 @@ export const getCardChecks = (id: string) => adminGet(`${card(id)}/checks`, chec
 export const getCardVersion = (id: string, version: number) =>
   adminGet(`${card(id)}/versions/${version}`, versionSchema);
 export const getCardRevisions = (id: string) => adminGet(`${card(id)}/revisions`, revisionsSchema);
+
+/** 주 지표의 판정 규칙(결과별 문장). 초안의 지표가 사전에 없으면(404) null */
+export const getIndicatorRule = (id: string | undefined) =>
+  id
+    ? adminGetOrNull(`/v1/admin/indicators/${encodeURIComponent(id)}`, indicatorSchema).then(
+        (i) => i?.rule ?? null,
+      )
+    : Promise.resolve(null);
 
 /** 목록에 보일 카드 이름(초안의 name). 지워진 카드면 이름 없이 ID 만 */
 export async function getCardNames(ids: string[]) {

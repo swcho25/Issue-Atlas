@@ -4,7 +4,7 @@ import { Icon } from "@/shared/ui/icon";
 
 import { kindLabel, specStateBadge } from "../model/labels";
 import type { Checks, Spec } from "../model/schema";
-import { specClaim, specEvidence, specState } from "../model/spec";
+import { ruleOutcomes, specClaim, specEvidence, specState } from "../model/spec";
 
 // 카드 승인 · 카드별 화면이 함께 쓰는 초안 읽기 칸: 작성 기준 검사 · 근거 4종 · 판단 문장과 보증 · 경쟁 설명
 
@@ -130,22 +130,45 @@ export function EvidenceTable({ spec, sources }: { spec: Spec; sources: Source[]
   );
 }
 
-/** 판단 문장 · 보증 · 경쟁 설명 · 판단하지 않는 것 · 지표(요청 당시 규칙 버전이 있으면 함께) */
+/**
+ * 판단 틀 · 결과별 문장 · 보증 · 경쟁 설명 · 판단하지 않는 것 · 지표(요청 당시 규칙 버전이 있으면 함께).
+ * 결과별 문장은 주 지표의 규칙(rule)에서 — 화면 ① 문장이 결과마다 무엇으로 나가는지 승인하는 사람이 본다
+ */
 export function ClaimBlock({
   spec,
+  rule,
   ruleVersions,
 }: {
   spec: Spec;
+  rule?: unknown;
   ruleVersions?: Record<string, number>;
 }) {
   const c = specClaim(spec);
+  const outcomes = ruleOutcomes(rule, c.template);
   const row = "grid grid-cols-[7rem_minmax(0,1fr)] gap-3 text-body-13";
   return (
     <Block title="판단">
       <dl className="flex flex-col gap-2.5">
         <div className={row}>
-          <dt className="text-text-3">판단 문장</dt>
+          <dt className="text-text-3">판단 틀</dt>
           <dd className="text-text-1">{c.template ?? "—"}</dd>
+        </div>
+        <div className={row}>
+          <dt className="text-text-3">결과별 문장</dt>
+          <dd>
+            {outcomes.length ? (
+              <ul className="flex flex-col gap-1.5">
+                {outcomes.map((o) => (
+                  <li key={o.label} className="flex flex-col gap-0.5">
+                    <span className="text-label-12 text-text-2">{o.label}</span>
+                    <span className="text-text-1">{o.text ?? "—"}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-text-1">—</span>
+            )}
+          </dd>
         </div>
         <div className={row}>
           <dt className="text-text-3">지표</dt>

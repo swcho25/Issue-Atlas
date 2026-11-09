@@ -13,6 +13,7 @@ import {
   getCardDraft,
   getCardRevisions,
   getCardVersion,
+  getIndicatorRule,
   getMe,
   getSources,
 } from "../api/server";
@@ -37,7 +38,9 @@ export function AdminCardPage({ params }: { params: Promise<{ id: string }> }) {
 async function CardContent({ params }: { params: Promise<{ id: string }> }) {
   const id = decodeURIComponent((await params).id);
   const draft = await getCardDraft(id);
-  const [checks, revisions, approvals, sources, admins, me, published] = await Promise.all([
+  const spec = draft.draft_spec;
+  const claim = specClaim(spec);
+  const [checks, revisions, approvals, sources, admins, me, published, rule] = await Promise.all([
     getCardChecks(id),
     getCardRevisions(id),
     getCardApprovals(id),
@@ -45,9 +48,8 @@ async function CardContent({ params }: { params: Promise<{ id: string }> }) {
     getAdmins(),
     getMe(),
     draft.current_version === null ? null : getCardVersion(id, draft.current_version),
+    getIndicatorRule(claim.indicators.find((x) => x.role === "main")?.id),
   ]);
-  const spec = draft.draft_spec;
-  const claim = specClaim(spec);
   const openRequest = approvals.find((r) => r.status === "pending" || r.status === "on_hold");
   const blocked = openRequest
     ? `열린 요청 있음 · ${approvalBadge[openRequest.status].label}`
@@ -82,7 +84,7 @@ async function CardContent({ params }: { params: Promise<{ id: string }> }) {
 
         <ChecksList checks={checks} />
         <EvidenceTable spec={spec} sources={sources} />
-        <ClaimBlock spec={spec} />
+        <ClaimBlock spec={spec} rule={rule} />
 
         <Block title="버전 이력">
           {revisions.length === 0 ? (

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import c1 from "../../../../../contracts/cards/C1.json";
 import type { Source } from "@/shared/api";
 
-import { specClaim, specEvidence, specName, specState } from "./spec";
+import { ruleOutcomes, specClaim, specEvidence, specName, specState } from "./spec";
 
 // C1 설계도(contracts/cards/C1.json)는 초안(draft_spec)과 같은 칸 이름을 쓴다
 const spec = c1 as unknown as Record<string, unknown>;
@@ -35,6 +35,30 @@ describe("카드 초안 읽기", () => {
     expect(c.template).toContain("{판정값}");
     expect(c.rebuttals.length).toBeGreaterThanOrEqual(2);
     expect(c.indicators.find((x) => x.role === "main")?.id).toBe("population_net_migration_19_39");
+  });
+
+  it("결과별 문장: 규칙 결과마다 이름과 claim_text, 문장이 없으면 판단 틀에 결과 이름, 근거 부족은 문장 없음", () => {
+    const template = specClaim(spec).template;
+    const outcomes = ruleOutcomes(spec.rule, template);
+    expect(outcomes.map((o) => o.label)).toEqual([
+      "근거 부족",
+      "청년 순유출 확대",
+      "청년 순유출 축소",
+      "순유입 전환",
+      "불분명",
+    ]);
+    expect(outcomes[1].text).toBe(
+      "{지역} 청년(19–39세) 순유출은 {첫해}년 {첫값}명에서 {끝해}년 {끝값}명으로 매년 커졌습니다.",
+    );
+    expect(outcomes[0].text).toBeNull();
+    // v3 전 규칙(결과 문장 없음)은 판단 틀로 채운다
+    expect(ruleOutcomes({ outcomes: [{ label: "불분명", claim: "unclear" }] }, template)).toEqual([
+      { label: "불분명", text: template?.replace("{판정값}", "불분명") },
+    ]);
+    expect(ruleOutcomes(null, template)).toEqual([]);
+    expect(ruleOutcomes({ outcomes: [{ label: "불분명" }] }, null)).toEqual([
+      { label: "불분명", text: null },
+    ]);
   });
 
   it("근거 4종은 정해진 순서로, 필수 여부와 함께", () => {
