@@ -23,6 +23,37 @@ public class QuestionRepository {
 
     // 근거 상세 「이 질문에 쓴 값」(display, S15P31C108-320): 이미 있는 근거 행은 display 가 비어 있을 때만 채운다.
     // 근거의 다른 칸은 만든 때의 값 그대로 둔다(V0014)
+    /**
+     * 원 단위 금액 SQL 식 → 「47억 2,497만 원」 · 「1,900만 원」 · 「9,500원」. 만 원 아래는 반올림한다(1억은 「1억 원」). col 은 v 의
+     * 칸 이름
+     */
+    private static String won(String col) {
+        return "(SELECT CASE WHEN m >= 10000 THEN to_char(m / 10000, 'FM999,990') || '억'"
+                + " || CASE WHEN m % 10000 > 0 THEN ' ' || to_char(m % 10000, 'FM9,990') || '만'"
+                + " ELSE '' END || ' 원'"
+                + " WHEN "
+                + col
+                + " >= 10000 THEN to_char(m, 'FM9,990') || '만 원'"
+                + " ELSE to_char("
+                + col
+                + ", 'FM999,990') || '원' END FROM (SELECT round("
+                + col
+                + " / 10000.0)::bigint AS m) q)";
+    }
+
+    // 기존 대응 display. 지방재정: 회계연도 · 회계 · 예산 · 지출 · 분야/부문, 온통청년: 대상 · 담당(기간은 근거 칸에 따로 있다)
+    private static final String RESPONSE_DISPLAY =
+            "CASE WHEN storage_scope = 'link_only' THEN NULL"
+                    + " WHEN expenditure_id IS NOT NULL THEN concat_ws(' · ',"
+                    + " fiscal_year || '년 ' || x_account,"
+                    + " '예산 ' || "
+                    + won("x_budget")
+                    + ", '지출 ' || "
+                    + won("x_spent")
+                    + ", nullif(concat_ws('/', x_field, x_sector), ''))"
+                    + " ELSE nullif(concat_ws(' · ', '대상 ' || nullif(target, ''),"
+                    + " '담당 ' || nullif(department, '')), '') END ";
+
     private static final String FILL_DISPLAY =
             " ON CONFLICT (evidence_id) DO UPDATE SET display = EXCLUDED.display"
                     + " WHERE evidence.display IS NULL AND EXCLUDED.display IS NOT NULL";
@@ -183,20 +214,9 @@ public class QuestionRepository {
                            'origin_ref', origin_ref, 'raw_content_hash', raw_content_hash,
                            'expenditure_id', expenditure_id, 'fiscal_year', fiscal_year,
                            'department', department, 'rule_version', rule_version)),
-                       -- 지방재정: 회계연도 · 회계 · 예산 · 지출 · 분야, 온통청년: 대상 · 담당(기간은 근거 칸에 따로 있다)
-                       CASE WHEN storage_scope = 'link_only' THEN NULL
-                            WHEN expenditure_id IS NOT NULL THEN concat_ws(' · ',
-                                fiscal_year || '년 ' || x_account,
-                                -- 금액은 만 원 단위(4,000만 원), 만 원 아래는 원
-                                '예산 ' || CASE WHEN x_budget >= 10000
-                                    THEN to_char(round(x_budget / 10000.0), 'FM999,999,999,990') || '만 원'
-                                    ELSE to_char(x_budget, 'FM999,990') || '원' END,
-                                '지출 ' || CASE WHEN x_spent >= 10000
-                                    THEN to_char(round(x_spent / 10000.0), 'FM999,999,999,990') || '만 원'
-                                    ELSE to_char(x_spent, 'FM999,990') || '원' END,
-                                nullif(concat_ws('/', x_field, x_sector), ''))
-                            ELSE nullif(concat_ws(' · ', '대상 ' || nullif(target, ''),
-                                '담당 ' || nullif(department, '')), '') END
+                       """
+                                + RESPONSE_DISPLAY
+                                + """
                 FROM v
                 """
                                 + FILL_DISPLAY)
