@@ -25,6 +25,7 @@ import { ChangeSheet } from "./ChangeSheet";
 import { DistributionLegend } from "./DistributionLegend";
 import { GlassActions } from "./GlassActions";
 import { OrderMarkers, OrderSheet } from "./OrderView";
+import { StationDetail } from "./StationDetail";
 import { StationDots } from "./StationDots";
 import { TimeStrip } from "./TimeStrip";
 
@@ -47,6 +48,16 @@ export function MapOverlays({ argument }: { argument: Argument }) {
   const timeline =
     view === "change" && month !== null && stations.length > 0 && !changeSeries(argument);
   const means = useMemo(() => monthlyMeans(stations), [stations]);
+  // 측정소 상세 창: 고른 측정소(달을 바꿔도 같은 측정소, 그 달 값으로)
+  const [stationId, setStationId] = useState<string | null>(null);
+  const station = distribution || timeline ? points.find((p) => p.id === stationId) : undefined;
+  const closeStation = (refocus: boolean) => {
+    const id = stationId;
+    setStationId(null);
+    // 닫기 · Esc 로 닫으면 그 점으로 초점을 돌린다(지도 빈 곳을 눌러 닫으면 그대로)
+    if (refocus && id)
+      document.querySelector<HTMLElement>(`[data-station="${CSS.escape(id)}"]`)?.focus();
+  };
 
   // 변화형 위 기사 점
   const articles = useMemo(() => articleMarks(argument), [argument]);
@@ -55,7 +66,14 @@ export function MapOverlays({ argument }: { argument: Argument }) {
 
   return (
     <>
-      <TypeSwitch enabled={enabled} current={view} onChange={setView} />
+      <TypeSwitch
+        enabled={enabled}
+        current={view}
+        onChange={(v) => {
+          setView(v);
+          setStationId(null);
+        }}
+      />
       <GlassActions argument={argument} />
       {timeline && (
         <div
@@ -75,7 +93,22 @@ export function MapOverlays({ argument }: { argument: Argument }) {
           {distribution && (
             <MonthPicker months={distributionMonths(stations)} value={month} onChange={setMonth} />
           )}
-          <StationDots points={points} unit={unit} />
+          <StationDots
+            points={points}
+            unit={unit}
+            selectedId={station?.id ?? null}
+            onSelect={setStationId}
+          />
+          {station && month && (
+            <StationDetail
+              point={station}
+              month={month}
+              unit={unit}
+              refs={argument.data.statistics}
+              runId={argument.run_id}
+              onClose={closeStation}
+            />
+          )}
           {/* Figma Legend 자리: 지도 오른쪽 86 · 아래 226(지도 버튼 묶음 위 왼쪽) */}
           {hasAqBands(stations[0]?.indicator_id) && (
             <div className="absolute right-[86px] bottom-[226px] z-control">
