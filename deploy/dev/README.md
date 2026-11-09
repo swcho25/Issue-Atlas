@@ -57,18 +57,18 @@ sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml 
 
 ## 논증 문장화 engine (S15P31C108-243)
 
-- `engine` 서비스는 `engine/Dockerfile` 의 `api` 대상이다(uvicorn `api.main:app`, 8000). 호스트 포트를 열지 않는다. `engine` 네트워크에는 backend 만 같이 붙어 `http://engine:8000` 으로 부른다. DB 네트워크(default)와 cloudflared 에는 붙지 않는다. GMS 호출을 위해 밖으로 나가는 길만 있다.
+- `engine` 서비스는 `engine/Dockerfile` 의 `api` 대상이다(uvicorn `api.main:app`, 8000). 호스트 포트를 열지 않는다. 환경별 `engine` 네트워크에는 해당 backend 만 같이 붙어 `http://engine:8000` 으로 부른다. DB 네트워크(default)에는 붙지 않는다. GMS 호출을 위해 밖으로 나가는 길만 있다. 실시간 수집·정제·분류를 실행하는 서비스가 아니라 논증 ⑤ 반박의 문장화 API다.
 - UID 10001, 읽기 전용 파일 시스템, `cap_drop: ALL`, no-new-privileges, 메모리 512MB · CPU 1 · PID 128. 상태 검사는 컨테이너 안에서 `GET /health`.
 - 키: `GMS_API_KEY=` 한 줄만 든 서버 파일(`.env` 의 `ENGINE_ENV_FILE`, 기본 `/etc/issueatlas/engine.env`)을 `/app/.env` 에 읽기 전용으로 연결한다. 소유 10001:10001, 권한 400. 키를 환경변수 · 이미지 · 저장소 · CI 변수에 넣지 않는다. 운영 경로는 `/etc/issueatlas/production/engine.env` 로 따로 둔다.
-- backend 는 `.env` 의 `ENGINE_URL` 이 비어 있으면 engine 을 부르지 않는다(카드 문구로 응답, 사유 `ENGINE_DISABLED`). 켜면 익명 질문 1건이 GMS 호출 1번이므로 **익명 질문 요청 수 제한과 문장화 연결 코드가 배포된 뒤에만** 켠다.
-- 자동 배포는 develop 병합 때 `engine-image` → `engine-deploy` 가 engine 만 `--no-deps` 로 바꾼다. 운영(main)은 이번 범위가 아니다. 배포 기록은 `.deploy/engine/current.json`. 수동 갱신 때도 `BACKEND_IMAGE` 와 함께 이 파일의 `ENGINE_IMAGE` digest 를 넘긴다(compose.release.yaml 이 둘 다 요구한다).
+- backend 는 `.env` 의 `ENGINE_URL` 이 비어 있으면 engine 을 부르지 않는다(반박 문장화 생략, 사유 `ENGINE_DISABLED`). **질문 요청 수 제한과 문장화 연결 코드가 배포된 뒤에만** 켠다. 호출 실패 시에도 나머지 질문 결과는 유지하며 반박은 비우고 사유를 기록한다.
+- 315번부터 보호된 develop/main 병합의 변경 영역에 따라 `engine-image` → `engine-deploy` 가 해당 환경 engine 만 `--no-deps` 로 바꾼다. 배포 기록은 각 환경의 `.deploy/engine/current.json`. 수동 갱신 때도 `BACKEND_IMAGE` 와 함께 이 파일의 `ENGINE_IMAGE` digest 를 넘긴다(compose.release.yaml 이 둘 다 요구한다).
 
 ### 처음 켜는 순서 (서버 관리자 · MR 병합 전)
 
 순서를 지킨다. 새 compose.release.yaml 은 `ENGINE_IMAGE` 를 요구하므로, 배포 프로그램을 먼저 바꿔 두지 않으면 그 사이 병합된 backend 배포가 compose 검사에서 멈춘다.
 
 1. 키 파일: `/etc/issueatlas/engine.env` 에 `GMS_API_KEY=` 를 채우고 `chown 10001:10001`, `chmod 400`.
-2. 배포 프로그램: `deploy/ci/deploy_backend.py` 를 `/usr/local/sbin/issueatlas-deploy.py` 로 다시 설치하고, `/etc/issueatlas/cicd.json` 의 `environments.develop` 에만 `"engine_image_repository": "swcho25/issueatlas-backend"` 를 넣는다. 이 값이 없는 환경은 engine 배포를 거절한다.
+2. 배포 프로그램: `deploy/ci/deploy_backend.py` 를 `/usr/local/sbin/issueatlas-deploy.py` 로 설치하고, `/etc/issueatlas/cicd.json` 의 배포할 환경에 `"engine_image_repository": "swcho25/issueatlas-backend"` 를 넣는다. 이 값이 없는 환경은 engine 배포를 거절한다. 운영은 아래 315번 절차로 준비한다.
 3. 외부 통신 규칙: `deploy/ci/runner/restore-service-egress.sh` 를 `/usr/local/sbin/issueatlas-service-egress` 로 다시 설치한다(engine 네트워크 추가).
 4. Compose: develop 의 `compose.yaml` · `compose.release.yaml` 을 `/opt/issueatlas-dev/deploy/dev/` 에 root 소유로 설치한다. 서버에는 저장소가 없으므로 2 · 3 · 4 의 파일은 PC 에서 `git show origin/develop:<경로>` 로 꺼내 scp 로 보낸다. `.env` 에 `ENGINE_URL=`(빈 값)을 두고, 키 파일이 기본 경로가 아니면 `ENGINE_ENV_FILE` 도 적는다.
 5. 병합 → `engine-deploy` 성공 확인. 준비 전에 병합돼 `Unsupported deployment component` 로 실패했다면 1~4 를 마친 뒤 그 job 을 재시도한다. engine 네트워크가 이때 처음 생기므로 `sudo /usr/local/sbin/issueatlas-service-egress` 를 한 번 실행한다.
@@ -91,7 +91,7 @@ sudo docker exec issueatlas-dev-engine-1 python -c "import socket; socket.create
 cd /opt/issueatlas-dev
 export BACKEND_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/current.json'))['image'])")
 export ENGINE_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/engine/current.json'))['image'])")
-sudo -E docker compose --env-file deploy/dev/.env -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml -f deploy/dev/compose.routing.yaml -f deploy/dev/compose.release.yaml up -d --no-deps --no-build --pull never --wait backend
+sudo -E docker compose --env-file deploy/dev/.env -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml -f deploy/dev/compose.release.yaml up -d --no-deps --no-build --pull never --wait backend
 ```
 
 backend 가 engine 네트워크에 붙었는지 확인한다.
@@ -101,6 +101,39 @@ sudo docker exec issueatlas-dev-backend-1 bash -c 'echo > /dev/tcp/engine/8000' 
 ```
 
 끌 때는 `ENGINE_URL=` 로 비우고 같은 명령을 다시 실행한다.
+
+### 운영 준비·연결 (S15P31C108-315)
+
+11/9는 준비만 하며 운영 engine 시작·Spring 재생성·GMS 호출은 하지 않는다. 실제 배포와 활성화는 11/10 운영 일괄 배포 때 수행한다.
+
+**사전 준비**
+1. 기존 GMS 키를 운영 전용 `/etc/issueatlas/production/engine.env`에 별도로 준비한다(10001:10001, 0400). 파일 내용은 `GMS_API_KEY=` 한 줄이며 출력·커밋하지 않는다. 이미 준비된 파일은 임의 교체하지 않는다.
+2. 운영 `deploy/dev/`에 최신 `compose.yaml`, `compose.https.yaml`, `compose.production-engine.yaml`, `compose.release.yaml`을 root:root 0644로 설치한다. production override가 `/app/.env`의 bind mount를 운영 키 경로로 교체한다. 개발 `.env`의 기본 키 경로를 운영에서 잘못 사용하는 것을 방지한다.
+3. 서버 `cicd.json`의 `environments.main.engine_image_repository`를 example과 같이 설정하고 `compose_files`를 위 순서로 지정한다. 개발 설정·FE 주소·DB·배포 기록은 유지한다. 기존 배포 프로그램은 engine의 환경별 digest·복구를 이미 지원하므로 코드가 같은 경우 재설치할 필요가 없다.
+4. 운영 `ENGINE_URL`은 비워 둔다. 설정 설치만으로 컨테이너를 시작하거나 DB를 변경하지 않는다. 외부 통신 스크립트에 `issueatlas-prod_engine`이 포함되어 있는지 확인한다.
+
+**11/10 배포·검증**
+1. main 병합 후 `engine-image`, `engine-deploy` 성공을 확인한다. MR에서는 배포하지 않는다. 이 배포는 engine만 바꾸며 Spring 호출을 자동 활성화하지 않는다.
+2. 새 네트워크 생성 뒤 `sudo /usr/local/sbin/issueatlas-service-egress`를 실행하고 아래를 확인한다. 첫 명령의 healthy가 GMS 호출 성공을 의미하지는 않는다.
+
+```sh
+sudo docker ps --filter name=issueatlas-prod-engine --format '{{.Names}} {{.Status}}'
+sudo docker exec issueatlas-prod-engine-1 python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status)"
+sudo docker exec issueatlas-prod-engine-1 python -c "import socket,ssl; s=socket.create_connection(('gms.ssafy.io',443),timeout=5); ssl.create_default_context().wrap_socket(s,server_hostname='gms.ssafy.io').close(); print('GMS TLS OK')"
+```
+
+3. 운영 최신 Spring 배포·요청 수 제한·DB 이관이 완료된 뒤 서버 관리자가 운영 `.env`의 `ENGINE_URL=http://engine:8000`을 설정한다. 키 값은 `.env`에 추가하지 않는다. 현재 이미지 digest를 사용해 backend만 다시 만든다(새 버전 배포나 DB 마이그레이션을 위한 명령이 아님).
+
+```sh
+cd /opt/issueatlas-prod
+export BACKEND_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/current.json'))['image'])")
+export ENGINE_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/engine/current.json'))['image'])")
+sudo -E docker compose --env-file deploy/dev/.env -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml -f deploy/dev/compose.production-engine.yaml -f deploy/dev/compose.release.yaml up -d --no-deps --no-build --pull never --wait --wait-timeout 120 backend
+sudo docker exec issueatlas-prod-backend-1 bash -c 'echo > /dev/tcp/engine/8000' && echo 'backend→engine OK'
+```
+
+4. 운영 관리자 로그인·CSRF는 `verify.py --base-url https://backend.issue-atlas.kr --session-auth`로 확인한다. 이후 운영 화면에서 근거가 있는 C1/A3 질문을 새로 실행하여 ⑤ 반박과 `argument_phrasing`의 해당 run_id 상태·사유 코드를 확인한다. 기존 저장 결과를 조회하는 것만으로 새 engine 호출을 검증할 수 없다. 실제 문장화 검증에는 GMS 사용량이 발생한다.
+5. 문제가 생기면 운영 `ENGINE_URL=`로 비우고 같은 digest·Compose 명령으로 backend만 다시 만든다. engine 자체 배포 실패는 기존 배포 도구가 이전 engine 이미지로 복구하며, 첫 배포 실패 시 후보를 중단한다. 개발 서비스·DB·기록은 변경하지 않는다.
 
 ## 개발 PC의 DB 접속
 

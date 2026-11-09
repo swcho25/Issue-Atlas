@@ -1,0 +1,10 @@
+# 운영 키 경로를 고정한다. engine 실행·Spring 호출 활성화는 별도로 수행한다(315번).
+# Compose는 같은 target의 bind mount를 교체하므로 개발 키 파일과 함께 연결되지 않는다.
+services:
+  engine:
+    volumes:
+      - type: bind
+        source: /etc/issueatlas/production/engine.env
+        target: /app/.env
+        read_only: true
+        bind: {create_host_path: false}

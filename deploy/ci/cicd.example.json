@@ -27,9 +27,11 @@
     },
     "main": {
       "app_dir": "/opt/issueatlas-prod",
+      "engine_image_repository": "swcho25/issueatlas-backend",
       "compose_files": [
         "compose.yaml",
         "compose.https.yaml",
+        "compose.production-engine.yaml",
         "compose.release.yaml"
       ],
       "health_url": "https://backend.issue-atlas.kr/actuator/health",

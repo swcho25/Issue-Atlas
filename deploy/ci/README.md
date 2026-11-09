@@ -1,6 +1,6 @@
 # 백엔드 CI/CD — S15P31C108-103
 
-> 현재 290번 구성: 백엔드 전용 주소는 [Nginx·HTTPS 직접 연결](../backend/README.md). 두 환경의 Compose는 `compose.yaml` + `compose.https.yaml` + `compose.release.yaml`이며 Tunnel은 사용하지 않는다. 아래 137번 최초 전환의 Tunnel 설명은 과거 설치 기록이다. 공개 API·health 주소와 환경 분리는 유지한다.
+> 현재 290·315번 구성: 백엔드 전용 주소는 [Nginx·HTTPS 직접 연결](../backend/README.md). 공통 Compose는 `compose.yaml` + `compose.https.yaml` + `compose.release.yaml`이며, 운영은 release 앞에 `compose.production-engine.yaml`을 추가해 운영 키 경로를 고정한다. Tunnel은 사용하지 않는다. 아래 137번 최초 전환의 Tunnel 설명은 과거 설치 기록이다. 공개 API·health 주소와 환경 분리는 유지한다.
 
 수집기 이미지 자동 갱신·수동 실행은 [수집기 배포](../collector/README.md)를 참고한다.
 
@@ -47,14 +47,14 @@
 | FE 소스·설정·E2E, pnpm 잠금/설정, FE 점검 스크립트 | FE 검사·standalone 빌드, 병합 후 FE 이미지·EC2 배포 |
 | BE 소스·Flyway·Gradle·Dockerfile, 개발 Compose | BE 검사·이미지, 병합 후 BE 배포 |
 | engine/pipeline·ai·의존성·Dockerfile, 수집기 실행 설정 | engine 검사·수집기 이미지, 병합 후 수집기 버전 갱신 (수집 자동 실행 없음) |
-| engine/api, contracts/ai·c2 schemas | engine 검사. develop 병합 후 engine(문장화 API) 이미지·배포 |
+| engine/api, contracts/ai·c2 schemas | engine 검사. 보호된 develop/main 병합 후 해당 환경 engine(문장화 API) 이미지·배포 |
 | engine/tests·tests_postgres, ai의 MD 설명 | engine 검사만 |
 | contracts의 JSON/YAML | FE·BE·engine 검사. C1 JSON은 수집기 실행 및 이미지 smoke test에서 읽으므로 수집기 이미지·배포도 실행. FE·BE 이미지·배포는 생략 |
 | 공통 CI YAML | FE·BE·engine 모두 검사하고 병합 후 모두 배포 |
 | deploy/ci의 공통 Python·JSON | BE·수집기 검사·이미지·배포 (FE 로직 변경은 FE 경로도 함께 변경) |
 | docs, 루트/서비스/계약 README, pipeline의 MD 설명 | 가벼운 harness·infra 검사만 |
 
-engine(문장화 API) 이미지는 engine/pipeline·ai·의존성·Dockerfile·개발 Compose·공통 CI·deploy/ci 변경에도 다시 만든다. 단 **develop 에서만** 만들고 배포한다(243번, 운영은 별도 MR). 서버 준비 순서는 [개발 서버 engine](../dev/README.md#논증-문장화-engine-s15p31c108-243).
+engine(문장화 API) 이미지는 ai·의존성·Dockerfile·Compose·공통 CI·deploy/ci 변경에도 다시 만든다. 315번부터 보호된 develop/main 각각의 환경에 배포한다. pipeline만 수정한 경우 수집기만 갱신하며 engine API는 재배포하지 않는다. 서버 준비와 Spring 연결 활성화는 [engine 안내](../dev/README.md#운영-준비연결-s15p31c108-315)를 따른다. engine 자동 배포와 ENGINE_URL 활성화는 별개다.
 
 여러 영역을 바꾸면 합집합으로 실행한다. scripts 변경은 FE 검사·빌드에도 반영한다. pipeline·ai 실행 입력은 py/json/yaml/yml/toml/sql/txt/csv를 대상으로 하며 MD 설명은 제외한다. 수집기 이미지가 `engine/ai`를 싣고 embed·score 명령이 이를 실행하므로 ai도 수집기 경로에 포함한다(233번). 새 소스 디렉터리·설정 형식을 도입하면 경로 목록과 선택 시나리오 테스트도 함께 갱신한다.
 
@@ -90,15 +90,15 @@ develop → main 반영(운영 배포)을 할 때 위에서 아래로 확인한�
 | Flyway | V0014 | V0051 — 이번 반영은 **migration 36개(V0015–V0051)를 운영 DB 에 한 번에**. V0049 는 없다(번호만 비었고 정상) |
 | API 주소 | `backend.issue-atlas.kr` — Nginx 직접 연결(-290, Tunnel 없음) | `dev-backend.issue-atlas.kr` 같음 |
 | 화면 주소 | `issue-atlas.kr` — **아직 Cloudflare Workers**. EC2 운영 FE 는 한 번도 배포되지 않았다(검증 주소 `ec2-prod.issue-atlas.kr` 는 Nginx 만 있고 502) | `dev.issue-atlas.kr` — EC2 |
-| engine(문장화) | 배포하지 않는다(-243) | 배포됨 |
+| engine(문장화) | 315번에서 준비, 11/10 main 반영 후 배포·연결 | 배포됨 |
 
 **전날 · 시작 전**
 - [ ] develop · main 파이프라인이 모두 끝났고 develop 최신 커밋의 개발 배포가 성공했다(같은 환경 직렬 배포)
 - [ ] 운영 DB 를 수동 백업했다 — 자동 백업(`deploy/backup`)은 개발 DB 만 한다. `pg_dump -Fc` 결과를 `/var/backups/issueatlas` 아래 운영 전용 경로에 두고 `pg_restore --list` 로 읽히는지 본다
 - [ ] 새 migration 중 데이터를 지우거나 옮기는 것을 다시 읽었다: V0024 · V0032(ID 바꾸기), V0043 · V0044(보도자료 표 정리), V0042(경계 시드, 크다), V0048 · V0051(저장된 근거 · 실행 결과 UPDATE — 운영은 행이 거의 없다), V0050(`question.asked_by` 칸 · FK 추가). 이전 이미지로 롤백해도 DB 는 돌아가지 않는다
 - [ ] 운영 서버의 Compose 파일이 develop 판이다 — CD 는 서버 Compose 를 바꾸지 않는다. `/opt/issueatlas-prod/deploy/dev/` 의 `compose.yaml`(모니터링 · `ENGINE_URL` · engine 서비스 정의) · `compose.https.yaml`(-290) · `compose.release.yaml`(`ENGINE_IMAGE` 칸)을 저장소 판과 비교한다. engine 을 배포하지 않는 환경은 배포 프로그램이 `ENGINE_IMAGE` 에 자리 값(`issueatlas-engine:not-deployed`)을 넣으므로, 서버 배포 프로그램(`/usr/local/sbin/issueatlas-deploy.py`, 개발과 같은 파일)이 그 판인지도 본다
-- [ ] `/etc/issueatlas/cicd.json` 의 production 에 `engine_image_repository` 가 **없다**(engine 미배포)와 FE 항목(`frontend_image_repository` 등, `frontend_url` 은 전환 전이라 `https://ec2-prod.issue-atlas.kr`)이 있다
-- [ ] 운영 `.env` 변수를 정했다: `QUESTIONS_PER_MINUTE`(기본 10), `ENGINE_URL` 은 **비운다**(비우면 카드 문구로 응답, 사유 `ENGINE_DISABLED`). 나머지 새 변수(`ENGINE_TIMEOUT` · `ENGINE_CACHE_*` · `MONITORING_*`)는 기본값으로 둔다
+- [ ] `/etc/issueatlas/cicd.json`의 `environments.main`에 `engine_image_repository`와 FE 항목이 있고, Compose 목록에 `compose.production-engine.yaml`이 있다. 운영 키는 `/etc/issueatlas/production/engine.env`(10001:10001, 0400)로 준비했다. `frontend_url`은 도메인 전환 전까지 `https://ec2-prod.issue-atlas.kr`을 유지한다
+- [ ] 운영 `.env` 변수를 정했다: `QUESTIONS_PER_MINUTE`(기본 10), `ENGINE_URL`은 engine healthy·외부 통신·최신 Spring 확인 전까지 비운다. 확인 뒤 `http://engine:8000`으로 켜고 Spring을 재생성한다. 나머지 새 변수(`ENGINE_TIMEOUT` · `ENGINE_CACHE_*` · `MONITORING_*`)는 기본값으로 둔다
 - [ ] Flyway 밖 시드 `backend/db/seed/cards-c1-a3.sql`(카드 C1 · A3 승인본)을 운영 DB 에 넣을지 정했다. 넣지 않으면 운영 질문은 카드 없음(`unsupported`)이다. 넣으면 반영 **뒤에** 운영 관리자 이메일로 `SET issue_atlas.approver` 를 하고 돌린다(새 DB 라 첫 승인본 v2 가 결과별 판단 문장까지 포함해 들어간다, -282). 그 뒤에 카드 계약이 바뀌는 MR(예 !196 · !197 `sign_words`)이 운영에 들어가면 시드를 다시 돌려 다음 판으로 승인한다
 - [ ] 운영 DB 에는 수집 자료가 없다(수집기 자동 실행 없음, -137). 통계 · 측정소 · 기사 없이 무엇을 보여 줄지(빈 상태 · 개발 주소로 데모) 정했다
 - [ ] 운영 화면에도 「로그인해야 결과 보기」(-268)가 적용된다. 데모에 쓸 운영 관리자 · 조회자 계정을 정했다(운영 계정은 개발과 따로다. 비밀번호는 저장소 · Jira 에 적지 않는다)

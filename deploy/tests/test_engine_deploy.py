@@ -140,6 +140,8 @@ class EngineReleaseTests(unittest.TestCase):
         develop = {**deploy.environment_config(config, "develop"), "app_dir": self.temp.name}
         self.assertIsInstance(deploy.deployment_for(develop, "engine"), deploy.EngineDeployment)
         main = {**deploy.environment_config(config, "main"), "app_dir": self.temp.name}
+        self.assertIsInstance(deploy.deployment_for(main, "engine"), deploy.EngineDeployment)
+        main.pop("engine_image_repository")
         with self.assertRaisesRegex(ValueError, "not configured"):
             deploy.deployment_for(main, "engine")
         with self.assertRaisesRegex(ValueError, "Unsupported"):
@@ -181,6 +183,20 @@ class EngineComposeTests(unittest.TestCase):
         example = (ROOT / "deploy/dev/.env.example").read_text(encoding="utf-8")
         self.assertIsNone(re.search(r"^GMS_API_KEY\s*=", example, re.M))
         self.assertIn("ENGINE_ENV_FILE=", example)
+
+    def test_production_key_mount_is_fixed_and_overrides_development_target(self):
+        config = json.loads((ROOT / "deploy/ci/cicd.example.json").read_text())
+        development = config["environments"]["develop"]
+        production = config["environments"]["main"]
+        override = "compose.production-engine.yaml"
+        self.assertNotIn(override, development["compose_files"])
+        self.assertIn(override, production["compose_files"])
+        (volume,) = load(override)["services"]["engine"]["volumes"]
+        self.assertEqual(volume["source"], "/etc/issueatlas/production/engine.env")
+        self.assertEqual(volume["target"], self.engine["volumes"][0]["target"])
+        self.assertIs(volume["read_only"], True)
+        self.assertIs(volume["bind"]["create_host_path"], False)
+        self.assertNotEqual(development["app_dir"], production["app_dir"])
 
     def test_backend_calls_engine_only_when_env_sets_url(self):
         backend = self.compose["services"]["backend"]
