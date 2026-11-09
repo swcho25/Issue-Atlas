@@ -19,3 +19,4 @@ export type {
   RunStatus,
 } from "./common";
 export { type MyQuestion, myQuestionListSchema, type MyRun } from "./my-questions";
+export { type Source, sourceListSchema, type SourceSpec } from "./sources";

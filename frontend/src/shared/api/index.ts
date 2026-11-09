@@ -21,6 +21,9 @@ export {
   type RunStatus,
   type StorageScope,
   seriesShape,
+  type Source,
+  sourceListSchema,
+  type SourceSpec,
 } from "./c2";
 export { browserGet, browserHttp, browserPost } from "./browser";
 export { ApiError, apiGet } from "./client";

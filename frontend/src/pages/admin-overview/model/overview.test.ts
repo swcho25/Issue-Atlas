@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { daysOf, monthDayTime, num } from "./labels";
+import { daysOf } from "./labels";
 import { overviewSchema } from "./schema";
 
 // dev 의 GET /v1/admin/overview 응답과 같은 모양(contracts/operations, 출처는 한 곳만 남김)
@@ -54,10 +54,5 @@ describe("운영 요약", () => {
     expect(daysOf(undefined)).toBe(7);
     expect(daysOf("30")).toBe(30);
     expect(daysOf(["14"])).toBe(7);
-  });
-
-  it("숫자는 천 단위, 시각은 한국 시간", () => {
-    expect(num(3497962)).toBe("3,497,962");
-    expect(monthDayTime("2026-11-08T07:14:41Z")).toBe("11-08 16:14");
   });
 });

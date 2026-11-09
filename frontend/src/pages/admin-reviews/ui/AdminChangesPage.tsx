@@ -1,29 +1,18 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { dateTime } from "@/shared/lib/format";
+import { href, type SearchParams } from "@/shared/lib/url";
 import { StatusBadge } from "@/shared/ui/badge";
+import { Pager } from "@/shared/ui/pager";
+import { SegmentLinks } from "@/shared/ui/segment";
+import { table } from "@/shared/ui/table";
 
 import { getChanges, getReviewCounts } from "../api/server";
-import {
-  actionLabel,
-  dateTime,
-  fieldLabel,
-  flatValues,
-  scopeLabel,
-  targetLabel,
-} from "../model/labels";
-import { changeQuery, href, PAGE_SIZE, type SearchParams } from "../model/query";
+import { actionLabel, fieldLabel, flatValues, scopeLabel, targetLabel } from "../model/labels";
+import { changeQuery, PAGE_SIZE } from "../model/query";
 import { type Change, changeActions } from "../model/schema";
-import {
-  bodyCell,
-  headCell,
-  headRow,
-  Pager,
-  ReviewsNav,
-  SegmentLinks,
-  tableBox,
-  tableWrap,
-} from "./parts";
+import { ReviewsNav } from "./parts";
 
 // /admin/reviews/changes — 07 · 변경 이력(Figma 2374:7220). 검수 처리와 카드 최종 승인이 한 줄에 모인다(GET /v1/admin/changes).
 // 「반영」 칸(2회차 반영 여부)은 API 에 없어 두지 않는다
@@ -70,8 +59,8 @@ async function ChangesContent({ searchParams }: { searchParams: Promise<SearchPa
           변경 이력 없음
         </p>
       ) : (
-        <div className={tableWrap}>
-          <table className={tableBox}>
+        <div className={table.wrap}>
+          <table className={table.box}>
             <colgroup>
               <col className="w-36" />
               <col className="w-52" />
@@ -80,14 +69,14 @@ async function ChangesContent({ searchParams }: { searchParams: Promise<SearchPa
               <col className="w-28" />
               <col />
             </colgroup>
-            <thead className={headRow}>
+            <thead className={table.headRow}>
               <tr>
-                <th className={headCell}>시각</th>
-                <th className={headCell}>처리자</th>
-                <th className={headCell}>대상</th>
-                <th className={headCell}>처리</th>
-                <th className={headCell}>적용 범위</th>
-                <th className={headCell}>사유 · 바뀐 칸</th>
+                <th className={table.headCell}>시각</th>
+                <th className={table.headCell}>처리자</th>
+                <th className={table.headCell}>대상</th>
+                <th className={table.headCell}>처리</th>
+                <th className={table.headCell}>적용 범위</th>
+                <th className={table.headCell}>사유 · 바뀐 칸</th>
               </tr>
             </thead>
             <tbody>
@@ -126,9 +115,9 @@ function ChangeRow({ change: c }: { change: Change }) {
   );
   return (
     <tr className="border-t border-border-1 text-body-13">
-      <td className={`${bodyCell} text-text-2`}>{dateTime(c.created_at)}</td>
-      <td className={`${bodyCell} truncate text-text-2`}>{c.actor_email}</td>
-      <td className={`${bodyCell} truncate`}>
+      <td className={`${table.bodyCell} text-text-2`}>{dateTime(c.created_at)}</td>
+      <td className={`${table.bodyCell} truncate text-text-2`}>{c.actor_email}</td>
+      <td className={`${table.bodyCell} truncate`}>
         {c.review_id ? (
           <Link
             href={`/admin/reviews/${encodeURIComponent(c.review_id)}`}
@@ -140,11 +129,11 @@ function ChangeRow({ change: c }: { change: Change }) {
           <span className="text-text-1">{target}</span>
         )}
       </td>
-      <td className={bodyCell}>
+      <td className={table.bodyCell}>
         <StatusBadge tone={actionTone[c.action]}>{actionLabel[c.action]}</StatusBadge>
       </td>
-      <td className={`${bodyCell} text-text-2`}>{scopeLabel[c.scope]}</td>
-      <td className={bodyCell}>
+      <td className={`${table.bodyCell} text-text-2`}>{scopeLabel[c.scope]}</td>
+      <td className={table.bodyCell}>
         <p className="truncate text-text-1">{c.reason}</p>
         {fields.length > 0 && (
           <p className="truncate text-caption-12 text-text-3">바뀐 칸: {fields.join(" · ")}</p>
