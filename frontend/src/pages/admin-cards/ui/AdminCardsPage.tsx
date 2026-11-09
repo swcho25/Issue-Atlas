@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { dateTime, monthDay } from "@/shared/lib/format";
 import { href, type SearchParams } from "@/shared/lib/url";
 import { StatusBadge } from "@/shared/ui/badge";
 import { Pager } from "@/shared/ui/pager";
 import { SegmentLinks } from "@/shared/ui/segment";
 
+import { getAdmins } from "@/entities/admin-user";
+import { dateTime, monthDay } from "@/shared/lib/format";
+
 import {
-  getAdmins,
   getApproval,
   getApprovalCounts,
   getApprovals,

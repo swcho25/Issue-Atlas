@@ -11,7 +11,6 @@ import {
   checksSchema,
   indicatorSchema,
   revisionsSchema,
-  userPageSchema,
   versionSchema,
 } from "../model/schema";
 import { specName } from "../model/spec";
@@ -79,10 +78,6 @@ export async function getCardNames(ids: string[]) {
     unique.map((id, i) => [id, drafts[i] ? specName(drafts[i].draft_spec) : null]),
   );
 }
-
-/** 승인자로 고를 수 있는 사람: 활성 관리자(계약상 role · 활성 고정) */
-export const getAdmins = () =>
-  adminGet("/v1/admin/users?size=100", userPageSchema).then((p) => p.items);
 
 export const getSources = () => adminGet("/v1/sources", sourceListSchema).then((l) => l.sources);
 export const getMe = () => adminGet("/v1/auth/me", meSchema);

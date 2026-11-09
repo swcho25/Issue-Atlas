@@ -4,12 +4,12 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import type { AdminUser } from "@/entities/admin-user";
 import { ApiError } from "@/shared/api";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 
 import { requestApproval } from "../api/decide";
-import type { AdminUser } from "../model/schema";
 
 // 승인 요청 보내기(오른쪽 패널). 승인자는 활성 관리자 중에서(본인도 된다), 사유 필수.
 // 요청하면 초안이 잠기고 승인자가 카드 승인 화면에서 처리한다

@@ -20,3 +20,4 @@ export type {
 } from "./common";
 export { type MyQuestion, myQuestionListSchema, type MyRun } from "./my-questions";
 export { type Source, sourceListSchema, type SourceSpec } from "./sources";
+export { type Job, jobListSchema, jobSchema, type JobStatus } from "./jobs";

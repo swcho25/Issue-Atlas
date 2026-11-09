@@ -90,22 +90,6 @@ export const revisionsSchema = z.array(
 );
 export type Revision = z.infer<typeof revisionsSchema>[number];
 
-export const userPageSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.number().int(),
-      email: z.string(),
-      name: z.string(),
-      role: z.string(),
-      is_active: z.boolean(),
-    }),
-  ),
-  page: z.number().int(),
-  size: z.number().int(),
-  total: z.number().int(),
-});
-export type AdminUser = z.infer<typeof userPageSchema>["items"][number];
-
 /**
  * 지표 하나(GET /v1/admin/indicators/{id}). 판정 규칙(rule)은 카드 초안이 아니라 주 지표 행에 있다
  * (c3 「지표와 규칙의 단일 원본」 — 초안 저장 때 rule 은 지워진다). 이 화면은 규칙의 결과 목록만 읽어 model/spec 이 꺼낸다
