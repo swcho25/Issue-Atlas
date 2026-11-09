@@ -30,8 +30,11 @@ describe("유형 전환", () => {
   });
 
   it("켤 수 있는 건 그림을 만든 유형뿐이고, 처음엔 변화형이(없으면 켤 수 있는 첫 유형이) 열린다", () => {
-    // C1 은 이동(flow) 줄도 있지만 이동형은 아직 그림이 없다
-    expect(openViews(ready)).toEqual({ enabled: new Set(["change"]), initial: "change" });
+    // C1 은 이동(flow) 줄이 있어 이동형도 켜진다(전출지별 막대). 처음 열리는 건 판정에 쓰는 변화형
+    expect(openViews(ready)).toEqual({
+      enabled: new Set(["change", "movement"]),
+      initial: "change",
+    });
     // A3 는 판정에 쓰는 변화형이 처음 열림(Figma 메모)
     expect(openViews(a3)).toEqual({
       enabled: new Set(["distribution", "change"]),
@@ -57,7 +60,7 @@ describe("유형 전환", () => {
       ],
     };
     expect(openViews(withCounts)).toEqual({
-      enabled: new Set(["change", "observationOrder"]),
+      enabled: new Set(["change", "movement", "observationOrder"]),
       initial: "change",
     });
   });
