@@ -26,7 +26,6 @@ export function NavButtonsPreview() {
         <figure className="grid gap-2">
           <div className="flex items-center gap-3 rounded-xl p-8" style={mapLike}>
             <GlassIconButton icon="copy" label="각주 복사" data-figma="glass-icon" />
-            <GlassIconButton icon="bookmark" label="저장" />
             <GlassIconButton icon="refresh" label="다시 실행" />
             <GlassIconButton icon="play" label="2회차 실행" showLabel data-figma="glass-label" />
           </div>

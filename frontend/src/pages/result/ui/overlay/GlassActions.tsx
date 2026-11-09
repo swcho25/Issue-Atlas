@@ -26,7 +26,8 @@ const failureText = (e: unknown) =>
  * - 각주 복사: 카드 근거 각주를 한 번에(논증 탭 「각주 전체 복사」와 같은 글). 근거가 없으면 꺼진다
  * - 다시 실행: 같은 질문의 새 회차를 만들고(남이 물은 질문이면 같은 지역 · 카드 · 기간의 새 질문) 새 결과로 간다. 카드 밖 질문이면 꺼진다.
  *   실행이 끝나야 응답이 와서 그동안 아이콘이 돈다. 실패하면 아래에 알림
- * Figma 의 저장(bookmark)은 받을 API 가 없어 아직 두지 않는다
+ * Figma 의 저장(bookmark)은 두지 않는다(사용자 결정 11/09): 질문은 만들 때 내 질문에 자동 저장되고
+ * (Figma 03 「창을 닫아도 내 질문에 저장돼요」 · 06 「저장은 결과를 고정하는 게 아니라 질문을 남기는 것」) 누르면 할 일이 없다
  */
 export function GlassActions({ argument }: { argument: Argument }) {
   const refs = cardRefs(argument);
