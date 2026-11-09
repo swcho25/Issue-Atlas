@@ -1,4 +1,4 @@
-# 카드 설계도 · 지표 사전 v0.5
+# 카드 설계도 · 지표 사전 v0.6
 
 판정 코드가 읽는 카드 정의와 지표 정의. 카드는 **이슈 하나를 어떻게 판단하는가**만 적고, 지역 · 기간을 넣어 돌린 결과는 적지 않는다.
 주는 쪽: 카드 작성(P2 박준우 · 대표 승인) → 받는 쪽: 판정 규칙 `RuleType`(P5 최동준, S15P31C108-192) · 질문 실행(P7 장성우, -133) · 카드 저장 · 승인 [C3](../c3/README.md)(P5 최동준, -174) · 화면(S1 · S4).
@@ -38,7 +38,7 @@ C3 는 이 파일의 키를 그대로 저장한다. 다른 점은 하나: 카드
 | --- | --- | --- |
 | A1–A7 | `card_id` · `name` · `parent_question` · `domain` · `st_type` · `status` · `card_version` · `inclusion` · `exclusion` | `card_version` 은 DB `card.card_version`(V0013)과 같다(테스트가 검사) |
 | B1 | `claim_template` · `rule.outcomes[].claim_text` | 판단 ① 문장. 고른 결과에 `claim_text` 가 있으면 그것(아래 「판단 문장」), 없으면 `claim_template` 의 `{판정값}` 에 `rule.outcomes[].label` |
-| B2 | `claim_items` | 계산할 지표 1–3개. `main` 하나만 판정한다. `related` 는 그림만 |
+| B2 | `claim_items` | 계산할 지표 1–3개. `main` 하나만 판정한다. `related` 는 그림만. `sign_words`(선택)가 있으면 문장화(⑤ 반박 note)가 그 지표 값을 부호 대신 낱말로 쓴다(C1: -1537 → 「순유출 1,537명」, 양수 → 「순유입」). 값은 부호 그대로. ① 판단은 `claim_text` 가 절댓값에 낱말을 붙여 이미 쓰므로 이 칸을 읽지 않는다 |
 | B3 | `comparability` | 비교 조건 4개의 요구사항. 실제 통과 여부는 실행 때 판정 |
 | B4 | `rule` | `rule_id` 규칙 모듈 · `formula_version`(C2 `argument.formula_version` 에 그대로) · `outcomes` 위에서부터 처음 맞는 것. 결과마다 `label`(화면 판단 배지) · `claim_text`(판단 문장, 선택) |
 | B5 | `max_claim_level` | C2 `claim.level` 최대 |
@@ -102,6 +102,7 @@ psql "<DB 접속 문자열>" -v ON_ERROR_STOP=1 -c "SET issue_atlas.approver = '
 
 ## 변경 이력
 
+- v0.6 (2026-11-09): `claim_items[].sign_words`(선택) — 값의 부호를 문장에서 읽는 낱말. C1 주 지표 = 순유출 · 순유입. AI 가 쓰는 ⑤ 반박 note 가 「순유출 −2,262명」처럼 부호와 낱말을 겹쳐 쓰지 않게 한다(① 판단은 v0.5 `claim_text` 가 이미 낱말로 쓴다). seed 를 다시 돌리면 C1 이 다음 판으로 승인된다 (S15P31C108-286)
 - v0.5 (2026-11-06): `rule.outcomes[].claim_text`(결과별 판단 ① 문장, 빈칸 `{첫해}` `{첫값}` `{끝해}` `{끝값}`) — C1 · A3 결과마다 Figma ① 문장. seed 를 다시 돌리면 바뀐 규칙을 고치고 카드를 다음 판(v3)으로 승인한다. 「오류」 페이지 결정 3 (S15P31C108-282)
 - v0.4 (2026-11-02): 지표 `population_registered_19_39`(SP10 19–39세 1세별 21코드의 합 — `locator` 값이 코드 목록이면 합계) · `population_youth_share_19_39`(ratio, ÷ `population_registered_total` × 100). C1 분모 근거에 19–39세 인구, 통계 근거에 청년 인구 비율. observation view 태그를 사전 `cards` 에 맞춤(V0031) (S15P31C108-196)
 - v0.3 (2026-11-02): C1 순유입 전환 조건을 「앞선 해에 음수」로 좁힘(`turned_positive`) · A3 공통 측정소와 `not_comparable` 추가(`a3-pm25-diff-0.2`) · `outcomes[].claim` 에 `not_comparable` 허용 · 운영 seed (S15P31C108-159)

@@ -114,7 +114,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | 결과 | `{schema_version, run_id, status, reason_code, retryable, rebuttals, citations, problems, model, prompt_version}` | `rebuttals` 는 C2 칸 모양. `done` 이면 backend 가 ⑤ 칸을 바꿔 끼우고, 아니면 `rebuttals = []`. v0.2 의 `warrant` 칸은 없다 — backend 는 옛 engine 이 보내도 쓰지 않는다 |
 | 계약 위반 | HTTP 422 `{reason_code: "INPUT_INVALID", problems}` | `problems` 는 어긴 칸 경로와 규칙 이름만. 값은 돌려주지 않는다 |
 
-- 모델에 보내는 입력(프롬프트 `argument-phrasing-v4`): 질문 · 고정 판단(값 · 수준 · ① 문장 · 한정어 · 비교 조건) · 통계 연 값 · 근거 제목 · 경쟁 설명 · 구절 · 상한선 · 금지어. 보증을 쓰지 않으므로 카드 보증 · 규칙 결과 뜻은 보내지 않는다(v3 의 보증 규칙을 뺐다)
+- 모델에 보내는 입력(프롬프트 `argument-phrasing-v5`): 질문 · 고정 판단(값 · 수준 · ① 문장 · 한정어 · 비교 조건) · 통계 연 값(카드 `sign_words` 가 있으면 낱말 글자 `value_text` 도) · 근거 제목 · 경쟁 설명 · 구절 · 상한선 · 금지어. 보증을 쓰지 않으므로 카드 보증 · 규칙 결과 뜻은 보내지 않는다(v3 의 보증 규칙을 뺐다)
 - `provenance`: 모델이 근거 유무를 정한 반박은 `llm_judgment`, 규칙이 정한 반박(`decided_by_rule`)은 `rule`. 반박 문장은 카드 경쟁 설명 그대로(+ 모델이 쓴 한 문장 `note`)
 - 근거 구절: 기사 요약을 문장 하나씩 나눈 P1 … (앞 40건). 원문 위치 = `{kind, source_id, field, sentence, date, url}`. 보도자료 · 정책 문서도 같은 모양으로 넣는다(-161)
 - `citations` 는 C2 응답에 나가지 않는다. backend 가 실행마다 따로 남긴다([DB 계약](../database/README.md) `argument_phrasing`)
@@ -132,6 +132,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | `number_mismatch` | 문장 속 숫자가 입력 값(통계 값 · 입력 문장 속 숫자, 또는 그 자릿수로 반올림)에 없음. 기사 숫자는 그 구절을 인용한 반박에서만. 부호는 보지 않는다 |
 | `unsupported` | `supported` 인데 맞는 인용 구절이 없음 |
 | `forbidden_term` | 카드 `forbidden_terms` + C2 공통(확산 · 전파 · 원인 · 효과) |
+| `sign_wording` | 카드 `claim_items[].sign_words`([카드 계약](../cards/README.md) v0.6)가 있는 지표 값을 반박 note 에 `-` 부호로 썼거나, 그 숫자 앞에서 가장 가까운 부호 낱말이 없거나 값의 부호와 다름(예 -1537 은 「순유출 1,537명」만). 「…년」 숫자는 연도라 보지 않는다. `sign_words` 없는 카드는 검사하지 않는다 |
 
 ### 시간 제한 · 비용
 
@@ -140,7 +141,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | engine → 모델(GMS Gemini 2.5 Flash) | 한 번에 30초. 429 · 5xx 만 두 번까지 다시 부른다 → `LLM_TIMEOUT` · `LLM_ERROR` |
 | backend → engine | 연결 2초 · 응답 40초. 넘거나 못 닿으면 backend 가 `ENGINE_TIMEOUT` · `ENGINE_ERROR`, 주소 설정이 없으면 `ENGINE_DISABLED` 로 남기고 카드 문구로 응답 |
 
-실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v4`, 결과에 `model` · `prompt_version` 을 남긴다.
+실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v5`, 결과에 `model` · `prompt_version` 을 남긴다. v5: 카드 `sign_words` 가 있는 통계 값은 engine 이 부호 대신 낱말로 쓴 글자(`value_text`, 예 「순유출 1,537명」)를 함께 보내고, 모델은 반박 note 에 그 값을 쓸 때 그 글자를 그대로 쓴다. 낱말이 없는 카드의 입력은 v4 와 같다.
 
 ## 예시 · 샘플
 
@@ -194,6 +195,7 @@ pnpm --package=ajv-cli@5 --package=ajv-formats@3 dlx ajv validate --spec=draft20
 
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
+| v0.3.1 | 2026-11-09 | 문장화 프롬프트 v5 · 출력 검사 `sign_wording`: 카드 `sign_words` 값은 ⑤ 반박 note 에서 「순유출 1,537명」처럼 부호 대신 낱말로(v4 의 「AI 는 반박만」은 그대로). 요청 · 결과 스키마는 그대로(카드 승인본은 이미 통째로 보낸다) (S15P31C108-286) |
 | v0.3 | 2026-11-06 | 문장화 결과에서 `warrant` · `citations.warrant` 를 뺀다 — AI 는 ⑤ 반박만(「오류」 페이지 결정 3, Figma). 프롬프트 v4(보증 규칙 · 카드 보증 · 규칙 결과 뜻 입력을 뺌), 출력 검사에서 보증 검사 제거, 예시 2개 갱신. 요청 · 판정 입력은 그대로 (S15P31C108-282) |
 | v0.2 | 2026-11-04 | 문장화 요청 · 결과 스키마와 예시 2개, 출력 검사 · 시간 제한, 처리 상태 `NOT_JUDGED`, 판정 입력 `rebuttal_candidates[].id`, 실제 기사 제목 · 요약의 GMS 전송 허용 (S15P31C108-231) |
 | v0.1.1 | 2026-11-02 | 기사 `body = null` 의 뜻: 요약 뒤 지운 본문 — 제목 · 요약으로 분류 (S15P31C108-189) |

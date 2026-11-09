@@ -4,7 +4,8 @@
 - format: 모양 · judgment_changed: 판단 값 · 경쟁 설명 목록이 입력과 다름
 - unknown_citation: 입력에 없는 구절 ID · quote_not_in_source: 구절에 글자 그대로 없음
 - number_mismatch: 입력에 없는 숫자 · unsupported: 근거 구절 없이 supported · forbidden_term: 금지어
-v4 부터 모델은 ⑤ 반박만 쓴다(보증 칸 없음).
+- sign_wording: 카드 sign_words 값을 - 부호로 쓰거나, 앞 부호 낱말이 없거나 값의 부호와 다름
+v4 부터 모델은 ⑤ 반박만 쓴다(보증 칸 없음). v5 부터 반박 note 의 부호 낱말을 본다.
 """
 
 import re
@@ -100,6 +101,48 @@ def same(text: str) -> str:
     return " ".join(text.split())
 
 
+# 부호로 보는 글자. 기간의 – (en dash, 2023–2025)는 부호가 아니다
+MINUS = ("-", "−")
+
+
+def signed_values(sent: dict) -> dict[Decimal, set[str]]:
+    """value_text 가 있는 통계 값(0 제외)의 절댓값 → 그 값 앞에 와야 하는 낱말"""
+    found: dict[Decimal, set[str]] = {}
+    for s in sent["statistics"]:
+        if "value_text" not in s or not s["value"]:
+            continue
+        words = sent["sign_words"][s["indicator_id"]]
+        word = words["negative"] if s["value"] < 0 else words["positive"]
+        found.setdefault(abs(Decimal(str(s["value"]))), set()).add(word)
+    return found
+
+
+def sign_problems(where: str, text: str | None, sent: dict) -> list[Problem]:
+    """부호 낱말 값(카드 sign_words)을 쓴 곳마다: 숫자 바로 앞에 - 가 없고,
+    그 앞에서 가장 가까운 부호 낱말이 값의 부호와 맞아야 한다. 「…년」 숫자는 연도라 보지 않는다
+    """
+    expected = signed_values(sent)
+    if not expected or not text:
+        return []
+    words = {w for pair in sent["sign_words"].values() for w in pair.values()}
+    problems = []
+    for match in NUMBER.finditer(text):
+        token = match.group().replace(",", "")
+        if text[match.end() : match.end() + 1] == "년":
+            continue
+        wanted = set().union(*(w for value, w in expected.items() if known(token, {value})))
+        if not wanted:
+            continue
+        before = text[: match.start()]
+        if before.rstrip().endswith(MINUS):
+            problems.append(Problem("sign_wording", where, f"-{token}"))
+            continue
+        place, word = max((before.rfind(w), w) for w in words)
+        if place < 0 or word not in wanted:
+            problems.append(Problem("sign_wording", where, token))
+    return problems
+
+
 def check(sent: dict, output) -> list[Problem]:
     shape = [
         Problem("format", "/".join(map(str, e.absolute_path)) or "output", e.message)
@@ -123,6 +166,7 @@ def check(sent: dict, output) -> list[Problem]:
             Problem("number_mismatch", where, n) for n in numbers(text) if not known(n, allowed)
         )
         problems.extend(Problem("forbidden_term", where, t) for t in terms if t in (text or ""))
+        problems.extend(sign_problems(where, text, sent))
 
     for rebuttal in output["rebuttals"]:
         where, cited = rebuttal["id"], []

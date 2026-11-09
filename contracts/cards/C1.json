@@ -10,7 +10,7 @@
   "exclusion": ["청년 일자리 수(F3)", "대학 진학 이동(E)", "관광객 유입(F5)", "전체 인구 감소(C2)"],
   "claim_template": "{지역}에서 {기간} 청년(19–39세) 순이동이 {판정값}",
   "claim_items": [
-    { "indicator_id": "population_net_migration_19_39", "role": "main" },
+    { "indicator_id": "population_net_migration_19_39", "role": "main", "sign_words": { "negative": "순유출", "positive": "순유입" } },
     { "indicator_id": "population_movers", "role": "related" }
   ],
   "comparability": {
