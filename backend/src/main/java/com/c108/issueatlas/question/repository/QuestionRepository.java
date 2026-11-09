@@ -6,16 +6,27 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
 public class QuestionRepository {
     // 기존 대응 · 보도자료 고르기 SQL 은 카드 목록 ②와 같이 쓴다(EvidenceMatchSql). 한쪽만 고치면 두 화면 상태가 어긋난다
     private static final String MATCHED = EvidenceMatchSql.RESPONSES;
+
+    // 근거 상세 「이 질문에 쓴 값」(display, S15P31C108-320): 이미 있는 근거 행은 display 가 비어 있을 때만 채운다.
+    // 근거의 다른 칸은 만든 때의 값 그대로 둔다(V0014)
+    private static final String FILL_DISPLAY =
+            " ON CONFLICT (evidence_id) DO UPDATE SET display = EXCLUDED.display"
+                    + " WHERE evidence.display IS NULL AND EXCLUDED.display IS NOT NULL";
+
     private static final String PRESS_MATCHES = EvidenceMatchSql.PRESS;
 
     // 화면 series(「시공간 표시 개발 명세」 5 · 6절): 질문 지역의 월 단위 통계 관측(observation view, V0025).
@@ -91,6 +102,27 @@ public class QuestionRepository {
                 .optional();
     }
 
+    /** place ID → 이름(측정소 등). 없는 ID 는 빠진다 */
+    public Map<String, String> placeNames(Collection<String> placeIds) {
+        if (placeIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> names = new HashMap<>();
+        jdbc.sql("SELECT place_id, name FROM place WHERE place_id IN (:ids)")
+                .param("ids", placeIds)
+                .query((rs, n) -> names.put(rs.getString(1), rs.getString(2)))
+                .list();
+        return names;
+    }
+
+    /** 지표 사전(indicator)의 정의. 승인본 지표 사본에 없는 분모 지표의 roll · label · unit 을 읽는다 */
+    public Optional<JsonNode> indicatorDefinition(String indicatorId) {
+        return jdbc.sql("SELECT definition::text FROM indicator WHERE indicator_id = ?")
+                .param(indicatorId)
+                .query((row, n) -> json.readTree(row.getString(1)))
+                .optional();
+    }
+
     /** 지역 단위(sido · sigungu · emd · station). 카드 적용 조건 place_level 과 맞춘다. */
     public Optional<String> placeLevel(String placeId) {
         return jdbc.sql("SELECT level FROM place WHERE place_id = ?")
@@ -133,14 +165,15 @@ public class QuestionRepository {
                     SELECT r.*, coalesce(w.collected_at, x.collected_at) AS collected_at,
                            coalesce(x.license_type, s.license_type) AS license_type,
                            coalesce(x.storage_scope, s.storage_scope) AS storage_scope,
-                           s.reliability_grade
+                           s.reliability_grade, x.account AS x_account, x.budget_total AS x_budget,
+                           x.expenditure AS x_spent, x.field AS x_field, x.sector AS x_sector
                     FROM r JOIN source s ON s.source_id = r.origin
                     LEFT JOIN raw_record w ON w.content_hash = r.raw_content_hash
                     LEFT JOIN local_expenditure x USING (expenditure_id)
                     WHERE s.reliability_grade IS NOT NULL
                 )
                 INSERT INTO evidence (evidence_id, kind, title, source_id, source_grade,
-                    license_type, storage_scope, period_start, period_end, collected_at, locator)
+                    license_type, storage_scope, period_start, period_end, collected_at, locator, display)
                 SELECT 'ev_' || substr(response_id, 6), 'existing_responses', name, origin,
                        reliability_grade, license_type, storage_scope,
                        CASE WHEN period_end IS NOT NULL THEN period_start END,
@@ -149,10 +182,24 @@ public class QuestionRepository {
                        jsonb_strip_nulls(jsonb_build_object('response_id', response_id,
                            'origin_ref', origin_ref, 'raw_content_hash', raw_content_hash,
                            'expenditure_id', expenditure_id, 'fiscal_year', fiscal_year,
-                           'department', department, 'rule_version', rule_version))
+                           'department', department, 'rule_version', rule_version)),
+                       -- 지방재정: 회계연도 · 회계 · 예산 · 지출 · 분야, 온통청년: 대상 · 담당(기간은 근거 칸에 따로 있다)
+                       CASE WHEN storage_scope = 'link_only' THEN NULL
+                            WHEN expenditure_id IS NOT NULL THEN concat_ws(' · ',
+                                fiscal_year || '년 ' || x_account,
+                                -- 금액은 만 원 단위(4,000만 원), 만 원 아래는 원
+                                '예산 ' || CASE WHEN x_budget >= 10000
+                                    THEN to_char(round(x_budget / 10000.0), 'FM999,999,999,990') || '만 원'
+                                    ELSE to_char(x_budget, 'FM999,990') || '원' END,
+                                '지출 ' || CASE WHEN x_spent >= 10000
+                                    THEN to_char(round(x_spent / 10000.0), 'FM999,999,999,990') || '만 원'
+                                    ELSE to_char(x_spent, 'FM999,990') || '원' END,
+                                nullif(concat_ws('/', x_field, x_sector), ''))
+                            ELSE nullif(concat_ws(' · ', '대상 ' || nullif(target, ''),
+                                '담당 ' || nullif(department, '')), '') END
                 FROM v
-                ON CONFLICT (evidence_id) DO NOTHING
-                """)
+                """
+                                + FILL_DISPLAY)
                 .param("card", cardId)
                 .param("place", placeId)
                 .param("start", start)
@@ -187,9 +234,10 @@ public class QuestionRepository {
             String label,
             String placeId,
             LocalDate start,
-            LocalDate end) {
+            LocalDate end,
+            String display) {
         return observationEvidence(
-                "statistics", "ev_stat_", specId, indicatorId, label, placeId, start, end);
+                "statistics", "ev_stat_", specId, indicatorId, label, placeId, start, end, display);
     }
 
     /**
@@ -202,7 +250,8 @@ public class QuestionRepository {
             String label,
             String placeId,
             LocalDate start,
-            LocalDate end) {
+            LocalDate end,
+            String display) {
         boolean observed =
                 jdbc.sql("SELECT " + EvidenceMatchSql.DENOMINATOR_OBSERVED)
                         .param("indicator", indicatorId)
@@ -224,7 +273,7 @@ public class QuestionRepository {
                                 .query(String.class)
                                 .single();
         return observationEvidence(
-                "denominators", "ev_den_", specId, indicatorId, name, placeId, start, end);
+                "denominators", "ev_den_", specId, indicatorId, name, placeId, start, end, display);
     }
 
     private Optional<String> observationEvidence(
@@ -235,7 +284,8 @@ public class QuestionRepository {
             String label,
             String placeId,
             LocalDate start,
-            LocalDate end) {
+            LocalDate end,
+            String display) {
         String id =
                 prefix
                         + jdbc.sql("SELECT md5(?)")
@@ -252,7 +302,7 @@ public class QuestionRepository {
         jdbc.sql(
                         """
                 INSERT INTO evidence (evidence_id, kind, title, source_id, source_grade, license_type,
-                    storage_scope, observed_at, period_start, period_end, collected_at, locator)
+                    storage_scope, observed_at, period_start, period_end, collected_at, locator, display)
                 SELECT :id, :kind, s.name || ' · ' || :label, s.source_id, s.reliability_grade,
                        s.license_type, s.storage_scope,
                        -- 시점 = 마지막 관측 기간의 마지막 날(한국 0시). when_end 는 끝 경계(다음 달 1일 0시,
@@ -263,11 +313,12 @@ public class QuestionRepository {
                           AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
                           AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'),
                        :start, :end, now(),
-                       jsonb_build_object('spec_id', :spec, 'indicator_id', :indicator, 'place_id', :place)
+                       jsonb_build_object('spec_id', :spec, 'indicator_id', :indicator, 'place_id', :place),
+                       CASE WHEN s.storage_scope = 'link_only' THEN NULL ELSE CAST(:display AS text) END
                 FROM source_spec sp JOIN source s USING (source_id)
                 WHERE sp.spec_id = :spec AND s.reliability_grade IS NOT NULL
-                ON CONFLICT (evidence_id) DO NOTHING
-                """)
+                """
+                                + FILL_DISPLAY)
                 .param("id", id)
                 .param("kind", kind)
                 .param("label", label)
@@ -276,6 +327,7 @@ public class QuestionRepository {
                 .param("start", start)
                 .param("end", end)
                 .param("spec", specId)
+                .param("display", display)
                 .update();
         return jdbc.sql("SELECT evidence_id FROM evidence WHERE evidence_id = ?")
                 .param(id)
@@ -288,6 +340,7 @@ public class QuestionRepository {
      * 글 같은 판은 같은 ID 라 다시 실행해도 한 행. 제목 · 등록일 · 원문 링크만 두고 본문은 두지 않는다(보도자료 계약 v0.3 「왜 목록만인가」).
      */
     public List<String> pressEvidence(
+            String cardId,
             List<String> specs,
             List<String> keywords,
             String placeId,
@@ -301,11 +354,19 @@ public class QuestionRepository {
                                 + PRESS_MATCHES
                                 + ") INSERT INTO evidence (evidence_id, kind, title, source_id,"
                                 + " source_grade, license_type, storage_scope, observed_at,"
-                                + " published_at, collected_at, locator, url)"
+                                + " published_at, collected_at, locator, url, display)"
                                 + " SELECT evidence_id, 'documents', title, source_id,"
                                 + " reliability_grade, license_type, storage_scope, published_at,"
-                                + " published_at, coalesce(collected_at, now()), locator, url"
-                                + " FROM matched ON CONFLICT (evidence_id) DO NOTHING")
+                                + " published_at, coalesce(collected_at, now()), locator, url,"
+                                // 이 질문에 쓴 값 = 제목에 맞은 카드 키워드. 같은 글이 다른 카드에도 맞으면 그 카드 몫을 덧붙인다
+                                + " CASE WHEN storage_scope = 'link_only' THEN NULL"
+                                + " ELSE '제목에 맞은 ' || :card || ' 카드 키워드: ' || matched_keywords END"
+                                + " FROM matched ON CONFLICT (evidence_id) DO UPDATE SET display ="
+                                + " CASE WHEN evidence.display IS NULL THEN EXCLUDED.display"
+                                + " ELSE evidence.display || ' / ' || EXCLUDED.display END"
+                                + " WHERE EXCLUDED.display IS NOT NULL AND (evidence.display IS NULL"
+                                + " OR strpos(evidence.display, EXCLUDED.display) = 0)")
+                .param("card", cardId)
                 .param("keywords", keywords)
                 .param("specs", specs)
                 .param("place", placeId)
@@ -533,19 +594,23 @@ public class QuestionRepository {
                                 + ARTICLE_MATCHES
                                 + """
                 ) INSERT INTO evidence (evidence_id, kind, title, source_id, source_grade, license_type,
-                    storage_scope, observed_at, published_at, collected_at, location_precision, locator, url)
+                    storage_scope, observed_at, published_at, collected_at, location_precision, locator, url,
+                    display)
                 SELECT DISTINCT ON (a.news_evidence_id) a.news_evidence_id, 'documents', a.title,
                        s.source_id, s.reliability_grade, coalesce(a.license_type, s.license_type),
                        coalesce(a.storage_scope, s.storage_scope), a.when_start, a.published_at,
                        coalesce(a.collected_at, now()),
                        CASE WHEN a.location_precision IN ('exact', 'address', 'admin_centroid')
                             THEN a.location_precision ELSE 'none' END,
-                       a.locator, a.url
+                       a.locator, a.url,
+                       -- 이 질문에 쓴 값 = 우리가 만든 요약(원문 인용이 아니라 AI 요약이라고 밝힌다)
+                       CASE WHEN coalesce(a.storage_scope, s.storage_scope) = 'link_only' OR a.summary IS NULL
+                            THEN NULL ELSE 'AI 요약 · ' || a.summary END
                 FROM a JOIN source s ON s.source_id = 'bigkinds'
                 WHERE s.reliability_grade IS NOT NULL AND a.news_evidence_id IS NOT NULL
                   AND a.title IS NOT NULL
-                ON CONFLICT (evidence_id) DO NOTHING
-                """)
+                """
+                                + FILL_DISPLAY)
                 .param("card", cardId)
                 .param("place", placeId)
                 .param("start", start)

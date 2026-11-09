@@ -63,7 +63,7 @@
 - 「기존 대응」: [-136 후보](../existing-response/) 중 같은 카드 · 지역(`place_id`)이고 기간이 겹치는 현재 판만 잇는다. 세출은 회계연도 `[Y-01-01, Y+1-01-01)`, 온통청년은 사업 기간으로 겹침을 본다. 기간을 모르는 후보와 광역 후보(광주 본청 `kr-29` · `place_id` null)는 시군구 질문에 잇지 않는다. 출처 등급(`source.reliability_grade`)이 정해진 출처의 후보만 근거(`evidence`, ID `ev_<후보 해시>`)로 만들고, 등급 없는 후보는 근거 수요표에 `review_pending`(보류 수 = 후보 수)으로만 센다
 - 근거 수요표 상태는 「카드 목록 구현」과 같은 규칙(`CardEvidenceStatus`)이다: 등록된 `card_evidence_status`(정확히 같은 기간 · 카드 판)가 먼저, 기존 대응은 이번 실행이 이은 후보가 있으면 그것으로 정한다
 - 「분모」: 승인본 `evidence.denominators` 의 지표마다 질문 지역 · 기간에 available 관측(observation) 행이 있으면 근거 한 행(`ev_den_<md5>`, 이름은 지표 사전 `label`)을 만들어 `data.denominators` 에 넣는다. 판정이 이은 분모 · 문서 근거가 있으면 확보 상태 `not_collected`(등록 없음 포함)를 `available` 로 본다(통계와 같은 임시 방식). 분모는 한정어 구성 값에서 뺀다. 지금 C1 · A3 승인본의 분모는 SP10 전체 인구(`population_registered_total`)뿐 — 19–39세 인구는 관측 view 에 합계 행이 없어 아직 잇지 않는다
-- 「문서」: 정제된 보도자료(`normalized_ready`, C1 문서 `kind = press_release`, [보도자료 계약](../press/README.md)) 가운데 ① 승인본 `evidence.documents` 의 명세(`press_release_yeosu` · `press_release_gwangju`) ② 발행 기관 지역(`place_code_raw` → `place_code_map`)이 질문 `place_id` 와 같고 ③ 등록일(`published_at`)이 질문 기간 `[start, end)`(한국 날짜) 안이고 ④ 제목에 승인본 `keywords` 중 하나의 낱말(띄어쓰기로 나눔)이 **모두** 든 글마다 근거 한 행(`ev_doc_<md5(obs_key|content_hash)>`)을 만들어 `data.documents` 에 등록일 순으로 넣는다. 근거는 제목 · 등록일 · 원문 링크(`url`)만 두고 본문 · `display` 는 없다(목록만 수집). 광주광역시 글은 발행 기관이 시 전체(`kr-29`)라 구 질문에 잇지 않는다(기존 대응 광역 후보와 같은 규칙). 출처 등급 없는 출처는 뺀다. 빅카인즈 기사는 문서 근거로 세지 않고 `articles[]`(P4 카드 태그)로만 낸다. 개발 DB(11/5): 여수 2023–2025 에 C1 8건 · A3 8건
+- 「문서」: 정제된 보도자료(`normalized_ready`, C1 문서 `kind = press_release`, [보도자료 계약](../press/README.md)) 가운데 ① 승인본 `evidence.documents` 의 명세(`press_release_yeosu` · `press_release_gwangju`) ② 발행 기관 지역(`place_code_raw` → `place_code_map`)이 질문 `place_id` 와 같고 ③ 등록일(`published_at`)이 질문 기간 `[start, end)`(한국 날짜) 안이고 ④ 제목에 승인본 `keywords` 중 하나의 낱말(띄어쓰기로 나눔)이 **모두** 든 글마다 근거 한 행(`ev_doc_<md5(obs_key|content_hash)>`)을 만들어 `data.documents` 에 등록일 순으로 넣는다. 근거는 제목 · 등록일 · 원문 링크(`url`)만 두고 본문은 없다(목록만 수집). `display` 는 제목에 맞은 카드 키워드(아래 「근거 상세 `display`」). 광주광역시 글은 발행 기관이 시 전체(`kr-29`)라 구 질문에 잇지 않는다(기존 대응 광역 후보와 같은 규칙). 출처 등급 없는 출처는 뺀다. 빅카인즈 기사는 문서 근거로 세지 않고 `articles[]`(P4 카드 태그)로만 낸다. 개발 DB(11/5): 여수 2023–2025 에 C1 8건 · A3 8건
 - 근거 수요표 `reason`: `available` 이면 null, 아니면 「없는 이유」 문장(회사 플랜 Goal ①). 상태가 `not_published` · `license_blocked` · `review_pending` 이면 상태별 문장, `not_collected` 면 근거 종류별 문장(예: 분모 「카드의 분모 지표에 이 지역 · 기간 관측 값이 없습니다.」, 문서 「이 지역 · 기간 보도자료 가운데 카드 키워드에 맞는 글이 없습니다.」)
 - 한정어 ④ 는 위 「정하지 않은 것」의 임시 방식으로 센다
 
@@ -86,7 +86,22 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 - 공통 칸 `unit` · `periods[]`(`YYYY-MM`, 질문 기간의 달 모두) · `values[]` · `statuses[]`. 세 배열 길이가 같고, `available` 이 아니면 값은 null. 그 달 관측 행이 없으면 `not_collected`. 연으로 묶지 않는다
 - `baseline`(선택, 통계 모양만): 그래프 기준선 `{value, above, below}` — 기준 값과 그 위 · 아래의 뜻. 실행이 쓴 카드 승인본 `claim_items[].sign_words`([카드 계약](../cards/README.md) v0.6)가 그 지표에 있으면 `{value: 0, above: positive, below: negative}`(C1 순이동: 0 · 순유입 · 순유출). 값은 부호 그대로이고, 낱말이 없는 지표 · 지난 실행에는 칸이 없다. 0 이 아닌 기준선(예: PM2.5 기준)도 같은 칸으로 보낼 수 있다
 - 카드에 연결한 지표(명세 7절 그림 순서): C1 = `population_net_migration_19_39`(순이동 막대) → `population_movers`(이동, 도착 시도마다 한 줄), A3 = `air_pm25`(측정소마다 한 줄). 카드가 늘면 카드 ↔ 지표 표로 옮긴다
-- `articles[]`: `id`(news_id) · `date`(한국 날짜) · `place_id` · `point` · `precision` · `summary` · `place_name` · `url`(원문 링크 — 빅카인즈 원본 레코드의 언론사 링크, 없으면 null. 본문은 저장하지 않는다). 선택 칸 `evidence_id` · `source_grade`: 질문 실행 때 기사마다 문서 근거 행(`ev_news_<md5(obs_key|content_hash)>`, `kind = documents`, 제목 · 공표일 · 원문 링크 · 원문 위치(`news_id` · 언론사), 본문 · `display` 없음)을 만들고 그 ID 와 출처 등급(빅카인즈 C)을 준다. 원문 탭은 이 ID 로 근거 상세를 연다. 기사는 `data.documents` 에 넣지 않는다. 출처 등급이 없거나 원본 레코드를 못 찾으면 둘 다 null, 지난 실행 결과에는 칸이 없다. 카드 태그가 있고 질문 지역(앞자리가 같은 읍면동 포함) · 기간 안인 기사. **지금은 기사에 카드 태그가 없어(기사 분류 P4 전) 늘 빈 배열**이고 기사 건수 series 도 나오지 않는다
+- `articles[]`: `id`(news_id) · `date`(한국 날짜) · `place_id` · `point` · `precision` · `summary` · `place_name` · `url`(원문 링크 — 빅카인즈 원본 레코드의 언론사 링크, 없으면 null. 본문은 저장하지 않는다). 선택 칸 `evidence_id` · `source_grade`: 질문 실행 때 기사마다 문서 근거 행(`ev_news_<md5(obs_key|content_hash)>`, `kind = documents`, 제목 · 공표일 · 원문 링크 · 원문 위치(`news_id` · 언론사), 본문 없음, `display` 는 AI 요약)을 만들고 그 ID 와 출처 등급(빅카인즈 C)을 준다. 원문 탭은 이 ID 로 근거 상세를 연다. 기사는 `data.documents` 에 넣지 않는다. 출처 등급이 없거나 원본 레코드를 못 찾으면 둘 다 null, 지난 실행 결과에는 칸이 없다. 카드 태그가 있고 질문 지역(앞자리가 같은 읍면동 포함) · 기간 안인 기사. **지금은 기사에 카드 태그가 없어(기사 분류 P4 전) 늘 빈 배열**이고 기사 건수 series 도 나오지 않는다
+
+## 근거 상세 `display` (「이 질문에 쓴 값」, S15P31C108-320)
+
+근거 상세 `GET /v1/evidence/{evidence_id}` 의 `display` 는 원문 탭 「이 질문에 쓴 값」이다. 근거 행을 만들 때 채우고, 이미 있는 근거 행은 `display` 가 비어 있을 때만 채운다(근거의 다른 칸은 만든 때의 값 그대로). `storage_scope = link_only` 면 늘 `null`.
+
+| 근거 | `display` | 예 (개발 DB 여수 2023–2025) |
+| --- | --- | --- |
+| 통계 `ev_stat_` | 지역 · 지표 이름 · 묶는 법(단위): 질문 기간에 통째로 든 해마다 판정에 쓴 연 값. 롤업에서 빠진 해는 「제외(N개월)」, 관측 없는 해는 「자료 없음」. 측정소가 여럿이면 측정소마다 「 / 」 | 여수시 · 청년(19–39세) 순이동 · 연 합계(명): 2023 제외(11개월) · 2024 −1,935 · 2025 −2,262 |
+| 분모 `ev_den_` | 통계와 같은 모양(지표 정의는 승인본 사본, 없으면 지표 사전) | 여수시 · 주민등록인구 (연말) · 연말(명): 2023 271,696 · … |
+| 기존 대응 `ev_` 지방재정 | 회계연도 · 회계 · 예산 · 지출(만 원 단위, 만 원 아래는 원) · 분야/부문 | 2023년 일반회계 · 예산 4,000만 원 · 지출 3,500만 원 · 사회복지/노동 |
+| 기존 대응 `ev_` 온통청년 | 대상 · 담당(기간은 근거의 `period_start` · `period_end`) | 대상 … · 담당 여수시 문화관광체육국 |
+| 문서 `ev_doc_` 보도자료 | 제목에 맞은 카드 키워드. 같은 글이 다른 카드에도 맞으면 「 / 」로 덧붙인다 | 제목에 맞은 C1 카드 키워드: 청년 정착 |
+| 문서 `ev_news_` 기사 | 「AI 요약 · 」+ 정제 요약(원문 인용이 아님) | AI 요약 · 여수시가 … |
+
+숫자는 천 단위 쉼표, 음수는 −(U+2212), 평균은 소수 한 자리. 칸 · 타입은 그대로이고 null 이던 칸에 값이 차는 변경이다(동결 문서 「해도 된다」).
 
 ## 공통 규칙
 
@@ -261,3 +276,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - C2 v1 계약 제안 (2026-11-06, S15P31C108-283): argument 에 `claim.label`(결과 이름, 판정 안 함은 null) · 최상위 `applicability[]`(`{condition, label, passed, note}`, 카드 적용 조건 B6 를 조건마다)를 더한다. 둘 다 필수. 스키마 검사 2개(blocked · unsupported → label null, passed false → unsupported) · 카드 없음 → `[]`. 예시 4개에 두 칸, 예시 `argument-c1-unsupported-years.json`(완전한 연 값 2개 → ✕) 추가. 「오류」 페이지 결정 2 · 7. 동결 대상 — backend · 프론트 리뷰. backend 구현 · V0051(지난 실행 채움)은 같은 MR, 프론트는 다음 MR. 리뷰 반영: ready · partial 인데 label null(지난 실행)이면 이전 배지, 연 값 note 는 빠진 해를 나열. 「판단 배지 · 적용 조건」
 - C2 선택 칸 추가 (2026-11-06 · 11-09 develop 반영, S15P31C108-286): argument `series[]` 에 선택 칸 `baseline {value, above, below}`(그래프 기준선과 위 · 아래 뜻) — 카드 승인본 `claim_items[].sign_words`(카드 계약 v0.6)에서 만든다. 화면이 기준선 뜻(순유입 · 순유출)을 카드에서 받는다. 동결 뒤 추가라 [동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」에 기록, 예시 `argument-c1-ready.json` 에 값 (S15P31C108-286)
 - C2 선택 칸 추가 (2026-11-09, S15P31C108-318): argument `articles[]` 에 선택 칸 `evidence_id` · `source_grade` — 근거 기사를 보도자료처럼 근거 상세(`GET /v1/evidence/{evidence_id}`)로 연다. 기사마다 실행 때 `ev_news_<md5>` 문서 근거 행을 만든다(같은 판이면 한 행). 없어도 되는 칸이라 지난 실행 · 예시는 그대로 통과한다. 동결 뒤 추가라 [동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」에 기록
+- c2-0.1 값 변경 (2026-11-09, S15P31C108-320): 근거 상세 `display`(「이 질문에 쓴 값」)를 근거 종류마다 채운다 — 통계 · 분모 연 값, 기존 대응 예산 · 대상, 보도자료 맞은 키워드, 기사 AI 요약. 칸 · 타입 그대로(null 이던 칸에 값이 차는 것). 이미 있는 근거 행은 비어 있을 때만 채운다. 「근거 상세 `display`」 절

@@ -523,7 +523,8 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.source_grade").value("C"))
                 .andExpect(jsonPath("$.license_type").value("BIGKINDS-이용약관"))
                 .andExpect(jsonPath("$.storage_scope").value("metadata"))
-                .andExpect(jsonPath("$.display").value(nullValue()))
+                // 이 질문에 쓴 값 = 우리가 만든 요약(AI 요약이라고 밝힌다)
+                .andExpect(jsonPath("$.display").value("AI 요약 · 청년 유출 기사 요약"))
                 .andExpect(jsonPath("$.url").value("https://news.test/n-q-ev"))
                 .andExpect(jsonPath("$.locator.locator.news_id").value("n-q-ev"))
                 .andExpect(jsonPath("$.locator.publisher").value("여수신문"));
@@ -619,6 +620,8 @@ class QuestionApiTest {
                 .hasSize(2)
                 .first()
                 .isEqualTo("existing_responses|" + evidence + "|resp:a" + "1".repeat(63));
+        // 지방재정: 회계연도 · 회계 · 예산 · 지출(만 원 아래는 원)
+        assertThat(display("existing_responses")).isEqualTo("2024년 일반회계 · 예산 1,000원 · 지출 900원");
     }
 
     /** YEOSU 의 판단 ① 문장: 승인본 결과 문장(claim_text)에 첫해 · 끝해 연 값(절댓값)을 넣는다(S15P31C108-282, Figma ①). */
@@ -701,6 +704,20 @@ class QuestionApiTest {
                                         + " AND evidence_id LIKE 'ev_stat_%'",
                                 Integer.class))
                 .isEqualTo(1);
+        // 근거 상세 「이 질문에 쓴 값」 = 판정에 쓴 연 합계(-320)
+        String c1Display =
+                "여수시 · 청년(19–39세) 순이동 · 연 합계(명): 2023 −1,537 · 2024 −1,935 · 2025 −2,262";
+        assertThat(display("statistics")).isEqualTo(c1Display);
+        // 이 기능 전에 만든(값이 빈) 근거 행은 다시 실행하면 채운다
+        jdbc.update("UPDATE evidence SET display = NULL WHERE kind = 'statistics'");
+        runId(ask(body));
+        assertThat(display("statistics")).isEqualTo(c1Display);
+    }
+
+    /** 그 종류 근거 한 행의 display(근거 상세 「이 질문에 쓴 값」) */
+    private String display(String kind) {
+        return jdbc.queryForObject(
+                "SELECT display FROM evidence WHERE kind = ?", String.class, kind);
     }
 
     @Test
@@ -731,6 +748,35 @@ class QuestionApiTest {
                                         + " FROM evidence WHERE kind = 'statistics'",
                                 Boolean.class))
                 .isTrue();
+        // 관측이 없는 해는 「자료 없음」
+        assertThat(display("statistics"))
+                .isEqualTo(
+                        "여수시 · 청년(19–39세) 순이동 · 연 합계(명): 2023 −1,537 · 2024 −1,935 · 2025 자료 없음");
+    }
+
+    @Test
+    void statisticsDisplayMarksYearsLeftOutOfTheRollup() throws Exception {
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('S01','KOSIS 인구이동','통계청','KOGL-1','full','A')");
+        for (int i = 0; i < YEOSU.length; i++) {
+            String month = LocalDate.of(2023, 1, 1).plusMonths(i).toString();
+            kosis("SP01", "population_net_migration", "{\"C3\": \"905\"}", month, YEOSU[i]);
+        }
+        // 2022 는 1월이 빠진 11개월 → 연 합계(12개월 필요)에서 빠진다. 판정은 완전한 2023–2025 로
+        for (int month = 2; month <= 12; month++) {
+            kosis(
+                    "SP01",
+                    "population_net_migration",
+                    "{\"C3\": \"905\"}",
+                    LocalDate.of(2022, month, 1).toString(),
+                    -100);
+        }
+        runId(ask(body("C1", "2022-01-01", "2026-01-01").replace(PLACE, "kr-12130")));
+        assertThat(display("statistics"))
+                .isEqualTo(
+                        "여수시 · 청년(19–39세) 순이동 · 연 합계(명): 2022 제외(11개월) · 2023 −1,537"
+                                + " · 2024 −1,935 · 2025 −2,262");
     }
 
     /** 정제된 보도자료 한 건(보도자료 계약 v0.3 C1 문서). site 는 yeosu(46130) · gwangju(29). */
@@ -839,7 +885,8 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.kind").value("documents"))
                 .andExpect(jsonPath("$.url").value("https://press.test/view?idx=yeosu:1"))
                 .andExpect(jsonPath("$.published_at").value(org.hamcrest.Matchers.notNullValue()))
-                .andExpect(jsonPath("$.display").value(org.hamcrest.Matchers.nullValue()));
+                // 이 질문에 쓴 값 = 제목에 맞은 카드 키워드(본문은 없다)
+                .andExpect(jsonPath("$.display").value("제목에 맞은 C1 카드 키워드: 청년 정착"));
         // 다시 실행해도 같은 글 같은 판은 근거 한 행
         runId(ask(body));
         assertThat(
@@ -944,6 +991,8 @@ class QuestionApiTest {
                                 "SELECT count(*) FROM evidence WHERE kind = 'denominators'",
                                 Integer.class))
                 .isEqualTo(1);
+        assertThat(display("denominators"))
+                .isEqualTo("여수시 · 주민등록인구 (연말) · 연말(명): 2023 271,696 · 2024 267,816 · 2025 263,284");
         // 연 값(2025 한 해)의 시점도 그 해 마지막 날(-272)
         assertThat(
                         jdbc.queryForObject(
@@ -1178,6 +1227,12 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.applicability[2].note").value("측정소 2곳"))
                 .andExpect(jsonPath("$.comparability.same_boundary.passed").value(true))
                 .andExpect(jsonPath("$.data.statistics.length()").value(1));
+        // 측정소마다 연평균 한 줄(「 / 」로 잇는다)
+        assertThat(display("statistics"))
+                .startsWith("여수시 · 초미세먼지(PM2.5) 월평균 · 연평균(µg/m³): ")
+                .contains("2023 10.0 · 2024 11.0 · 2025 13.0")
+                .contains("2023 자료 없음 · 2024 자료 없음 · 2025 100.0")
+                .contains(" / ");
     }
 
     @Test
