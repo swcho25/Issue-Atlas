@@ -11,13 +11,14 @@ import {
   defaultMonth,
   distributionMonths,
   hasAqBands,
+  monthlyMeans,
   monthSummary,
   stationPoints,
   stationSeries,
 } from "../../model/distribution";
 import { judgmentBadge } from "../../model/labels";
 import { observationOrder } from "../../model/observationOrder";
-import { openViews, type ViewType, viewTypes } from "../../model/views";
+import { changeSeries, openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
 import { ArticleDots, ArticleLegend } from "./ArticleDots";
 import { ChangeSheet } from "./ChangeSheet";
@@ -25,6 +26,7 @@ import { DistributionLegend } from "./DistributionLegend";
 import { GlassActions } from "./GlassActions";
 import { OrderMarkers, OrderSheet } from "./OrderView";
 import { StationDots } from "./StationDots";
+import { TimeStrip } from "./TimeStrip";
 
 // 04 지도 위 부품(Figma 04): 위 유형 전환(+ 분포형이면 시점) · 오른쪽 위 유리 아이콘 · 그림 시트 · 범례 · 아래 유리 바.
 // 셋 다 결과 카드(왼쪽 24 + 폭 400 + 사이 24 = 448) 오른쪽의 빈 지도 위에 둔다. 유형 전환은 그 왼쪽 끝,
@@ -41,6 +43,10 @@ export function MapOverlays({ argument }: { argument: Argument }) {
   const points = useMemo(() => (month ? stationPoints(stations, month) : []), [stations, month]);
   const unit = stations[0]?.unit ?? null;
   const distribution = view === "distribution" && month !== null;
+  // A3 변화형: 같은 측정소 점 + 지도 아래 시간 막대(막대 그림 줄이 없을 때 — C1 은 순이동 막대 시트)
+  const timeline =
+    view === "change" && month !== null && stations.length > 0 && !changeSeries(argument);
+  const means = useMemo(() => monthlyMeans(stations), [stations]);
 
   // 변화형 위 기사 점
   const articles = useMemo(() => articleMarks(argument), [argument]);
@@ -51,9 +57,24 @@ export function MapOverlays({ argument }: { argument: Argument }) {
     <>
       <TypeSwitch enabled={enabled} current={view} onChange={setView} />
       <GlassActions argument={argument} />
-      {distribution && (
+      {timeline && (
+        <div
+          className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
+        >
+          <TimeStrip
+            months={distributionMonths(stations)}
+            means={means}
+            value={month}
+            unit={unit}
+            onChange={setMonth}
+          />
+        </div>
+      )}
+      {(distribution || timeline) && (
         <>
-          <MonthPicker months={distributionMonths(stations)} value={month} onChange={setMonth} />
+          {distribution && (
+            <MonthPicker months={distributionMonths(stations)} value={month} onChange={setMonth} />
+          )}
           <StationDots points={points} unit={unit} />
           {/* Figma Legend 자리: 지도 오른쪽 86 · 아래 226(지도 버튼 묶음 위 왼쪽) */}
           {hasAqBands(stations[0]?.indicator_id) && (

@@ -24,15 +24,19 @@ const unsupported = argumentSchema.parse(unsupportedJson);
 describe("유형 전환", () => {
   it("결과가 가진 그림 모양으로 유형이 켜진다(여수 C1: 변화 · 이동, Figma 「켜짐=변화·이동」)", () => {
     expect([...availableViews(ready)].sort()).toEqual(["change", "movement"]);
-    expect([...availableViews(a3)]).toEqual(["distribution"]);
+    // 측정소 지도 점은 분포형(한 달) · 변화형(점 + 월 막대, Figma 「변화형 · 대기질」) 둘 다
+    expect([...availableViews(a3)].sort()).toEqual(["change", "distribution"]);
     expect(availableViews(unsupported).size).toBe(0);
   });
 
   it("켤 수 있는 건 그림을 만든 유형뿐이고, 처음엔 변화형이(없으면 켤 수 있는 첫 유형이) 열린다", () => {
     // C1 은 이동(flow) 줄도 있지만 이동형은 아직 그림이 없다
     expect(openViews(ready)).toEqual({ enabled: new Set(["change"]), initial: "change" });
-    // A3 는 측정소 지도 점만 있어 분포형
-    expect(openViews(a3)).toEqual({ enabled: new Set(["distribution"]), initial: "distribution" });
+    // A3 는 판정에 쓰는 변화형이 처음 열림(Figma 메모)
+    expect(openViews(a3)).toEqual({
+      enabled: new Set(["distribution", "change"]),
+      initial: "change",
+    });
   });
 
   it("기사 건수 줄이 있으면 관측 순서도 켜진다(처음 열리는 건 그대로 변화형)", () => {

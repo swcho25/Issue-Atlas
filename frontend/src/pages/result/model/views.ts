@@ -27,9 +27,12 @@ export const builtViews: ReadonlySet<ViewType> = new Set([
   "observationOrder",
 ]);
 
-/** 결과가 가진 유형(데이터 기준) */
+/**
+ * 결과가 가진 유형(데이터 기준). 측정소 지도 점은 분포형(한 달)과 변화형(점 + 월 막대, Figma 「변화형 · 대기질」) 둘 다 된다
+ */
 export function availableViews(a: Argument): Set<ViewType> {
   const views = new Set<ViewType>(a.series.map((s) => shapeView[seriesShape(s)]));
+  if (views.has("distribution")) views.add("change");
   if (a.articles.length) views.add("event");
   return views;
 }
