@@ -21,9 +21,6 @@ export const adminMenu: MenuItem[] = [
   { label: "데이터 소스", href: "/admin/sources", icon: "db" },
 ];
 
-/** 띠 맨 아래 첫 글자 동그라미가 가는 곳 */
-export const myPageHref = "/me";
-
 export function isActive(item: MenuItem, pathname: string) {
   if (item.exact) return pathname === item.href;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
