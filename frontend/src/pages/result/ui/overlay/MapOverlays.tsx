@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import type { Argument } from "@/shared/api";
-import { Icon } from "@/shared/ui/icon";
 
 import { boundariesQuery } from "../../api/boundariesQuery";
 import { articleMarks } from "../../model/articles";
@@ -27,6 +26,7 @@ import { ArticleDots, ArticleLegend } from "./ArticleDots";
 import { ChangeSheet } from "./ChangeSheet";
 import { DistributionLegend } from "./DistributionLegend";
 import { GlassActions } from "./GlassActions";
+import { MonthMenu } from "./MonthMenu";
 import { MovementDots } from "./MovementDots";
 import { MovementSheet } from "./MovementSheet";
 import { OrderMarkers, OrderSheet } from "./OrderView";
@@ -114,7 +114,7 @@ export function MapOverlays({ argument }: { argument: Argument }) {
       {(distribution || timeline) && (
         <>
           {distribution && (
-            <MonthPicker months={distributionMonths(stations)} value={month} onChange={setMonth} />
+            <MonthMenu months={distributionMonths(stations)} value={month} onChange={setMonth} />
           )}
           <StationDots
             points={points}
@@ -191,38 +191,6 @@ export function MapOverlays({ argument }: { argument: Argument }) {
         />
       </div>
     </>
-  );
-}
-
-/**
- * 분포형 시점(Figma glass · 시점 102 × 34: 유리 알약 · 안쪽 8 · 16 · Bold 14 「2024-03 ▾」). 유형 전환 오른쪽 8(448 + 392 + 8).
- * 고르는 칸은 기본 select 라 키보드 · 낭독기가 그대로 쓴다
- */
-function MonthPicker({
-  months,
-  value,
-  onChange,
-}: {
-  months: string[];
-  value: string;
-  onChange: (month: string) => void;
-}) {
-  return (
-    <label className="absolute top-[21px] left-[848px] z-control flex h-[34px] items-center rounded-full glass pr-3 pl-4 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-text-1">
-      <span className="sr-only">분포형 시점(달)</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="cursor-pointer appearance-none bg-transparent pr-5 text-title-14 font-bold text-text-1 outline-none"
-      >
-        {months.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-      </select>
-      <Icon name="chevronDown" className="pointer-events-none -ml-4 size-4 text-text-1" />
-    </label>
   );
 }
 
