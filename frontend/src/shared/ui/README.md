@@ -51,7 +51,8 @@ import { Icon } from "@/shared/ui/icon";
 
 | 클래스 | 쓰는 곳 |
 | --- | --- |
-| `glass` (+ `glass-strong` · `glass-thin`) | 지도 · 지구 위에 뜨는 판. 흰 화면 위에는 쓰지 않는다 |
+| `glass` (+ `glass-strong` · `glass-thin`) | 지도 · 지구 위에 뜨는 판. 흰 화면 위에는 쓰지 않는다. 어두운 화면 값(어두운 채움)은 유틸리티가 갖고 있다 |
+| `bg-glass-hover` · `bg-glass-press` | 유리 위 칸을 가리킬 때 · 누르거나 펼쳤을 때 덧칠. `bg-white/30` 은 어두운 화면에서 너무 밝아 쓰지 않는다 |
 | `lens-amber` · `lens-clear` · `tab-glass` | 탭 바의 고른 칸 · 틀. 같은 모양의 고른 칸(분할 버튼 등)이 생기면 다시 쓴다 |
 | `shadow-card` · `shadow-legend` · `shadow-button` … | 그림자. 목록은 globals.css `@theme` |
 | `z-map` < `z-control` < `z-panel` < `z-popover` < `z-toast` < `z-modal` | 겹침 순서 |
