@@ -14,6 +14,7 @@ import {
   getApprovalCounts,
   getApprovals,
   getCardChecks,
+  getIndicatorRule,
   getCardNames,
   getMe,
   getSources,
@@ -21,7 +22,7 @@ import {
 import { approvalBadge, decisionLabel } from "../model/labels";
 import { type ApprovalQuery, approvalQuery, PAGE_SIZE } from "../model/query";
 import { type ApprovalRequest, approvalStatuses } from "../model/schema";
-import { specName } from "../model/spec";
+import { specClaim, specName } from "../model/spec";
 import { ApprovalActions } from "./ApprovalActions";
 import { CardIdJump } from "./CardIdJump";
 import { Block, ChecksList, ClaimBlock, EvidenceTable } from "./CardSpecBlocks";
@@ -146,8 +147,12 @@ async function RequestDetail({ id }: { id: string }) {
   ]);
   const r = detail.request;
   const open = r.status === "pending" || r.status === "on_hold";
+  const main = specClaim(detail.draft_spec).indicators.find((x) => x.role === "main")?.id;
   // 열린 요청이면 초안이 잠겨 지금 검사 = 요청 당시 초안 검사
-  const checks = open ? await getCardChecks(r.card_id) : null;
+  const [checks, rule] = await Promise.all([
+    open ? getCardChecks(r.card_id) : null,
+    getIndicatorRule(main),
+  ]);
   const who = (uid: number) => admins.find((u) => u.id === uid)?.name ?? `#${uid}`;
   return (
     <>
@@ -182,7 +187,7 @@ async function RequestDetail({ id }: { id: string }) {
 
       {checks && checks.draft_revision === r.draft_revision && <ChecksList checks={checks} />}
       <EvidenceTable spec={detail.draft_spec} sources={sources} />
-      <ClaimBlock spec={detail.draft_spec} ruleVersions={detail.indicator_versions} />
+      <ClaimBlock spec={detail.draft_spec} rule={rule} ruleVersions={detail.indicator_versions} />
 
       <Block title="처리 이력">
         {detail.decisions.length === 0 ? (

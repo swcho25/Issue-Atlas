@@ -29,6 +29,24 @@ export function specClaim(s: Spec) {
   };
 }
 
+/**
+ * 규칙 결과(rule.outcomes, 위에서부터 처음 맞는 것)마다 결과 이름과 판단 ① 문장.
+ * 결과 문장(claim_text)이 없으면 판단 틀의 {판정값} 에 결과 이름을 넣는다 — 실행이 문장을 만드는 규칙과 같다(contracts/cards 「판단 문장」).
+ * 근거 부족(insufficient)은 실행이 판단하지 않아 문장이 없다
+ */
+export function ruleOutcomes(rule: unknown, template: string | null) {
+  const outcomes = obj(rule).outcomes;
+  return (Array.isArray(outcomes) ? outcomes : []).flatMap((o) => {
+    const label = str(obj(o).label);
+    if (!label) return [];
+    const text =
+      obj(o).claim === "insufficient"
+        ? null
+        : (str(obj(o).claim_text) ?? template?.replace("{판정값}", label) ?? null);
+    return [{ label, text }];
+  });
+}
+
 /** 근거 4종 순서(결과 화면 근거 수요표와 같음) */
 export const evidenceKinds: EvidenceKind[] = [
   "statistics",
