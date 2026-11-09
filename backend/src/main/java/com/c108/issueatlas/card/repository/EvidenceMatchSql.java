@@ -37,7 +37,11 @@ public final class EvidenceMatchSql {
                    (n.record ->> 'collected_at')::timestamptz AS collected_at,
                    n.record -> 'document' ->> 'link' AS url,
                    jsonb_build_object('spec_id', n.spec_id, 'locator', n.record -> 'locator',
-                                      'obs_key', n.obs_key, 'content_hash', n.content_hash) AS locator
+                                      'obs_key', n.obs_key, 'content_hash', n.content_hash) AS locator,
+                   (SELECT string_agg(array_to_string(kw.words, ' '), ', ') FROM keyword kw
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM unnest(kw.words) w
+                        WHERE strpos(n.record -> 'document' ->> 'title', w) = 0)) AS matched_keywords
             FROM normalized_ready n
             JOIN place_code_map m ON m.code_system = n.place_code_system AND m.place_code = n.place_code_raw
             JOIN source s ON s.source_id = n.source_id

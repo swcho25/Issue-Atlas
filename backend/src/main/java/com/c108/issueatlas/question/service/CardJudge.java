@@ -7,10 +7,12 @@ import com.c108.issueatlas.question.dto.ApprovedCard;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Comparability;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Condition;
 import com.c108.issueatlas.question.repository.QuestionRepository;
+import com.c108.issueatlas.question.repository.QuestionRepository.ObservationRow;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,12 +40,9 @@ public class CardJudge {
         type.validate(rule);
         String indicatorId = rule.path("indicator_id").asText();
         JsonNode definition = definition(spec, indicatorId);
-        YearValues values =
-                AnnualRollup.apply(
-                        questions.observationRows(indicatorId, placeId, start, end),
-                        definition,
-                        start,
-                        end);
+        List<ObservationRow> rows = questions.observationRows(indicatorId, placeId, start, end);
+        YearValues values = AnnualRollup.apply(rows, definition, start, end);
+        String placeName = questions.placeName(placeId).orElse(placeId);
         Evaluation evaluation = type.evaluate(values, rule);
         JsonNode outcome = outcome(rule, evaluation);
         String claim = outcome.path("claim").asText();
@@ -73,7 +72,8 @@ public class CardJudge {
                                         definition.path("label").asText(),
                                         placeId,
                                         start,
-                                        end)
+                                        end,
+                                        display(placeName, definition, rows, values, start, end))
                                 .map(List::of)
                                 .orElse(List.of());
         List<String> denominators = new ArrayList<>();
@@ -88,7 +88,8 @@ public class CardJudge {
                             label(spec, denominatorId),
                             placeId,
                             start,
-                            end)
+                            end,
+                            denominatorDisplay(spec, denominatorId, placeName, placeId, start, end))
                     .filter(id -> !denominators.contains(id))
                     .ifPresent(denominators::add);
         }
@@ -101,7 +102,8 @@ public class CardJudge {
         List<String> keywords = new ArrayList<>();
         spec.path("keywords").forEach(keyword -> keywords.add(keyword.asText()));
         List<String> documents =
-                questions.pressEvidence(documentSpecs, keywords, placeId, start, end);
+                questions.pressEvidence(
+                        card.cardId(), documentSpecs, keywords, placeId, start, end);
         String level =
                 switch (claim) {
                     case "insufficient" -> "insufficient_evidence";
@@ -128,6 +130,51 @@ public class CardJudge {
     }
 
     /** 승인본 지표 사본의 이름. 사본이 없는 지표(분모 등)는 null. */
+    /** 근거 상세 「이 질문에 쓴 값」: 판정에 쓴 연 값 문장. 측정소 이름은 place 에서 읽는다 */
+    private String display(
+            String placeName,
+            JsonNode definition,
+            List<ObservationRow> rows,
+            YearValues values,
+            LocalDate start,
+            LocalDate end) {
+        List<String> stations =
+                rows.stream()
+                        .map(ObservationRow::stationId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList();
+        return EvidenceDisplay.annual(
+                placeName, definition, rows, values, questions.placeNames(stations), start, end);
+    }
+
+    /** 분모도 지표 정의(roll)로 연 값을 묶는다. 승인본 사본 → 지표 사전 순. 정의가 없으면 문장을 만들지 않는다 */
+    private String denominatorDisplay(
+            JsonNode spec,
+            String indicatorId,
+            String placeName,
+            String placeId,
+            LocalDate start,
+            LocalDate end) {
+        JsonNode definition = null;
+        for (JsonNode snapshot : spec.path("indicator_snapshots")) {
+            if (indicatorId.equals(snapshot.path("indicator_id").asText())) {
+                definition = snapshot.path("definition");
+            }
+        }
+        if (definition == null)
+            definition = questions.indicatorDefinition(indicatorId).orElse(null);
+        if (definition == null || definition.path("roll").isMissingNode()) return null;
+        List<ObservationRow> rows = questions.observationRows(indicatorId, placeId, start, end);
+        return display(
+                placeName,
+                definition,
+                rows,
+                AnnualRollup.apply(rows, definition, start, end),
+                start,
+                end);
+    }
+
     private static String label(JsonNode spec, String indicatorId) {
         for (JsonNode snapshot : spec.path("indicator_snapshots")) {
             if (indicatorId.equals(snapshot.path("indicator_id").asText())) {
