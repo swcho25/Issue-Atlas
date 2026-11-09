@@ -1,4 +1,4 @@
-"""P5 ③ 보증 · ⑤ 반박 문장화. 모델은 가짜로 바꿔 네트워크 없이 돈다. 기사 · A3 개선 입력은 가상이다."""
+"""P5 ⑤ 반박 문장화(v4: 보증은 카드 문장). 모델은 가짜로 바꿔 네트워크 없이 돈다. 기사 · A3 개선 입력은 가상이다."""
 
 import copy
 import io
@@ -15,7 +15,7 @@ from ai.argument import gms
 from ai.argument.__main__ import main
 from ai.argument.check import check
 from ai.argument.phrase import phrase
-from ai.argument.prompt import article_sources, build, passages, value_text
+from ai.argument.prompt import SYSTEM, article_sources, build, passages, value_text
 from api.main import app
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
@@ -47,6 +47,7 @@ def a3():
     record["comparability"]["same_boundary"] = {"passed": True, "note": "같은 측정소끼리만 비교"}
     record["claim"] = {
         "value": "decreasing",
+        "label": "개선",
         "level": "calculated",
         "text": "여수시의 측정소 1곳에서 2023–2025 초미세먼지(PM2.5) 연평균이 개선.",
         "provenance": "rule",
@@ -84,11 +85,6 @@ SOURCES = article_sources(ARTICLES)
 def c1_output():
     return {
         "claim_value": "increasing",
-        "warrant": {
-            "text": "여수시의 청년(19–39세) 순이동은 2023년 -1,850명, 2024년 -2,010명, 2025년 -2,240명으로 "
-            "해마다 순유출이 커졌다. 순이동은 정착 여부를 직접 재는 공식 지표라 정착 기반이 약해지는 신호로 본다.",
-            "citations": ["ev_kosis_net_yeosu"],
-        },
         "rebuttals": [
             {"id": "R1", "status": "not_found", "note": None, "citations": []},
             {"id": "R2", "status": "needs_review", "note": None, "citations": []},
@@ -194,24 +190,27 @@ def test_valid_output_passes():
 def test_rounded_input_number_passes_and_new_number_fails():
     output = {
         "claim_value": "decreasing",
-        "warrant": {
-            "text": "연평균이 18.6에서 16.9, 15.1로 낮아졌다.",
-            "citations": ["ev_air_final_yeosu"],
-        },
         "rebuttals": [
-            {"id": "R1", "status": "not_found", "note": None, "citations": []},
+            {
+                "id": "R1",
+                "status": "not_found",
+                "note": "연평균이 18.6에서 16.9, 15.1로 낮아진 해에 관련 기사가 없다.",
+                "citations": [],
+            },
             {"id": "R2", "status": "not_found", "note": None, "citations": []},
         ],
     }
     assert problems(output, a3(), A3_CARD) == set()
-    output["warrant"]["text"] = "연평균이 3.5 낮아졌다."
-    assert problems(output, a3(), A3_CARD) == {("number_mismatch", "warrant")}
+    output["rebuttals"][0]["note"] = "연평균이 3.5 낮아졌다."
+    assert problems(output, a3(), A3_CARD) == {("number_mismatch", "R1")}
 
 
 def test_wrong_number_is_rejected():
     output = c1_output()
-    output["warrant"]["text"] = output["warrant"]["text"].replace("2,240", "2,300")
-    assert problems(output) == {("number_mismatch", "warrant")}
+    output["rebuttals"][0]["note"] = "2025년 순유출 2,240명은 진학 전출로 설명되지 않는다."
+    assert problems(output) == set()
+    output["rebuttals"][0]["note"] = "2025년 순유출 2,300명은 진학 전출로 설명되지 않는다."
+    assert problems(output) == {("number_mismatch", "R1")}
 
 
 def test_number_must_come_from_the_cited_passage():
@@ -224,14 +223,12 @@ def test_number_must_come_from_the_cited_passage():
 
 def test_fake_citations_are_rejected():
     output = c1_output()
-    output["warrant"]["citations"] = ["ev_made_up"]
     output["rebuttals"][2]["note"] = None
     output["rebuttals"][2]["citations"] = [
         {"passage": "P9", "quote": "협력업체 직원 300여 명이 다른 지역으로 옮긴"},
         {"passage": "P1", "quote": "협력업체 직원 300여 명이 다른 지역으로 옮긴"},
     ]
     assert problems(output) == {
-        ("unknown_citation", "warrant"),
         ("unknown_citation", "R3"),
         ("quote_not_in_source", "R3"),
         ("unsupported", "R3"),
@@ -246,9 +243,8 @@ def test_too_short_quote_is_not_a_citation():
 
 def test_claims_without_evidence_are_rejected():
     output = c1_output()
-    output["warrant"]["citations"] = []
     output["rebuttals"][0] = {"id": "R1", "status": "supported", "note": None, "citations": []}
-    assert problems(output) == {("unsupported", "warrant"), ("unsupported", "R1")}
+    assert problems(output) == {("unsupported", "R1")}
 
 
 @pytest.mark.parametrize(
@@ -275,10 +271,10 @@ def test_forbidden_terms_are_rejected(term):
     assert problems(output) == {("forbidden_term", "R3")}
 
 
-# ── 부호 낱말(카드 sign_words, 프롬프트 v4) ──
+# ── 부호 낱말(카드 sign_words, 프롬프트 v5 — 모델이 쓰는 ⑤ 반박 note 에만 쓰인다) ──
 
 SIGN_WORDS = {"negative": "순유출", "positive": "순유입"}
-# C1 카드 계약 v0.5 처럼 주 지표에 sign_words 가 있는 승인본
+# C1 카드 계약 v0.6 처럼 주 지표에 sign_words 가 있는 승인본
 SIGN_CARD = {
     **C1_CARD,
     "claim_items": [
@@ -288,8 +284,9 @@ SIGN_CARD = {
 
 
 def signed_output(text):
+    """경쟁 설명 R1 의 note 에 통계 값을 쓴 출력"""
     output = c1_output()
-    output["warrant"]["text"] = text
+    output["rebuttals"][0]["note"] = text
     return output
 
 
@@ -342,7 +339,7 @@ def test_card_sign_words_add_value_text_and_keep_the_value():
         (a3(), A3_CARD),
     ],
 )
-def test_cards_without_sign_words_send_the_v3_input(judgment, card):
+def test_cards_without_sign_words_send_the_v4_input(judgment, card):
     sent = build(judgment, SOURCES, card)
     assert "sign_words" not in sent
     assert all("value_text" not in s for s in sent["statistics"])
@@ -373,38 +370,39 @@ def test_sign_words_written_as_words_pass(text):
     ],
 )
 def test_sign_words_written_with_a_minus_or_a_wrong_word_are_rejected(text):
-    assert problems(signed_output(text), card=SIGN_CARD) == {("sign_wording", "warrant")}
+    assert problems(signed_output(text), card=SIGN_CARD) == {("sign_wording", "R1")}
 
 
 def test_each_value_needs_the_word_for_its_own_sign():
     good = "2023년 순유입 916명에서 2024년 순유출 101명, 2025년 순유출 294명으로 바뀌었다."
     assert problems(signed_output(good), mixed(), SIGN_CARD) == set()
     bad = "2023년 916명, 2024년 101명, 2025년 294명으로 순유출이 이어졌다."
-    assert problems(signed_output(bad), mixed(), SIGN_CARD) == {("sign_wording", "warrant")}
+    assert problems(signed_output(bad), mixed(), SIGN_CARD) == {("sign_wording", "R1")}
     bad = "순유출이 2023년 916명, 2024년 101명, 2025년 294명이다."
-    assert problems(signed_output(bad), mixed(), SIGN_CARD) == {("sign_wording", "warrant")}
+    assert problems(signed_output(bad), mixed(), SIGN_CARD) == {("sign_wording", "R1")}
 
 
 def test_cards_without_sign_words_keep_signed_numbers():
     assert problems(c1_output(), card=C1_CARD) == set()
 
 
-def test_minus_signed_sentence_falls_back_to_card_text():
-    call, calls = answer(c1_output())
+def test_minus_signed_note_is_rejected_and_leaves_no_rebuttals():
+    call, calls = answer(signed_output("여수시 청년 순이동은 2025년 -2,240명이다."))
     result = phrase(c1(), SOURCES, SIGN_CARD, call)
     assert (result.status, result.reason_code) == ("failed", "OUTPUT_REJECTED")
     assert {p.check for p in result.problems} == {"sign_wording"}
-    assert result.warrant == c1()["warrant"]
+    assert result.rebuttals == []
     assert calls[0]["statistics"][0]["value_text"] == "순유출 1,850명"
 
 
 @pytest.mark.parametrize(
     "change",
     [
-        lambda o: o.pop("warrant"),
+        lambda o: o.pop("rebuttals"),
         lambda o: o.update(qualifier="high"),
         lambda o: o["rebuttals"][0].update(status="maybe"),
-        lambda o: o["warrant"].update(text=""),
+        # v4: 보증은 카드 문장이라 모델이 보증을 쓰면 모양 위반
+        lambda o: o.update(warrant={"text": "보증", "citations": []}),
     ],
 )
 def test_malformed_output_is_rejected(change):
@@ -426,11 +424,11 @@ def answer(output):
     return call, calls
 
 
-def test_phrase_fills_warrant_and_rebuttals_with_llm_provenance():
+def test_phrase_fills_only_rebuttals_with_llm_provenance():
     call, calls = answer(c1_output())
     result = phrase(c1(), SOURCES, C1_CARD, call)
     assert (result.status, result.reason_code, result.problems) == ("done", None, [])
-    assert result.warrant == {"text": c1_output()["warrant"]["text"], "provenance": "llm_phrasing"}
+    assert "warrant" not in result.result()
     assert [r["provenance"] for r in result.rebuttals] == ["llm_judgment"] * 3
     assert result.rebuttals[2] == {
         "text": "산단·대형 사업장 고용 변동에 따른 일시 전입·전출 — "
@@ -445,7 +443,6 @@ def test_phrase_fills_warrant_and_rebuttals_with_llm_provenance():
 def test_rule_decided_rebuttal_keeps_its_status_and_order():
     output = {
         "claim_value": "decreasing",
-        "warrant": {"text": "같은 측정소의 연평균이 낮아졌다.", "citations": []},
         "rebuttals": [
             {"id": "R1", "status": "needs_review", "note": None, "citations": []},
             {"id": "R2", "status": "not_found", "note": None, "citations": []},
@@ -471,7 +468,7 @@ def test_skipped_runs_do_not_call_the_model(judgment, reason):
     call, calls = answer(c1_output())
     result = phrase(judgment, SOURCES, C1_CARD, call)
     assert (result.status, result.reason_code, calls) == ("skipped", reason, [])
-    assert result.warrant == judgment["warrant"] and result.rebuttals == []
+    assert result.rebuttals == []
 
 
 def test_new_approved_card_needs_no_code_change():
@@ -495,7 +492,7 @@ def test_card_from_another_version_is_refused(card):
         False,
         [],
     )
-    assert result.warrant == c1()["warrant"] and result.rebuttals == []
+    assert result.rebuttals == []
 
 
 def raises(error):
@@ -507,7 +504,7 @@ def raises(error):
 
 def rejected_answer():
     output = c1_output()
-    output["warrant"]["text"] += " 2026년에는 -2,500명이 될 것이다."
+    output["rebuttals"][0]["note"] = "2026년에는 -2,500명이 될 것이다."
     return answer(output)[0]
 
 
@@ -520,11 +517,9 @@ def rejected_answer():
         (rejected_answer(), "OUTPUT_REJECTED", False),
     ],
 )
-def test_failures_fall_back_to_card_text_with_reason(call, reason, retryable):
-    judgment = c1()
-    result = phrase(judgment, SOURCES, C1_CARD, call)
+def test_failures_fall_back_to_empty_rebuttals_with_reason(call, reason, retryable):
+    result = phrase(c1(), SOURCES, C1_CARD, call)
     assert (result.status, result.reason_code, result.retryable) == ("failed", reason, retryable)
-    assert result.warrant == {"text": judgment["warrant"]["text"], "provenance": "card"}
     assert result.rebuttals == [] and result.citations == {}
     assert (reason == "OUTPUT_REJECTED") == bool(result.problems)
     contract("phrasing-result").validate(result.result())
@@ -604,7 +599,8 @@ def test_api_phrases_a_valid_request(monkeypatch):
     response = TestClient(app).post("/v1/argument/phrase", json=request())
     assert response.status_code == 200
     contract("phrasing-result").validate(response.json())
-    assert response.json()["warrant"]["provenance"] == "llm_phrasing"
+    assert "warrant" not in response.json()
+    assert response.json()["rebuttals"][0]["provenance"] == "llm_judgment"
     assert len(calls) == 1
 
 
@@ -630,21 +626,19 @@ def test_api_skips_blocked_run_without_model(monkeypatch):
     assert response.json()["reason_code"] == "RUN_BLOCKED" and calls == []
 
 
-# ── 프롬프트 v3: 판정 이유는 규칙 결과 뜻으로, 보증에 연 값 ──
+# ── 프롬프트 v4: 모델은 ⑤ 반박만(① 판단 = 규칙 연 값 문장, ③ 보증 = 카드 문장) ──
 
 
 def card(name):
     return json.loads((CONTRACTS / "cards" / f"{name}.json").read_text(encoding="utf-8"))
 
 
-def test_rule_meaning_is_the_outcome_the_rule_chose():
-    judgment = c1()
-    judgment["claim"]["text"] = "여수시에서 2023–2025 청년(19–39세) 순이동이 청년 순유출 확대."
-    fixed = build(judgment, SOURCES, card("C1"))["fixed"]
-    assert fixed["rule_meaning"].startswith("모든 해가 음수이고 절대값이 해마다 커짐")
-    assert {o["label"] for o in fixed["rule_outcomes"]} >= {"청년 순유출 확대", "불분명"}
-    # 승인본에 규칙이 없거나 판단 문장에 결과 이름이 없으면 뜻을 붙이지 않는다
-    assert build(c1(), SOURCES, C1_CARD)["fixed"]["rule_meaning"] is None
+def test_prompt_asks_only_for_rebuttals():
+    sent = build(c1(), SOURCES, card("C1"))
+    # 보증을 쓰지 않으므로 카드 보증 · 규칙 결과 뜻은 보내지 않는다(토큰도 준다)
+    assert "card_warrant" not in sent
+    assert {"rule_meaning", "rule_outcomes"}.isdisjoint(sent["fixed"])
+    assert "warrant" not in SYSTEM
 
 
 def test_statistics_say_whether_a_value_is_the_place_or_a_station():
@@ -656,17 +650,21 @@ def test_statistics_say_whether_a_value_is_the_place_or_a_station():
     assert places == ["kr-12130-s336127"] * 3 + ["여수시"]
 
 
-def test_numbers_in_the_rule_meaning_may_be_used():
+def test_numbers_in_the_claim_sentence_may_be_used():
+    # ① 판단 문장(규칙)에 든 연 값은 반박 note 에 써도 된다
     judgment = a3()
+    judgment["claim"]["text"] = (
+        "여수시 측정소 1곳의 초미세먼지(PM2.5) 연평균은 2023년 18.6µg/m³에서 2025년 15.1µg/m³로 낮아졌습니다."
+    )
     output = {
         "claim_value": "decreasing",
-        "warrant": {
-            "text": "여수시 측정소의 PM2.5 연평균은 2023년 18.6에서 2025년 15.1이 되어 "
-            "끝해 − 첫해가 −3µg/m³ 이하라 개선으로 판정했다.",
-            "citations": ["ev_air_final_yeosu"],
-        },
         "rebuttals": [
-            {"id": "R1", "status": "not_found", "note": None, "citations": []},
+            {
+                "id": "R1",
+                "status": "not_found",
+                "note": "2025년 15.1µg/m³ 무렵 강수 · 풍향 기사는 없다.",
+                "citations": [],
+            },
             {"id": "R2", "status": "not_found", "note": None, "citations": []},
         ],
     }

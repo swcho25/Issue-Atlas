@@ -1,7 +1,7 @@
 import type { Argument, RunStatus } from "@/shared/api";
 import { StatusBadge } from "@/shared/ui/badge";
 
-import { evidenceKindLabel, runStatusInfo } from "../../model/labels";
+import { evidenceKindLabel, runStatusInfo, unmetConditions } from "../../model/labels";
 
 // 05 · 근거 수요표 패널: 실행 상태 상자(surface-2 · 안쪽 14 · 칸 사이 8) + 상태 4가지 설명(배지 + 한 줄)
 
@@ -18,8 +18,15 @@ function statusSentence(a: Argument) {
       const missing = required.filter((r) => r.status !== "available");
       return `필수 근거(${names(missing.length ? missing : required)})가 없어서 판단하지 않았어요.`;
     }
-    case "unsupported":
-      return "목록에 없는 질문이라 신규 카드 후보로 남겼어요. 판단하지 않았어요.";
+    case "unsupported": {
+      if (a.question.card_id === null)
+        return "목록에 없는 질문이라 신규 카드 후보로 남겼어요. 판단하지 않았어요.";
+      // 카드는 있지만 적용 조건(C2 v1)을 못 채움. 지난 실행은 조건 줄이 없어 판단 문장으로
+      const unmet = unmetConditions(a).map((c) => c.label);
+      return unmet.length
+        ? `카드 적용 조건(${unmet.join(" · ")})을 못 채워 판단하지 않았어요.`
+        : (a.claim.text ?? "카드 적용 조건을 못 채워 판단하지 않았어요.");
+    }
   }
 }
 

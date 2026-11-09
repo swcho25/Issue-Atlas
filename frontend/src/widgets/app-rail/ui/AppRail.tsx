@@ -9,13 +9,14 @@ import { Icon } from "@/shared/ui/icon";
 import { AtlasMark } from "@/shared/ui/logo";
 
 import { adminMenu, isActive, type MenuItem, viewerMenu } from "../model/menu";
+import { AccountMenu, type RailUser } from "./AccountMenu";
 import { ThemeToggle } from "./ThemeToggle";
 
 type AppRailProps = {
   /** 관리자는 조회자 메뉴 아래 구분선 다음에 관리 메뉴가 더 붙는다 */
   role?: "viewer" | "admin";
-  /** 로그인한 사람 이름. 있으면 맨 아래 첫 글자 동그라미를 보여 준다 */
-  userName?: string;
+  /** 로그인한 사람. 있으면 맨 아래 첫 글자 동그라미를 보여 주고, 누르면 계정 판(이메일 · 권한 · 로그아웃)이 뜬다 */
+  user?: RailUser;
   /** 견본 페이지처럼 실제 주소와 다른 칸을 고른 모습으로 보일 때만 넘긴다 */
   currentPath?: string;
   className?: string;
@@ -39,7 +40,7 @@ export function AppRailPlaceholder() {
   );
 }
 
-export function AppRail({ role = "viewer", userName, currentPath, className = "" }: AppRailProps) {
+export function AppRail({ role = "viewer", user, currentPath, className = "" }: AppRailProps) {
   const pathname = usePathname();
   const path = currentPath ?? pathname ?? "";
   const [logoOpen, setLogoOpen] = useState(false);
@@ -105,14 +106,7 @@ export function AppRail({ role = "viewer", userName, currentPath, className = ""
         className="mt-auto grid size-[calc(44*var(--u))] place-items-center rounded-full text-text-1 hover:bg-surface-2"
         iconClassName="size-[calc(20*var(--u))]"
       />
-      {userName && (
-        <div
-          aria-label={`${userName} 계정`}
-          className="grid size-[calc(32*var(--u))] place-items-center rounded-full bg-surface-3 text-[length:calc(13*var(--u))] font-bold"
-        >
-          {userName.slice(0, 1)}
-        </div>
-      )}
+      {user && <AccountMenu user={user} role={role} />}
     </aside>
   );
 }

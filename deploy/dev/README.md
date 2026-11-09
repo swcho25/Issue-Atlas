@@ -1,22 +1,22 @@
-> 137번 환경 분리 적용 시 아래 기존 개발 경로·볼륨은 그대로 유지한다. `compose.routing.yaml`과 배포 digest override도 함께 사용하며 운영은 별도 `/opt/issueatlas-prod`에서 실행한다. 최신 전환 순서·포트·도메인은 [CI 운영 안내](../ci/README.md#환경-분리-전환--s15p31c108-137)를 우선한다.
+> 290번부터 백엔드 전용 주소도 Nginx·HTTPS 직접 연결이다. 현재 설치·전환·복구 절차는 [백엔드 프록시 운영](../backend/README.md)을 따른다. 개발 경로·DB 볼륨은 유지하고 운영은 별도 `/opt/issueatlas-prod`를 사용한다.
 
-# EC2 개발 서버 운영: PostGIS·Spring·Cloudflare Tunnel
+# EC2 개발 서버 운영: PostGIS·Spring·Nginx HTTPS
 
-현재 EC2의 `/opt/issueatlas-dev`에서 PostGIS·Spring·cloudflared를 실행한다. 실행·갱신·종료에는 **`compose.yaml`과 `compose.tunnel.yaml`을 항상 함께 사용한다.** 기본 파일만 적용하면 HTTPS 쿠키·프록시 설정이 빠질 수 있다.
+EC2의 `/opt/issueatlas-dev`에서 PostGIS·Spring을 실행한다. 실제 배포에는 **`compose.yaml`, `compose.https.yaml`, `compose.release.yaml`을 함께 사용한다.** 기본 파일만 적용하면 HTTPS 쿠키 설정이 빠질 수 있다. Nginx는 호스트에서 실행한다.
 
-프론트는 Next.js SSR을 위한 Cloudflare Workers 배포 예정이며, 현재 EC2 구성에 포함하지 않는다. RabbitMQ·정기 수집·Prometheus도 아직 구성하지 않았다.
+개발 Next.js는 별도 EC2 Compose, 운영 프론트는 main 전환 전까지 Workers에 있다. 프론트는 [별도 안내](../frontend/README.md), 모니터링은 [Grafana 안내](../monitoring/README.md), 수집 예약 실행은 [수집기 안내](../collector/README.md)를 따른다. RabbitMQ는 사용하지 않는다.
 
 ## 구성
 
 - EC2 배치 경로: `/opt/issueatlas-dev`
 - DB: digest 고정 `17-3.5-alpine` PostGIS 기반에 pgvector 0.8.7을 추가한 `database/Dockerfile`을 로컬·테스트와 함께 사용
 - Spring: `backend/Dockerfile`에서 Java 21로 bootJar 빌드, UID 10001로 실행
-- cloudflared: `2026.10.3` 이미지/digest 고정, Cloudflare Tunnel 연결
+- Nginx: 호스트 80/443, backend 전용 주소의 HTTPS 종료·루프백 전달
 - 포트: EC2의 `127.0.0.1:5432`, `127.0.0.1:8080`에만 바인딩
 - 네트워크: Compose 전용 네트워크. Spring은 `postgres:5432`로 접속
 - 볼륨: `issueatlas-dev_postgres-data`. 컨테이너와 독립적으로 보존
 - 로그: 서비스당 10MB × 3개
-- 메모리 상한: PostGIS 2GB, Spring 2GB, cloudflared 256MB
+- 메모리 상한: PostGIS 2GB, Spring 2GB
 - 재시작: `unless-stopped`. 서버 재부팅 검증은 별도 수행
 
 현재 빌드/런타임은 같은 digest의 JDK 이미지를 사용한다. 런타임 JRE 경량화는 별도 작업으로 검토한다. Dockerfile의 bootJar는 기존 Testcontainers 테스트를 실행하지 않으며 실제 배포 검증과 자동화 테스트 전체 통과는 구분한다.
@@ -27,7 +27,7 @@
 
 현재 초기 관리자 이메일은 `bootstrap-admin@issueatlas.local`이며 비밀번호는 서버의 `deploy/dev/.env`에서 서버 관리자가 직접 확인한다. 공유 개발 계정은 관리자 API로 별도 발급한다. 환경변수 비밀번호만 바꿔도 이미 생성된 계정 비밀번호가 변경되는 것은 아니다.
 
-`.env.example`의 `SESSION_COOKIE_SECURE=false`는 기본 HTTP 구성용이다. 현재 서버는 Tunnel 추가 설정에서 `true`로 덮어쓰며, 인증 점검에는 HTTPS 주소를 사용한다.
+`.env.example`의 `SESSION_COOKIE_SECURE=false`는 로컬 HTTP 구성용이다. 서버는 HTTPS 추가 설정에서 `true`로 덮어쓰며, 인증 점검에는 HTTPS 주소를 사용한다.
 
 ## 실행·종료
 
@@ -37,18 +37,18 @@
 
 ```bash
 cd /opt/issueatlas-dev
-sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml config --quiet
-sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml up -d --build --wait --wait-timeout 240
-sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml ps
-sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml logs --tail 100 backend cloudflared
+sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml config --quiet
+sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml up -d --build --wait --wait-timeout 240
+sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml ps
+sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml logs --tail 100 backend
 ```
 
-Spring의 healthcheck는 TCP 포트의 연결 여부만 확인한다. `--wait` 통과만으로 외부 연결·인증 성공을 보장하지 않으므로 아래 HTTPS 점검을 별도로 실행한다. Tunnel은 Cloudflare 대시보드에서도 `Healthy` 상태인지 확인한다.
+Spring의 healthcheck는 TCP 포트의 연결 여부만 확인한다. `--wait` 통과만으로 외부 연결·인증 성공을 보장하지 않으므로 아래 HTTPS 점검을 별도로 실행한다.
 
-전체 서비스를 중단할 때만 다음 명령을 사용한다. API·Tunnel도 중단되며, 일반 갱신에는 `down`이 필요하지 않다.
+전체 서비스를 중단할 때만 다음 명령을 사용한다. API도 중단되며, 일반 갱신에는 `down`이 필요하지 않다.
 
 ```bash
-sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml down
+sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml down
 ```
 
 **`down -v`는 DB 볼륨까지 지우므로 사용하지 않는다.** 환경변수 비밀번호 변경만으로 기존 PostgreSQL 계정 비밀번호는 갱신되지 않는다.
@@ -91,7 +91,7 @@ sudo docker exec issueatlas-dev-engine-1 python -c "import socket; socket.create
 cd /opt/issueatlas-dev
 export BACKEND_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/current.json'))['image'])")
 export ENGINE_IMAGE=$(sudo python3 -c "import json;print(json.load(open('.deploy/engine/current.json'))['image'])")
-sudo -E docker compose --env-file deploy/dev/.env -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml -f deploy/dev/compose.routing.yaml -f deploy/dev/compose.release.yaml up -d --no-deps --no-build --pull never --wait backend
+sudo -E docker compose --env-file deploy/dev/.env -f deploy/dev/compose.yaml -f deploy/dev/compose.https.yaml -f deploy/dev/compose.routing.yaml -f deploy/dev/compose.release.yaml up -d --no-deps --no-build --pull never --wait backend
 ```
 
 backend 가 engine 네트워크에 붙었는지 확인한다.
@@ -112,28 +112,9 @@ ssh -i '<PEM 파일 경로>' -L 15432:127.0.0.1:5432 -N ubuntu@k15c108.p.ssafy.i
 
 DB 도구에는 호스트 `localhost`, 포트 `15432`와 별도로 전달받은 DB명·계정을 입력한다. API·Swagger는 아래 HTTPS 주소로 접근한다.
 
-## Cloudflare Tunnel / HTTPS (2026-10-23 연결)
+## 백엔드 Nginx / HTTPS
 
-- Tunnel: `issueatlas-backend` (`685285ca-301a-478c-b6bd-59eccbf41ad7`), cloudflared 2026.10.3 tag/digest 고정
-- 공개 주소: `https://dev-backend.issue-atlas.kr` → 같은 Compose 네트워크의 `http://backend:8080`
-- Cloudflare가 생성한 proxied CNAME으로 연결한다. EC2 공인 IP를 향하는 A 레코드는 사용하지 않는다.
-- Cloudflare의 `Always Use HTTPS`는 **issue-atlas.kr 영역 전체**에 적용됐다. HTTP 요청은 HTTPS로 301 전환된다.
-- 외부 HTTPS → Cloudflare와 EC2 사이 암호화 Tunnel → EC2 내부 Compose HTTP 구간이다.
-- 추가 구성은 `SESSION_COOKIE_SECURE=true`, `SERVER_FORWARD_HEADERS_STRATEGY=framework`를 적용한다. Spring 직접 포트는 loopback으로 유지하여 외부에서 forwarded headers를 직접 주입할 수 없도록 한다.
-- 토큰은 EC2의 `/etc/issueatlas/cloudflared-token` 파일에만 보존한다. 파일 소유자 65532:65532, 권한 0400, 부모 디렉터리 root 0700. 컨테이너에 읽기 전용 마운트한다. 토큰을 명령줄·환경변수·저장소·로그에 넣지 않는다.
-- 백엔드와 DB의 호스트 포트는 계속 127.0.0.1에만 바인딩한다. cloudflared 포트는 호스트에 공개하지 않는다.
-
-- 상태 확인: `https://dev-backend.issue-atlas.kr/actuator/health`
-- Swagger: `https://dev-backend.issue-atlas.kr/swagger-ui/index.html`
-- API: `https://dev-backend.issue-atlas.kr/v1/...`
-
-Swagger 문서는 현재 공개 상태지만 API의 인증·ADMIN·CSRF 정책은 유지한다. 인증된 쓰기 API를 실행하려면 CSRF 전달 설정을 별도로 확인해야 한다. 운영 단계의 문서 공개 범위는 팀과 협의한다.
-
-토큰 유출 시 Cloudflare에서 Rotate token 후 새 토큰 파일로 교체하고 cloudflared 컨테이너를 재생성한다. 파일을 교체하면 기존 bind mount가 이전 파일을 가리킬 수 있어 단순 프로세스 재시작보다 컨테이너 재생성을 사용한다.
-
-```bash
-sudo docker compose -f deploy/dev/compose.yaml -f deploy/dev/compose.tunnel.yaml up -d --force-recreate --no-deps cloudflared
-```
+개발은 `https://dev-backend.issue-atlas.kr`, 운영은 `https://backend.issue-atlas.kr`을 사용한다. `/v1/**`, `/swagger-ui/index.html`, `/actuator/health` 경로는 유지한다. DNS only → EC2 Nginx → 환경별 루프백 Spring이며, 인증서 선발급·갱신·Tunnel 제거·복구는 [290번 안내](../backend/README.md)를 따른다. Swagger 공개 범위와 API의 인증·ADMIN·CSRF 정책은 바꾸지 않는다.
 
 ## 배포 후 점검
 

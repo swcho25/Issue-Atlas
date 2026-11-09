@@ -26,11 +26,11 @@ export function MapPreview() {
       <h2 className="text-heading-20">지도 바탕</h2>
       <p className="mt-1 text-body-13 text-text-2">
         <code className="font-mono">
-          {"<MapView boundaries={…} padding={…}>지도 위 부품</MapView>"}
+          {"<MapView boundaries={…} padding={…} controls>지도 위 부품</MapView>"}
         </code>
         {" · "}MapLibre {getVersion()} · OpenFreeMap Liberty · 한국어 지명 · 여수 · {status}
       </p>
-      <MapView boundaries={boundaries} className="mt-4 h-[480px] rounded-xl shadow-card" />
+      <MapView boundaries={boundaries} controls className="mt-4 h-[480px] rounded-xl shadow-card" />
     </section>
   );
 }

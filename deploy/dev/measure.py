@@ -3,7 +3,7 @@
 어디서나 실행: python deploy/dev/measure.py [--base-url ...]
 
 브라우저처럼 연결 하나를 다시 쓰고(gzip 요청), API 마다 --runs 번 재서 중앙값 · p95 를 낸다.
-`/actuator/health` 는 서버 일이 거의 없어 「네트워크 + Cloudflare Tunnel」 바닥값으로 같이 잰다.
+`/actuator/health` 는 서버 일이 거의 없어 「네트워크 + 공개 프록시」 바닥값으로 같이 잰다.
 질문(POST)은 개발 DB 에 행을 남기고 IP 당 분당 10건 제한이 있어 --question-runs(기본 3)만 잰다.
 """
 

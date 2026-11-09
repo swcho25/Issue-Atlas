@@ -21,5 +21,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 /** 관리자면 관리 메뉴를 더 붙인다. 띠 때문에 화면이 깨지지 않게 /v1/auth/me 오류는 로그인 없음으로 본다 */
 export async function UserRail() {
   const me = await getCurrentUser().catch(() => null);
-  return <AppRail role={me?.role === "ADMIN" ? "admin" : "viewer"} userName={me?.name} />;
+  return (
+    <AppRail
+      role={me?.role === "ADMIN" ? "admin" : "viewer"}
+      user={me ? { name: me.name, email: me.email } : undefined}
+    />
+  );
 }

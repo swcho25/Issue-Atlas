@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { ApiError } from "@/shared/api";
+import { useTheme } from "@/shared/lib/theme";
 import { AtlasMark } from "@/shared/ui/logo";
 
 import { login } from "../api/login";
@@ -27,6 +28,7 @@ const emptyMessage = (e: Empty) =>
  */
 export function LoginDialog() {
   const dialog = useLoginDialog();
+  const dark = useTheme() === "dark";
   const router = useRouter();
   const form = useRef<HTMLFormElement>(null);
   const [empty, setEmpty] = useState<Empty>({ email: false, password: false });
@@ -130,7 +132,7 @@ export function LoginDialog() {
           </svg>
         </button>
         <div className={styles.lock}>
-          <AtlasMark />
+          <AtlasMark tone={dark ? "paper" : "ink"} />
           Issue Atlas
         </div>
         <h2 id="login-title">로그인</h2>

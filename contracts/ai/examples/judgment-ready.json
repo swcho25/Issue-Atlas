@@ -69,6 +69,7 @@
   },
   "claim": {
     "value": "increasing",
+    "label": "청년 순유출 확대",
     "level": "calculated",
     "text": "여수시에서 2023–2025 청년(19–39세) 순유출이 커졌습니다.",
     "provenance": "rule"

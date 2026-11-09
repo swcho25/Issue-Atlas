@@ -1,6 +1,5 @@
 import type {
   Argument,
-  ClaimValue,
   EvidenceKind,
   EvidenceStatus,
   Provenance,
@@ -8,6 +7,11 @@ import type {
   StorageScope,
 } from "@/shared/api";
 import type { ProvKind, StatusTone } from "@/shared/ui/badge";
+
+// 판단 배지 · 근거 충실도 · 기간 연도는 내 질문과 함께 쓴다(entities/argument)
+import { claimBadge, qualifierGrade, yearSpan } from "@/entities/argument";
+
+export { claimBadge, qualifierGrade, yearSpan };
 
 // 근거 · 실행 상태를 화면 글자와 배지 색으로. 색은 v5 화면의 쓰임을 센 값(확보 32 · 미수집 11 …)을 따른다
 
@@ -35,6 +39,24 @@ export const runStatusInfo: Record<RunStatus, { tone: StatusTone; legend: string
   unsupported: { tone: "gray", legend: "카드 조건 밖 · 카드 없음" },
 };
 
+/**
+ * 판단 배지(C2 v1): 글자는 API 의 claim.label 그대로(카드 결과 이름 「청년 순유출 확대」), 색은 claim.value 로.
+ * label 이 null 이면 판정하지 않은 실행 — blocked 「자료 부족」 · unsupported 「근거 부족」(Figma 08, 회색).
+ * ready · partial 인데 null 이면 C2 v1 전에 저장된 실행이라 이전 배지(증가 · 감소 …)로 대신한다(계약 c2 README)
+ */
+export function judgmentBadge({ claim, run_status }: Argument): {
+  tone: StatusTone;
+  label: string;
+} {
+  if (claim.label) return { tone: claimBadge[claim.value].tone, label: claim.label };
+  if (run_status === "blocked") return { tone: "gray", label: "자료 부족" };
+  if (run_status === "unsupported") return { tone: "gray", label: "근거 부족" };
+  return claimBadge[claim.value];
+}
+
+/** 못 채운 카드 적용 조건(C2 v1, passed false). 하나라도 있으면 unsupported */
+export const unmetConditions = (a: Argument) => a.applicability.filter((c) => c.passed === false);
+
 /** 비교 조건 4가지(FR-C4) */
 export const comparabilityLabel = {
   same_indicator: "같은 지표",
@@ -60,35 +82,12 @@ export const provKind: Record<Provenance, ProvKind> = {
   human: "human",
 };
 
-/**
- * ① 판단 배지. Figma 예는 카드 문구(「청년 순유출 확대」 amber) 하나뿐이라, 카드와 상관없는 말로 두고
- * 증가 · 감소는 그 예의 amber 를 따른다(디자이너 확인)
- */
-export const claimBadge: Record<ClaimValue, { tone: StatusTone; label: string }> = {
-  observed: { tone: "blue", label: "관측" },
-  increasing: { tone: "amber", label: "증가" },
-  decreasing: { tone: "amber", label: "감소" },
-  unclear: { tone: "gray", label: "뚜렷하지 않음" },
-  not_comparable: { tone: "gray", label: "비교 불가" },
-  insufficient: { tone: "red", label: "판단 안 함" },
-};
-
 /** ① 판단 수준(Figma 「계산값」) */
 export const claimLevelLabel: Record<Argument["claim"]["level"], string> = {
   observed_fact: "관측 사실",
   calculated: "계산값",
   associated: "연관",
   insufficient_evidence: "근거 부족",
-};
-
-/** ④ 근거 충실도 상 · 중 · 하. Figma 예는 상(초록)뿐 — 중 · 하는 상태 색 순서를 따른다 */
-export const qualifierGrade: Record<
-  Argument["qualifier"]["grade"],
-  { label: string; className: string }
-> = {
-  high: { label: "상", className: "text-status-green" },
-  medium: { label: "중", className: "text-status-amber" },
-  low: { label: "하", className: "text-status-red" },
 };
 
 /** ⑤ 반박 상태. Figma: 검토 필요 amber · 근거 없음 gray. 근거 있음(판단을 약하게 함)은 red(디자이너 확인) */
@@ -100,16 +99,6 @@ export const rebuttalBadge: Record<
   not_found: { tone: "gray", label: "근거 없음" },
   supported: { tone: "red", label: "근거 있음" },
 };
-
-/** 기간(끝 미포함)을 연도로: 2023-01-01 ~ 2026-01-01 → 2023–2025 */
-export function yearSpan(start: string | null, end: string | null) {
-  if (!start) return "";
-  const from = start.slice(0, 4);
-  if (!end) return from;
-  // 끝은 미포함이라, 1월 1일로 끝나면 그 전 해까지
-  const to = end.slice(5) === "01-01" ? String(Number(end.slice(0, 4)) - 1) : end.slice(0, 4);
-  return from === to ? from : `${from}–${to}`;
-}
 
 /** 출처 등급(원문 탭 읽기 배지). Figma 예는 A(초록)뿐 — B · C 는 디자이너 확인 */
 export const sourceGradeTone: Record<"A" | "B" | "C", StatusTone> = {

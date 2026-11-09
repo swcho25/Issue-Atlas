@@ -19,7 +19,7 @@ public enum ApiErrorCode {
         return detail;
     }
 
-    static ApiErrorCode forStatus(int status) {
+    public static ApiErrorCode forStatus(int status) {
         if (status >= 500) return INTERNAL_ERROR;
         return switch (status) {
             case 400 -> INVALID_REQUEST;
