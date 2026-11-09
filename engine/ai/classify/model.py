@@ -52,9 +52,11 @@ def select(score: float, threshold: float) -> bool:
     return score >= threshold
 
 
-# thresholds.json 의 카드별 방식. f4(학습 분류기 확률)는 S15P31C108-316 의 다음 MR 에서 더한다
-METHODS = ("cosine",)
+# thresholds.json 의 카드별 방식. cosine = 카드 프로필 코사인, f4 = 학습 분류기 확률(f4.py)
+METHODS = ("cosine", "f4")
 CARD_IDS = {"C1", "A3"}
+# 방식별 기준값 범위: 코사인은 -1~1, 확률은 0~1
+THRESHOLD_RANGE = {"cosine": (-1, 1), "f4": (0, 1)}
 
 
 @dataclass(frozen=True)
@@ -64,7 +66,7 @@ class CardRule:
 
 
 def card_rules(config: dict) -> dict[str, CardRule]:
-    """thresholds.json → 카드별 방식·기준값. C1·A3 둘 다, 아는 방식, -1~1 사이 숫자만 받는다."""
+    """thresholds.json → 카드별 방식·기준값. C1·A3 둘 다, 아는 방식, 방식별 범위의 숫자만 받는다."""
     cards = config.get("cards")
     if not isinstance(cards, dict) or set(cards) != CARD_IDS:
         raise ValueError("C1·A3 카드 설정이 모두 필요합니다")
@@ -72,19 +74,25 @@ def card_rules(config: dict) -> dict[str, CardRule]:
     for card_id, rule in cards.items():
         if not isinstance(rule, dict) or rule.get("method") not in METHODS:
             raise ValueError(f"{card_id}: 방식은 {', '.join(METHODS)} 중 하나여야 합니다")
+        low, high = THRESHOLD_RANGE[rule["method"]]
         threshold = rule.get("threshold")
         if (
             isinstance(threshold, bool)
             or not isinstance(threshold, (int, float))
-            or not -1 <= threshold <= 1
+            or not low <= threshold <= high
         ):
-            raise ValueError(f"{card_id}: 기준값은 -1~1 사이 숫자여야 합니다")
+            method = rule["method"]
+            raise ValueError(f"{card_id}: {method} 기준값은 {low}~{high} 사이 숫자여야 합니다")
         rules[card_id] = CardRule(rule["method"], float(threshold))
     return rules
 
 
-def decide(rule: CardRule, similarity: float) -> bool:
+def decide(rule: CardRule, similarity: float, probability: float | None = None) -> bool:
     """카드 방식대로 선택 여부를 정한다. V0052 의 선택 검사와 같은 규칙이다."""
     if rule.method == "cosine":
         return select(similarity, rule.threshold)
+    if rule.method == "f4":
+        if probability is None:
+            raise ValueError("f4 방식은 확률이 있어야 고를 수 있습니다")
+        return select(probability, rule.threshold)
     raise ValueError(f"지원하지 않는 방식입니다: {rule.method}")

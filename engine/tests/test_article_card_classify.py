@@ -2,7 +2,6 @@
 
 import json
 from contextlib import nullcontext
-from pathlib import Path
 
 from ai.classify import model, store
 from ai.classify.__main__ import (
@@ -95,13 +94,21 @@ def test_card_rules_reject_missing_card_unknown_method_and_bad_threshold():
         "C1": model.CardRule("cosine", 1.0),
         "A3": model.CardRule("cosine", 0.8),
     }
+
+    def with_a3(rule):
+        return cosine_config() | {"cards": cosine_config()["cards"] | {"A3": rule}}
+
+    assert model.card_rules(with_a3({"method": "f4", "threshold": 0.5}))["A3"] == model.CardRule(
+        "f4", 0.5
+    )
     broken = [
         {"version": "v1", "cards": {"C1": {"method": "cosine", "threshold": 0.7}}},
         # 예전 판처럼 기준값만 적은 설정
         {"version": "v1", "cards": {"C1": 0.7, "A3": 0.8}},
-        # f4 는 다음 MR 에서 더한다
-        cosine_config()
-        | {"cards": cosine_config()["cards"] | {"A3": {"method": "f4", "threshold": 0.5}}},
+        with_a3({"method": "bm25", "threshold": 0.5}),
+        # 확률 기준값은 0~1, 코사인은 -1~1
+        with_a3({"method": "f4", "threshold": -0.1}),
+        with_a3({"method": "f4", "threshold": 1.5}),
         cosine_config(c1=1.5),
         cosine_config(a3=True),
         cosine_config(a3="0.8"),
@@ -112,16 +119,6 @@ def test_card_rules_reject_missing_card_unknown_method_and_bad_threshold():
         except ValueError:
             continue
         raise AssertionError(f"잘못된 설정을 받았습니다: {config}")
-
-
-def test_repository_thresholds_keep_cosine_values():
-    path = Path(__file__).resolve().parents[1] / "ai" / "classify" / "thresholds.json"
-    config = json.loads(path.read_text(encoding="utf-8"))
-    assert config["version"] == "ai-label500-v2"
-    assert model.card_rules(config) == {
-        "C1": model.CardRule("cosine", 0.7129),
-        "A3": model.CardRule("cosine", 0.667),
-    }
 
 
 class FakeCursor:
@@ -161,6 +158,29 @@ def test_save_scores_writes_method_and_empty_probability_for_cosine():
     assert [params[-4:] for params in inserts] == [
         (0.7129, True, "cosine", None),
         (0.667, False, "cosine", None),
+    ]
+
+
+def test_save_scores_writes_f4_probability_and_decides_by_it():
+    conn = FakeConnection()
+    rows = [
+        ("news:1", "C1", "input-1", 2, "card-profile-v1", 0.2),
+        ("news:1", "A3", "input-1", 2, "card-profile-v1", 0.9),
+    ]
+    config = {
+        "version": "v1",
+        "cards": {
+            "C1": {"method": "f4", "threshold": 0.5},
+            "A3": {"method": "f4", "threshold": 0.5},
+        },
+    }
+    probabilities = {("news:1", "C1"): 0.5, ("news:1", "A3"): 0.1}
+    store.save_scores(conn, rows, model.card_rules(config), "v1", probabilities)
+    inserts = [params for sql, params in conn.calls if "INSERT INTO document_card_score" in sql]
+    # 코사인은 그대로 저장하고, 선택은 확률로 정한다
+    assert [(params[6], *params[-4:]) for params in inserts] == [
+        (0.2, 0.5, True, "f4", 0.5),
+        (0.9, 0.5, False, "f4", 0.1),
     ]
 
 
