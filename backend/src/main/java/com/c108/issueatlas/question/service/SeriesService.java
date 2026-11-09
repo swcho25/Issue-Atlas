@@ -1,6 +1,7 @@
 package com.c108.issueatlas.question.service;
 
 import com.c108.issueatlas.question.dto.ArgumentResponse.Article;
+import com.c108.issueatlas.question.dto.ArgumentResponse.Baseline;
 import com.c108.issueatlas.question.dto.ArgumentResponse.CountSeries;
 import com.c108.issueatlas.question.dto.ArgumentResponse.MoveSeries;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Series;
@@ -53,6 +54,18 @@ public class SeriesService {
             String placeName,
             LocalDate start,
             LocalDate end) {
+        return series(cardId, approvedIndicators, Map.of(), placeId, placeName, start, end);
+    }
+
+    /** baselines: 지표 → 그래프 기준선(카드 승인본 sign_words 에서 만든 것). 그 지표의 통계 줄에 싣는다(C2 선택 칸). */
+    public List<Series> series(
+            String cardId,
+            List<String> approvedIndicators,
+            Map<String, Baseline> baselines,
+            String placeId,
+            String placeName,
+            LocalDate start,
+            LocalDate end) {
         List<String> indicators =
                 approvedIndicators == null
                         ? CARD_INDICATORS.getOrDefault(cardId, List.of())
@@ -77,7 +90,16 @@ public class SeriesService {
                     .sorted(
                             Comparator.comparingInt(
                                     rows -> indicators.indexOf(rows.get(0).whatId())))
-                    .forEach(rows -> out.add(line(rows, placeId, placeName, from, periods)));
+                    .forEach(
+                            rows ->
+                                    out.add(
+                                            line(
+                                                    rows,
+                                                    placeId,
+                                                    placeName,
+                                                    from,
+                                                    periods,
+                                                    baselines.get(rows.get(0).whatId()))));
         }
         out.addAll(counts(cardId, placeId, start, end, periods));
         return out;
@@ -104,7 +126,8 @@ public class SeriesService {
             String placeId,
             String placeName,
             List<Double> from,
-            List<String> periods) {
+            List<String> periods,
+            Baseline baseline) {
         SeriesRow first = rows.get(0);
         Map<String, SeriesRow> byPeriod = new HashMap<>();
         rows.forEach(r -> byPeriod.put(r.period(), r));
@@ -139,7 +162,8 @@ public class SeriesService {
                 first.unit(),
                 periods,
                 values,
-                statuses);
+                statuses,
+                baseline);
     }
 
     /** 기사 건수 series: 카드 태그가 붙은 근거 기사를 기사 지역마다 월별로 센다(확산 그림). */

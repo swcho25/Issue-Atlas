@@ -9,6 +9,7 @@ import com.c108.issueatlas.common.exception.ResourceNotFoundException;
 import com.c108.issueatlas.question.dto.ApprovedCard;
 import com.c108.issueatlas.question.dto.ArgumentResponse;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Applicability;
+import com.c108.issueatlas.question.dto.ArgumentResponse.Baseline;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Ceiling;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Claim;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Comparability;
@@ -293,6 +294,9 @@ public class QuestionService {
                                         run.approved() == null
                                                 ? null
                                                 : indicators(run.approved().spec()),
+                                        run.approved() == null
+                                                ? Map.of()
+                                                : baselines(run.approved().spec()),
                                         request.placeId(),
                                         placeName,
                                         start,
@@ -850,6 +854,26 @@ public class QuestionService {
         List<String> result = new ArrayList<>();
         for (JsonNode item : spec.path("claim_items")) {
             result.add(item.path("indicator_id").asText());
+        }
+        return result;
+    }
+
+    /**
+     * 카드 승인본 claim_items[].sign_words(카드 계약 v0.6, 부호를 읽는 낱말) → 지표마다 그래프 기준선 { 0, 위 = positive, 아래 =
+     * negative }. 그림 줄(series)에 싣는다.
+     */
+    static Map<String, Baseline> baselines(JsonNode spec) {
+        Map<String, Baseline> result = new HashMap<>();
+        for (JsonNode item : spec.path("claim_items")) {
+            JsonNode words = item.path("sign_words");
+            if (words.isObject()) {
+                result.put(
+                        item.path("indicator_id").asText(),
+                        new Baseline(
+                                0,
+                                words.path("positive").asText(),
+                                words.path("negative").asText()));
+            }
         }
         return result;
     }

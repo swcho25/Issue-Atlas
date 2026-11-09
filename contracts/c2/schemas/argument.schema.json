@@ -280,7 +280,18 @@
         "unit": { "type": ["string", "null"] },
         "periods": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } },
         "values": { "type": "array", "items": { "type": ["number", "null"] } },
-        "statuses": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/evidence_status" } }
+        "statuses": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/evidence_status" } },
+        "baseline": {
+          "description": "그래프 기준선(선택, 2026-11-06): 기준 값과 그 위 · 아래의 뜻. 실행이 쓴 카드 승인본 claim_items[].sign_words 가 있는 지표면 { value: 0, above: positive, below: negative }(C1 순이동: 0 · 순유입 · 순유출). 값은 부호 그대로",
+          "type": "object",
+          "properties": {
+            "value": { "type": "number" },
+            "above": { "type": "string", "minLength": 1 },
+            "below": { "type": "string", "minLength": 1 }
+          },
+          "required": ["value", "above", "below"],
+          "additionalProperties": false
+        }
       },
       "required": ["unit", "periods", "values", "statuses"],
       "additionalProperties": false,

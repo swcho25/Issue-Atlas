@@ -1,5 +1,6 @@
 package com.c108.issueatlas.question.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -55,6 +56,10 @@ public record ArgumentResponse(
      */
     public sealed interface Series permits StatSeries, MoveSeries, CountSeries {}
 
+    /**
+     * 통계 한 줄. baseline 은 그래프 기준선과 그 위 · 아래 뜻(C2 선택 칸) — 카드 승인본 claim_items[].sign_words 가 있는 지표만,
+     * 없으면 칸을 내보내지 않는다.
+     */
     public record StatSeries(
             String indicatorId,
             String placeId,
@@ -64,8 +69,12 @@ public record ArgumentResponse(
             String unit,
             List<String> periods,
             List<Number> values,
-            List<String> statuses)
+            List<String> statuses,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Baseline baseline)
             implements Series {}
+
+    /** 그래프 기준선: 기준 값과 그 위 · 아래 뜻(C1 순이동: 0 · 순유입 · 순유출). */
+    public record Baseline(Number value, String above, String below) {}
 
     public record MoveSeries(
             String indicatorId,

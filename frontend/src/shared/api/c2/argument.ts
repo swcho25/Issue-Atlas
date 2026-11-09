@@ -73,6 +73,15 @@ const seriesBase = {
   values: z.array(z.number().nullable()),
   statuses: z.array(evidenceStatus),
 };
+/**
+ * 그래프 기준선(선택, 2026-11-06): 기준 값과 그 위 · 아래 뜻. 카드 승인본 claim_items[].sign_words 가 있는 지표만
+ * (C1 순이동: 0 · 순유입 · 순유출). 낱말이 없는 지표 · 지난 실행에는 칸이 없다
+ */
+const baseline = z.object({
+  value: z.number(),
+  above: z.string().min(1),
+  below: z.string().min(1),
+});
 /** 통계 한 지역 · 측정소(coordinates 가 있으면 지도 점, 없으면 막대) */
 const placeSeries = z.object({
   ...seriesBase,
@@ -81,6 +90,7 @@ const placeSeries = z.object({
   station_id: z.string().nullable(),
   name: z.string().nullable(),
   coordinates: lonLat.nullable(),
+  baseline: baseline.optional(),
 });
 /** 이동: from → to */
 const flowSeries = z.object({

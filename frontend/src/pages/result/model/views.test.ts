@@ -9,6 +9,7 @@ import {
   availableViews,
   barLayout,
   barNumber,
+  baselineNote,
   CHART_WIDTH,
   changeSeries,
   MIN_BAR,
@@ -58,6 +59,26 @@ describe("변화형 막대", () => {
       { year: "2025", value: null },
     ]);
     expect(barNumber(11.04, "mean")).toBe("11.0");
+  });
+});
+
+describe("그래프 기준선 문구", () => {
+  it("응답이 준 기준선대로 여수 C1 순이동 그림은 「기준선 0 · 위 순유입 · 아래 순유출」로 보인다", () => {
+    expect(baselineNote(changeSeries(ready)!)).toBe("기준선 0 · 위 순유입 · 아래 순유출");
+  });
+
+  it("뜻은 지표가 아니라 응답에서 온다(카드가 다른 낱말을 주면 그 낱말)", () => {
+    const s = { ...changeSeries(ready)!, baseline: { value: 0, above: "증가", below: "감소" } };
+    expect(baselineNote(s)).toBe("기준선 0 · 위 증가 · 아래 감소");
+  });
+
+  it("응답에 기준선이 없는 줄(지난 실행 · 낱말 없는 카드)은 문구가 없다", () => {
+    expect(baselineNote({ ...changeSeries(ready)!, baseline: undefined })).toBeNull();
+  });
+
+  it("0 이 아닌 기준선은 막대가 그 선을 그리지 않아 아직 적지 않는다", () => {
+    const s = { ...changeSeries(ready)!, baseline: { value: 15, above: "나쁨", below: "좋음" } };
+    expect(baselineNote(s)).toBeNull();
   });
 });
 
