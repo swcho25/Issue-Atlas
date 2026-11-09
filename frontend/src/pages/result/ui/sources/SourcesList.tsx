@@ -4,11 +4,11 @@ import type { Argument, EvidenceRef } from "@/shared/api";
 import { StatusBadge } from "@/shared/ui/badge";
 
 import { evidenceKindLabel, yearSpan } from "../../model/labels";
-import { emptyRefsText, kindCount } from "../../model/sources";
+import { articleRef, emptyRefsText, kindCount } from "../../model/sources";
 
 // 05 · 원문 왼쪽 목록(Figma List: 폭 300 · surface-2 · 안쪽 16 · 12 · 칸 사이 4).
 // 근거 종류별 묶음 머리(이름 · 건수) 아래 근거 줄. 고른 줄은 surface-1 + 테두리, 등급 칸은 앰버.
-// 줄을 누르면 ?e=<evidence_id> 로 읽기 칸이 바뀐다. 기사는 근거 ID 가 없어 원문 사이트로 바로 연다
+// 줄을 누르면 ?e=<evidence_id> 로 읽기 칸이 바뀐다. 기사도 근거 ID 가 있으면 같고, 없으면 원문 사이트로 바로 연다
 
 /** 근거 줄: 등급 칸 20 + 제목(Label 13) · 출처 · 기간(Caption 11) */
 function RefItem({ item, href, selected }: { item: EvidenceRef; href: string; selected: boolean }) {
@@ -38,8 +38,32 @@ function RefItem({ item, href, selected }: { item: EvidenceRef; href: string; se
   );
 }
 
-/** 기사 줄: 근거 상세가 없어 원문 사이트로 바로 연다(새 창). 본문은 저장하지 않는다 */
-function ArticleItem({ article }: { article: Argument["articles"][number] }) {
+/**
+ * 기사 줄. 문서 근거(evidence_id · 등급)가 있으면 근거 줄처럼 ?e= 로 근거 상세를 연다(-318).
+ * 없으면(지난 실행 결과 · 등급 없는 출처) 원문 사이트로 바로 연다(새 창). 본문은 저장하지 않는다
+ */
+function ArticleItem({
+  article,
+  hrefOf,
+  selectedId,
+}: {
+  article: Argument["articles"][number];
+  hrefOf: (evidenceId: string) => string;
+  selectedId: string | null;
+}) {
+  const ref = articleRef(article);
+  if (ref) {
+    return (
+      <RefItem
+        item={{
+          ...ref,
+          source_name: [article.place_name, article.date].filter(Boolean).join(" · "),
+        }}
+        href={hrefOf(ref.evidence_id)}
+        selected={ref.evidence_id === selectedId}
+      />
+    );
+  }
   const body = (
     <>
       {/* 기사는 응답에 출처 등급이 없어 등급 칸을 비운다(Figma 묶음 줄도 빈 칸) */}
@@ -114,7 +138,7 @@ export function SourcesList({
               />
             ))}
             {articles.map((a) => (
-              <ArticleItem key={a.id} article={a} />
+              <ArticleItem key={a.id} article={a} hrefOf={hrefOf} selectedId={selectedId} />
             ))}
             {rest > 0 && (
               // Figma 「… 외 10건」 줄: 빈 등급 칸 + Label 13 + Caption 11

@@ -36,27 +36,45 @@ public class QuestionRepository {
             ORDER BY o.what_id, o.station_id NULLS FIRST, o.to_place_id NULLS FIRST, o.when_start
             """;
 
-    // 근거 기사: 카드 태그가 있고 질문 지역(앞자리가 같은 읍면동 포함) · 기간 안인 기사(명세 6절)
-    private static final String ARTICLES =
+    // 근거 기사: 카드 태그가 있고 질문 지역(앞자리가 같은 읍면동 포함) · 기간 안인 기사(명세 6절).
+    // 근거 상세에 쓸 값(제목 · 이용 조건 · 원문 위치 · 링크)은 수집 원본(빅카인즈 레코드)에만 있다. 본문은 옮기지 않는다.
+    // 기사 근거 ID 는 정제 판마다 하나: ev_news_<md5(obs_key|content_hash)> (보도자료 ev_doc_ 와 같은 규칙)
+    private static final String ARTICLE_MATCHES =
             """
-            SELECT o.what_id AS id, to_char(o.when_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS date,
-                   o.place_id, o.lon, o.lat, o.location_precision, o.summary, e.place_name,
-                   p.name AS area_name, ST_X(p.geometry::geometry) AS area_lon, ST_Y(p.geometry::geometry) AS area_lat,
-                   n.url
+            SELECT o.what_id AS id, o.when_start, o.place_id, o.lon, o.lat, o.location_precision, o.summary,
+                   e.place_name, p.name AS area_name, ST_X(p.geometry::geometry) AS area_lon,
+                   ST_Y(p.geometry::geometry) AS area_lat, n.url, n.title, n.license_type, n.storage_scope,
+                   n.published_at, n.collected_at, n.locator,
+                   'ev_news_' || md5(n.obs_key || '|' || n.content_hash) AS news_evidence_id
             FROM observation o
             JOIN news_event e ON e.news_id = o.what_id
             LEFT JOIN place p ON p.place_id = o.place_id
-            -- 원문 링크는 수집 원본(빅카인즈 레코드)에만 있다. 본문은 옮기지 않는다
             LEFT JOIN LATERAL (
-                SELECT r.record -> 'document' ->> 'link' AS url FROM normalized_ready r
+                SELECT r.record -> 'document' ->> 'link' AS url, r.record -> 'document' ->> 'title' AS title,
+                       r.record ->> 'license_type' AS license_type, r.storage_scope,
+                       (r.record ->> 'published_at')::timestamptz AS published_at,
+                       (r.record ->> 'collected_at')::timestamptz AS collected_at,
+                       jsonb_strip_nulls(jsonb_build_object('spec_id', r.spec_id, 'locator', r.record -> 'locator',
+                           'publisher', r.record -> 'document' ->> 'publisher', 'obs_key', r.obs_key,
+                           'content_hash', r.content_hash)) AS locator,
+                       r.obs_key, r.content_hash
+                FROM normalized_ready r
                 WHERE r.source_id = 'bigkinds' AND r.record -> 'locator' ->> 'news_id' = e.news_id
                 ORDER BY r.refined_at DESC LIMIT 1
             ) n ON true
             WHERE o.source_table = 'news_event' AND :card = ANY (o.tags) AND starts_with(o.place_id, :place)
               AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
               AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
-            ORDER BY o.when_start, o.what_id
             """;
+
+    private static final String ARTICLES =
+            "SELECT a.id, to_char(a.when_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS date,"
+                    + " a.place_id, a.lon, a.lat, a.location_precision, a.summary, a.place_name,"
+                    + " a.area_name, a.area_lon, a.area_lat, a.url, ev.evidence_id, ev.source_grade"
+                    + " FROM ("
+                    + ARTICLE_MATCHES
+                    + ") a LEFT JOIN evidence ev ON ev.evidence_id = a.news_evidence_id"
+                    + " ORDER BY a.when_start, a.id";
 
     private final JdbcClient jdbc;
     private final ObjectMapper json;
@@ -503,6 +521,38 @@ public class QuestionRepository {
                 .list();
     }
 
+    /**
+     * 근거 기사마다 문서 근거 행(ID {@code ev_news_<md5(obs_key|content_hash)>})을 만든다. 같은 기사 같은 판은 같은 ID 라 다시
+     * 실행해도 한 행. 제목 · 공표일 · 원문 링크 · 원문 위치만 두고 본문 · display 는 없다. 출처 등급이 없으면 만들지 않는다(다른 근거와 같은 규칙).
+     * 기사는 data.documents 에 넣지 않고 articles[] 에서 이 ID 로만 잇는다(C2 README).
+     */
+    public void createArticleEvidence(
+            String cardId, String placeId, LocalDate start, LocalDate end) {
+        jdbc.sql(
+                        "WITH a AS ("
+                                + ARTICLE_MATCHES
+                                + """
+                ) INSERT INTO evidence (evidence_id, kind, title, source_id, source_grade, license_type,
+                    storage_scope, observed_at, published_at, collected_at, location_precision, locator, url)
+                SELECT DISTINCT ON (a.news_evidence_id) a.news_evidence_id, 'documents', a.title,
+                       s.source_id, s.reliability_grade, coalesce(a.license_type, s.license_type),
+                       coalesce(a.storage_scope, s.storage_scope), a.when_start, a.published_at,
+                       coalesce(a.collected_at, now()),
+                       CASE WHEN a.location_precision IN ('exact', 'address', 'admin_centroid')
+                            THEN a.location_precision ELSE 'none' END,
+                       a.locator, a.url
+                FROM a JOIN source s ON s.source_id = 'bigkinds'
+                WHERE s.reliability_grade IS NOT NULL AND a.news_evidence_id IS NOT NULL
+                  AND a.title IS NOT NULL
+                ON CONFLICT (evidence_id) DO NOTHING
+                """)
+                .param("card", cardId)
+                .param("place", placeId)
+                .param("start", start)
+                .param("end", end)
+                .update();
+    }
+
     public List<ArticleRow> articles(
             String cardId, String placeId, LocalDate start, LocalDate end) {
         return jdbc.sql(ARTICLES)
@@ -610,7 +660,9 @@ public class QuestionRepository {
             String areaName,
             Double areaLon,
             Double areaLat,
-            String url) {}
+            String url,
+            String evidenceId,
+            String sourceGrade) {}
 
     public record EvidenceRef(
             String evidenceId,

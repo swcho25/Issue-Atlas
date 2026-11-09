@@ -25,6 +25,11 @@ const withArticle = argumentSchema.parse({
   ],
 });
 const a3 = argumentSchema.parse(a3Json);
+// 같은 기사에 문서 근거(-318)가 있으면 근거 상세로 연다
+const withLinkedArticle = argumentSchema.parse({
+  ...ready,
+  articles: [{ ...withArticle.articles[0], evidence_id: "ev_news_1", source_grade: "C" }],
+});
 
 const hrefOf = (id: string) => `/results/x/sources?e=${id}`;
 /** 묶음 머리의 건수(이름 옆 숫자)만 */
@@ -40,6 +45,18 @@ describe("SourcesList", () => {
     expect(article).toHaveAttribute("href", "https://example.com/news/1");
     expect(article).toHaveAttribute("target", "_blank");
     expect(article).toHaveTextContent("본문 저장 안 함");
+  });
+
+  it("문서 근거가 있는 기사는 등급과 함께 근거 상세(?e=)로 연다", () => {
+    render(<SourcesList argument={withLinkedArticle} selectedId="ev_news_1" hrefOf={hrefOf} />);
+    const group = screen.getByRole("region", { name: "기사 · 보도 · 민원" });
+    const article = within(group).getByRole("link", { name: /여수 청년 일자리 박람회/ });
+    expect(article).toHaveAttribute("href", "/results/x/sources?e=ev_news_1");
+    expect(article).not.toHaveAttribute("target");
+    expect(article).toHaveAttribute("aria-current", "true");
+    expect(article).toHaveTextContent("출처 등급 C");
+    expect(article).toHaveTextContent("여수시 · 2025-03-02");
+    expect(article).not.toHaveTextContent("본문 저장 안 함");
   });
 
   it("묶음 건수는 수요표의 전체 건수이고, 목록에 없는 나머지는 「… 외 N건」 줄로 보인다", () => {
@@ -78,5 +95,12 @@ describe("SourcesPanel", () => {
     expect(within(counts).getByRole("heading")).toHaveTextContent("원문 16건");
     const documents = within(counts).getByText("기사 · 보도 · 민원").nextElementSibling;
     expect(documents?.textContent).toBe("12 · 링크만 1");
+  });
+
+  it("근거 상세가 있는 기사는 링크만으로 세지 않는다", () => {
+    render(<SourcesPanel argument={withLinkedArticle} />);
+    const counts = screen.getByRole("region", { name: "원문 건수" });
+    const documents = within(counts).getByText("기사 · 보도 · 민원").nextElementSibling;
+    expect(documents?.textContent).toBe("12");
   });
 });

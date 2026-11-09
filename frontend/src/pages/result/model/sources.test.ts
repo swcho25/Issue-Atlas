@@ -5,7 +5,14 @@ import { argumentSchema } from "@/shared/api";
 import a3Json from "../../../../../contracts/c2/examples/argument-a3-not-comparable.json";
 import readyJson from "../../../../../contracts/c2/examples/argument-c1-ready.json";
 import unsupportedJson from "../../../../../contracts/c2/examples/argument-unsupported.json";
-import { emptyRefsText, kindCount, pickEvidence, refsTitle, sourcesTotal } from "./sources";
+import {
+  articleRef,
+  emptyRefsText,
+  kindCount,
+  pickEvidence,
+  refsTitle,
+  sourcesTotal,
+} from "./sources";
 
 const ready = argumentSchema.parse(readyJson);
 const a3 = argumentSchema.parse(a3Json);
@@ -72,6 +79,32 @@ describe("pickEvidence", () => {
     expect(pickEvidence(ready, ["ev_kosis_pop_yeosu", "ev_kosis_net_yeosu"])?.evidence_id).toBe(
       "ev_kosis_pop_yeosu",
     );
+  });
+
+  it("문서 근거가 있는 기사도 ?e= 로 고를 수 있고, 근거가 없는 기사는 고르지 않는다", () => {
+    const base = {
+      date: "2025-01-01",
+      place_id: ready.question.place_id,
+      point: null,
+      precision: "none" as const,
+      summary: "청년 정착 기사",
+      place_name: null,
+      url: null,
+    };
+    const withArticles = {
+      ...ready,
+      articles: [
+        { ...base, id: "a1", evidence_id: "ev_news_a1", source_grade: "C" as const },
+        { ...base, id: "a2" },
+      ],
+    };
+    expect(pickEvidence(withArticles, "ev_news_a1")).toMatchObject({
+      evidence_id: "ev_news_a1",
+      title: "청년 정착 기사",
+      source_grade: "C",
+      storage_scope: "metadata",
+    });
+    expect(articleRef(withArticles.articles[1])).toBeNull();
   });
 
   it("근거가 하나도 없으면 null", () => {

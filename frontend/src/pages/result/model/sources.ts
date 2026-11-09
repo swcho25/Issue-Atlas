@@ -34,9 +34,34 @@ export function emptyRefsText(row: EvidenceRow, count: number) {
   return row.reason ?? (row.status === "available" ? "—" : evidenceStatusBadge[row.status].label);
 }
 
-/** 원문 탭에서 고를 근거: ?e= 가 목록에 있으면 그것, 없거나 모르는 ID 면 첫 근거(수요표 순서). ?e= 가 여럿이면 첫 값 */
+type Article = Argument["articles"][number];
+
+/**
+ * 문서 근거가 있는 기사를 근거 줄 값으로(-318). 근거 상세를 못 받았을 때 읽기 칸이 쓰는 값이라 제목은 요약, 출처는 「기사」.
+ * 근거 ID · 등급이 없는 기사(지난 실행 결과 · 등급 없는 출처)는 null — 원문 사이트로만 연다
+ */
+export function articleRef(article: Article): EvidenceRef | null {
+  if (!article.evidence_id || !article.source_grade) return null;
+  return {
+    evidence_id: article.evidence_id,
+    title: article.summary ?? "기사",
+    source_name: "기사",
+    source_grade: article.source_grade,
+    period_start: null,
+    period_end: null,
+    storage_scope: "metadata",
+  };
+}
+
+/**
+ * 원문 탭에서 고를 근거: ?e= 가 목록에 있으면 그것, 없거나 모르는 ID 면 첫 근거(수요표 순서, 기사는 기사 · 보도 묶음 끝).
+ * ?e= 가 여럿이면 첫 값
+ */
 export function pickEvidence(argument: Argument, e: string | string[] | undefined) {
   const wanted = Array.isArray(e) ? e[0] : e;
-  const refs = argument.evidence_table.flatMap((row) => argument.data[row.kind]);
+  const refs = argument.evidence_table.flatMap((row) => [
+    ...argument.data[row.kind],
+    ...(row.kind === "documents" ? argument.articles.flatMap((a) => articleRef(a) ?? []) : []),
+  ]);
   return refs.find((r) => r.evidence_id === wanted) ?? refs[0] ?? null;
 }

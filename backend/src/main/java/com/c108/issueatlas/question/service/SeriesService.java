@@ -105,7 +105,9 @@ public class SeriesService {
         return out;
     }
 
+    /** 근거 기사 목록. 기사마다 문서 근거 행을 먼저 만들어(같은 판이면 그대로) 원문 탭이 근거 상세로 열 수 있게 한다(-318). */
     public List<Article> articles(String cardId, String placeId, LocalDate start, LocalDate end) {
+        questions.createArticleEvidence(cardId, placeId, start, end);
         return questions.articles(cardId, placeId, start, end).stream()
                 .map(
                         a ->
@@ -117,7 +119,9 @@ public class SeriesService {
                                         a.locationPrecision(),
                                         a.summary(),
                                         a.placeName(),
-                                        a.url()))
+                                        a.url(),
+                                        a.evidenceId(),
+                                        a.sourceGrade()))
                 .toList();
     }
 
