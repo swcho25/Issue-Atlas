@@ -9,6 +9,7 @@ import type { ApproxGroup, ArticleDot } from "../../model/articles";
 
 // 기사 점(Figma 「기사 점」): 주소 기사 = 남색 점 10 · 흰 테두리 2 · 옅은 그림자,
 // 위치 근사 묶음 = 흰 60% · 남색 테두리 1.5 원 22 + 이름표(흰 92% · 모서리 4 · 안쪽 2 · 6 · Medium 11).
+// Figma 의 「흰」 은 surface-1 로 — 어두운 화면에서 고정 흰 바탕 위 밝은 글자(text-1)가 1.02 : 1 로 안 읽혔다.
 // 분포형 측정소 점처럼 지도 층이 아니라 Marker 로(바탕을 갈아 끼워도 남는다)
 
 function dotElement(d: ArticleDot) {
@@ -26,10 +27,11 @@ function groupElement(g: ApproxGroup) {
   el.setAttribute("role", "img");
   el.setAttribute("aria-label", g.name);
   const ring = document.createElement("span");
-  ring.className = "size-[22px] shrink-0 rounded-full border-[1.5px] border-map-region bg-white/60";
+  ring.className =
+    "size-[22px] shrink-0 rounded-full border-[1.5px] border-map-region bg-surface-1/60";
   const tag = document.createElement("span");
   tag.className =
-    "rounded-sm bg-white/92 px-1.5 py-0.5 text-caption-11 font-medium whitespace-nowrap text-text-1";
+    "rounded-sm bg-surface-1/92 px-1.5 py-0.5 text-caption-11 font-medium whitespace-nowrap text-text-1";
   tag.textContent = g.name;
   el.append(ring, tag);
   return el;
