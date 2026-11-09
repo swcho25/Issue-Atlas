@@ -5,10 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mswServer, renderWithQuery } from "@/shared/lib/test";
 
+import { reloadToLanding } from "../lib/reload";
 import { LogoutButton } from "./LogoutButton";
 
-const replace = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
+// jsdom 은 페이지 이동을 하지 못한다. 랜딩을 새로 여는 함수만 바꿔 불렸는지 본다
+vi.mock("../lib/reload", () => ({ reloadToLanding: vi.fn() }));
 
 describe("LogoutButton", () => {
   beforeEach(() => {
@@ -17,11 +18,11 @@ describe("LogoutButton", () => {
 
   afterEach(() => {
     cleanup();
-    replace.mockReset();
+    vi.mocked(reloadToLanding).mockReset();
     document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
   });
 
-  it("CSRF 토큰을 실어 로그아웃하고 랜딩으로 간다", async () => {
+  it("CSRF 토큰을 실어 로그아웃하고 랜딩을 새로 연다", async () => {
     let token: string | null = null;
     mswServer.use(
       http.post("*/api/v1/auth/logout", ({ request }) => {
@@ -33,7 +34,7 @@ describe("LogoutButton", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "로그아웃" }));
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(reloadToLanding).toHaveBeenCalled());
     expect(token).toBe("tok");
     expect(screen.getByRole("button", { name: "로그아웃" })).toBeDisabled();
   });
@@ -44,7 +45,7 @@ describe("LogoutButton", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "로그아웃" }));
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(reloadToLanding).toHaveBeenCalled());
   });
 
   it("그 밖의 오류면 머물고 다시 누를 수 있다", async () => {
@@ -54,7 +55,7 @@ describe("LogoutButton", () => {
     await userEvent.click(screen.getByRole("button", { name: "로그아웃" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("로그아웃하지 못했어요");
-    expect(replace).not.toHaveBeenCalled();
+    expect(reloadToLanding).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "로그아웃" })).toBeEnabled();
   });
 });

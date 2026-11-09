@@ -1,26 +1,18 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 
 import { Button } from "@/shared/ui/button";
 
 import { logout } from "../api/logout";
+import { reloadToLanding } from "../lib/reload";
 
 /**
- * 로그아웃하고 랜딩(/)으로 간다. 받아 둔 데이터는 지운다(다음에 같은 창에서 로그인하는 사람에게 남지 않게).
+ * 로그아웃하고 랜딩(/)을 페이지째 새로 연다(화면에 남은 앞 사람의 상태 · 데이터가 함께 사라진다).
  * 세션 쿠키가 남아 있어도 랜딩 앞(proxy)이 끝난 세션을 확인하고 지운다
  */
 export function LogoutButton() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const signOut = useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
-      queryClient.clear();
-      router.replace("/");
-    },
-  });
+  const signOut = useMutation({ mutationFn: logout, onSuccess: reloadToLanding });
 
   return (
     <div className="flex flex-col items-end gap-1.5">
