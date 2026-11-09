@@ -30,10 +30,14 @@ function fitPadding(map: MapLibreMap) {
   };
 }
 
+/**
+ * 원 글자 · 테두리는 surface-1(밝은 화면 흰 · 어두운 화면 먹색). 어두운 화면에서 남색이 밝은 파랑(#8faee0)이 되어
+ * 흰 글자가 3.52 : 1 로 흐렸다
+ */
 function dotElement(d: Dot) {
   const el = document.createElement("div");
   el.className =
-    "grid place-items-center rounded-full bg-data-navy/75 ring-2 ring-white text-caption-11 font-bold text-white";
+    "grid place-items-center rounded-full bg-data-navy/75 ring-2 ring-surface-1 text-caption-11 font-bold text-surface-1";
   el.style.width = el.style.height = `${d.size}px`;
   el.setAttribute("role", "img");
   el.setAttribute("aria-label", `도착 ${d.label}`);
