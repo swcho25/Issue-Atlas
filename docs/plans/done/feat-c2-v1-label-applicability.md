@@ -9,7 +9,7 @@
 - [x] backend(장성우, MR 리뷰어) · 프론트(정우현, MR 코멘트) 리뷰 요청 — !191 Draft
 - [x] backend 구현: `Claim.label`(승인본 결과 이름, 판정 안 함 null) · `applicability[]`(`CardApplicability`) · 지역 단위 다르면 unsupported · V0051 지난 실행 채움 · QuestionApiTest 단언 + 테스트 2개
 - [x] CI backend 테스트 통과 — 파이프라인 #275563 5개 잡 모두 성공(로컬 Docker 가 멈춰 push 훅은 사람 허락으로 건너뜀)
-- [ ] 프론트 zod · 배지 · unsupported ✕ 목록 — 정우현 담당(2026-11-06 결정)
+- [x] 프론트 zod · 배지 · unsupported ✕ 목록 — 정우현 담당(2026-11-06 결정), S15P31C108-306 으로 develop 병합(2026-11-08, ac0509b)
 
 ## 진행
 - 2026-11-06: 계약만(구현은 리뷰 뒤). 스키마 검사 2개를 더함: blocked · unsupported → label null, applicability 에 passed false → unsupported. 카드 없음 → applicability []
@@ -21,9 +21,9 @@
 - 2026-11-06: 정호성 MR(S15P31C108-295, V0050)이 먼저 develop 에 들어가 dev DB 에 V0050 이 먼저 적용된다. out-of-order 가 꺼져 있어 V0049 그대로면 Flyway 가 막는다 → V0051 로 이름만 바꿈(내용 그대로, 서로 다른 테이블이라 순서 무관). develop(!190 · -295) 받으며 QuestionService import · QuestionApiTest 판단 문장 · c2 README 변경 이력 충돌을 양쪽 합쳐 풂
 - 2026-11-06: 리뷰 반영 — 장성우 1(blocked 면 측정소 조건도 null: 코드는 이미 그렇고 README 표만 고침) · 3 = 정우현 1(ready · partial 인데 label null 은 지난 실행 → 화면은 이전 배지, run_status 문구는 blocked · unsupported 만) · 정우현 2(연 값 note 빠진 해 나열, 1개는 「1개(2025)」). 장성우 2(광역 질문)는 의도 — 화면은 시군구만 보낸다(정우현 4). 프론트는 다음 MR(정우현 6)
 - 2026-11-06: 프론트 zod 는 `z.object`(모르는 칸 버림)라 backend 가 먼저 나가도 화면은 그대로
+- 2026-11-09: 프론트가 S15P31C108-306(정우현)으로 develop 에 들어가 완료 조건을 모두 채움. Jira -283 완료 처리, 계획을 done 으로 옮김
 
 ## 다음 할 일 / 범위 밖
-- 프론트 구현(정우현): `shared/api/c2/argument.ts` zod 두 칸 · 배지 `claim.label`(null 이면 run_status 문구) · unsupported ✕ 목록(`applicability` 의 `passed: false` 줄). 이 브랜치에 더할지 다음 MR 로 할지 정우현과 정하기
 - 배포 순서 계약 → engine → backend (engine 이 문장화 요청을 계약 스키마로 엄격히 검사)
 - `schema_version` 을 c2-1.0 으로 올릴지(모든 엔드포인트 공통 값) — 리뷰에서 정하기
 - #4 일반 사용자 로그인: 11/4 A안(일반 사용자 로그인 없음, S15P31C108-208)을 뒤집는 것이라 P7 장성우 합의 필요
