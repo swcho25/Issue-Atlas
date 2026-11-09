@@ -8,7 +8,8 @@
 | skipped | NOT_JUDGED | 판단이 insufficient · not_comparable |
 | failed | INPUT_INVALID | 카드 승인본이 그 실행의 카드 · 판이 아님 |
 | failed | LLM_TIMEOUT · LLM_ERROR | 모델 호출 실패. 다시 돌릴 수 있다 |
-| failed | OUTPUT_REJECTED | JSON 아님 · 검사 탈락(problems). 다시 돌리지 않고 검수로 |
+| failed | OUTPUT_REJECTED | JSON 아님 · 모양 · 판단 값 · 경쟁 설명 목록이 어긋남(problems) |
+| done | — | 반박 하나만 검사 탈락 → 그 반박만 needs_review, problems 에 남김(v0.4) |
 """
 
 import json
@@ -20,7 +21,9 @@ from .check import Problem, check
 from .prompt import PROMPT_VERSION, SYSTEM, build, passages, rebuttal_ids
 
 # contracts/ai phrasing-result.schema.json
-RESULT_VERSION = "ai-phrasing-result-0.3"
+RESULT_VERSION = "ai-phrasing-result-0.4"
+# 반박 하나의 검사에서 떨어지면 그 반박만 낮출 상태
+DOWNGRADED = "needs_review"
 
 
 @dataclass(frozen=True)
@@ -91,8 +94,11 @@ def phrase(
     except ValueError:
         output = None
     problems = check(sent, output)
-    if problems:
+    # where 가 반박 ID 가 아닌 탈락(모양 · 판단 값 · 경쟁 설명 목록)은 출력 전체를 믿을 수 없다
+    asked = {c["id"] for c in sent["rebuttal_candidates"]}
+    if any(p.where not in asked for p in problems):
         return Phrasing(run_id, "failed", "OUTPUT_REJECTED", [], {}, problems, model)
+    downgraded = {p.where for p in problems}
 
     by_id = {r["id"]: r for r in output["rebuttals"]}
     locators = {p["id"]: p["locator"] for p in passages(sources)}
@@ -102,6 +108,13 @@ def phrase(
         if rid is None:
             status = candidate["decided_by_rule"]
             rebuttals.append({"text": candidate["text"], "status": status, "provenance": "rule"})
+            continue
+        if rid in downgraded:
+            # 인용 · 숫자 · 낱말 중 하나라도 어긋난 반박은 모델 답을 쓰지 않고 검토로 남긴다
+            rebuttals.append(
+                {"text": candidate["text"], "status": DOWNGRADED, "provenance": "llm_judgment"}
+            )
+            citations[rid] = []
             continue
         answer = by_id[rid]
         note = answer["note"]
@@ -113,4 +126,4 @@ def phrase(
             }
         )
         citations[rid] = [{**c, "locator": locators[c["passage"]]} for c in answer["citations"]]
-    return Phrasing(run_id, "done", None, rebuttals, citations, model=model)
+    return Phrasing(run_id, "done", None, rebuttals, citations, problems, model)

@@ -386,13 +386,75 @@ def test_cards_without_sign_words_keep_signed_numbers():
     assert problems(c1_output(), card=C1_CARD) == set()
 
 
-def test_minus_signed_note_is_rejected_and_leaves_no_rebuttals():
+def test_minus_signed_note_lowers_only_that_rebuttal():
+    """v0.4: 부호 낱말 탈락은 그 반박(R1)만 needs_review, 다른 반박은 모델 답 그대로"""
     call, calls = answer(signed_output("여수시 청년 순이동은 2025년 -2,240명이다."))
     result = phrase(c1(), SOURCES, SIGN_CARD, call)
-    assert (result.status, result.reason_code) == ("failed", "OUTPUT_REJECTED")
-    assert {p.check for p in result.problems} == {"sign_wording"}
-    assert result.rebuttals == []
+    assert (result.status, result.reason_code) == ("done", None)
+    assert {(p.check, p.where) for p in result.problems} == {("sign_wording", "R1")}
+    candidate = c1()["rebuttal_candidates"][0]["text"]
+    assert result.rebuttals[0] == {
+        "text": candidate,
+        "status": "needs_review",
+        "provenance": "llm_judgment",
+    }
+    assert "-2,240" not in result.rebuttals[0]["text"]
+    assert [r["status"] for r in result.rebuttals[1:]] == ["needs_review", "supported"]
+    assert result.citations["R1"] == [] and len(result.citations["R3"]) == 1
     assert calls[0]["statistics"][0]["value_text"] == "순유출 1,850명"
+    contract("phrasing-result").validate(result.result())
+
+
+def broken_quote_output():
+    """깨진 기사 요약을 모델이 고쳐 인용한 경우: R3 인용 글자가 구절 원문과 다르다"""
+    output = c1_output()
+    output["rebuttals"][2]["citations"][0]["quote"] = (
+        "협력업체 직원 300여 명이 다른 지역으로 이주한"
+    )
+    return output
+
+
+def test_one_broken_quote_lowers_only_that_rebuttal_and_keeps_the_rest():
+    output = c1_output()
+    output["rebuttals"][0] = {
+        "id": "R1",
+        "status": "supported",
+        "note": None,
+        "citations": [{"passage": "P3", "quote": "여수시가 청년 월세 지원 신청을 받는다"}],
+    }
+    output["rebuttals"][2] = broken_quote_output()["rebuttals"][2]
+    result = phrase(c1(), SOURCES, C1_CARD, answer(output)[0])
+    assert result.status == "done"
+    # 인용이 깨지면 note 의 「300」도 근거 구절을 잃는다. 문제는 모두 R3 안에 있다
+    assert {(p.check, p.where) for p in result.problems} == {
+        ("quote_not_in_source", "R3"),
+        ("unsupported", "R3"),
+        ("number_mismatch", "R3"),
+    }
+    assert [r["status"] for r in result.rebuttals] == ["supported", "needs_review", "needs_review"]
+    assert result.rebuttals[2]["text"] == c1()["rebuttal_candidates"][2]["text"]
+    assert result.citations["R1"][0]["locator"]["source_id"] == "fx-002"
+    assert result.citations["R3"] == []
+    contract("phrasing-result").validate(result.result())
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda o: o.update(claim_value="decreasing"),
+        lambda o: o["rebuttals"].pop(),
+        lambda o: o["rebuttals"][0].update(id="R9"),
+    ],
+)
+def test_changed_judgment_still_rejects_the_whole_output(change):
+    """반박 하나의 탈락이 함께 있어도 판단 · 경쟁 설명 목록이 바뀌면 전체를 되돌린다"""
+    output = broken_quote_output()
+    change(output)
+    result = phrase(c1(), SOURCES, C1_CARD, answer(output)[0])
+    assert (result.status, result.reason_code) == ("failed", "OUTPUT_REJECTED")
+    assert result.rebuttals == [] and result.citations == {}
+    assert "judgment_changed" in {p.check for p in result.problems}
+    contract("phrasing-result").validate(result.result())
 
 
 @pytest.mark.parametrize(
@@ -503,8 +565,9 @@ def raises(error):
 
 
 def rejected_answer():
+    """v0.4: 반박 하나의 탈락은 done 이라, 전체 탈락은 판단 값을 바꾼 출력으로 본다"""
     output = c1_output()
-    output["rebuttals"][0]["note"] = "2026년에는 -2,500명이 될 것이다."
+    output["claim_value"] = "decreasing"
     return answer(output)[0]
 
 
