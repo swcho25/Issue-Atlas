@@ -3,35 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { setTheme, useTheme } from "@/shared/lib/theme";
-import { Icon } from "@/shared/ui/icon";
+import { ThemeSwitch } from "@/features/switch-theme";
 import { AtlasMark } from "@/shared/ui/logo";
-import { Toggle } from "@/shared/ui/toggle";
 
 import { useLoginDialog } from "../model/login-dialog";
 import styles from "./LandingPage.module.css";
-
-/**
- * 화면 테마 토글(켜짐 = 어두운 화면). 손잡이에 해 · 달을 그려 무엇을 바꾸는지 보인다.
- * 처음 그릴 때는 저장된 테마로 바로 놓고(밝음 → 어두움으로 미끄러지는 움직임 없이), 그 뒤 누를 때만 움직인다
- */
-function ThemeSwitch() {
-  const dark = useTheme() === "dark";
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setReady(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-  return (
-    <Toggle
-      checked={dark}
-      onChange={(on) => setTheme(on ? "dark" : "light")}
-      label="어두운 화면"
-      knob={<Icon name={dark ? "moon" : "sun"} />}
-      animate={ready}
-    />
-  );
-}
 
 /** 맨 위에선 심벌만, 조금이라도 내리면 워드마크가 심벌 뒤에서 튀어나온다. 오른쪽은 테마 토글 · 유리 「로그인」 */
 export function SiteHeader() {
