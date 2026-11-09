@@ -1,4 +1,4 @@
-"""python -m ai.classify {embed-docs,embed-cards,score,sample} --db."""
+"""python -m ai.classify {embed-docs,embed-cards,score,sample} --db · train --input --output."""
 
 import argparse
 import csv
@@ -9,8 +9,8 @@ import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from . import gms, store
-from .model import PROFILE_VERSION, card_rules, decide, digest
+from . import f4, gms, store
+from .model import INPUT_VERSION, PROFILE_VERSION, card_rules, decide, digest
 
 THRESHOLDS = Path(__file__).with_name("thresholds.json")
 
@@ -61,23 +61,73 @@ def command_embed_cards(conn, apply: bool, embed=gms.embed):
     return dict(stats) | {"profile_version": PROFILE_VERSION}
 
 
-def command_score(conn, apply: bool, path: Path):
+def f4_probabilities(conn, rows, rules, version: str, model_path: Path = f4.MODEL_FILE):
+    """f4 카드 행의 (doc_id, card_id) → 확률. 모델 판은 thresholds.json 판과 같아야 한다."""
+    cards = {card_id for card_id, rule in rules.items() if rule.method == "f4"}
+    if not cards:
+        return {}
+    classifier = f4.load(model_path)
+    if classifier.version != version:
+        raise ValueError(
+            f"thresholds.json 판({version})과 F4 모델 판({classifier.version})이 다릅니다"
+        )
+    wanted = defaultdict(list)
+    for doc_id, card_id, input_id, *_ in rows:
+        if card_id in cards:
+            wanted[input_id].append((doc_id, card_id))
+    probabilities = {}
+    for input_id, text, input_version, embedding in store.score_inputs(conn):
+        if input_id not in wanted:
+            continue
+        if input_version != INPUT_VERSION:
+            raise ValueError(f"F4 는 입력 판 {INPUT_VERSION} 만 받습니다: {input_id}")
+        for doc_id, card_id in wanted[input_id]:
+            probabilities[doc_id, card_id] = classifier.cards[card_id].probability(text, embedding)
+    missing = sum(len(keys) for keys in wanted.values()) - len(probabilities)
+    if missing:
+        raise RuntimeError(f"F4 확률을 구하지 못한 점수 행이 {missing}개 있습니다")
+    return probabilities
+
+
+def command_score(conn, apply: bool, path: Path, model_path: Path = f4.MODEL_FILE):
     config = json.loads(path.read_text(encoding="utf-8"))
     version = config["version"]
     rules = card_rules(config)
     rows = store.scores(conn)
     if not rows:
         raise RuntimeError("활성 기사·카드 임베딩이 없습니다")
+    probabilities = f4_probabilities(conn, rows, rules, version, model_path)
     if apply:
-        store.save_scores(conn, rows, rules, version)
+        store.save_scores(conn, rows, rules, version, probabilities)
     stats = Counter(card_id for _, card_id, *_ in rows)
-    selected = Counter(card_id for _, card_id, *rest in rows if decide(rules[card_id], rest[-1]))
+    selected = Counter(
+        card_id
+        for doc_id, card_id, *rest in rows
+        if decide(rules[card_id], rest[-1], probabilities.get((doc_id, card_id)))
+    )
     return {
         "threshold_version": version,
         "label_status": config.get("label_status"),
         "methods": {card_id: rule.method for card_id, rule in sorted(rules.items())},
         "scores": dict(stats),
         "selected": dict(selected),
+    }
+
+
+def command_train(input_path: Path, output: Path):
+    """저장소 밖 학습 입력 JSON → F4 모델 파일. DB · API 를 쓰지 않는다."""
+    payload = json.loads(input_path.read_text(encoding="utf-8"))
+    model = f4.train(payload)
+    f4.parse(model)
+    output.write_text(f4.dumps(model), encoding="utf-8")
+    return {
+        "version": model["version"],
+        "output": str(output),
+        "cards": {
+            card_id: {key: card[key] for key in ("pool_count", "train_count", "positive_count")}
+            | {"ngrams": len(card["ngrams"])}
+            for card_id, card in model["cards"].items()
+        },
     }
 
 
@@ -122,9 +172,16 @@ def main(argv: list[str] | None = None) -> int:
             sub.add_argument("--thresholds", type=Path, default=THRESHOLDS)
         if name == "sample":
             sub.add_argument("--output", type=Path, required=True)
+    train = commands.add_parser("train", help="학습 입력 JSON → F4 모델 파일 (scikit-learn 필요)")
+    train.add_argument("--input", type=Path, required=True, help="저장소 밖 학습 입력 JSON")
+    train.add_argument("--output", type=Path, default=f4.MODEL_FILE)
     args = parser.parse_args(argv)
     started = time.perf_counter()
     try:
+        if args.command == "train":
+            result = command_train(args.input, args.output)
+            print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+            return 0
         with store.connect(args.database) as conn:
             if args.command == "embed-docs":
                 if args.limit is not None and args.limit < 1:

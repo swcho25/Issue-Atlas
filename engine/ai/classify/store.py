@@ -1,5 +1,6 @@
 """기사·승인 카드 읽기와 분류 결과 저장."""
 
+import json
 import os
 from pathlib import Path
 
@@ -45,6 +46,13 @@ JOIN card approved ON approved.card_id = c.card_id
 WHERE d.is_active AND c.is_active AND d.model = c.model
   AND approved.status = 'card' AND approved.current_version = c.card_version
 ORDER BY c.card_id, similarity DESC, d.doc_id
+"""
+# f4 확률 입력: 활성 기사 벡터의 입력 문장 · 입력 판 · 벡터(pgvector 문자열 '[…]')
+SCORE_INPUTS = """
+SELECT d.input_id, i.input_text, i.input_version, d.embedding::text
+FROM document_embedding_v1 d JOIN document_search_input i ON i.input_id = d.input_id
+WHERE d.is_active AND d.model = %s
+ORDER BY d.input_id
 """
 
 
@@ -189,8 +197,30 @@ def scores(conn):
         return cur.fetchall()
 
 
-def save_scores(conn, rows, rules: dict[str, CardRule], threshold_version: str):
-    """방식(V0052 method)과 함께 저장한다. 지금은 cosine 뿐이라 확률(probability)은 비운다."""
+def score_inputs(conn):
+    """활성 기사 입력을 (input_id, 입력 문장, 입력 판, 벡터) 로 하나씩 돌려준다.
+
+    서버 커서로 200건씩 읽어 기사 벡터를 한꺼번에 메모리에 올리지 않는다.
+    """
+    with conn.transaction(), conn.cursor(name="classify_score_inputs") as cur:
+        cur.itersize = 200
+        cur.execute(SCORE_INPUTS, (MODEL,))
+        for input_id, text, input_version, embedding in cur:
+            yield input_id, text, input_version, json.loads(embedding)
+
+
+def save_scores(
+    conn,
+    rows,
+    rules: dict[str, CardRule],
+    threshold_version: str,
+    probabilities: dict[tuple[str, str], float] | None = None,
+):
+    """방식(V0052 method)과 함께 저장한다.
+
+    f4 카드는 (doc_id, card_id) 확률을, cosine 카드는 빈 확률을 쓴다.
+    """
+    probabilities = probabilities or {}
     with conn.transaction(), conn.cursor() as cur:
         cur.execute(
             """DELETE FROM document_card_score s
@@ -206,6 +236,7 @@ def save_scores(conn, rows, rules: dict[str, CardRule], threshold_version: str):
         )
         for doc_id, card_id, input_id, card_version, profile_version, similarity in rows:
             rule = rules[card_id]
+            probability = probabilities.get((doc_id, card_id)) if rule.method == "f4" else None
             cur.execute(
                 """INSERT INTO document_card_score
                    (doc_id, card_id, input_id, card_version, profile_version, model,
@@ -230,9 +261,9 @@ def save_scores(conn, rows, rules: dict[str, CardRule], threshold_version: str):
                     similarity,
                     threshold_version,
                     rule.threshold,
-                    decide(rule, similarity),
+                    decide(rule, similarity, probability),
                     rule.method,
-                    None,
+                    probability,
                 ),
             )
 
