@@ -50,3 +50,41 @@ def card_profile(spec: dict) -> str:
 
 def select(score: float, threshold: float) -> bool:
     return score >= threshold
+
+
+# thresholds.json 의 카드별 방식. f4(학습 분류기 확률)는 S15P31C108-316 의 다음 MR 에서 더한다
+METHODS = ("cosine",)
+CARD_IDS = {"C1", "A3"}
+
+
+@dataclass(frozen=True)
+class CardRule:
+    method: str
+    threshold: float
+
+
+def card_rules(config: dict) -> dict[str, CardRule]:
+    """thresholds.json → 카드별 방식·기준값. C1·A3 둘 다, 아는 방식, -1~1 사이 숫자만 받는다."""
+    cards = config.get("cards")
+    if not isinstance(cards, dict) or set(cards) != CARD_IDS:
+        raise ValueError("C1·A3 카드 설정이 모두 필요합니다")
+    rules = {}
+    for card_id, rule in cards.items():
+        if not isinstance(rule, dict) or rule.get("method") not in METHODS:
+            raise ValueError(f"{card_id}: 방식은 {', '.join(METHODS)} 중 하나여야 합니다")
+        threshold = rule.get("threshold")
+        if (
+            isinstance(threshold, bool)
+            or not isinstance(threshold, (int, float))
+            or not -1 <= threshold <= 1
+        ):
+            raise ValueError(f"{card_id}: 기준값은 -1~1 사이 숫자여야 합니다")
+        rules[card_id] = CardRule(rule["method"], float(threshold))
+    return rules
+
+
+def decide(rule: CardRule, similarity: float) -> bool:
+    """카드 방식대로 선택 여부를 정한다. V0052 의 선택 검사와 같은 규칙이다."""
+    if rule.method == "cosine":
+        return select(similarity, rule.threshold)
+    raise ValueError(f"지원하지 않는 방식입니다: {rule.method}")

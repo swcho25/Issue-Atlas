@@ -1,6 +1,7 @@
 package com.c108.issueatlas.observation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.c108.issueatlas.TestcontainersConfiguration;
 import java.nio.file.Files;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -180,6 +182,41 @@ class ObservationViewTest {
                         "n-both A3,C1", "n-c1 C1", "n-none -", "n-old-card -", "n-stale -");
     }
 
+    @Test
+    void 학습_분류기_확률로_고른_카드도_태그가_되고_선택은_방식별_기준과_같아야_한다() throws Exception {
+        jdbc.queryForObject(
+                "SELECT set_config('issue_atlas.approver', ?, true)",
+                String.class,
+                "admin@seed.test");
+        jdbc.execute(Files.readString(Path.of("db/seed/cards-c1-a3.sql")));
+        profile("C1", "card-profile-v1", true);
+        profile("A3", "card-profile-v1", true);
+        article("n-f4");
+        String f4 = input("n-f4", "요약", true);
+        // 코사인이 낮아도 확률이 기준을 넘으면 고르고, 코사인이 높아도 확률이 낮으면 고르지 않는다
+        methodScore("n-f4", f4, "C1", 0.6, "f4", 0.9, 0.5, true);
+        methodScore("n-f4", f4, "A3", 0.9, "f4", 0.3, 0.5, false);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT array_to_string(tags, ',') FROM observation"
+                                        + " WHERE source_table = 'news_event' AND what_id = 'n-f4'",
+                                String.class))
+                .isEqualTo("C1");
+
+        article("n-bad");
+        String bad = input("n-bad", "요약", true);
+        String selection = "ck_document_card_score_selection";
+        rejected(selection, () -> methodScore("n-bad", bad, "C1", 0.6, "f4", null, 0.5, false));
+        rejected(selection, () -> methodScore("n-bad", bad, "C1", 0.6, "f4", 0.4, 0.5, true));
+        rejected(selection, () -> methodScore("n-bad", bad, "C1", 0.8, "cosine", null, 0.7, false));
+        rejected(
+                "ck_document_card_score_method",
+                () -> methodScore("n-bad", bad, "C1", 0.8, "bm25", null, 0.7, true));
+        rejected(
+                "ck_document_card_score_probability",
+                () -> methodScore("n-bad", bad, "C1", 0.8, "f4", 1.5, 0.5, true));
+    }
+
     /** 기사 한 건: 원본 · 사건 행. 원본 해시는 분류 입력이 가리킨다. */
     private void article(String newsId) {
         jdbc.update(
@@ -244,6 +281,41 @@ class ObservationViewTest {
                 sim,
                 sim,
                 card);
+    }
+
+    /** V0052 방식 · 확률을 직접 적은 점수. 방식 · 확률 · 선택이 서로 맞는지는 DB 검사가 본다. */
+    private void methodScore(
+            String newsId,
+            String inputId,
+            String card,
+            double sim,
+            String method,
+            Double probability,
+            double threshold,
+            boolean selected) {
+        jdbc.update(
+                "INSERT INTO document_card_score(doc_id,card_id,input_id,card_version,profile_version,model,"
+                        + "cosine_similarity,threshold_version,threshold,selected,method,probability)"
+                        + " SELECT 'news:' || ?, card_id, ?, current_version, 'card-profile-v1',"
+                        + " 'gemini-embedding-2', ?::double precision, 'test', ?::double precision,"
+                        + " ?::boolean, ?, ?::double precision FROM card WHERE card_id = ?",
+                newsId,
+                inputId,
+                sim,
+                threshold,
+                selected,
+                method,
+                probability,
+                card);
+    }
+
+    /** 검사 위반은 트랜잭션을 깨뜨리므로 저장점으로 되돌린다. */
+    private void rejected(String constraint, Runnable insert) {
+        jdbc.execute("SAVEPOINT score_check");
+        assertThatThrownBy(insert::run)
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining(constraint);
+        jdbc.execute("ROLLBACK TO SAVEPOINT score_check");
     }
 
     private void stat(String spec, String indicator, String code, String locator) {
