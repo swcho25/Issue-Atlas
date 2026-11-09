@@ -12,7 +12,7 @@ vi.mock("next/headers", () => ({
 
 const me = { id: 6, email: "admin", name: "관리자", role: "ADMIN" };
 
-// 띠 자체는 widgets/app-rail 이 그린다. 여기서는 로그인한 사람을 띠의 role · userName 으로 바꾸는 것만 본다
+// 띠 자체는 widgets/app-rail 이 그린다. 여기서는 로그인한 사람을 띠의 role · user 로 바꾸는 것만 본다
 describe("UserRail", () => {
   it.each([
     ["ADMIN", "admin"],
@@ -21,13 +21,13 @@ describe("UserRail", () => {
     mswServer.use(http.get(`${API_BASE_URL}/v1/auth/me`, () => HttpResponse.json({ ...me, role })));
 
     const rail = await UserRail();
-    expect(rail.props).toMatchObject({ role: expected, userName: "관리자" });
+    expect(rail.props).toMatchObject({ role: expected, user: { name: "관리자", email: "admin" } });
   });
 
   it.each([401, 500])("로그인이 없거나 오류(%i)면 조회자 띠로 그린다", async (status) => {
     mswServer.use(http.get(`${API_BASE_URL}/v1/auth/me`, () => new HttpResponse(null, { status })));
 
     const rail = await UserRail();
-    expect(rail.props).toMatchObject({ role: "viewer", userName: undefined });
+    expect(rail.props).toMatchObject({ role: "viewer", user: undefined });
   });
 });
