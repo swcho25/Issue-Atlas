@@ -15,7 +15,10 @@ export function GlassPreview() {
       <p className="mt-1 text-body-13 text-text-2">
         Figma Glass/Control. 채움만 다르다: <code className="font-mono">glass</code> 32% ·{" "}
         <code className="font-mono">glass glass-strong</code> 45% ·{" "}
-        <code className="font-mono">glass glass-thin</code> 8%
+        <code className="font-mono">glass glass-thin</code> 8%. 어두운 화면에서는 어두운 채움(53 ·
+        60 · 40%)으로 바뀐다(왼쪽 띠의 테마 버튼). 칸 덧칠은{" "}
+        <code className="font-mono">bg-glass-hover</code> ·{" "}
+        <code className="font-mono">bg-glass-press</code>
       </p>
       <div className="mt-6 flex flex-wrap items-center gap-10 rounded-xl p-10" style={mapLike}>
         <figure className="grid justify-items-center gap-2">

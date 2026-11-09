@@ -21,6 +21,11 @@
     { "kind": "existing_responses", "required": false, "status": "available", "count": 2, "review_pending_count": 0, "reason": null },
     { "kind": "denominators", "required": false, "status": "available", "count": 1, "review_pending_count": 0, "reason": null }
   ],
+  "applicability": [
+    { "condition": "place_level", "label": "시군구 단위", "passed": true, "note": "여수시(시군구)" },
+    { "condition": "min_complete_years", "label": "완전한 연 값 3개 이상", "passed": true, "note": "3개(2023–2025)" },
+    { "condition": "population", "label": "대상: 청년 19–39세", "passed": null, "note": null }
+  ],
   "comparability": {
     "same_indicator": { "passed": true, "note": "KOSIS DT_1B26001 순이동" },
     "same_period_length": { "passed": true, "note": "연(1–12월 합)" },
@@ -29,6 +34,7 @@
   },
   "claim": {
     "value": "increasing",
+    "label": "청년 순유출 확대",
     "level": "calculated",
     "text": "여수시에서 2023–2025 청년(19–39세) 순유출이 커졌습니다.",
     "provenance": "rule"

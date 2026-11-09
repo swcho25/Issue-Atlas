@@ -14,13 +14,15 @@ import {
   type MapLayerMouseEvent,
   setWorkerUrl,
 } from "maplibre-gl";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PlaceBoundaries } from "@/shared/api";
 import { type Theme, useTheme } from "@/shared/lib/theme";
 
+import { MapContext } from "./context";
 import { ASIA, loadEarth, MERCATOR_LAT } from "./earth";
 import { groupName, labelPoint } from "./labels";
+import { MapControls } from "./MapControls";
 
 // MapLibre 6 은 타일 처리 워커를 자기 파일 옆(import.meta.url)에서 찾는데, 번들러가 옮기면 못 찾는다.
 // 워커 파일을 번들러가 함께 내보내게 하고 그 주소를 알려 준다
@@ -43,7 +45,26 @@ type Colors = { region: string; regionFill: string; boundary: string };
  * 고를 수 있는 지역은 평소엔 가는 선, 마우스를 올리면 흰빛으로 떠오르며 선이 진해진다
  * (고른 지역의 남색 칠과 헷갈리지 않게 흰빛. 어두운 바탕에서는 흰빛을 옅게)
  */
-function ourLayers(c: Colors, theme: Theme): LayerSpecification[] {
+/** 레이어 패널에서 켜고 끄는 경계 층과 그 MapLibre 층들 */
+const BOUNDARY_LAYERS = {
+  sigungu: { label: "시군구 경계", ids: ["sigungu-fill", "sigungu-line"] },
+  emd: { label: "행정동 경계", ids: ["emd-line"] },
+} as const;
+type BoundaryLayer = keyof typeof BOUNDARY_LAYERS;
+const layerOf = (id: string) =>
+  (Object.keys(BOUNDARY_LAYERS) as BoundaryLayer[]).find((k) =>
+    (BOUNDARY_LAYERS[k].ids as readonly string[]).includes(id),
+  );
+
+/** 숨긴 경계 층은 처음부터 안 보이게(바탕을 갈아 끼울 때도 그대로) */
+function ourLayers(c: Colors, theme: Theme, hidden: Set<BoundaryLayer>): LayerSpecification[] {
+  return baseLayers(c, theme).map((layer) => {
+    const group = layerOf(layer.id);
+    return group && hidden.has(group) ? { ...layer, layout: { visibility: "none" } } : layer;
+  });
+}
+
+function baseLayers(c: Colors, theme: Theme): LayerSpecification[] {
   return [
     {
       id: "choice-fill",
@@ -318,14 +339,17 @@ function setHover(m: MapLibreMap, hovered: { current?: string | number }, id?: s
 /**
  * 결과 화면의 지도 바탕. 시군구 경계를 받으면 시군구는 굵게 · 옅게 칠하고 그 안 행정동은 가는 선으로 그린 뒤
  * 경계에 맞춰 화면을 맞춘다. 지도 위에 띄울 것(결과 카드 · 버튼)은 children 으로 넘긴다.
- * 새 질문처럼 지도에서 지역을 고르게 하려면 choices(다른 지역 경계) · onPick 을 함께 넘긴다
+ * 새 질문처럼 지도에서 지역을 고르게 하려면 choices(다른 지역 경계) · onPick 을 함께 넘긴다.
+ * controls 를 켜면 오른쪽 아래에 확대 · 축소 · 위치(경계에 다시 맞추기) 버튼을 띄운다
  */
 export function MapView({
   boundaries,
   choices,
+  focus,
   onPick,
   globe = false,
   padding = 80,
+  controls = false,
   className = "",
   children,
 }: {
@@ -337,9 +361,13 @@ export function MapView({
    * 마우스를 올리면 그 지역이 밝게 떠오르며, 지역이나 이름표를 누르면 onPick. 넘기면 바탕 지도의 지명은 흐려진다
    */
   choices?: Feature[];
+  /** 고른 곳이 없을 때 보여 줄 곳(「광주」 처럼 고를 후보가 여럿이면 그 구들로 옮겨 간다) */
+  focus?: Feature[];
   onPick?: (placeId: string) => void;
   /** 경계에 맞출 때 가장자리 여백(px). 결과 카드가 덮는 쪽은 더 크게 { left: 440, … } */
   padding?: Padding;
+  /** 오른쪽 아래 지도 버튼(Figma v5/Map controls). 지도 위 다른 부품은 그 자리(오른쪽 16 · 아래 40, 36 × 117)를 비워 둔다 */
+  controls?: boolean;
   className?: string;
   children?: ReactNode;
 }) {
@@ -349,6 +377,14 @@ export function MapView({
   const pick = useRef(onPick);
   const shown = useRef<PlaceBoundaries>(undefined);
   const hovered = useRef<string | number>(undefined);
+  // 고른 지역(시군구) 전체를 감싸는 범위. 경계가 오면 여기에 맞추고, 위치 버튼도 여기로 돌아간다
+  const bounds = useMemo(
+    () =>
+      boundaries
+        ? boundsOf(boundaries.features.filter((f) => f.properties.level === "sigungu"))
+        : null,
+    [boundaries],
+  );
   // 우리 원본의 마지막 데이터(바탕을 갈아 끼울 때 다시 넣는다)
   const data = useRef({ choices: collection([]), boundaries: collection([]) });
   const theme = useTheme();
@@ -360,6 +396,18 @@ export function MapView({
 
   // 지금 바탕이 어느 테마로 그려졌는지. 처음 그린 뒤 화면 테마가 바로 바뀌는 경우(새로 고침 직후 다크)도 따라간다
   const styledTheme = useRef<Theme>(undefined);
+  // 레이어 패널에서 숨긴 경계 층. 바탕을 갈아 끼울 때 읽도록 ref 로도 둔다
+  const [hidden, setHidden] = useState<Set<BoundaryLayer>>(() => new Set());
+  const hiddenNow = useRef(hidden);
+  useEffect(() => {
+    hiddenNow.current = hidden;
+    if (!map) return;
+    for (const [group, { ids }] of Object.entries(BOUNDARY_LAYERS)) {
+      const visibility = hidden.has(group as BoundaryLayer) ? "none" : "visible";
+      for (const id of ids)
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visibility);
+    }
+  }, [map, hidden]);
 
   // 지도는 한 번만 만든다. 층도 이때 그리는 순서대로(아래 → 위) 쌓아 두고, 경계가 오면 데이터만 바꾼다
   useEffect(() => {
@@ -384,7 +432,8 @@ export function MapView({
         promoteId: "place_id",
       });
       m.addSource("boundaries", { type: "geojson", data: data.current.boundaries });
-      for (const layer of ourLayers(readColors(palette.current), styled)) m.addLayer(layer);
+      for (const layer of ourLayers(readColors(palette.current), styled, hiddenNow.current))
+        m.addLayer(layer);
       setMap(m);
     });
     return () => {
@@ -407,7 +456,10 @@ export function MapView({
           choices: { type: "geojson", data: data.current.choices, promoteId: "place_id" },
           boundaries: { type: "geojson", data: data.current.boundaries },
         },
-        layers: [...next.layers, ...ourLayers(readColors(palette.current), theme)],
+        layers: [
+          ...next.layers,
+          ...ourLayers(readColors(palette.current), theme, hiddenNow.current),
+        ],
       }),
     });
     map.once("style.load", () => dressBasemap(map, now.current));
@@ -424,12 +476,22 @@ export function MapView({
     };
   }, [map, globe, padding]);
 
-  // 경계가 바뀌면 데이터를 바꾸고 화면을 맞춘다
+  // 경계가 바뀌면 데이터를 바꾸고 화면을 맞춘다. 고르고 있던 지역을 비우면(boundaries 없음) 그려 둔 것도 지우고,
+  // 보여 줄 곳(focus)이 있으면 그쪽으로 옮긴다
   useEffect(() => {
-    if (!map || !boundaries) return;
+    if (!map) return;
+    if (!boundaries) {
+      if (shown.current) {
+        data.current.boundaries = collection([]);
+        map.getSource<GeoJSONSource>("boundaries")?.setData(data.current.boundaries);
+        shown.current = undefined;
+      }
+      const area = focus?.length ? boundsOf(focus) : null;
+      if (area) fitTo(map, area, padding, 600, globe);
+      return;
+    }
     data.current.boundaries = boundaries as Data;
     map.getSource<GeoJSONSource>("boundaries")?.setData(data.current.boundaries);
-    const bounds = boundsOf(boundaries.features.filter((f) => f.properties.level === "sigungu"));
     if (!bounds) return;
     // 처음은 바로, 고른 지역이 바뀌면 그쪽으로 옮겨 간다(움직임 줄이기 설정이면 MapLibre 가 바로 옮긴다).
     // 창 크기가 바뀌면(창 늘리기 · 옆 패널) 다시 맞춘다
@@ -441,7 +503,7 @@ export function MapView({
     return () => {
       map.off("resize", refit);
     };
-  }, [map, boundaries, padding, globe]);
+  }, [map, boundaries, bounds, focus, padding, globe]);
 
   // 고르는 화면: 다른 지역의 시군구 경계와 이름표(고른 곳 + 고를 수 있는 곳), 바탕 지명은 흐리게
   useEffect(() => {
@@ -484,8 +546,8 @@ export function MapView({
           ? groupTag(members.map((t) => t.f))
           : null;
       if (!el) return [];
-      const bounds = boundsOf(members.map((t) => t.f));
-      el.addEventListener("click", () => bounds && fitTo(map, bounds, padding, 600, globe));
+      const area = boundsOf(members.map((t) => t.f));
+      el.addEventListener("click", () => area && fitTo(map, area, padding, 600, globe));
       const at: [number, number] = [
         members.reduce((s, t) => s + t.at[0], 0) / members.length,
         members.reduce((s, t) => s + t.at[1], 0) / members.length,
@@ -574,7 +636,25 @@ export function MapView({
         <span data-color="region-fill" className="text-map-region-fill" />
         <span data-color="boundary" className="text-map-boundary" />
       </div>
-      {children}
+      {controls && map && (
+        <MapControls
+          map={map}
+          onLocate={bounds ? () => fitTo(map, bounds, padding, 600, globe) : undefined}
+          layers={(Object.keys(BOUNDARY_LAYERS) as BoundaryLayer[]).map((id) => ({
+            id,
+            label: BOUNDARY_LAYERS[id].label,
+            on: !hidden.has(id),
+          }))}
+          onToggleLayer={(id) =>
+            setHidden((now) => {
+              const next = new Set(now);
+              if (!next.delete(id as BoundaryLayer)) next.add(id as BoundaryLayer);
+              return next;
+            })
+          }
+        />
+      )}
+      <MapContext value={map}>{children}</MapContext>
     </div>
   );
 }

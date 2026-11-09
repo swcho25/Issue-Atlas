@@ -4,15 +4,16 @@ import { Icon, type IconName } from "@/shared/ui/icon";
 import { TabBar } from "@/shared/ui/tab-bar";
 
 import {
-  claimBadge,
   claimLevelLabel,
   comparabilityLabel,
   evidenceKindShort,
   evidenceStatusBadge,
+  judgmentBadge,
   kstDate,
   provKind,
   qualifierGrade,
   runStatusInfo,
+  unmetConditions,
   yearSpan,
 } from "../model/labels";
 import { emptyRefsText, kindCount } from "../model/sources";
@@ -29,6 +30,11 @@ const runStatusText: Record<RunStatus, string> = {
   blocked: "blocked · 근거 부족",
   unsupported: "unsupported · 카드 밖",
 };
+// 카드는 있는데 적용 조건을 못 채운 unsupported(C2 v1)는 「카드 밖」이 아니다(Figma 08 「unsupported · 카드 조건 밖」)
+const statusText = (a: Argument) =>
+  a.run_status === "unsupported" && a.question.card_id !== null
+    ? "unsupported · 카드 조건 밖"
+    : runStatusText[a.run_status];
 
 /** 머리 아래 한 줄: 「2023–2025 · 실행 10-28 10:00」(회차는 응답에 없어 실행 시각) */
 function metaLine(a: Argument) {
@@ -65,7 +71,8 @@ export function ResultCard({ argument }: { argument: Argument }) {
     Argument["comparability"][keyof typeof comparabilityLabel],
   ][];
   const passed = conditions.filter(([, c]) => c.passed === true).length;
-  const badge = claimBadge[claim.value];
+  const badge = judgmentBadge(argument);
+  const unmet = unmetConditions(argument);
 
   return (
     <CardShell
@@ -77,7 +84,7 @@ export function ResultCard({ argument }: { argument: Argument }) {
 
       {/* 실행 상태 + 카드 · 규칙 판 */}
       <div className="flex items-center gap-2">
-        <StatusBadge tone={status.tone}>{runStatusText[argument.run_status]}</StatusBadge>
+        <StatusBadge tone={status.tone}>{statusText(argument)}</StatusBadge>
         <span className="min-w-0 text-caption-11 text-text-3">
           {[
             argument.card_version !== null && `카드 v${argument.card_version}`,
@@ -88,77 +95,88 @@ export function ResultCard({ argument }: { argument: Argument }) {
         </span>
       </div>
 
-      {/* ① 근거 4종: 줄 높이 36 · surface-2 · 모서리 8 · 안쪽 7 · 10 · 사이 8, 줄 사이 6 */}
-      <section aria-label="근거 4종" className="flex flex-col gap-1.5">
-        <SectionHead title="① 근거 4종" note="있는 것 · 없는 것 먼저" />
-        <ul className="contents">
-          {argument.evidence_table.map((row) => {
-            const st = evidenceStatusBadge[row.status];
-            const count = kindCount(argument, row);
-            // 가운데 칸: 검수 대기가 있으면 그것, 0건이면 사유(길면 한 줄로 자르고 전체는 툴팁)
-            const note =
-              row.review_pending_count > 0
-                ? `검수 대기 ${row.review_pending_count} 별도`
-                : count === 0
-                  ? emptyRefsText(row, 0)
-                  : "";
-            return (
-              <li
-                key={row.kind}
-                className="flex h-9 items-center gap-2 rounded-lg bg-surface-2 px-2.5"
-              >
-                <span className="shrink-0 text-label-12 text-text-1">
-                  {evidenceKindShort[row.kind]}
-                </span>
-                <span className="shrink-0 text-caption-11 text-text-3">
-                  {row.required ? "필수" : "선택"}
-                </span>
-                <span
-                  title={note || undefined}
-                  className="min-w-0 flex-1 truncate text-caption-11 text-text-3"
-                >
-                  {note}
-                </span>
-                <StatusBadge tone={st.tone}>{st.label}</StatusBadge>
-                <span className="shrink-0 text-label-12 text-text-1">{count}건</span>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+      {/* 적용 조건을 못 채우면(C2 v1) 근거 4종 · 비교 조건 대신 못 채운 조건만(Figma 08 「카드 조건 밖」) */}
+      {unmet.length ? (
+        <UnmetConditions unmet={unmet} />
+      ) : (
+        <>
+          {/* ① 근거 4종: 줄 높이 36 · surface-2 · 모서리 8 · 안쪽 7 · 10 · 사이 8, 줄 사이 6 */}
+          <section aria-label="근거 4종" className="flex flex-col gap-1.5">
+            <SectionHead title="① 근거 4종" note="있는 것 · 없는 것 먼저" />
+            <ul className="contents">
+              {argument.evidence_table.map((row) => {
+                const st = evidenceStatusBadge[row.status];
+                const count = kindCount(argument, row);
+                // 가운데 칸: 검수 대기가 있으면 그것, 0건이면 사유(길면 한 줄로 자르고 전체는 툴팁)
+                const note =
+                  row.review_pending_count > 0
+                    ? `검수 대기 ${row.review_pending_count} 별도`
+                    : count === 0
+                      ? emptyRefsText(row, 0)
+                      : "";
+                return (
+                  <li
+                    key={row.kind}
+                    className="flex h-9 items-center gap-2 rounded-lg bg-surface-2 px-2.5"
+                  >
+                    <span className="shrink-0 text-label-12 text-text-1">
+                      {evidenceKindShort[row.kind]}
+                    </span>
+                    <span className="shrink-0 text-caption-11 text-text-3">
+                      {row.required ? "필수" : "선택"}
+                    </span>
+                    <span
+                      title={note || undefined}
+                      className="min-w-0 flex-1 truncate text-caption-11 text-text-3"
+                    >
+                      {note}
+                    </span>
+                    <StatusBadge tone={st.tone}>{st.label}</StatusBadge>
+                    <span className="shrink-0 text-label-12 text-text-1">{count}건</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
 
-      {/* ② 비교 조건: 칩(모서리 6 · 안쪽 3 · 8 · 3 · 6 · 아이콘 12 · Caption 11), 칩 사이 6 */}
-      <section aria-label="비교 조건" className="flex flex-col gap-1">
-        <SectionHead
-          title={`② 비교 조건 ${passed} / ${conditions.length}`}
-          note="4개 모두 충족해야 판정할 수 있어요"
-        />
-        <ul className="flex flex-wrap gap-1.5">
-          {conditions.map(([key, c]) => {
-            // 통과는 Figma 그대로 초록 체크. 실패 · 검사 안 함은 수요표 탭과 같게 빨강 ✕ · 회색 —
-            const look: { icon: IconName; cls: string; say: string } =
-              c.passed === true
-                ? { icon: "check", cls: "bg-status-green-soft text-status-green", say: "충족" }
-                : c.passed === false
-                  ? { icon: "close", cls: "bg-status-red-soft text-status-red", say: "충족 안 됨" }
-                  : {
-                      icon: "minus",
-                      cls: "bg-status-gray-soft text-status-gray",
-                      say: "검사 안 함",
-                    };
-            return (
-              <li
-                key={key}
-                title={c.note ?? undefined}
-                className={`flex h-5 items-center gap-1 rounded-md pr-2 pl-1.5 text-caption-11 ${look.cls}`}
-              >
-                <Icon name={look.icon} label={look.say} className="size-3" />
-                {comparabilityLabel[key]}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+          {/* ② 비교 조건: 칩(모서리 6 · 안쪽 3 · 8 · 3 · 6 · 아이콘 12 · Caption 11), 칩 사이 6 */}
+          <section aria-label="비교 조건" className="flex flex-col gap-1">
+            <SectionHead
+              title={`② 비교 조건 ${passed} / ${conditions.length}`}
+              note="4개 모두 충족해야 판정할 수 있어요"
+            />
+            <ul className="flex flex-wrap gap-1.5">
+              {conditions.map(([key, c]) => {
+                // 통과는 Figma 그대로 초록 체크. 실패 · 검사 안 함은 수요표 탭과 같게 빨강 ✕ · 회색 —
+                const look: { icon: IconName; cls: string; say: string } =
+                  c.passed === true
+                    ? { icon: "check", cls: "bg-status-green-soft text-status-green", say: "충족" }
+                    : c.passed === false
+                      ? {
+                          icon: "close",
+                          cls: "bg-status-red-soft text-status-red",
+                          say: "충족 안 됨",
+                        }
+                      : {
+                          icon: "minus",
+                          cls: "bg-status-gray-soft text-status-gray",
+                          say: "검사 안 함",
+                        };
+                return (
+                  <li
+                    key={key}
+                    title={c.note ?? undefined}
+                    className={`flex h-5 items-center gap-1 rounded-md pr-2 pl-1.5 text-caption-11 ${look.cls}`}
+                  >
+                    <Icon name={look.icon} label={look.say} className="size-3" />
+                    {comparabilityLabel[key]}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </>
+      )}
 
       {/* ③ 판단: surface-2 · 모서리 12 · 안쪽 14 · 사이 8 */}
       <section aria-label="판단" className="flex flex-col gap-2 rounded-xl bg-surface-2 p-3.5">
@@ -190,5 +208,35 @@ export function ResultCard({ argument }: { argument: Argument }) {
         )}
       </section>
     </CardShell>
+  );
+}
+
+/**
+ * 못 채운 적용 조건(Figma 08 「Unmet applicability」: 사이 8, 머리 Bold 13 + 11 · 줄 status-red-soft · 모서리 8 · 안쪽 9 · 10 · 사이 8
+ * (✕ 빨강 · 조건 Medium 13 · 사유 12 text-2) · 아래 안내 12 text-2). 머리 보조 글자는 연 값 · 측정소 부족처럼 근거를 찾은 뒤 멈춘
+ * 경우도 있어 Figma 「근거를 찾기 전에 멈춤」 대신 「판단 전에 멈춤」
+ */
+function UnmetConditions({ unmet }: { unmet: Argument["applicability"] }) {
+  return (
+    <section aria-label="못 채운 적용 조건" className="flex flex-col gap-2">
+      <SectionHead title="① 못 채운 적용 조건" note="카드 B6 · 판단 전에 멈춤" />
+      <ul className="flex flex-col gap-2">
+        {unmet.map((c) => (
+          <li
+            key={c.condition}
+            className="flex items-center gap-2 rounded-lg bg-status-red-soft px-2.5 py-2.25"
+          >
+            <Icon name="close" label="못 채움" className="size-3 shrink-0 text-status-red" />
+            <span className="shrink-0 text-label-13 text-text-1">{c.label}</span>
+            {c.note && (
+              <span className="min-w-0 truncate text-caption-12 text-text-2">{c.note}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="text-caption-12 text-text-2">
+        근거 4종과 비교 조건은 보지 않아요. 조건을 채우는 지역이나 다른 이슈로 다시 물어보세요.
+      </p>
+    </section>
   );
 }

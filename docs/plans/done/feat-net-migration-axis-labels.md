@@ -15,6 +15,7 @@
 - 2026-11-06: 테스트 — backend `QuestionApiTest` 36개(C1 주 지표 줄에 낱말, 이동 줄 · A3 에는 칸 없음), 카드 계약 · seed 13개, 프론트 `views.test.ts` · `argument.test.ts` 27개(낱말은 응답에서 · 없으면 줄 없음 · 낱말 하나 빠지면 스키마 실패). ajv 로 argument 예시 4개 통과
 - 2026-11-06: 로컬 확인(issue_atlas_latest, C1 v3 · 로컬 테스트 계정): 새 실행 여수 · 광주 동구 응답 `series[0].sign_words = {순유출, 순유입}`, 이동 줄에는 없음. 화면 — 새 실행은 「0 선 위 + 순유입 · 아래 − 순유출」, 변경 전 저장된 실행은 그림만(뜻 줄 없음)
 - 2026-11-06: 사용자 결정 — API 표현을 「그래프 기준을 보내 준다」로. API 칸만 `sign_words` → `baseline {value, above, below}`, 카드는 `sign_words` 그대로(engine 문장은 음수 · 양수 낱말이 맞다). backend `QuestionService.baselines(spec)` 이 `{0, positive, negative}` 로 바꿔 싣는다. 화면 문구 「기준선 0 · 위 순유입 · 아래 순유출」, 0 이 아닌 기준선은 막대가 그 선을 그리지 않아 아직 적지 않는다(테스트). 로컬 새 실행 응답 `baseline {0, 순유입, 순유출}` · 화면 확인
+- 2026-11-09: develop 반영 — 리뷰를 반영한 !196(develop · 카드 계약 v0.6 · 프롬프트 v5)을 merge 커밋으로 가져옴(force push 없이). 충돌 둘: `QuestionService` import(C2 v1 `Applicability` · 이 MR `Baseline` 둘 다 둠), C2 README 변경 이력(C2 v1 항목 뒤에 `baseline` 항목). `sign_words` 를 가리키는 카드 계약 판을 v0.5 → v0.6 으로 맞춤. 장성우 님 승인(주는 쪽)은 받았고, C2 받는 쪽(프론트) 리뷰가 남음
 
 ## 다음 할 일 / 범위 밖
 - 개발 · 운영은 관리자가 C1 새 판(sign_words)을 승인한 뒤의 실행부터 기준선 문구가 보인다. 그 전 실행 · 다른 카드는 그림만

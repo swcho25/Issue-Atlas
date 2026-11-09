@@ -5,7 +5,6 @@ import com.c108.issueatlas.question.client.ArgumentEngineClient.Reply;
 import com.c108.issueatlas.question.dto.ApprovedCard;
 import com.c108.issueatlas.question.dto.ArgumentResponse;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Rebuttal;
-import com.c108.issueatlas.question.dto.ArgumentResponse.Text;
 import com.c108.issueatlas.question.repository.QuestionRepository.PhrasingRow;
 import com.c108.issueatlas.question.service.CardJudge.Judgment;
 import com.c108.issueatlas.question.service.PhrasingCache.Lookup;
@@ -28,9 +27,9 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * 논증 카드 ③ 보증 · ⑤ 반박 문장화(S15P31C108-231, contracts/ai v0.2 「문장화」). 규칙 판정이 끝난 응답을 판정 입력으로 바꿔 engine 에
- * 보내고, 결과가 done 일 때만 두 칸을 바꿔 쓴다. 판정 · 수치 · 다른 칸은 건드리지 않는다. 못 받으면 카드 문구 그대로 + 사유 코드. 같은 입력의 done 결과는
- * {@link PhrasingCache} 로 다시 쓴다.
+ * 논증 카드 ⑤ 반박 문장화(S15P31C108-231, contracts/ai v0.3 「문장화」). 규칙 판정이 끝난 응답을 판정 입력으로 바꿔 engine 에 보내고,
+ * 결과가 done 일 때만 반박 칸을 바꿔 쓴다. ③ 보증은 카드 문장 그대로다(S15P31C108-282, Figma: AI 칩은 ⑤ 만). 판정 · 수치 · 다른 칸은
+ * 건드리지 않는다. 못 받으면 빈 반박 + 사유 코드. 같은 입력의 done 결과는 {@link PhrasingCache} 로 다시 쓴다.
  */
 @Component
 public class ArgumentPhraser {
@@ -90,12 +89,11 @@ public class ArgumentPhraser {
         return phrased;
     }
 
-    /** 다시 써도 되는 결과: done 이고 바꿔 쓸 두 칸이 모양대로 있다. 실패 · 시간 초과 · 건너뜀은 다음 질문이 다시 부른다. */
+    /** 다시 써도 되는 결과: done 이고 바꿔 쓸 반박 칸이 모양대로 있다. 실패 · 시간 초과 · 건너뜀은 다음 질문이 다시 부른다. */
     static boolean reusable(Reply reply) {
         JsonNode r = reply.result();
         return r != null
                 && "done".equals(r.path("status").asText())
-                && r.path("warrant").isObject()
                 && r.path("rebuttals").isArray();
     }
 
@@ -117,7 +115,7 @@ public class ArgumentPhraser {
                             null,
                             null,
                             durationMs);
-            return new Phrased(result.warrant(), result.rebuttals(), row);
+            return new Phrased(result.rebuttals(), row);
         }
         PhrasingRow row =
                 new PhrasingRow(
@@ -131,13 +129,12 @@ public class ArgumentPhraser {
                                 : null,
                         durationMs);
         if (!status.equals("done")) {
-            return new Phrased(result.warrant(), result.rebuttals(), row);
+            return new Phrased(result.rebuttals(), row);
         }
         try {
+            // engine 이 옛 판(결과 v0.2)이라 warrant 를 같이 보내도 쓰지 않는다
             return new Phrased(
-                    json.treeToValue(r.get("warrant"), Text.class),
-                    List.of(json.treeToValue(r.get("rebuttals"), Rebuttal[].class)),
-                    row);
+                    List.of(json.treeToValue(r.get("rebuttals"), Rebuttal[].class)), row);
         } catch (JacksonException | IllegalArgumentException e) {
             return apply(result, new Reply(null, "ENGINE_ERROR"), durationMs);
         }
@@ -218,6 +215,6 @@ public class ArgumentPhraser {
         return point;
     }
 
-    /** 응답에 넣을 ③ · ⑤ 와 argument_phrasing 한 행. */
-    public record Phrased(Text warrant, List<Rebuttal> rebuttals, PhrasingRow row) {}
+    /** 응답에 넣을 ⑤ 와 argument_phrasing 한 행. */
+    public record Phrased(List<Rebuttal> rebuttals, PhrasingRow row) {}
 }

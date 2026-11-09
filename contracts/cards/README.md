@@ -1,4 +1,4 @@
-# 카드 설계도 · 지표 사전 v0.4
+# 카드 설계도 · 지표 사전 v0.6
 
 판정 코드가 읽는 카드 정의와 지표 정의. 카드는 **이슈 하나를 어떻게 판단하는가**만 적고, 지역 · 기간을 넣어 돌린 결과는 적지 않는다.
 주는 쪽: 카드 작성(P2 박준우 · 대표 승인) → 받는 쪽: 판정 규칙 `RuleType`(P5 최동준, S15P31C108-192) · 질문 실행(P7 장성우, -133) · 카드 저장 · 승인 [C3](../c3/README.md)(P5 최동준, -174) · 화면(S1 · S4).
@@ -37,16 +37,30 @@ C3 는 이 파일의 키를 그대로 저장한다. 다른 점은 하나: 카드
 | 양식 | 키 | 판정 코드가 쓰는 법 |
 | --- | --- | --- |
 | A1–A7 | `card_id` · `name` · `parent_question` · `domain` · `st_type` · `status` · `card_version` · `inclusion` · `exclusion` | `card_version` 은 DB `card.card_version`(V0013)과 같다(테스트가 검사) |
-| B1 | `claim_template` | 판단 ① 문장. `{판정값}` 에 `rule.outcomes[].label` |
-| B2 | `claim_items` | 계산할 지표 1–3개. `main` 하나만 판정한다. `related` 는 그림만. `sign_words`(선택)가 있으면 문장화가 그 지표 값을 부호 대신 낱말로 쓴다(C1: -1537 → 「순유출 1,537명」, 양수 → 「순유입」). 값은 부호 그대로 |
+| B1 | `claim_template` · `rule.outcomes[].claim_text` | 판단 ① 문장. 고른 결과에 `claim_text` 가 있으면 그것(아래 「판단 문장」), 없으면 `claim_template` 의 `{판정값}` 에 `rule.outcomes[].label` |
+| B2 | `claim_items` | 계산할 지표 1–3개. `main` 하나만 판정한다. `related` 는 그림만. `sign_words`(선택)가 있으면 문장화(⑤ 반박 note)가 그 지표 값을 부호 대신 낱말로 쓴다(C1: -1537 → 「순유출 1,537명」, 양수 → 「순유입」). 값은 부호 그대로. ① 판단은 `claim_text` 가 절댓값에 낱말을 붙여 이미 쓰므로 이 칸을 읽지 않는다 |
 | B3 | `comparability` | 비교 조건 4개의 요구사항. 실제 통과 여부는 실행 때 판정 |
-| B4 | `rule` | `rule_id` 규칙 모듈 · `formula_version`(C2 `argument.formula_version` 에 그대로) · `outcomes` 위에서부터 처음 맞는 것 |
+| B4 | `rule` | `rule_id` 규칙 모듈 · `formula_version`(C2 `argument.formula_version` 에 그대로) · `outcomes` 위에서부터 처음 맞는 것. 결과마다 `label`(화면 판단 배지) · `claim_text`(판단 문장, 선택) |
 | B5 | `max_claim_level` | C2 `claim.level` 최대 |
 | B6 | `applicability` | 못 채우면 실행하지 않는다(`unsupported`) |
 | C1–C6 | `evidence` · `expected_gaps` · `required_for_claim` | 근거 4종의 원천. `required` 가 없으면 `blocked` |
 | D1–D3 | `warrant` · `rebuttals` · `ceiling` | 보증 ③ · 반박 ⑤ · 상한선 ⑥. `status: draft` 는 대표 초안(승인 전) |
 | E1–E3 | `map_mode` · `legend_text` · `forbidden_terms` | 그림 · 고정 문구 · 금지어 |
 | F1–F2 | `keywords` · `approval` | 기사 후보 키워드 · 승인 |
+
+## 판단 문장 (`rule.outcomes[].claim_text`, S15P31C108-282)
+
+「오류」 페이지 결정 3(2026-11-06): Figma 대로 ① 판단 = 규칙이 쓴 숫자 문장(예: 「여수시 청년(19–39세) 순유출은 2023년 1,537명에서 2025년 2,262명으로 매년 커졌습니다.」), ③ 보증 = 카드 `warrant` 문장, AI 는 ⑤ 반박만. 결과 문장은 규칙(지표 한 행)에 있으므로 같은 규칙을 쓰는 카드는 결과 이름 · 문장을 같이 쓴다.
+
+| 빈칸 | 값 |
+| --- | --- |
+| `{지역}` · `{기간}` | 질문 지역 이름 · 기간(`2023–2025`) |
+| `{n}` | 공통 측정소 수(A3) |
+| `{첫해}` · `{끝해}` | 판정에 쓴 첫 해 · 끝 해 |
+| `{첫값}` · `{끝값}` | 그 해의 시군구 연 값 — 계열이 하나면(C1) 그 값, 측정소가 여럿이면(A3) 규칙이 계산한 공통 측정소 연평균의 평균. **절댓값**(천 단위 쉼표, 정수가 아니면 소수 한 자리)이라 방향은 문장 낱말로 쓴다(「순유출은 1,537명에서」). 부호가 섞일 수 있는 결과(C1 불분명)에는 숫자 빈칸을 쓰지 않는다 |
+
+- 연 값 빈칸이 있는데 값을 정할 수 없으면(공통 측정소 없음 등) `claim_template` 으로 돌아간다. 근거 부족(`fewer_than_min_years`)은 실행이 판단하지 않아(`unsupported`) 문장이 없다
+- 승인본은 잠겨 있어 문장을 바꾸면 카드를 새 판으로 승인한다(아래 「운영 DB 에 넣기」, 개발 · 운영 DB 는 v2 → v3)
 
 ## 판정 규칙 (2026-11-01 대표 결정 · 2026-11-02 세부 해석, S15P31C108-159)
 
@@ -74,7 +88,7 @@ psql "<DB 접속 문자열>" -v ON_ERROR_STOP=1 -c "SET issue_atlas.approver = '
 ```
 
 - 승인자(`card_approval.approved_by`)는 관리자 계정의 로그인 이메일이다. 관리자 API 로 승인할 때 남는 값과 같다. 이메일은 저장소에 적지 않고 실행할 때 넣는다. 카드의 `approval`(대표 결정 기록)은 그대로 남는다
-- 전체가 DO 블록 하나라 중간에 실패하면 아무것도 남지 않는다. 다시 실행하면 이미 승인된 카드는 건너뛴다. DB 의 지표가 seed 와 다르면 멈춘다
+- 전체가 DO 블록 하나라 중간에 실패하면 아무것도 남지 않는다. 다시 실행하면 승인본이 계약(초안 칸 · 주 지표 규칙)과 같은 카드는 건너뛰고, 다르면 **다음 판으로 승인**한다(S15P31C108-282). DB 지표의 정의가 seed 와 다르면 멈추고, 규칙(`rule`)만 다르면 계약 값으로 고친다(`rule_version` 이 오른다). 관리자 화면에서 고친 승인본이 있으면 계약 값으로 새 판이 생기므로, 그 전에 계약을 맞춘다
 - 이 파일들을 바꾸면 `node scripts/card-seed.mjs` 로 seed 를 다시 만든다. 안 그러면 `CardSeedIntegrationTest` 가 실패한다
 - Flyway 에 넣지 않는 이유: C3 계약상 Flyway 는 운영 승인본을 seed 하지 않는다 · 테스트 DB 의 C1 은 legacy 여야 한다 · 관리자 계정은 Flyway 뒤 앱이 켜질 때 만들어진다
 
@@ -88,7 +102,8 @@ psql "<DB 접속 문자열>" -v ON_ERROR_STOP=1 -c "SET issue_atlas.approver = '
 
 ## 변경 이력
 
-- v0.5 (2026-11-06): `claim_items[].sign_words`(선택) — 값의 부호를 문장에서 읽는 낱말. C1 주 지표 = 순유출 · 순유입. 「순유출 −2,262명」처럼 부호와 낱말이 겹쳐 들어온 것으로 읽히던 문장을 막는다. 이미 승인된 DB 에는 관리자 API 로 새 판을 승인해야 반영된다(seed 는 첫 승인만) (S15P31C108-286)
+- v0.6 (2026-11-09): `claim_items[].sign_words`(선택) — 값의 부호를 문장에서 읽는 낱말. C1 주 지표 = 순유출 · 순유입. AI 가 쓰는 ⑤ 반박 note 가 「순유출 −2,262명」처럼 부호와 낱말을 겹쳐 쓰지 않게 한다(① 판단은 v0.5 `claim_text` 가 이미 낱말로 쓴다). seed 를 다시 돌리면 C1 이 다음 판으로 승인된다 (S15P31C108-286)
+- v0.5 (2026-11-06): `rule.outcomes[].claim_text`(결과별 판단 ① 문장, 빈칸 `{첫해}` `{첫값}` `{끝해}` `{끝값}`) — C1 · A3 결과마다 Figma ① 문장. seed 를 다시 돌리면 바뀐 규칙을 고치고 카드를 다음 판(v3)으로 승인한다. 「오류」 페이지 결정 3 (S15P31C108-282)
 - v0.4 (2026-11-02): 지표 `population_registered_19_39`(SP10 19–39세 1세별 21코드의 합 — `locator` 값이 코드 목록이면 합계) · `population_youth_share_19_39`(ratio, ÷ `population_registered_total` × 100). C1 분모 근거에 19–39세 인구, 통계 근거에 청년 인구 비율. observation view 태그를 사전 `cards` 에 맞춤(V0031) (S15P31C108-196)
 - v0.3 (2026-11-02): C1 순유입 전환 조건을 「앞선 해에 음수」로 좁힘(`turned_positive`) · A3 공통 측정소와 `not_comparable` 추가(`a3-pm25-diff-0.2`) · `outcomes[].claim` 에 `not_comparable` 허용 · 운영 seed (S15P31C108-159)
 - v0.2 (2026-11-02): C3 저장 칸 맞춤 — 지표에 `added_by_card` · `target` · `shape` · `numerator_id` · `denominator_id` · `multiplier` · `base_id` · `cut`(모두 선택), `claim_items` 1–3개, 보도자료 · 세출 근거를 등록된 수집 명세(`press_release_yeosu` · `press_release_gwangju` · `lofin_expenditure_gwangju_yeosu`)로 (S15P31C108-188)

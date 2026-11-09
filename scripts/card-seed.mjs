@@ -62,17 +62,19 @@ const indicatorRows = indicators
   .join(",\n");
 const cardRows = drafts.map((c) => `        ('${c.id}',\n         ${jsonb(c.draft)})`).join(",\n");
 
-const sql = `-- 운영 지표 사전과 C1 · A3 카드 첫 승인(S15P31C108-159). Flyway 밖 — 개발 · 운영 DB 에 한 번씩 손으로 실행한다.
+const sql = `-- 운영 지표 사전과 C1 · A3 카드 승인(S15P31C108-159 첫 승인 v2 · -282 계약이 바뀌면 다음 판). Flyway 밖 — 개발 · 운영 DB 에 한 번씩 손으로 실행한다.
 -- node scripts/card-seed.mjs 가 contracts/cards 로 만든 파일이다. 직접 고치지 않는다. CardSeedIntegrationTest 가 계약과 비교한다.
 --   지표 definition · rule = indicators.json 행 · 카드 rule 그대로 · 카드 초안 = 카드 파일 − ${NOT_IN_DRAFT.join(" · ")}
 -- 실행: psql "<DB 접속>" -v ON_ERROR_STOP=1 -c "SET issue_atlas.approver = '<관리자 로그인 이메일>'" -f backend/db/seed/cards-c1-a3.sql
--- DO 블록 하나라 실패하면 아무것도 남지 않는다. 다시 실행하면 이미 승인된 카드는 건너뛴다.
+-- DO 블록 하나라 실패하면 아무것도 남지 않는다. 다시 실행하면 승인본이 계약과 같은 카드는 건너뛰고,
+-- 계약이 바뀐 카드(지표 규칙 · 초안)는 다음 판으로 승인한다(S15P31C108-282: 결과별 판단 문장 → v3).
 DO $seed$
 DECLARE
     -- 관리자 API 로 승인할 때 남는 값(로그인 이메일)과 같게. 이메일은 저장소에 적지 않는다
     approver text := nullif(btrim(current_setting('issue_atlas.approver', true)), '');
-    reason constant text := 'S15P31C108-159 운영 첫 승인. 기준: 대표 결정 2026-11-01(회사 노션 「2주 개발 플랜」 표 1 결정 2 · 3 · 4 · 5) '
-        || '+ 세부 해석 2026-11-02(P5 최동준). 값: contracts/cards';
+    reason constant text := 'contracts/cards 승인(S15P31C108-159 운영 첫 승인 · -282 결과별 판단 문장). '
+        || '기준: 대표 결정 2026-11-01(회사 노션 「2주 개발 플랜」 표 1 결정 2 · 3 · 4 · 5) '
+        || '+ 세부 해석 2026-11-02(P5 최동준) + 「오류」 페이지 결정 3(2026-11-06, Figma ① 판단 문장). 값: contracts/cards';
     i record;
     c record;
     rev bigint;
@@ -91,19 +93,38 @@ ${indicatorRows}
             VALUES (i.indicator_id, i.definition, i.rule, i.numerator_id, i.denominator_id, i.base_id,
                     i.added_by_card, approver);
         ELSIF EXISTS (SELECT FROM indicator WHERE indicator_id = i.indicator_id
-                      AND (definition, rule, numerator_id, denominator_id, base_id, added_by_card)
-                          IS DISTINCT FROM (i.definition, i.rule, i.numerator_id, i.denominator_id, i.base_id,
+                      AND (definition, numerator_id, denominator_id, base_id, added_by_card)
+                          IS DISTINCT FROM (i.definition, i.numerator_id, i.denominator_id, i.base_id,
                                             i.added_by_card)) THEN
             RAISE EXCEPTION '지표 % 가 DB 와 seed 에서 다르다. 어느 쪽이 맞는지 확인한 뒤 다시 실행한다', i.indicator_id;
+        ELSIF EXISTS (SELECT FROM indicator WHERE indicator_id = i.indicator_id
+                      AND rule IS DISTINCT FROM i.rule) THEN
+            -- 판정 규칙은 카드 계약이 원본이다. 정의가 같고 규칙만 다르면 계약 값으로 고치고(rule_version 이 오른다),
+            -- 아래에서 그 규칙을 쓰는 카드를 다음 판으로 승인한다
+            UPDATE indicator SET rule = i.rule, updated_by = approver WHERE indicator_id = i.indicator_id;
+            RAISE NOTICE '지표 % 의 규칙을 계약 값으로 고쳤다', i.indicator_id;
         END IF;
     END LOOP;
 
-    -- legacy v1 다음인 v2 가 첫 승인본이다(C3)
+    -- legacy v1 다음인 v2 가 첫 승인본이다(C3). 승인본이 계약(초안 칸 · 주 지표 규칙)과 같으면 건너뛴다
     FOR c IN SELECT * FROM (VALUES
 ${cardRows}
     ) AS v(card_id, spec) LOOP
-        IF (SELECT status FROM card WHERE card_id = c.card_id) = 'card' THEN
-            RAISE NOTICE '% 는 이미 승인돼 건너뛴다', c.card_id;
+        IF EXISTS (
+            SELECT FROM card k
+            JOIN card_version v ON v.card_id = k.card_id AND v.version = k.card_version
+            JOIN indicator m ON m.indicator_id = v.spec->'rule'->>'indicator_id'
+            WHERE k.card_id = c.card_id AND k.status = 'card'
+              AND (v.spec->'rule') - 'rule_version' - 'indicator_id' = m.rule - 'indicator_id'
+              -- 승인 때 보증 · 반박의 status 만 approved 로 바뀐다
+              AND NOT EXISTS (
+                  SELECT FROM jsonb_each(c.spec) d(key, value)
+                  WHERE CASE WHEN d.key IN ('warrant', 'rebuttals') THEN (v.spec->d.key) - 'status'
+                             ELSE v.spec->d.key END
+                        IS DISTINCT FROM
+                        CASE WHEN d.key IN ('warrant', 'rebuttals') THEN d.value - 'status' ELSE d.value END)
+        ) THEN
+            RAISE NOTICE '% 는 승인본이 계약과 같아 건너뛴다', c.card_id;
             CONTINUE;
         END IF;
         UPDATE card SET draft_spec = c.spec || jsonb_build_object('author', approver),

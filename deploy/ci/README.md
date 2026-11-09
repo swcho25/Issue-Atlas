@@ -1,5 +1,7 @@
 # 백엔드 CI/CD — S15P31C108-103
 
+> 현재 290번 구성: 백엔드 전용 주소는 [Nginx·HTTPS 직접 연결](../backend/README.md). 두 환경의 Compose는 `compose.yaml` + `compose.https.yaml` + `compose.release.yaml`이며 Tunnel은 사용하지 않는다. 아래 137번 최초 전환의 Tunnel 설명은 과거 설치 기록이다. 공개 API·health 주소와 환경 분리는 유지한다.
+
 수집기 이미지 자동 갱신·수동 실행은 [수집기 배포](../collector/README.md)를 참고한다.
 
 ## 실행 조건
@@ -78,27 +80,48 @@ FE도 기존 protected SSH·Docker Hub 변수와 development-ec2/production-ec2 
 
 ## 운영 배포 리허설 체크리스트 — S15P31C108-178
 
-develop → main 반영(운영 배포)을 할 때 위에서 아래로 확인한다. main 병합 · 서버 작업은 사람이 한다. 2026-11-05 기준 운영은 main `8281550`(10/30, Flyway V0014)이고 develop 은 V0046 이라, 다음 반영은 **migration 32개(V0015–V0046)를 운영 DB 에 한 번에** 적용한다.
+develop → main 반영(운영 배포)을 할 때 위에서 아래로 확인한다. main 병합 · 서버 작업은 사람이 한다.
+
+**2026-11-09 기준 상태** (11/5 판에서 고침)
+
+| 항목 | 운영(main) | 개발(develop) |
+| --- | --- | --- |
+| 코드 | `8281550`(10/30) | 503 커밋 앞섬 |
+| Flyway | V0014 | V0051 — 이번 반영은 **migration 36개(V0015–V0051)를 운영 DB 에 한 번에**. V0049 는 없다(번호만 비었고 정상) |
+| API 주소 | `backend.issue-atlas.kr` — Nginx 직접 연결(-290, Tunnel 없음) | `dev-backend.issue-atlas.kr` 같음 |
+| 화면 주소 | `issue-atlas.kr` — **아직 Cloudflare Workers**. EC2 운영 FE 는 한 번도 배포되지 않았다(검증 주소 `ec2-prod.issue-atlas.kr` 는 Nginx 만 있고 502) | `dev.issue-atlas.kr` — EC2 |
+| engine(문장화) | 배포하지 않는다(-243) | 배포됨 |
 
 **전날 · 시작 전**
 - [ ] develop · main 파이프라인이 모두 끝났고 develop 최신 커밋의 개발 배포가 성공했다(같은 환경 직렬 배포)
 - [ ] 운영 DB 를 수동 백업했다 — 자동 백업(`deploy/backup`)은 개발 DB 만 한다. `pg_dump -Fc` 결과를 `/var/backups/issueatlas` 아래 운영 전용 경로에 두고 `pg_restore --list` 로 읽히는지 본다
-- [ ] 새 migration 중 데이터를 지우거나 옮기는 것을 다시 읽었다: V0024 · V0032(ID 바꾸기), V0043 · V0044(보도자료 표 정리), V0042(경계 시드, 크다). 이전 이미지로 롤백해도 DB 는 돌아가지 않는다
-- [ ] 운영 `.env` 에 develop 에서 생긴 변수를 정했다: `QUESTIONS_PER_MINUTE`(기본 10), `ENGINE_URL` 은 **비운다**(engine 은 develop 에만 배포, -243)
-- [ ] Flyway 밖 시드 `backend/db/seed/cards-c1-a3.sql`(카드 C1 · A3 승인본)을 운영 DB 에 넣을지 정했다. 넣지 않으면 운영 질문은 카드 없음(`unsupported`)이다
+- [ ] 새 migration 중 데이터를 지우거나 옮기는 것을 다시 읽었다: V0024 · V0032(ID 바꾸기), V0043 · V0044(보도자료 표 정리), V0042(경계 시드, 크다), V0048 · V0051(저장된 근거 · 실행 결과 UPDATE — 운영은 행이 거의 없다), V0050(`question.asked_by` 칸 · FK 추가). 이전 이미지로 롤백해도 DB 는 돌아가지 않는다
+- [ ] 운영 서버의 Compose 파일이 develop 판이다 — CD 는 서버 Compose 를 바꾸지 않는다. `/opt/issueatlas-prod/deploy/dev/` 의 `compose.yaml`(모니터링 · `ENGINE_URL` · engine 서비스 정의) · `compose.https.yaml`(-290) · `compose.release.yaml`(`ENGINE_IMAGE` 칸)을 저장소 판과 비교한다. engine 을 배포하지 않는 환경은 배포 프로그램이 `ENGINE_IMAGE` 에 자리 값(`issueatlas-engine:not-deployed`)을 넣으므로, 서버 배포 프로그램(`/usr/local/sbin/issueatlas-deploy.py`, 개발과 같은 파일)이 그 판인지도 본다
+- [ ] `/etc/issueatlas/cicd.json` 의 production 에 `engine_image_repository` 가 **없다**(engine 미배포)와 FE 항목(`frontend_image_repository` 등, `frontend_url` 은 전환 전이라 `https://ec2-prod.issue-atlas.kr`)이 있다
+- [ ] 운영 `.env` 변수를 정했다: `QUESTIONS_PER_MINUTE`(기본 10), `ENGINE_URL` 은 **비운다**(비우면 카드 문구로 응답, 사유 `ENGINE_DISABLED`). 나머지 새 변수(`ENGINE_TIMEOUT` · `ENGINE_CACHE_*` · `MONITORING_*`)는 기본값으로 둔다
+- [ ] Flyway 밖 시드 `backend/db/seed/cards-c1-a3.sql`(카드 C1 · A3 승인본)을 운영 DB 에 넣을지 정했다. 넣지 않으면 운영 질문은 카드 없음(`unsupported`)이다. 넣으면 반영 **뒤에** 운영 관리자 이메일로 `SET issue_atlas.approver` 를 하고 돌린다(새 DB 라 첫 승인본 v2 가 결과별 판단 문장까지 포함해 들어간다, -282). 그 뒤에 카드 계약이 바뀌는 MR(예 !196 · !197 `sign_words`)이 운영에 들어가면 시드를 다시 돌려 다음 판으로 승인한다
 - [ ] 운영 DB 에는 수집 자료가 없다(수집기 자동 실행 없음, -137). 통계 · 측정소 · 기사 없이 무엇을 보여 줄지(빈 상태 · 개발 주소로 데모) 정했다
+- [ ] 운영 화면에도 「로그인해야 결과 보기」(-268)가 적용된다. 데모에 쓸 운영 관리자 · 조회자 계정을 정했다(운영 계정은 개발과 따로다. 비밀번호는 저장소 · Jira 에 적지 않는다)
+- [ ] 운영 주소에서 Swagger(`/swagger-ui/index.html`)를 계속 열어 둘지 정했다 — 지금은 열려 있고 관리자 API 설명까지 보인다(호출은 로그인 · 관리자 권한으로 막힘)
 
 **반영**
 - [ ] MR `chore: develop → main 반영 (YYYY-MM-DD)` 을 만들고 변경 영역 검사가 통과한다
-- [ ] 병합 뒤 push 파이프라인에서 backend 배포 → frontend · 수집기 배포 순서로 성공한다. 걸린 시간을 적는다
+- [ ] 병합 뒤 push 파이프라인에서 backend 배포 → frontend · 수집기 배포 순서로 성공한다(engine job 은 main 에서 만들지 않는다). backend 가 바뀐 develop 파이프라인이 12–15분 걸렸으니(11/6) 그 이상을 잡고, 걸린 시간을 적는다
+- [ ] 운영 FE 는 이번이 **EC2 첫 배포**다. 실패하면 후보만 멈추고 「이전 버전으로 복구」로 표시되지 않는다(이전 FE 가 없음, [프론트 EC2 배포](../frontend/README.md))
 - [ ] 실패하면 그 job 만 재시도한다. backend 는 이전 image ID 로 자동 복구를 시도하지만 migration 은 되돌리지 않는다 — DB 가 반쯤 바뀌었으면 위 백업에서 복원할지 정한다
 
 **확인 (운영 주소)**
-- [ ] `https://backend.issue-atlas.kr/actuator/health` UP, `https://issue-atlas.kr/healthz` 의 revision 이 병합 커밋
-- [ ] 로그인 없이 `GET /v1/places` 200(시군구 6곳 `kr-*`), `GET /v1/places/kr-12130/boundaries` 200 — 10/30 판은 401 이었다
+- [ ] `https://backend.issue-atlas.kr/actuator/health` UP
+- [ ] `https://ec2-prod.issue-atlas.kr/healthz` 의 revision 이 병합 커밋이다. `issue-atlas.kr` 은 DNS 를 바꾸기 전까지 Workers(옛 화면)라 여기서 보지 않는다
+- [ ] 로그인 없이 `GET /v1/places` 200(시군구 6곳 `kr-*`), `GET /v1/places/kr-12130/boundaries` 200 — 10/30 판은 401 이었다(11/9 에도 401 확인)
 - [ ] EC2 에서 `python3 deploy/dev/verify.py --base-url https://backend.issue-atlas.kr --session-auth`(관리자 로그인 · CSRF · 쿠키)
 - [ ] `python deploy/dev/measure.py --base-url https://backend.issue-atlas.kr --question-runs 1` 로 질문 1건 · 응답 시간 표. 카드 시드가 없으면 질문 단계에서 멈춘다(위 결정대로)
+- [ ] `ec2-prod.issue-atlas.kr` 에서 로그인 → 결과 화면 · `/admin`(관리자만)을 브라우저로 본다
 - [ ] 개발 주소(dev-backend · dev)는 그대로 동작한다(환경 간 DB 분리)
+
+**리허설 뒤 (별도 작업)**
+- [ ] `issue-atlas.kr` DNS 를 Workers 에서 EC2 로 바꾸는 것은 [프론트 EC2 배포](../frontend/README.md) 5–6단계를 따른다(인증서 · Nginx 준비 → Worker Custom Domain 해제 → A 레코드). 코드 반영과 같은 날 하지 않아도 된다
+- [ ] 걸린 시간 · 막힌 곳을 `docs/plans/active/perf-demo-response-time.md` 「진행」에 적는다
 
 ## 최초 GitLab 설정 (Maintainer 필요)
 

@@ -60,7 +60,7 @@ class Deployment:
         self.env.update(self.released_images())
         self.compose = ["docker", "compose", "--env-file", str(self.app / "deploy/dev/.env")]
         files = config.get(
-            "compose_files", ("compose.yaml", "compose.tunnel.yaml", "compose.release.yaml")
+            "compose_files", ("compose.yaml", "compose.https.yaml", "compose.release.yaml")
         )
         for name in files:
             self.compose += ["-f", str(self.app / "deploy/dev" / name)]

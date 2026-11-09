@@ -27,10 +27,14 @@
     "thresholds": {},
     "outcomes": [
       { "when": "fewer_than_min_years", "label": "근거 부족", "claim": "insufficient", "meaning": "연 값(12개월이 모두 있는 해)이 3개 미만. 연 값이 없는 해는 건너뛰고 남은 해를 순서대로 본다" },
-      { "when": "all_negative_abs_increasing", "label": "청년 순유출 확대", "claim": "increasing", "meaning": "모든 해가 음수이고 절대값이 해마다 커짐(같으면 아님)" },
-      { "when": "all_negative_abs_decreasing", "label": "청년 순유출 축소", "claim": "decreasing", "meaning": "모든 해가 음수이고 절대값이 해마다 작아짐(같으면 아님)" },
-      { "when": "turned_positive", "label": "순유입 전환", "claim": "decreasing", "meaning": "앞선 해 가운데 음수가 있고 마지막 해가 양수. 모두 양수면 해당 없음" },
-      { "when": "otherwise", "label": "불분명", "claim": "unclear", "meaning": "위 어느 것도 아님(같은 값, 오르내림, 모두 양수). 0 은 음수도 양수도 아니다. 변화 폭 임계는 없다" }
+      { "when": "all_negative_abs_increasing", "label": "청년 순유출 확대", "claim": "increasing", "meaning": "모든 해가 음수이고 절대값이 해마다 커짐(같으면 아님)",
+        "claim_text": "{지역} 청년(19–39세) 순유출은 {첫해}년 {첫값}명에서 {끝해}년 {끝값}명으로 매년 커졌습니다." },
+      { "when": "all_negative_abs_decreasing", "label": "청년 순유출 축소", "claim": "decreasing", "meaning": "모든 해가 음수이고 절대값이 해마다 작아짐(같으면 아님)",
+        "claim_text": "{지역} 청년(19–39세) 순유출은 {첫해}년 {첫값}명에서 {끝해}년 {끝값}명으로 매년 줄었습니다." },
+      { "when": "turned_positive", "label": "순유입 전환", "claim": "decreasing", "meaning": "앞선 해 가운데 음수가 있고 마지막 해가 양수. 모두 양수면 해당 없음",
+        "claim_text": "{지역} 청년(19–39세) 순이동은 앞선 해의 순유출과 달리 {끝해}년 {끝값}명 순유입으로 바뀌었습니다." },
+      { "when": "otherwise", "label": "불분명", "claim": "unclear", "meaning": "위 어느 것도 아님(같은 값, 오르내림, 모두 양수). 0 은 음수도 양수도 아니다. 변화 폭 임계는 없다",
+        "claim_text": "{지역} 청년(19–39세) 순이동은 {기간} 변화 방향이 분명하지 않습니다." }
     ]
   },
   "max_claim_level": "calculated",

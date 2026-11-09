@@ -20,8 +20,8 @@ const shapeView = {
   tag: "observationOrder",
 } as const;
 
-/** 그림을 이미 만든 유형(나머지는 데이터가 있어도 꺼 둔다 — 이동형 · 분포 · 관측 순서 · 사건은 다음 단위) */
-export const builtViews: ReadonlySet<ViewType> = new Set(["change"]);
+/** 그림을 이미 만든 유형(나머지는 데이터가 있어도 꺼 둔다 — 이동형 · 관측 순서 · 사건은 다음 단위) */
+export const builtViews: ReadonlySet<ViewType> = new Set(["distribution", "change"]);
 
 /** 결과가 가진 유형(데이터 기준) */
 export function availableViews(a: Argument): Set<ViewType> {

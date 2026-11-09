@@ -190,12 +190,13 @@ class EngineComposeTests(unittest.TestCase):
         example = (ROOT / "deploy/dev/.env.example").read_text(encoding="utf-8").splitlines()
         self.assertIn("ENGINE_URL=", example)
 
-    def test_release_pins_engine_digest_and_tunnel_never_reaches_engine(self):
+    def test_release_pins_engine_digest_and_public_proxy_never_reaches_engine(self):
         release = load("compose.release.yaml")["services"]
         self.assertTrue(release["engine"]["image"].startswith("${ENGINE_IMAGE:?"))
-        for name in ("compose.tunnel.yaml", "compose.routing.yaml"):
-            cloudflared = load(name)["services"]["cloudflared"]
-            self.assertNotIn("engine", cloudflared.get("networks", []))
+        proxy = (ROOT / "deploy/backend/nginx.conf.template").read_text(encoding="utf-8")
+        self.assertNotIn("engine:8000", proxy)
+        self.assertEqual(proxy.count("proxy_pass "), 1)
+        self.assertIn("proxy_pass http://127.0.0.1:BACKEND_PORT;", proxy)
 
     def test_every_service_network_keeps_egress_on_shared_ci_host(self):
         script = (ROOT / "deploy/ci/runner/restore-service-egress.sh").read_text(encoding="utf-8")

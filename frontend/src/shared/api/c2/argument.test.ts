@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import notComparable from "../../../../../contracts/c2/examples/argument-a3-not-comparable.json";
 import insufficient from "../../../../../contracts/c2/examples/argument-c1-insufficient.json";
 import ready from "../../../../../contracts/c2/examples/argument-c1-ready.json";
+import unsupportedYears from "../../../../../contracts/c2/examples/argument-c1-unsupported-years.json";
 import unsupported from "../../../../../contracts/c2/examples/argument-unsupported.json";
 import { argumentSchema, seriesShape } from "./argument";
 
@@ -13,6 +14,7 @@ const examples = {
   "argument-c1-insufficient.json": insufficient,
   "argument-a3-not-comparable.json": notComparable,
   "argument-unsupported.json": unsupported,
+  "argument-c1-unsupported-years.json": unsupportedYears,
 };
 const example = (name: keyof typeof examples): Record<string, unknown> =>
   structuredClone(examples[name]);
@@ -28,11 +30,33 @@ describe("argumentSchema — 계약 예시", () => {
     ["argument-c1-insufficient.json", "blocked", "insufficient"],
     ["argument-a3-not-comparable.json", "partial", "not_comparable"],
     ["argument-unsupported.json", "unsupported", "insufficient"],
+    ["argument-c1-unsupported-years.json", "unsupported", "insufficient"],
   ] as const)("%s 를 통과시킨다", (file, runStatus, claim) => {
     const a = argumentSchema.parse(example(file));
     expect(a.run_status).toBe(runStatus);
     expect(a.claim.value).toBe(claim);
     expect(a.evidence_table).toHaveLength(4);
+  });
+
+  it("C2 v1: 판단 배지 글자(claim.label)와 적용 조건(applicability)", () => {
+    const r = argumentSchema.parse(example("argument-c1-ready.json"));
+    expect(r.claim.label).toBe("청년 순유출 확대");
+    expect(r.applicability.map((c) => [c.condition, c.passed])).toEqual([
+      ["place_level", true],
+      ["min_complete_years", true],
+      ["population", null],
+    ]);
+    const years = argumentSchema.parse(example("argument-c1-unsupported-years.json"));
+    expect(years.claim.label).toBeNull();
+    expect(years.applicability.filter((c) => c.passed === false)).toEqual([
+      {
+        condition: "min_complete_years",
+        label: "완전한 연 값 3개 이상",
+        passed: false,
+        note: "2개(2024–2025)",
+      },
+    ]);
+    expect(argumentSchema.parse(example("argument-unsupported.json")).applicability).toEqual([]);
   });
 
   it("그림 줄 모양을 칸으로 가른다(막대 · 이동)", () => {
@@ -72,6 +96,26 @@ describe("argumentSchema — 계약 규칙을 어긴 응답", () => {
     const a = copyReady();
     a.run_status = "blocked";
     expect(issuePaths(a)).toContain("claim.value");
+  });
+
+  it("blocked · unsupported 인데 판단 배지 글자가 있으면 실패한다", () => {
+    const a = structuredClone(insufficient);
+    a.claim.label = "청년 순유출 확대" as never;
+    expect(issuePaths(a)).toContain("claim.label");
+  });
+
+  it("적용 조건을 못 채웠는데 unsupported 가 아니면 실패한다", () => {
+    const a = copyReady();
+    a.applicability[1].passed = false;
+    expect(issuePaths(a)).toContain("run_status");
+  });
+
+  it("카드가 없는데 적용 조건이 있으면 실패한다", () => {
+    const a = structuredClone(unsupported);
+    a.applicability = [
+      { condition: "place_level", label: "시군구 단위", passed: true, note: null },
+    ] as never;
+    expect(issuePaths(a)).toContain("applicability");
   });
 
   it("card_id 가 null 인데 unsupported 가 아니면 실패한다", () => {

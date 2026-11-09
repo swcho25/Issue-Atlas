@@ -69,6 +69,7 @@
   },
   "claim": {
     "value": "insufficient",
+    "label": null,
     "level": "insufficient_evidence",
     "text": "필수 근거(통계)가 없어 판단하지 않습니다.",
     "provenance": "rule"

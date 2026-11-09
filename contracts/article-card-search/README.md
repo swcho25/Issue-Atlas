@@ -8,4 +8,4 @@ Jira S15P31C108-204. Flyway V0035. 이 판은 C1·A3 기사 실험에 한정한�
 - `document_card_score`: 활성 기사×카드 벡터의 `1 - cosine_distance`, 기준값 판, `selected = similarity >= threshold`. 이 표는 모델 제안 결과이며 사람 확정 연결과 구분한다.
 - 화면 응답(V0036): `observation` view 의 기사 `tags` 가 활성 입력 · 활성 카드 프로필로 계산된 `selected` 카드를 읽는다 → 질문 응답 `articles[]`(지도 기사 점). 근거 문서(`data.documents`)로는 쓰지 않는다. 입력 · 카드 프로필이 바뀌면 `score` 를 다시 돌려야 태그가 다시 찬다.
 
-GMS `gemini-embedding-2:embedContent`의 `embedContentConfig.outputDimensionality=1536`을 지정한다. 카드와 기사는 같은 모델·차원으로만 비교한다. `thresholds.json`의 임시 기준은 AI 초안 라벨로 만든 것이며 사람 검토 전 확정 연결로 취급하지 않는다. 최신 정제 행이 없는 기사는 입력을 만들지 않고, 정제된 뒤 다시 실행하면 추가된다.
+GMS `gemini-embedding-2:embedContent`의 `embedContentConfig.outputDimensionality=1536`을 지정한다. 카드와 기사는 같은 모델·차원으로만 비교한다. `thresholds.json`의 임시 기준은 AI 라벨로 만든 것이며 사람 검토 전 확정 연결로 취급하지 않는다. `ai-label500-v2`(2026-11-09, S15P31C108-312)는 A3 만 독립 평가 기사 500건의 AI 1차 · 눈가림 2차 라벨이 같은 489건으로 다시 정했다(0.6791 → 0.667, 5겹 교차검증 정밀도 · 재현율 0.84). C1 은 기준값 하나로 둘 다 0.8 을 넘지 못해(교차검증 0.68) `ai-draft-v1` 값을 그대로 둔다. 기준값을 바꾸면 `score --apply` 를 다시 돌려야 `selected` 가 바뀐다. 최신 정제 행이 없는 기사는 입력을 만들지 않고, 정제된 뒤 다시 실행하면 추가된다.

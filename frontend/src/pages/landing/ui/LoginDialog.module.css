@@ -39,7 +39,7 @@
   border-radius: 22px;
   background: var(--landing-surface);
   box-shadow: 0 24px 64px rgb(0 0 0 / 0.22);
-  color: var(--logo-ink);
+  color: var(--landing-ink);
   opacity: 0;
   transform: translateY(10px) scale(0.97);
   transition:
@@ -91,7 +91,7 @@
   border: 1px solid var(--landing-field-line);
   border-radius: 8px;
   background: var(--landing-surface);
-  color: var(--logo-ink);
+  color: var(--landing-ink);
   font-size: 14px;
   outline: none;
   transition:
@@ -159,7 +159,7 @@
   width: 36px;
   height: 36px;
   padding: 0;
-  border: 1px solid rgb(var(--landing-ink-rgb) / 0.14);
+  border: 1px solid color-mix(in srgb, var(--landing-ink) 14%, transparent);
   border-radius: 50%;
   background: none;
   color: var(--landing-ink);

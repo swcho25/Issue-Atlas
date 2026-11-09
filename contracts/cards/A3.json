@@ -24,10 +24,14 @@
     "thresholds": { "worse": 3.0, "better": -3.0, "unit": "µg/m³" },
     "outcomes": [
       { "when": "fewer_than_min_years", "label": "근거 부족", "claim": "insufficient", "meaning": "측정소 연평균이 하나라도 있는 해가 3개 미만. 측정소가 하나도 없는 해는 건너뛰고 남은 해를 본다" },
-      { "when": "no_common_station", "label": "비교 불가", "claim": "not_comparable", "meaning": "남은 모든 해에 연평균이 있는 측정소가 없음" },
-      { "when": "diff_at_least_worse", "label": "악화", "claim": "increasing", "meaning": "공통 측정소 평균으로 끝해 − 첫해 연평균이 +3µg/m³ 이상" },
-      { "when": "diff_at_most_better", "label": "개선", "claim": "decreasing", "meaning": "공통 측정소 평균으로 끝해 − 첫해 연평균이 −3µg/m³ 이하" },
-      { "when": "otherwise", "label": "불분명", "claim": "unclear", "meaning": "−3 과 +3 사이(경계값은 악화 · 개선)" }
+      { "when": "no_common_station", "label": "비교 불가", "claim": "not_comparable", "meaning": "남은 모든 해에 연평균이 있는 측정소가 없음",
+        "claim_text": "{지역}에는 {기간} 모든 해에 연평균이 있는 측정소가 없어 초미세먼지(PM2.5) 연평균을 비교할 수 없습니다." },
+      { "when": "diff_at_least_worse", "label": "악화", "claim": "increasing", "meaning": "공통 측정소 평균으로 끝해 − 첫해 연평균이 +3µg/m³ 이상",
+        "claim_text": "{지역} 측정소 {n}곳의 초미세먼지(PM2.5) 연평균은 {첫해}년 {첫값}µg/m³에서 {끝해}년 {끝값}µg/m³로 높아졌습니다." },
+      { "when": "diff_at_most_better", "label": "개선", "claim": "decreasing", "meaning": "공통 측정소 평균으로 끝해 − 첫해 연평균이 −3µg/m³ 이하",
+        "claim_text": "{지역} 측정소 {n}곳의 초미세먼지(PM2.5) 연평균은 {첫해}년 {첫값}µg/m³에서 {끝해}년 {끝값}µg/m³로 낮아졌습니다." },
+      { "when": "otherwise", "label": "불분명", "claim": "unclear", "meaning": "−3 과 +3 사이(경계값은 악화 · 개선)",
+        "claim_text": "{지역} 측정소 {n}곳의 초미세먼지(PM2.5) 연평균은 {첫해}년 {첫값}µg/m³, {끝해}년 {끝값}µg/m³로 차이가 판정 기준(±3µg/m³)보다 작습니다." }
     ]
   },
   "max_claim_level": "calculated",

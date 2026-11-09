@@ -39,7 +39,7 @@ uv --directory engine run python -m ai.classify embed-docs --db [--apply]
 uv --directory engine run python -m ai.classify embed-cards --db [--apply]
 uv --directory engine run python -m ai.classify score --db [--apply]
 uv --directory engine run python -m ai.classify sample --db --output <저장소 밖 경로>.csv
-# P5 ③ 보증 · ⑤ 반박 문장화 시험: 가상 판정 입력(fixture) + 기사 목록 → 결과 JSON. DB 에 쓰지 않음 (.env 의 GMS_API_KEY)
+# P5 ⑤ 반박 문장화 시험: 가상 판정 입력(fixture) + 기사 목록 → 결과 JSON. DB 에 쓰지 않음 (.env 의 GMS_API_KEY)
 uv --directory engine run python -m ai.argument <판정 입력 JSON> <기사 목록 JSON>
 # PostGIS 통합 테스트 (Docker 필요, pnpm engine:test 에는 안 들어감)
 uv --directory engine run pytest tests_postgres
@@ -58,5 +58,5 @@ uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 | `pipeline/region/` | 정우현 | P3 지역 · 시간 — 기사 지역 · 여러 지역 · 위치 · 사건 시간대 · 요약 → `news_event`, 요약 뒤 본문 지우기. 규칙(이름 체계 · 지명 사전 · 본문 정리 · 여러 지역 · 적재 검사)과 서버 명령(`export` · `extract` · `load`), 경계 시드(`boundary`). 추출은 OpenAI 호환 모델 서버(.env `P3_LLM_*`), 적재 전 장소 확인은 주소 API(.env `JUSO_SEARCH_KEY`), 위치 좌표는 SGIS(.env `SGIS_KEY` · `SGIS_SECRET`) ([계약](../contracts/p3/)) |
 | `pipeline/responses/` | 장성우 | P8 카드 근거 ③ 「기존 대응」 후보 — 온통청년 정책 · 세출에서 규칙으로 골라 `existing_response` 에 저장 ([계약](../contracts/existing-response/)) |
 | `ai/classify/` | 최동준 | P4 기사 제목·요약 → C1·A3 승인 카드 프로필 임베딩·cosine 점수 ([계약](../contracts/article-card-search/README.md)) |
-| `ai/argument/` | 최동준 | P5 논증 카드 ③ 보증(`llm_phrasing`) · ⑤ 반박(`llm_judgment`) 문장화와 출력 검사(인용 · 원문 위치 · 수치 · 판정 고정 · 금지어). 탈락하면 카드 문구 · 빈 반박. 입력은 [판정 입력](../contracts/ai/) + 그 실행의 카드 승인본 + 근거 자료 구절(자료 종류 공통 모양, 지금은 기사 요약). 카드 목록 없이 승인본으로 판정한 실행이면 부른다 |
+| `ai/argument/` | 최동준 | P5 논증 카드 ⑤ 반박(`llm_judgment`) 문장화와 출력 검사(인용 · 원문 위치 · 수치 · 판정 고정 · 금지어). ① 판단 · ③ 보증은 규칙 · 카드 문장이라 쓰지 않는다(-282). 탈락하면 빈 반박. 입력은 [판정 입력](../contracts/ai/) + 그 실행의 카드 승인본 + 근거 자료 구절(자료 종류 공통 모양, 지금은 기사 요약). 카드 목록 없이 승인본으로 판정한 실행이면 부른다 |
 | `api/` | 최동준 | FastAPI HTTP 입구 — pipeline · ai 함수를 부르기만 한다. `POST /v1/argument/phrase` 는 [AI 계약](../contracts/ai/) v0.2 「문장화」 |

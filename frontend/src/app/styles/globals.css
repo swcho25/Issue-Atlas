@@ -9,7 +9,7 @@
  *   색 값(Light · Dark) ...... :root 의 --bg-* · --surface-* · --text-* · --primary-* · --status-* …
  *   글자 · 모서리 · 간격 · 그림자 · 기본 색 제거 .. @theme   → text-body-14 · rounded-xl · p-4 · shadow-card
  *   색 클래스 이름 .......... @theme inline → bg-surface-1 · text-text-2 · bg-primary · border-border-1
- *   유리 · 렌즈 · 겹침 순서 . @utility       → glass(-strong · -thin) · lens-amber · lens-clear · tab-glass · z-map … z-modal
+ *   유리 · 렌즈 · 겹침 순서 . @utility       → glass(-strong · -thin) · lens-amber · lens-clear · tab-glass · toggle-* · z-map … z-modal
  *
  * 공통 컴포넌트(버튼 · 배지 · 탭 바 · 아이콘 …)는 src/shared/ui/README.md 에 목록이 있다.
  *
@@ -80,6 +80,10 @@
   --primary-text: light-dark(#9a6700, #ffc233);
   --key-amber-80: rgb(255 176 0 / 0.8);
 
+  /* 유리 위 칸을 가리킬 때 · 누르거나 펼쳤을 때 덧칠(밝은 화면 흰 30% · 50%). 어두운 유리 위에서는 흰빛을 낮춘다 */
+  --glass-hover: light-dark(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.08));
+  --glass-press: light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.14));
+
   /* 남색 = 읽는 것(데이터) */
   --data-navy: light-dark(#2e4a7d, #8faee0);
   --map-region: light-dark(#2e4a7d, #8faee0);
@@ -130,38 +134,54 @@
   --logo-highlight: #ffffff;
 }
 
-/* 랜딩 색(Figma 「02 · 로그인 · 랜딩」, 시제품 docs/design/landing-scroll). 밝은 화면 전용 디자인이라 어두운 모드 값을 두지 않는다 */
+/*
+ * 랜딩 색(Figma 「02 · 로그인 · 랜딩」, 시제품 docs/design/landing-scroll). 밝은 값은 시안에서 잰 값이다.
+ * 어두운 값은 Figma 시안이 없어 같은 차가운 회색 계열을 뒤집어 정했다(바탕 거의 검정 남색 · 글자 밝은 회색 · 데이터 남색은 밝게)
+ */
 :root {
-  /* 장면 바탕: 위 → 아래로 아주 옅게 푸른 흰색(시안에서 잰 값). bg-2 는 페이지 바탕 */
-  --landing-bg-0: #fafafe;
-  --landing-bg-1: #fafafd;
-  --landing-bg-2: #f7f8fc;
-  --landing-bg-3: #f6f8fc;
-  --landing-bg-4: #f5f6fd;
-  --landing-ink: #111318;
-  --landing-mast: #050608;
-  --landing-text-2: #5b606d;
-  --landing-text-3: #8a8f9c;
-  --landing-muted: #9aa0ac;
-  --landing-cue: #7b7f88;
-  --landing-place: #5a6b8c;
-  --landing-panel: #eef0f5;
-  --landing-chip: #f1f3f7;
-  --landing-chip-text: #7c8494;
-  --landing-hair: #e4e6ec;
-  --landing-caption: rgb(27 29 34 / 0.88);
-  --landing-surface: #ffffff;
-  /* 다크 값이 없는 랜딩 전용: 데이터 남색 · 앰버(누름 · 글자) · 경고 · 입력칸 선 · 로그인 창 뒤 막 */
-  --landing-navy: #2e4a7d;
+  /* 장면 바탕: 위 → 아래로 아주 옅게 푸른 흰색(어두우면 검정에 가까운 남색). bg-2 는 페이지 바탕 */
+  --landing-bg-0: light-dark(#fafafe, #0a0c11);
+  --landing-bg-1: light-dark(#fafafd, #0b0d12);
+  --landing-bg-2: light-dark(#f7f8fc, #0c0e13);
+  --landing-bg-3: light-dark(#f6f8fc, #0d1015);
+  --landing-bg-4: light-dark(#f5f6fd, #0e1117);
+  --landing-ink: light-dark(#111318, #eef0f5);
+  --landing-mast: light-dark(#050608, #f7f8fc);
+  --landing-text-2: light-dark(#5b606d, #a4aab6);
+  --landing-text-3: light-dark(#8a8f9c, #767d8b);
+  --landing-muted: light-dark(#9aa0ac, #646b78);
+  --landing-cue: light-dark(#7b7f88, #868c97);
+  --landing-panel: light-dark(#eef0f5, #151922);
+  --landing-chip: light-dark(#f1f3f7, #161a22);
+  --landing-chip-text: light-dark(#7c8494, #8d95a5);
+  --landing-hair: light-dark(#e4e6ec, #232833);
+  --landing-surface: light-dark(#ffffff, #141821);
+  /* 데이터 남색은 어두운 지도 위에서 밝게. 앰버(누름 · 글자) · 경고 · 입력칸 선 · 로그인 창 뒤 막 */
+  --landing-navy: light-dark(#2e4a7d, #9db7e8);
   --landing-amber: #ffb000;
   --landing-amber-hover: #e69e00;
-  --landing-amber-text: #9a6700;
-  --landing-alert: #c2412a;
-  --landing-field-line: #d6d6cf;
-  --landing-scrim: rgb(14 16 22 / 0.32);
-  /* 투명도와 함께 쓰는 r g b: rgb(var(--landing-ink-rgb) / 0.14) */
-  --landing-ink-rgb: 17 19 24;
-  --landing-bg-rgb: 247 248 252;
+  --landing-amber-text: light-dark(#9a6700, #ffc64d);
+  /* 앰버 위 글자는 테마와 상관없이 짙게(어두운 화면에서도 앰버 단추의 글자는 검정) */
+  --landing-on-amber: #111318;
+  /* 로고 글자(워드마크)는 로고 먹색, 어두운 화면에서는 로고 종이색 */
+  --landing-logo: light-dark(#252624, #f2efe7);
+  --landing-alert: light-dark(#c2412a, #ff8a73);
+  --landing-field-line: light-dark(#d6d6cf, #333a47);
+  --landing-scrim: light-dark(rgb(14 16 22 / 0.32), rgb(0 0 0 / 0.55));
+  /* 구름 뒤 안개(지구 → 지도 바꾸는 순간을 덮는다) · 그림자 */
+  --landing-fog: light-dark(#ffffff, #0e1117);
+  --landing-shadow: light-dark(#111318, #000000);
+  /* 유리 단추 안쪽 빛: 밝은 화면은 거의 흰색, 어두운 화면에서는 낮춘다 */
+  --landing-glass-hi: light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.32));
+  --landing-glass-lo: light-dark(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.12));
+  /* 도착 지도 장면(지도 · 그 위 표시 · 끝 제목 띠): 지도는 어두운 화면에서도 밝은 지도(Liberty)라 테마와 상관없이 밝은 화면 값 그대로 */
+  --landing-map-bg: #f7f8fc;
+  --landing-map-muted: #8a8f9c;
+  --landing-map-place: #5a6b8c;
+  --landing-map-navy: #2e4a7d;
+  --landing-map-ink: #111318;
+  --landing-map-surface: #ffffff;
+  --landing-map-caption: rgb(27 29 34 / 0.88);
 }
 
 /*
@@ -302,6 +322,8 @@
   --color-primary-line: var(--primary-line);
   --color-primary-text: var(--primary-text);
   --color-key-amber-80: var(--key-amber-80);
+  --color-glass-hover: var(--glass-hover);
+  --color-glass-press: var(--glass-press);
   --color-data-navy: var(--data-navy);
   --color-map-region: var(--map-region);
   --color-map-region-fill: var(--map-region-fill);
@@ -349,16 +371,22 @@ body {
  * 웹에는 GLASS 효과가 없어 DESIGN.md 의 흉내 방식으로: 배경 흐림 + 흰 채움 + 안쪽 흰 빛(왼쪽 위 밝게) + 옅은 먹색 선.
  * 채움은 Figma 의 「흰 10% 위에 흰 n%」를 합친 값. 기본(32%) · glass-strong(45%) · glass-thin(8%)
  *   쓰는 곳: 기본 = 탭 바 · 지도 레이어 판, strong = 유리 아이콘 버튼, thin = 유리 질문 바
+ * 어두운 화면(Figma 에 시안 없음): 흰 유리는 어두운 지도 위에서 흐린 회색 판이 되어 밝은 글자가 묻힌다.
+ *   그래서 surface-1 어두운 색(#1a1b18)으로 채우고, 채움 단계는 그대로 이어지게 0.3 + 흰 채움 × 0.6(기본 53% · strong 60% · thin 40%),
+ *   테두리 빛 · 선은 흰 20% · 5% · 10%로 낮추고 그림자를 진하게 한다
  * Figma Glass/Panel 스타일은 v5 화면에서 쓰이지 않아 만들지 않았다
  */
 @utility glass {
-  background-color: rgb(255 255 255 / var(--glass-fill, 0.388));
+  background-color: light-dark(
+    rgb(255 255 255 / var(--glass-fill, 0.388)),
+    rgb(26 27 24 / calc(0.3 + var(--glass-fill, 0.388) * 0.6))
+  );
   backdrop-filter: blur(6px) saturate(1.6);
-  border: 1px solid rgb(17 19 24 / 0.14);
+  border: 1px solid light-dark(rgb(17 19 24 / 0.14), rgb(255 255 255 / 0.1));
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 0.95),
-    inset -1px -1px 0 rgb(255 255 255 / 0.3),
-    0 4px 14px rgb(0 0 0 / 0.12);
+    inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.2)),
+    inset -1px -1px 0 light-dark(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.05)),
+    0 4px 14px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.35));
 }
 
 @utility glass-strong {
@@ -383,6 +411,8 @@ body {
  * lens-amber: 앰버 80% + 흰 테두리 빛(왼쪽 위 50% · 오른쪽 아래 30%) + 안쪽 흰 빛 4 · 18% + 0 2 8 · 10%
  * lens-clear: 먹색 7% 위 흰 20% + 흰 테두리 빛(95% · 75%) + 안쪽 흰 빛 4 · 50%
  * tab-glass: 먹색 5% 위 흰 35% + 흰 테두리 빛(95% · 60%) + Glass/Control 그림자 0 4 14 · 12% + 배경 흐림
+ * 어두운 화면: 흰 채움 · 빛을 낮춰(lens-clear 흰 10% · 빛 28% · 12%, tab-glass 흰 6% · 빛 16% · 5%) 밝은 글자가 읽히게 한다.
+ *   앰버 렌즈 위 글자는 두 테마 모두 먹색(text-on-primary)
  */
 @utility lens-amber {
   background-color: var(--key-amber-80);
@@ -394,24 +424,66 @@ body {
 }
 
 @utility lens-clear {
+  --lens-fill: light-dark(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.1));
   background:
-    linear-gradient(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.2)),
+    linear-gradient(var(--lens-fill), var(--lens-fill)),
     color-mix(in srgb, var(--text-1) 7%, transparent);
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 0.95),
-    inset -1px -1px 0 rgb(255 255 255 / 0.75),
-    inset 0 0 4px rgb(255 255 255 / 0.5);
+    inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.28)),
+    inset -1px -1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.12)),
+    inset 0 0 4px light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.08));
 }
 
 @utility tab-glass {
+  --tab-fill: light-dark(rgb(255 255 255 / 0.35), rgb(255 255 255 / 0.06));
   background:
-    linear-gradient(rgb(255 255 255 / 0.35), rgb(255 255 255 / 0.35)),
+    linear-gradient(var(--tab-fill), var(--tab-fill)),
     color-mix(in srgb, var(--text-1) 5%, transparent);
   backdrop-filter: blur(6px) saturate(1.6);
   box-shadow:
+    inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.16)),
+    inset -1px -1px 0 light-dark(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.05)),
+    0 4px 14px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.35));
+}
+
+/*
+ * 토글(Figma Toggle 2360:388, 52 × 32 · 손잡이 28). 꺼짐 = 맑은 유리 트랙(검정 14% 위 흰 12%), 켜짐 = 빛고을 앰버 80% + 유리 테두리,
+ * 누르는 동안 손잡이가 늘어나 유리 방울(흰 35%)로. Figma 의 대각선 그라데이션 테두리는 다른 유리처럼 위 왼쪽 · 아래 오른쪽 안쪽 빛으로 옮겼다.
+ * 어두운 화면에서는 맑은 트랙이 바탕에 묻히지 않게 글자색을 섞고, 테두리 빛을 낮춘다
+ */
+@utility toggle-track {
+  background:
+    linear-gradient(rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.12)),
+    color-mix(in srgb, var(--text-1) 14%, transparent);
+  backdrop-filter: blur(2px) saturate(1.4);
+  box-shadow:
+    inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.32)),
+    inset -1px -1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.18));
+}
+
+@utility toggle-track-on {
+  background-color: var(--key-amber-80);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.5),
+    inset -1px -1px 0 rgb(255 255 255 / 0.3),
+    inset 0 0 4px rgb(255 255 255 / 0.18);
+}
+
+@utility toggle-knob {
+  background-color: #ffffff;
+  box-shadow:
+    inset 0 -0.75px 0 rgb(204 209 217 / 0.9),
+    0 2px 6px rgb(0 0 0 / 0.18),
+    0 0 1px rgb(0 0 0 / 0.06);
+}
+
+@utility toggle-knob-drop {
+  background-color: rgb(255 255 255 / 0.35);
+  backdrop-filter: blur(1px) saturate(1.6);
+  box-shadow:
     inset 1px 1px 0 rgb(255 255 255 / 0.95),
-    inset -1px -1px 0 rgb(255 255 255 / 0.6),
-    0 4px 14px rgb(0 0 0 / 0.12);
+    inset -1px -1px 0 rgb(255 255 255 / 0.75),
+    0 3px 8px rgb(0 0 0 / 0.16);
 }
 
 /*

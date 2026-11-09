@@ -16,6 +16,7 @@ public record ArgumentResponse(
         String runStatus,
         OffsetDateTime createdAt,
         List<EvidenceRow> evidenceTable,
+        List<Applicability> applicability,
         Comparability comparability,
         Claim claim,
         Data data,
@@ -25,8 +26,8 @@ public record ArgumentResponse(
         Ceiling ceiling,
         List<Series> series,
         List<Article> articles) {
-    /** ③ 보증 · ⑤ 반박만 바꾼 같은 응답(문장화 결과를 끼울 때). 다른 칸은 그대로다. */
-    public ArgumentResponse withArgumentText(Text warrant, List<Rebuttal> rebuttals) {
+    /** ⑤ 반박만 바꾼 같은 응답(문장화 결과를 끼울 때). ③ 보증은 늘 카드 문장이고 다른 칸도 그대로다. */
+    public ArgumentResponse withRebuttals(List<Rebuttal> rebuttals) {
         return new ArgumentResponse(
                 schemaVersion,
                 runId,
@@ -37,6 +38,7 @@ public record ArgumentResponse(
                 runStatus,
                 createdAt,
                 evidenceTable,
+                applicability,
                 comparability,
                 claim,
                 data,
@@ -128,13 +130,22 @@ public record ArgumentResponse(
 
     public record Condition(Boolean passed, String note) {}
 
+    /**
+     * 카드 적용 조건(양식 B6) 한 줄(C2 v1). passed: true 충족 · false 못 채움 · null 확인하지 못함(판정 전에 멈춤) 또는 표시만 하는
+     * 조건(대상).
+     */
+    public record Applicability(String condition, String label, Boolean passed, String note) {}
+
     public record Comparability(
             Condition sameIndicator,
             Condition samePeriodLength,
             Condition sameBoundary,
             Condition sameMethod) {}
 
-    public record Claim(String value, String level, String text, String provenance) {}
+    /**
+     * label: 판정 배지 글자 = 승인본 rule.outcomes[].label. 판정하지 않은 실행(blocked · unsupported)은 null(C2 v1).
+     */
+    public record Claim(String value, String label, String level, String text, String provenance) {}
 
     public record Ref(
             String evidenceId,
