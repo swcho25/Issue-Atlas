@@ -1,0 +1,58 @@
+import { describe, expect, it } from "vitest";
+
+import { type Argument, argumentSchema } from "@/shared/api";
+
+import readyJson from "../../../../../contracts/c2/examples/argument-c1-ready.json";
+import { hasObservationOrder, observationOrder } from "./observationOrder";
+
+const ready = argumentSchema.parse(readyJson);
+
+// 계약 예시에는 기사 건수 줄이 없어(dev 실제 실행에는 있음) 줄만 얹어 본다
+const countLine = (
+  place_id: string,
+  name: string | null,
+  values: (number | null)[],
+  coordinates: [number, number] | null = [127.6, 34.7],
+) => ({
+  tag: "C1",
+  place_id,
+  name,
+  coordinates,
+  unit: "건",
+  periods: ["2023-01", "2023-02", "2023-03"].slice(0, values.length),
+  values,
+  statuses: values.map(() => "available" as const),
+});
+const withLines = (...lines: ReturnType<typeof countLine>[]) =>
+  ({ ...ready, series: [...ready.series, ...lines] }) as Argument;
+
+describe("관측 순서", () => {
+  it("지역마다 처음 나온 달로 순서를 매기고, 같은 달은 같은 번호(기사가 많은 곳 먼저)", () => {
+    const stops = observationOrder(
+      withLines(
+        countLine("kr-12130-520", "만덕동", [0, 3, 4]),
+        countLine("kr-12130", "여수시", [5, 9, 0]),
+        countLine("kr-12130-530", "쌍봉동", [0, 7, 0]),
+        countLine("kr-12130-540", "문수동", [0, 0, 1], null),
+        countLine("kr-12130-550", "삼일동", [0, 0, 0]),
+      ),
+    );
+    expect(stops.map((s) => [s.rank, s.name, s.first, s.total])).toEqual([
+      [1, "여수시", "2023-01", 14],
+      [2, "만덕동", "2023-02", 7],
+      [2, "쌍봉동", "2023-02", 7],
+      [4, "문수동", "2023-03", 1],
+    ]);
+    // 대표점이 없는 지역은 지도에 못 놓는다
+    expect(stops[3].at).toBeNull();
+  });
+
+  it("기사 건수 줄이 없거나 모두 0이면 켜지 않는다", () => {
+    expect(hasObservationOrder(ready)).toBe(false);
+    expect(hasObservationOrder(withLines(countLine("kr-12130", "여수시", [0, 0])))).toBe(false);
+    expect(hasObservationOrder(withLines(countLine("kr-12130", null, [0, 1])))).toBe(true);
+    expect(observationOrder(withLines(countLine("kr-12130", null, [0, 1])))[0].name).toBe(
+      "이름 없는 지역",
+    );
+  });
+});

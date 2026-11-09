@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { Argument } from "@/shared/api";
 import { Icon } from "@/shared/ui/icon";
 
+import { articleMarks } from "../../model/articles";
 import {
   defaultMonth,
   distributionMonths,
@@ -15,11 +16,14 @@ import {
   stationSeries,
 } from "../../model/distribution";
 import { judgmentBadge } from "../../model/labels";
+import { observationOrder } from "../../model/observationOrder";
 import { openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
+import { ArticleDots, ArticleLegend } from "./ArticleDots";
 import { ChangeSheet } from "./ChangeSheet";
 import { DistributionLegend } from "./DistributionLegend";
 import { GlassActions } from "./GlassActions";
+import { OrderMarkers, OrderSheet } from "./OrderView";
 import { StationDots } from "./StationDots";
 
 // 04 지도 위 부품(Figma 04): 위 유형 전환(+ 분포형이면 시점) · 오른쪽 위 유리 아이콘 · 그림 시트 · 범례 · 아래 유리 바.
@@ -38,6 +42,11 @@ export function MapOverlays({ argument }: { argument: Argument }) {
   const unit = stations[0]?.unit ?? null;
   const distribution = view === "distribution" && month !== null;
 
+  // 변화형 위 기사 점
+  const articles = useMemo(() => articleMarks(argument), [argument]);
+  // 관측 순서: 지역마다 첫 기사 달 순서
+  const order = useMemo(() => observationOrder(argument), [argument]);
+
   return (
     <>
       <TypeSwitch enabled={enabled} current={view} onChange={setView} />
@@ -55,11 +64,35 @@ export function MapOverlays({ argument }: { argument: Argument }) {
         </>
       )}
       {view === "change" && (
-        <div
-          className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
-        >
-          <ChangeSheet argument={argument} />
-        </div>
+        <>
+          <div
+            className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
+          >
+            <ChangeSheet argument={argument} />
+          </div>
+          {/* 순이동 막대 + 기사 점(Figma 「변화형 · 청년 유출」). 범례는 유리 아이콘 아래(오른쪽 16 · 위 72) */}
+          {(articles.dots.length > 0 || articles.groups.length > 0) && (
+            <>
+              <ArticleDots dots={articles.dots} groups={articles.groups} />
+              <div className="absolute top-[72px] right-4 z-control">
+                <ArticleLegend
+                  hasDots={articles.dots.length > 0}
+                  hasGroups={articles.groups.length > 0}
+                />
+              </div>
+            </>
+          )}
+        </>
+      )}
+      {view === "observationOrder" && (
+        <>
+          <OrderMarkers stops={order} />
+          <div
+            className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
+          >
+            <OrderSheet stops={order} />
+          </div>
+        </>
       )}
       <div
         className={`pointer-events-none absolute right-0 bottom-6 ${FREE_LEFT} z-control flex justify-center`}
