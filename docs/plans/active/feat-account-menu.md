@@ -1,6 +1,6 @@
 # feat/account-menu — 계정 메뉴 · 로그아웃
 
-- Jira: (MR 때 만든다) · 에픽 S15P31C108-57 화면 설계 · 지도
+- Jira: S15P31C108-314 · 에픽 S15P31C108-57 화면 설계 · 지도
 - Figma: Components › v5 · 컴포넌트 `v5/Account menu`(2801:583, 로그아웃=기본 · 가리킴) · 예시 「예시 · 계정 판 열림」(2801:584)
 
 로그아웃할 곳이 없었다. 백엔드에는 `POST /v1/auth/logout`(204, CSRF 필요)이 이미 있다.
