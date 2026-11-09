@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | `Button` · `buttonClass` ← `@/shared/ui/button` | 누르는 것 전부. 링크를 버튼 모양으로는 `buttonClass()` | `v5/Button` |
 | `BackButton` · `backButtonClass` · `BackIcon` ← `@/shared/ui/button` | 36 동그라미 「뒤로」 모양. 이전 화면 · 옆 패널 닫기 등 동작은 쓰는 쪽이 정한다 | `Button/뒤로` |
-| `GlassIconButton` ← `@/shared/ui/button` | 지도 · 결과 위 유리 아이콘 버튼(각주 복사 · 저장 · 다시 실행), 글자 형태도 | `Glass/Icon button` |
+| `GlassIconButton` ← `@/shared/ui/button` | 지도 · 결과 위 유리 아이콘 버튼(각주 복사 · 다시 실행 — Figma 의 저장은 두지 않음, 질문은 자동 저장), 글자 형태도 | `Glass/Icon button` |
 | `StatusBadge` ← `@/shared/ui/badge` | 근거 · 작업 상태(확보 · 미수집 · 검수 대기 …) | `v5/Status` |
 | `ProvBadge` ← `@/shared/ui/badge` | 논증 카드 칸을 누가 채웠는지(규칙 · 카드 · AI · 검수) | `v5/Prov badge` |
 | `TabBar` ← `@/shared/ui/tab-bar` | 결과 화면 요약 · 수요표 · 논증 · 원문 오가기 | `Tab bar/Item` |

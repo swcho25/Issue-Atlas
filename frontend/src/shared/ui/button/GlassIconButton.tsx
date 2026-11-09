@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { Icon, type IconName } from "../icon";
 
 // Figma Glass/Icon button(2410:657): 유리(흰 10% 위 흰 45% = glass-strong) · 흰 테두리 빛 · 0 4 14 · 12% · 아이콘 20 · text-1.
-//   아이콘 형태 40 × 40 동그라미 — v5 화면 39번(각주 복사 copy · 저장 bookmark · 다시 실행 refresh)
+//   아이콘 형태 40 × 40 동그라미 — v5 화면 39번(각주 복사 copy · 저장 bookmark · 다시 실행 refresh). 저장은 두지 않는다(11/09, 질문은 자동 저장)
 //   글자 형태 높이 40 · 왼쪽 14 오른쪽 16 · 아이콘과 글자 사이 6 · 굵게 14 — 1번(관리자 「2회차 실행」)
 // 지도 · 결과 화면 위에 떠 있는 버튼이다. 흰 화면 위에는 쓰지 않는다(DESIGN.md 「유리는 아래에 볼 것이 있을 때만」).
 // 호버 모습은 Figma 에 없어 채움만 한 단계 진하게
