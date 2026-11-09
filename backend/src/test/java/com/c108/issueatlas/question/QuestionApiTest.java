@@ -622,6 +622,23 @@ class QuestionApiTest {
                 .isEqualTo("existing_responses|" + evidence + "|resp:a" + "1".repeat(63));
         // 지방재정: 회계연도 · 회계 · 예산 · 지출(만 원 아래는 원)
         assertThat(display("existing_responses")).isEqualTo("2024년 일반회계 · 예산 1,000원 · 지출 900원");
+        // 큰 금액은 억 · 만 원으로(4,724,970,000원 → 47억 2,497만 원, 1억 원 · 1,900만 원)
+        jdbc.update(
+                "UPDATE local_expenditure SET budget_total = 4724970000, expenditure = 100000000"
+                        + " WHERE expenditure_id = ?",
+                EXP);
+        jdbc.update("UPDATE evidence SET display = NULL WHERE kind = 'existing_responses'");
+        runId(ask(body("A3", "2023-01-01", "2026-01-01")));
+        assertThat(display("existing_responses"))
+                .isEqualTo("2024년 일반회계 · 예산 47억 2,497만 원 · 지출 1억 원");
+        jdbc.update(
+                "UPDATE local_expenditure SET budget_total = 19000000, expenditure = 19004999"
+                        + " WHERE expenditure_id = ?",
+                EXP);
+        jdbc.update("UPDATE evidence SET display = NULL WHERE kind = 'existing_responses'");
+        runId(ask(body("A3", "2023-01-01", "2026-01-01")));
+        assertThat(display("existing_responses"))
+                .isEqualTo("2024년 일반회계 · 예산 1,900만 원 · 지출 1,900만 원");
     }
 
     /** YEOSU 의 판단 ① 문장: 승인본 결과 문장(claim_text)에 첫해 · 끝해 연 값(절댓값)을 넣는다(S15P31C108-282, Figma ①). */
