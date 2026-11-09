@@ -3,6 +3,7 @@
 import json
 import math
 import random
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -169,6 +170,23 @@ def test_probability_rejects_wrong_or_zero_vector():
         card.probability("청년", [0.1] * 10)
     with pytest.raises(ValueError):
         card.probability("청년", [0.0] * model.DIMENSIONS)
+
+
+def test_repository_model_matches_thresholds_version():
+    root = Path(__file__).resolve().parents[1] / "ai" / "classify"
+    config = json.loads((root / "thresholds.json").read_text(encoding="utf-8"))
+    classifier = f4.load()
+    assert classifier.version == config["version"] == "f4-al128-v1"
+    assert model.card_rules(config) == {
+        "C1": model.CardRule("f4", 0.5),
+        "A3": model.CardRule("f4", 0.5),
+    }
+    raw = json.loads(f4.MODEL_FILE.read_text(encoding="utf-8"))
+    assert raw["trained_with"] == {"scikit-learn": "1.9.1"}
+    assert {c: (v["pool_count"], v["train_count"]) for c, v in raw["cards"].items()} == {
+        "C1": (331, 128),
+        "A3": (333, 128),
+    }
 
 
 @pytest.fixture

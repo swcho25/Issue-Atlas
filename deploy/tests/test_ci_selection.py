@@ -163,6 +163,8 @@ class SelectionTests(unittest.TestCase):
             # The collector image ships engine/ai for embed and score runs; the API image too.
             (["engine/ai/classify/model.py"], collector | api),
             (["engine/ai/classify/thresholds.json"], collector | api),
+            # F4 학습 분류기 모델 파일은 score 가 읽는다(S15P31C108-316)
+            (["engine/ai/classify/f4_model.json"], collector | api),
             (["engine/ai/argument/README.md"], {"engine"}),
             (["engine/api/main.py"], {"engine"} | api),
             (["engine/Dockerfile"], collector | api),
