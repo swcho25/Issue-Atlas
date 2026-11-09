@@ -10,7 +10,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from . import gms, store
-from .model import PROFILE_VERSION, digest
+from .model import PROFILE_VERSION, card_rules, decide, digest
 
 THRESHOLDS = Path(__file__).with_name("thresholds.json")
 
@@ -64,21 +64,18 @@ def command_embed_cards(conn, apply: bool, embed=gms.embed):
 def command_score(conn, apply: bool, path: Path):
     config = json.loads(path.read_text(encoding="utf-8"))
     version = config["version"]
-    thresholds = config["cards"]
-    if set(thresholds) != {"C1", "A3"} or any(
-        not isinstance(value, (int, float)) or not -1 <= value <= 1 for value in thresholds.values()
-    ):
-        raise ValueError("C1·A3 기준값이 -1~1 사이 숫자로 모두 필요합니다")
+    rules = card_rules(config)
     rows = store.scores(conn)
     if not rows:
         raise RuntimeError("활성 기사·카드 임베딩이 없습니다")
     if apply:
-        store.save_scores(conn, rows, thresholds, version)
+        store.save_scores(conn, rows, rules, version)
     stats = Counter(card_id for _, card_id, *_ in rows)
-    selected = Counter(card_id for _, card_id, *rest in rows if rest[-1] >= thresholds[card_id])
+    selected = Counter(card_id for _, card_id, *rest in rows if decide(rules[card_id], rest[-1]))
     return {
         "threshold_version": version,
         "label_status": config.get("label_status"),
+        "methods": {card_id: rule.method for card_id, rule in sorted(rules.items())},
         "scores": dict(stats),
         "selected": dict(selected),
     }

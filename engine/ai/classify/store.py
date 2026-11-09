@@ -6,7 +6,16 @@ from pathlib import Path
 import psycopg
 from dotenv import dotenv_values
 
-from .model import INPUT_VERSION, MODEL, PROFILE_VERSION, card_profile, digest, document_input
+from .model import (
+    INPUT_VERSION,
+    MODEL,
+    PROFILE_VERSION,
+    CardRule,
+    card_profile,
+    decide,
+    digest,
+    document_input,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -180,7 +189,8 @@ def scores(conn):
         return cur.fetchall()
 
 
-def save_scores(conn, rows, thresholds: dict[str, float], threshold_version: str):
+def save_scores(conn, rows, rules: dict[str, CardRule], threshold_version: str):
+    """방식(V0052 method)과 함께 저장한다. 지금은 cosine 뿐이라 확률(probability)은 비운다."""
     with conn.transaction(), conn.cursor() as cur:
         cur.execute(
             """DELETE FROM document_card_score s
@@ -195,18 +205,20 @@ def save_scores(conn, rows, thresholds: dict[str, float], threshold_version: str
                )"""
         )
         for doc_id, card_id, input_id, card_version, profile_version, similarity in rows:
-            threshold = thresholds[card_id]
+            rule = rules[card_id]
             cur.execute(
                 """INSERT INTO document_card_score
                    (doc_id, card_id, input_id, card_version, profile_version, model,
-                    cosine_similarity, threshold_version, threshold, selected)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    cosine_similarity, threshold_version, threshold, selected,
+                    method, probability)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT (doc_id, card_id) DO UPDATE SET
                      input_id = EXCLUDED.input_id, card_version = EXCLUDED.card_version,
                      profile_version = EXCLUDED.profile_version, model = EXCLUDED.model,
                      cosine_similarity = EXCLUDED.cosine_similarity,
                      threshold_version = EXCLUDED.threshold_version,
                      threshold = EXCLUDED.threshold, selected = EXCLUDED.selected,
+                     method = EXCLUDED.method, probability = EXCLUDED.probability,
                      scored_at = now()""",
                 (
                     doc_id,
@@ -217,8 +229,10 @@ def save_scores(conn, rows, thresholds: dict[str, float], threshold_version: str
                     MODEL,
                     similarity,
                     threshold_version,
-                    threshold,
-                    similarity >= threshold,
+                    rule.threshold,
+                    decide(rule, similarity),
+                    rule.method,
+                    None,
                 ),
             )
 
