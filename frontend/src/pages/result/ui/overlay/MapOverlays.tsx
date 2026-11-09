@@ -1,11 +1,13 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import type { Argument } from "@/shared/api";
 import { Icon } from "@/shared/ui/icon";
 
+import { boundariesQuery } from "../../api/boundariesQuery";
 import { articleMarks } from "../../model/articles";
 import {
   defaultMonth,
@@ -17,6 +19,7 @@ import {
   stationSeries,
 } from "../../model/distribution";
 import { judgmentBadge } from "../../model/labels";
+import { movementBars, movementDots } from "../../model/movement";
 import { observationOrder } from "../../model/observationOrder";
 import { changeSeries, openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
@@ -24,6 +27,8 @@ import { ArticleDots, ArticleLegend } from "./ArticleDots";
 import { ChangeSheet } from "./ChangeSheet";
 import { DistributionLegend } from "./DistributionLegend";
 import { GlassActions } from "./GlassActions";
+import { MovementDots } from "./MovementDots";
+import { MovementSheet } from "./MovementSheet";
 import { OrderMarkers, OrderSheet } from "./OrderView";
 import { StationDetail } from "./StationDetail";
 import { StationDots } from "./StationDots";
@@ -63,6 +68,24 @@ export function MapOverlays({ argument }: { argument: Argument }) {
   const articles = useMemo(() => articleMarks(argument), [argument]);
   // 관측 순서: 지역마다 첫 기사 달 순서
   const order = useMemo(() => observationOrder(argument), [argument]);
+  // 이동형: 출발지의 시도(같은 도 안 이동을 막대 밖으로). 결과 지도가 이미 받은 경계(같은 캐시)의 parent_id.
+  // 받는 중이면 undefined, 못 받으면 null(도 안 이동도 막대로)
+  const placeId = argument.question.place_id;
+  const { data: boundaries, isError: noBoundaries } = useQuery({
+    ...boundariesQuery(placeId),
+    enabled: view === "movement",
+  });
+  const parentId = noBoundaries
+    ? null
+    : boundaries &&
+      (boundaries.features.find((f) => f.properties.place_id === placeId)?.properties.parent_id ??
+        null);
+  // 시트 막대와 지도 원이 같은 값을 쓴다. 출발지 시도를 받는 중이면 둘 다 기다린다(도 안 이동이 잠깐 막대 · 원으로 보이지 않게)
+  const movement = useMemo(
+    () => (parentId === undefined ? null : movementBars(argument, parentId)),
+    [argument, parentId],
+  );
+  const movementMarks = useMemo(() => (movement ? movementDots(movement) : []), [movement]);
 
   return (
     <>
@@ -136,6 +159,17 @@ export function MapOverlays({ argument }: { argument: Argument }) {
               </div>
             </>
           )}
+        </>
+      )}
+      {/* 이동형(Figma 「결과 · 이동형 · 청년 유출」): 그림 시트 + 도착 시도 대표점 원. 선 · 화살표는 없다 */}
+      {view === "movement" && movement && (
+        <>
+          <MovementDots dots={movementMarks} from={movement.from} />
+          <div
+            className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
+          >
+            <MovementSheet data={movement} place={argument.question.place_name} />
+          </div>
         </>
       )}
       {view === "observationOrder" && (

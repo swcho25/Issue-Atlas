@@ -20,10 +20,11 @@ const shapeView = {
   tag: "observationOrder",
 } as const;
 
-/** 그림을 이미 만든 유형(나머지는 데이터가 있어도 꺼 둔다 — 이동형은 모양 미정, 사건형은 다음 단위) */
+/** 그림을 이미 만든 유형(나머지는 데이터가 있어도 꺼 둔다 — 사건형은 Figma · DESIGN.md 「보류」, 11/09 보류 유지) */
 export const builtViews: ReadonlySet<ViewType> = new Set([
   "distribution",
   "change",
+  "movement",
   "observationOrder",
 ]);
 
