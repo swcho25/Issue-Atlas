@@ -94,7 +94,7 @@ develop → main 반영(운영 배포)을 할 때 위에서 아래로 확인한�
 
 **전날 · 시작 전**
 - [ ] develop · main 파이프라인이 모두 끝났고 develop 최신 커밋의 개발 배포가 성공했다(같은 환경 직렬 배포)
-- [ ] 운영 DB 를 수동 백업했다 — 자동 백업(`deploy/backup`)은 개발 DB 만 한다. `pg_dump -Fc` 결과를 `/var/backups/issueatlas` 아래 운영 전용 경로에 두고 `pg_restore --list` 로 읽히는지 본다
+- [ ] 운영 DB 최신 백업을 확인했다 — `deploy/backup` 자동 백업은 개발 04:00·운영 05:00(한국 시간), 환경별 최근 7개 보관이다. 중요한 배포 직전에는 `sudo systemctl start issueatlas-production-db-backup.service`로 추가 백업하고 manifest의 SHA256·archive 검사를 확인한다. 실제 복원 검증은 별도 임시 DB에서 수행한다
 - [ ] 새 migration 중 데이터를 지우거나 옮기는 것을 다시 읽었다: V0024 · V0032(ID 바꾸기), V0043 · V0044(보도자료 표 정리), V0042(경계 시드, 크다), V0048 · V0051(저장된 근거 · 실행 결과 UPDATE — 운영은 행이 거의 없다), V0050(`question.asked_by` 칸 · FK 추가). 이전 이미지로 롤백해도 DB 는 돌아가지 않는다
 - [ ] 운영 서버의 Compose 파일이 develop 판이다 — CD 는 서버 Compose 를 바꾸지 않는다. `/opt/issueatlas-prod/deploy/dev/` 의 `compose.yaml`(모니터링 · `ENGINE_URL` · engine 서비스 정의) · `compose.https.yaml`(-290) · `compose.release.yaml`(`ENGINE_IMAGE` 칸)을 저장소 판과 비교한다. engine 을 배포하지 않는 환경은 배포 프로그램이 `ENGINE_IMAGE` 에 자리 값(`issueatlas-engine:not-deployed`)을 넣으므로, 서버 배포 프로그램(`/usr/local/sbin/issueatlas-deploy.py`, 개발과 같은 파일)이 그 판인지도 본다
 - [ ] `/etc/issueatlas/cicd.json`의 `environments.main`에 `engine_image_repository`와 FE 항목이 있고, Compose 목록에 `compose.production-engine.yaml`이 있다. 운영 키는 `/etc/issueatlas/production/engine.env`(10001:10001, 0400)로 준비했다. `frontend_url`은 도메인 전환 전까지 `https://ec2-prod.issue-atlas.kr`을 유지한다
