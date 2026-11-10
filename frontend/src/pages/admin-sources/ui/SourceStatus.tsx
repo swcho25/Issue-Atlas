@@ -28,12 +28,7 @@ export async function SourceStatus({ sources, q }: { sources: Source[]; q: Sourc
   return (
     <section aria-label="출처 상태" className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-label-14 text-text-1">
-          출처 상태{" "}
-          <span className="text-caption-12 text-text-3">
-            최근 {HISTORY_SIZE}번 수집 · 오른쪽이 최신
-          </span>
-        </h2>
+        <h2 className="text-label-14 text-text-1">출처 상태</h2>
         <Legend />
       </div>
       <div className="rounded-xl border border-border-1 bg-surface-1 p-1.5">
