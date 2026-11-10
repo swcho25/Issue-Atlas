@@ -206,6 +206,11 @@ function Inventory({ overview: o }: { overview: Overview }) {
   return (
     <section aria-label="수집 현황" className={`${card} flex flex-col gap-2 p-4`}>
       <h2 className="text-heading-16 text-text-1">수집 현황</h2>
+      {/* 단계마다 세는 것이 달라 원본 → 정제에서 크게 준다(contracts/p2 · operations) */}
+      <p className="text-caption-12 text-text-3">
+        원본은 받은 그대로(에어코리아 시간값 포함), 정제는 검사를 거친 자료(시간값은 월별 집계로만
+        남겨 여기서 빠짐), 사용 가능은 정제 가운데 보류가 아닌 최신본이에요. 단계끼리 더하지 않아요.
+      </p>
       {rows.map(([label, v]) => (
         <div
           key={label}
