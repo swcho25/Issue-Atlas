@@ -46,13 +46,27 @@ class RetentionTest(unittest.TestCase):
                     (folder / 'database.dump').touch()
                     (folder / 'manifest.json').write_text('{}')
             fake_lock = types.SimpleNamespace(LOCK_EX=1, LOCK_NB=2, flock=Mock())
+            real_open, real_close = backup.os.open, backup.os.close
+
+            def open_for_sync(path, flags, *args, **kwargs):
+                # Windows cannot open a directory for fsync. Leave deletion's
+                # directory descriptors real (Linux shutil.rmtree uses fstat).
+                if Path(path) == root / 'production':
+                    return -1
+                return real_open(path, flags, *args, **kwargs)
+
+            def close_after_sync(fd):
+                if fd != -1:
+                    return real_close(fd)
+
             with patch.dict('sys.modules', {'fcntl': fake_lock}), \
                  patch.object(backup, 'ROOT', root), \
                  patch.object(backup, 'run', return_value=Mock(stdout='1')) as run, \
                  patch.object(backup.os, 'umask'), \
                  patch.object(backup.os, 'O_DIRECTORY', 0, create=True), \
-                 patch.object(backup.os, 'open', return_value=123), \
-                 patch.object(backup.os, 'close'), patch.object(backup.os, 'fsync'), \
+                 patch.object(backup.os, 'open', side_effect=open_for_sync), \
+                 patch.object(backup.os, 'close', side_effect=close_after_sync), \
+                 patch.object(backup.os, 'fsync'), \
                  patch.object(backup.shutil, 'disk_usage', return_value=Mock(free=10**12)):
                 backup.backup('production')
             self.assertEqual(len(list((root / 'development').iterdir())), 8)
