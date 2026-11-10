@@ -135,7 +135,7 @@ function RunCompare({ question: q }: { question: MyQuestion }) {
         <p className="text-body-13 text-text-3">
           {before
             ? `${monthDay(before.created_at)} → ${monthDay(now.created_at)} · 같은 질문 · ${
-                sameRule ? "같은 규칙 버전" : "규칙 버전이 바뀜"
+                sameRule ? "같은 분석 기준" : "분석 기준이 바뀜"
               }`
             : `${monthDay(now.created_at)} 실행 · ${q.place_name} · ${yearSpan(q.period_start, q.period_end)}`}
         </p>
@@ -165,11 +165,7 @@ function RunCompare({ question: q }: { question: MyQuestion }) {
                   {h}
                 </th>
               ))}
-              {before && (
-                <th className="py-2.5 pr-3 font-normal">
-                  <span className="sr-only">변화</span>
-                </th>
-              )}
+              {before && <th className="py-2.5 pr-3 font-normal">변화</th>}
             </tr>
           </thead>
           <tbody>
