@@ -14,10 +14,13 @@ export function RailPreview() {
           <AppRail
             role="admin"
             currentPath="/admin/reviews"
+            alerts={{ "/admin/sources": "CSV 처리 필요 1건" }}
             user={{ name: "정우현", email: "name@example.com" }}
             className="h-[560px]"
           />
-          <figcaption className="text-caption-12 text-text-3">관리자 · 검수</figcaption>
+          <figcaption className="text-caption-12 text-text-3">
+            관리자 · 검수 · 데이터 소스 알림
+          </figcaption>
         </figure>
       </div>
     </section>

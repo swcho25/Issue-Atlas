@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { countPendingFor } from "@/entities/csv-import";
 import type { SearchParams } from "@/shared/lib/url";
 import { buttonClass } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
@@ -33,7 +34,7 @@ async function SourcesContent({ searchParams }: { searchParams: Promise<SearchPa
     getMe(),
     getImports({ page: 1, size: 1 }),
   ]);
-  const mine = await getImports({ status: "pending", assignee: me.id, page: 1, size: 1 });
+  const mine = await countPendingFor(me.id);
   return (
     <>
       <header className="flex flex-wrap items-center gap-4">
@@ -58,12 +59,12 @@ async function SourcesContent({ searchParams }: { searchParams: Promise<SearchPa
           ]}
         />
         {/* CSV 업로드 보기에는 「전체 · 처리 필요」 칸이 있어 출처 보기에서만 */}
-        {q.view === "sources" && mine.total > 0 && (
+        {q.view === "sources" && mine > 0 && (
           <Link
             href={sourcesHref({ view: "imports", mine: true })}
             className="text-label-13 text-primary-text hover:underline"
           >
-            CSV 처리 필요 {mine.total}
+            CSV 처리 필요 {mine}
           </Link>
         )}
         <Link
@@ -88,7 +89,7 @@ async function SourcesContent({ searchParams }: { searchParams: Promise<SearchPa
         <Suspense
           fallback={<p className="text-body-13 text-text-3">CSV 업로드를 불러오는 중이에요</p>}
         >
-          <ImportPanel q={q} me={me} mineTotal={mine.total} allTotal={all.total} />
+          <ImportPanel q={q} me={me} mineTotal={mine} allTotal={all.total} />
         </Suspense>
       )}
     </>

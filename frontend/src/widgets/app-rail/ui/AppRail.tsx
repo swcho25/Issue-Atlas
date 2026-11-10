@@ -17,6 +17,8 @@ type AppRailProps = {
   role?: "viewer" | "admin";
   /** 로그인한 사람. 있으면 맨 아래 첫 글자 동그라미를 보여 주고, 누르면 계정 판(이메일 · 권한 · 로그아웃)이 뜬다 */
   user?: RailUser;
+  /** 메뉴 주소 → 알림 글자. 있으면 그 메뉴 아이콘 오른쪽 위에 빨간 점(글자는 화면 낭독 · 툴팁) */
+  alerts?: Partial<Record<string, string>>;
   /** 견본 페이지처럼 실제 주소와 다른 칸을 고른 모습으로 보일 때만 넘긴다 */
   currentPath?: string;
   className?: string;
@@ -40,7 +42,13 @@ export function AppRailPlaceholder() {
   );
 }
 
-export function AppRail({ role = "viewer", user, currentPath, className = "" }: AppRailProps) {
+export function AppRail({
+  role = "viewer",
+  user,
+  alerts,
+  currentPath,
+  className = "",
+}: AppRailProps) {
   const pathname = usePathname();
   const path = currentPath ?? pathname ?? "";
   const [logoOpen, setLogoOpen] = useState(false);
@@ -48,14 +56,21 @@ export function AppRail({ role = "viewer", user, currentPath, className = "" }: 
 
   const item = (menu: MenuItem) => {
     const active = isActive(menu, path);
+    const alert = alerts?.[menu.href];
     return (
       <Link
         key={menu.href}
         href={menu.href}
         aria-current={active ? "page" : undefined}
-        className="flex h-[calc(56*var(--u))] w-[calc(60*var(--u))] flex-col items-center justify-center gap-[calc(4*var(--u))] rounded-[calc(14*var(--u))] text-text-2 hover:text-text-1 aria-[current=page]:bg-surface-3 aria-[current=page]:text-text-1"
+        title={alert}
+        className="relative flex h-[calc(56*var(--u))] w-[calc(60*var(--u))] flex-col items-center justify-center gap-[calc(4*var(--u))] rounded-[calc(14*var(--u))] text-text-2 hover:text-text-1 aria-[current=page]:bg-surface-3 aria-[current=page]:text-text-1"
       >
         <Icon name={menu.icon} className="size-[calc(20*var(--u))]" />
+        {alert && (
+          <span className="absolute top-[calc(9*var(--u))] right-[calc(15*var(--u))] size-[calc(8*var(--u))] rounded-full bg-status-red ring-2 ring-bg-sidebar">
+            <span className="sr-only">{alert}</span>
+          </span>
+        )}
         {/* Figma 글자 11px(caption-11 크기 · 줄 높이)에 같은 비율을 곱한다 */}
         <span
           className={`text-[length:calc(11*var(--u))] leading-[calc(14*var(--u))] whitespace-nowrap ${active ? "font-bold" : "font-medium"}`}
