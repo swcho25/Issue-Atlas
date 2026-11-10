@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://issue-atlas.c108/contracts/ai/phrasing-result.schema.json",
-  "title": "AI 모듈 문장화 결과 v0.3 — engine POST /v1/argument/phrase 응답",
-  "description": "rebuttals 는 C2 칸 모양 그대로라 done 이면 backend 가 ⑤ 반박 칸을 바꿔 끼운다. done 이 아니면 빈 반박. ① 판단은 규칙 · ③ 보증은 카드 문장이라 AI 가 쓰지 않는다(v0.3)",
+  "title": "AI 모듈 문장화 결과 v0.4 — engine POST /v1/argument/phrase 응답",
+  "description": "rebuttals 는 C2 칸 모양 그대로라 done 이면 backend 가 ⑤ 반박 칸을 바꿔 끼운다. done 이 아니면 빈 반박. ① 판단은 규칙 · ③ 보증은 카드 문장이라 AI 가 쓰지 않는다(v0.3). 반박 하나의 검사 탈락은 그 반박만 needs_review 로 낮추고 done 으로 낸다(v0.4)",
   "type": "object",
   "properties": {
-    "schema_version": { "const": "ai-phrasing-result-0.3" },
+    "schema_version": { "const": "ai-phrasing-result-0.4" },
     "run_id": { "$ref": "../c2/common.schema.json#/$defs/id" },
     "status": { "enum": ["done", "skipped", "failed"] },
     "reason_code": {
@@ -28,7 +28,7 @@
       "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/citation" } }
     },
     "problems": {
-      "description": "OUTPUT_REJECTED 일 때 떨어진 검사. 검사 이름은 README 「출력 검사」",
+      "description": "떨어진 검사. OUTPUT_REJECTED 면 출력 전체를 되돌린 이유, done 이면 needs_review 로 낮춘 반박의 이유(where = 반박 ID, v0.4). 검사 이름은 README 「출력 검사」",
       "type": "array",
       "items": {
         "type": "object",
@@ -41,7 +41,8 @@
               "quote_not_in_source",
               "number_mismatch",
               "unsupported",
-              "forbidden_term"
+              "forbidden_term",
+              "sign_wording"
             ]
           },
           "where": { "type": "string" },
@@ -70,7 +71,7 @@
   "allOf": [
     {
       "if": { "properties": { "status": { "const": "done" } } },
-      "then": { "properties": { "reason_code": { "const": null }, "problems": { "maxItems": 0 } } },
+      "then": { "properties": { "reason_code": { "const": null } } },
       "else": { "properties": { "rebuttals": { "maxItems": 0 }, "citations": { "maxProperties": 0 } } }
     },
     {
