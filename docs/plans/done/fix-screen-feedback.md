@@ -1,6 +1,6 @@
 # fix/screen-feedback — 화면 피드백 중 계약을 바꾸지 않는 것 고치기
 
-- Jira: (사람이 만든다 — 키를 받으면 채운다) · PRD: FR-C4 · FR-C5 · 묶음/단위: S2
+- Jira: S15P31C108-339 · PRD: FR-C4 · FR-C5 · 묶음/단위: S2
 
 ## 완료 조건
 - [x] 자료 현황 표 · CSV 의 건수가 요약 · 분석 근거 · 출처 탭과 같다(보도 기사 포함)
@@ -18,6 +18,7 @@
 - 2026-11-10: 시작. dev 화면을 둘러보고 모은 피드백 28건 중 337(결과 화면 용어 변경)이 고친 3건 · 일부 고친 6건을 빼고, 계약을 바꾸지 않는 것만 이 브랜치에서 고친다
 - 2026-11-10: 고친 부분마다 커밋 15개. 내 질문 비교는 회차 결과(GET /v1/arguments)에 이미 있는 claim.label 을 써서 계약 없이 고쳤다(목록 배지는 아직 「증가」). 예시 문장 「여수 청년은 어디로 떠나고 있나」는 C1 카드의 parent_question 이라 그대로 뒀다
 - 2026-11-10: 검사 — frontend lint · typecheck · test 286 통과, backend spotless · CeilingItemsTest · QuestionApiTest 통과. 브라우저(로컬 프런트 → dev 백엔드, 관리자 로그인): 자료 현황 기사 163건, 근거 수준 기준 줄, 「카드 3판」, 출처 상세 원문 위치(news_id · spec_id · publisher), 지도 묶음 「N건」, 내 질문 비교(청년 순유출 확대 · 변화 열 · 같은 분석 기준), 새 질문 「근거 4/4종 · 기준」, 운영 요약 링크 13개 · 지금/누적 · 수집 현황 설명, 수집 이력 ?source= 거름, 검수 「요청 출처」, 랜딩 한 줄. 분석 범위 밖 문장은 dev 백엔드가 옛 코드라 화면에서는 못 봤다(테스트로 확인)
+- 2026-11-10: Jira S15P31C108-339. check:all 통과(harness · backend format · build, frontend lint · typecheck · test 286 · e2e 4, engine lint · test 647)
 
 ## 다음 할 일 / 범위 밖
 - 계약(C2)이 바뀌는 것: 반박별 근거 기사 보이기(rebuttals[] 에 근거 ID), 내 질문 회차에 분석 결과 이름(claim_label), 기사 제목(articles[].title), 비슷한 기사 묶기
