@@ -3,6 +3,7 @@ import { ProvBadge, StatusBadge } from "@/shared/ui/badge";
 import { Icon, type IconName } from "@/shared/ui/icon";
 import { TabBar } from "@/shared/ui/tab-bar";
 
+import { type StationStats, statChip, stationSeries, stationStats } from "../model/distribution";
 import {
   claimLevelLabel,
   comparabilityLabel,
@@ -73,14 +74,19 @@ export function ResultCard({ argument }: { argument: Argument }) {
   const passed = conditions.filter(([, c]) => c.passed === true).length;
   const badge = judgmentBadge(argument);
   const unmet = unmetConditions(argument);
+  const stats = stationStats(stationSeries(argument));
 
   return (
     <CardShell
       title={`${question.place_name} · ${question.card_name ?? "목록에 없는 질문"}`}
       tabs={<TabBar variant="clear" items={resultTabs(argument)} current="summary" />}
     >
-      {/* 기간 · 실행 시각(Figma 13 Regular text-3 · 줄 높이 16 — 글자 스타일이 없어 Body 13 에 줄 높이만 16) */}
-      <p className="text-body-13 leading-4 text-text-3">{metaLine(argument)}</p>
+      {/* Figma Panel > Meta(세로 · 사이 10): 기간 줄 + 측정소 결과면 관측 요약 칩 */}
+      <div className="flex flex-col gap-2.5">
+        {/* 기간 · 실행 시각(Figma 13 Regular text-3 · 줄 높이 16 — 글자 스타일이 없어 Body 13 에 줄 높이만 16) */}
+        <p className="text-body-13 leading-4 text-text-3">{metaLine(argument)}</p>
+        {stats && <StationStatChips stats={stats} />}
+      </div>
 
       {/* 실행 상태 + 카드 · 규칙 판 */}
       <div className="flex items-center gap-2">
@@ -208,6 +214,47 @@ export function ResultCard({ argument }: { argument: Argument }) {
         )}
       </section>
     </CardShell>
+  );
+}
+
+/**
+ * 관측 요약 칩(Figma Panel > Meta > stats: 가로 · 줄 바꿈 · 사이 6, 칩 surface-2 · 모서리 8 · 안쪽 5 · 10 · Medium 13 text-1).
+ * 측정소 수 · 기간 전체에서 가장 높은 · 낮은 측정소 월평균과 그 달. 어느 측정소인지는 툴팁 · 낭독기로.
+ * Figma 의 「연평균 17.0 → 14.7 µg/m³」 는 판정 규칙의 값(공통 측정소 · 유효 달)이고 응답에 칸이 없어 넣지 않았다
+ */
+function StationStatChips({ stats }: { stats: StationStats }) {
+  const unit = stats.unit ? ` ${stats.unit}` : "";
+  const chips = [
+    { text: `측정소 ${stats.count}곳`, hint: undefined },
+    ...(
+      [
+        ["최고", stats.high],
+        ["최저", stats.low],
+      ] as const
+    ).flatMap(([label, at]) =>
+      at
+        ? [
+            {
+              text: statChip(label, at),
+              hint: `${at.station} 측정소 ${at.month} 월평균${unit} · 기간 중 ${label}`,
+            },
+          ]
+        : [],
+    ),
+  ];
+  return (
+    <ul aria-label="관측 요약" className="flex flex-wrap gap-1.5">
+      {chips.map((c) => (
+        <li
+          key={c.text}
+          title={c.hint}
+          className="rounded-lg bg-surface-2 px-2.5 py-1.25 text-label-13 leading-4 text-text-1"
+        >
+          {c.text}
+          {c.hint && <span className="sr-only"> ({c.hint})</span>}
+        </li>
+      ))}
+    </ul>
   );
 }
 
