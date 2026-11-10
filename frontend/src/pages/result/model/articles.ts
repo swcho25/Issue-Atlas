@@ -1,5 +1,7 @@
 import type { Argument, ArgumentArticle } from "@/shared/api";
 
+import { monthOf } from "./timeline";
+
 // 04 변화형 위 기사 점(Figma 「결과 · 변화형 · 청년 유출」): 근거 기사(articles[])를 지도에 놓는다.
 // 주소 · 정확한 위치는 점으로 — 같은 자리(같은 주소) 기사는 점 하나에 모아 건수를 단다(겹쳐 놓으면 맨 위 하나만 눌린다:
 // 여수 C1 11/06 실행은 주소 기사 17건이 4곳뿐, 박람회장 7 · 시청 6 · 여수산단 3).
@@ -14,6 +16,8 @@ export type ArticleDot = {
   name: string;
   /** 이 자리의 기사 id(하나면 기사 창, 여럿이면 목록 창) */
   ids: string[];
+  /** 그 기사들의 날짜(ids 와 같은 순서) — 고른 달 기사가 없는 자리는 흐리게 */
+  dates: (string | null)[];
   /** 장소 이름(기사의 place_name) */
   place: string | null;
 };
@@ -25,6 +29,8 @@ export type ApproxGroup = {
   name: string;
   /** 묶음에 든 기사 id(누르면 목록 창) */
   ids: string[];
+  /** 그 기사들의 날짜(ids 와 같은 순서) */
+  dates: (string | null)[];
 };
 
 /** 점 이름(낭독기 · 툴팁): 「2023-01-27 · 여수시가 청년행복도시 …」 */
@@ -50,13 +56,16 @@ export function articleMarks(a: Argument): { dots: ArticleDot[]; groups: ApproxG
     const key = at.map((v) => v.toFixed(5)).join(",");
     if (article.precision === "exact" || article.precision === "address") {
       const dot = dots.get(key);
-      if (dot) dot.ids.push(article.id);
-      else
+      if (dot) {
+        dot.ids.push(article.id);
+        dot.dates.push(article.date);
+      } else
         dots.set(key, {
           key,
           at,
           name: "",
           ids: [article.id],
+          dates: [article.date],
           place: article.place_name,
           first: article,
         });
@@ -66,9 +75,18 @@ export function articleMarks(a: Argument): { dots: ArticleDot[]; groups: ApproxG
       if (group) {
         group.count += 1;
         group.ids.push(article.id);
+        group.dates.push(article.date);
       } else {
         const area = areaName.get(article.place_id) ?? "행정구역";
-        groups.set(key, { key, at, area, count: 1, name: "", ids: [article.id] });
+        groups.set(key, {
+          key,
+          at,
+          area,
+          count: 1,
+          name: "",
+          ids: [article.id],
+          dates: [article.date],
+        });
       }
     }
   }
@@ -80,6 +98,13 @@ export function articleMarks(a: Argument): { dots: ArticleDot[]; groups: ApproxG
     groups: [...groups.values()].map((g) => ({ ...g, name: approxLabel(g) })),
   };
 }
+
+/**
+ * 고른 달의 기사가 하나라도 있는 자리인가(명세 7절 「기사 점: 고른 달은 진하게, 다른 달은 흐린 점」).
+ * 날짜를 모르는 기사는 흐리게 하지 않는다
+ */
+export const markInMonth = (mark: { dates: (string | null)[] }, month: string) =>
+  mark.dates.some((d) => !d || monthOf(d) === month);
 
 /** 같은 자리 점 이름: 「여수세계박람회장 · 기사 7건」 */
 export const stackLabel = (d: Pick<ArticleDot, "place" | "ids">) =>

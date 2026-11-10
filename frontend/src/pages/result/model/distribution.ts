@@ -17,31 +17,8 @@ export const stationSeries = (a: Argument) =>
       s.coordinates[1] != null,
   );
 
-/** 고를 수 있는 달(질문 기간의 달 모두, 앞에서부터) */
+/** 측정소 줄의 달(질문 기간의 달 모두, 앞에서부터). 고르는 달 · 처음 달은 공통 시간 슬라이더(model/timeline) */
 export const distributionMonths = (series: PlaceSeries[]) => series[0]?.periods ?? [];
-
-/**
- * 시간 막대(A3 변화형)의 달마다 높이: 그 달 값이 있는 측정소의 평균. 값이 하나도 없는 달은 null.
- * 점은 측정소 값 그대로이고(「측정소 값, 도시 평균 아님」), 이 평균은 달을 고르기 위한 모양일 뿐이다
- */
-export function monthlyMeans(series: PlaceSeries[]): (number | null)[] {
-  return distributionMonths(series).map((month) => {
-    const values = series.flatMap((s) => {
-      const v = s.values[s.periods.indexOf(month)];
-      return v == null ? [] : [v];
-    });
-    return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
-  });
-}
-
-/** 처음 보여 줄 달: 값이 하나라도 있는 마지막 달(없으면 기간의 마지막 달) */
-export function defaultMonth(series: PlaceSeries[]) {
-  const months = distributionMonths(series);
-  for (let i = months.length - 1; i >= 0; i--) {
-    if (series.some((s) => s.values[i] != null)) return months[i];
-  }
-  return months.at(-1) ?? null;
-}
 
 /** 결과 카드 칩(Figma Panel > Meta > stats): 측정소 수 · 기간 전체에서 가장 높은 · 낮은 측정소 월평균과 그 달 */
 export type StationStats = {

@@ -47,6 +47,25 @@ describe("관측 순서", () => {
     expect(stops[3].at).toBeNull();
   });
 
+  it("달을 고르면 그 달까지 처음 나온 지역만 — 기사 수도 그 달까지(명세 「슬라이더 달까지 나타난 곳만」)", () => {
+    const a = withLines(
+      countLine("kr-12130-520", "만덕동", [0, 3, 4]),
+      countLine("kr-12130", "여수시", [5, 9, 0]),
+      countLine("kr-12130-540", "문수동", [0, 0, 1]),
+    );
+    // 2023-01 까지: 여수시만
+    expect(observationOrder(a, "2023-01").map((s) => [s.rank, s.name, s.first, s.total])).toEqual([
+      [1, "여수시", "2023-01", 5],
+    ]);
+    // 2023-02 까지: 만덕동이 더해지고, 여수시 기사 수는 두 달 치
+    expect(observationOrder(a, "2023-02").map((s) => [s.rank, s.name, s.first, s.total])).toEqual([
+      [1, "여수시", "2023-01", 14],
+      [2, "만덕동", "2023-02", 3],
+    ]);
+    // 마지막 달까지는 달을 주지 않은 것과 같다
+    expect(observationOrder(a, "2023-03")).toEqual(observationOrder(a));
+  });
+
   it("기사 건수 줄이 없거나 모두 0이면 켜지 않는다", () => {
     expect(hasObservationOrder(ready)).toBe(false);
     expect(hasObservationOrder(withLines(countLine("kr-12130", "여수시", [0, 0])))).toBe(false);

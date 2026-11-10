@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { type Argument, argumentSchema } from "@/shared/api";
 
 import readyJson from "../../../../../contracts/c2/examples/argument-c1-ready.json";
-import { approxLabel, articleMarks } from "./articles";
+import { approxLabel, articleMarks, markInMonth } from "./articles";
 
 const ready = argumentSchema.parse(readyJson);
 
@@ -75,6 +75,25 @@ describe("기사 점", () => {
       [["e1", "e2", "e3"], "여수세계박람회장 · 기사 3건"],
       [["s1"], "2023-01-27 · 요약 s1"],
     ]);
+  });
+
+  it("고른 달의 기사가 하나라도 있는 자리만 진하게(다른 달은 흐리게), 날짜를 모르면 흐리게 하지 않는다", () => {
+    const a = {
+      ...ready,
+      articles: [
+        { ...article("e1", "address", [127.747131, 34.750901]), date: "2023-01-27" },
+        { ...article("e2", "address", [127.747131, 34.750901]), date: "2024-06-03" },
+        { ...article("s1", "address", [127.661524, 34.760494]), date: "2023-02-10" },
+        { ...article("g1", "admin_centroid", [127.662203, 34.760374]), date: "2024-06-30" },
+      ],
+    } as Argument;
+    const { dots, groups } = articleMarks(a);
+    expect(dots.map((d) => d.dates)).toEqual([["2023-01-27", "2024-06-03"], ["2023-02-10"]]);
+    // 같은 자리 두 건 중 하나가 2024-06 → 진하게, 2023-02 한 건뿐인 자리는 흐리게
+    expect(dots.map((d) => markInMonth(d, "2024-06"))).toEqual([true, false]);
+    expect(markInMonth(groups[0], "2024-06")).toBe(true);
+    expect(markInMonth(groups[0], "2024-07")).toBe(false);
+    expect(markInMonth({ dates: [null] }, "2024-06")).toBe(true);
   });
 
   it("기사가 없으면 아무것도 그리지 않는다", () => {

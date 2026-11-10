@@ -8,18 +8,11 @@ import type { Argument } from "@/shared/api";
 
 import { boundariesQuery } from "../../api/boundariesQuery";
 import { articleMarks } from "../../model/articles";
-import {
-  defaultMonth,
-  distributionMonths,
-  hasAqBands,
-  monthlyMeans,
-  monthSummary,
-  stationPoints,
-  stationSeries,
-} from "../../model/distribution";
+import { hasAqBands, monthSummary, stationPoints, stationSeries } from "../../model/distribution";
 import { judgmentBadge } from "../../model/labels";
 import { movementBars, movementDots } from "../../model/movement";
 import { observationOrder } from "../../model/observationOrder";
+import { defaultMonth, periodMonths } from "../../model/timeline";
 import { changeSeries, openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
 import { ArticleDetail, ArticleGroupDetail, ArticleStackDetail } from "./ArticleDetail";
@@ -27,16 +20,16 @@ import { ArticleDots, ArticleLegend, articleMark, groupMark } from "./ArticleDot
 import { ChangeSheet } from "./ChangeSheet";
 import { DistributionLegend } from "./DistributionLegend";
 import { GlassActions } from "./GlassActions";
-import { MonthMenu } from "./MonthMenu";
 import { MovementDots } from "./MovementDots";
 import { MovementSheet } from "./MovementSheet";
 import { OrderMarkers, OrderSheet } from "./OrderView";
 import { StationDetail } from "./StationDetail";
 import { focusMark } from "./pressable";
 import { StationDots, stationMark } from "./StationDots";
-import { TimeStrip } from "./TimeStrip";
+import { TimeSlider } from "./TimeSlider";
 
-// 04 지도 위 부품(Figma 04): 위 유형 전환(+ 분포형이면 시점) · 오른쪽 위 유리 아이콘 · 그림 시트 · 범례 · 아래 유리 바.
+// 04 지도 위 부품(Figma 04): 위 유형 전환 · 오른쪽 위 유리 아이콘 · 시간 슬라이더 · 그림 시트 · 범례 · 아래 유리 바.
+// 시간 슬라이더는 모든 유형이 하나를 함께 쓴다(시공간 표시 개발 명세 7절 「월 슬라이더 하나를 공유한다」) — 그림 시트 바로 위.
 // 셋 다 결과 카드(왼쪽 24 + 폭 400 + 사이 24 = 448) 오른쪽의 빈 지도 위에 둔다. 유형 전환은 그 왼쪽 끝,
 // 시트 · 유리 바는 그 영역 가운데(Figma 520 ~ 1600 의 가운데 1060)
 const FREE_LEFT = "left-[448px]";
@@ -45,16 +38,18 @@ export function MapOverlays({ argument }: { argument: Argument }) {
   const { enabled, initial } = openViews(argument);
   const [view, setView] = useState<ViewType | null>(initial);
 
-  // 분포형: 고른 달의 측정소 점
+  // 공통 시간 슬라이더: 질문 기간의 달에서 하나를 고른다. 처음엔 값이 있는 마지막 달, 유형을 바꿔도 그대로.
+  // 응답의 그림 줄은 모두 같은 칸(달 · 값)이라 모든 유형이 이 달 하나를 쓴다. 보이는 것만 바꾼다(판단은 질문 기간 그대로)
+  const months = useMemo(() => periodMonths(argument), [argument]);
+  const [month, setMonth] = useState(() => defaultMonth(argument));
+
+  // 측정소 점: 고른 달 값. 분포형, 그리고 막대 그림 줄이 없는 변화형(A3 — C1 은 순이동 막대 시트)
   const stations = useMemo(() => stationSeries(argument), [argument]);
-  const [month, setMonth] = useState(() => defaultMonth(stations));
   const points = useMemo(() => (month ? stationPoints(stations, month) : []), [stations, month]);
   const unit = stations[0]?.unit ?? null;
   const distribution = view === "distribution" && month !== null;
-  // A3 변화형: 같은 측정소 점 + 지도 아래 시간 막대(막대 그림 줄이 없을 때 — C1 은 순이동 막대 시트)
   const timeline =
     view === "change" && month !== null && stations.length > 0 && !changeSeries(argument);
-  const means = useMemo(() => monthlyMeans(stations), [stations]);
   // 측정소 상세 창: 고른 측정소(달을 바꿔도 같은 측정소, 그 달 값으로)
   const [stationId, setStationId] = useState<string | null>(null);
   const station = distribution || timeline ? points.find((p) => p.id === stationId) : undefined;
@@ -82,8 +77,8 @@ export function MapOverlays({ argument }: { argument: Argument }) {
     setArticleKey(null);
     if (refocus && key) focusMark(key);
   };
-  // 관측 순서: 지역마다 첫 기사 달 순서
-  const order = useMemo(() => observationOrder(argument), [argument]);
+  // 관측 순서: 고른 달까지 처음 나온 지역의 순서
+  const order = useMemo(() => observationOrder(argument, month ?? undefined), [argument, month]);
   // 이동형: 출발지의 시도(같은 도 안 이동을 막대 밖으로). 결과 지도가 이미 받은 경계(같은 캐시)의 parent_id.
   // 받는 중이면 undefined, 못 받으면 null(도 안 이동도 막대로)
   const placeId = argument.question.place_id;
@@ -98,8 +93,8 @@ export function MapOverlays({ argument }: { argument: Argument }) {
         null);
   // 시트 막대와 지도 원이 같은 값을 쓴다. 출발지 시도를 받는 중이면 둘 다 기다린다(도 안 이동이 잠깐 막대 · 원으로 보이지 않게)
   const movement = useMemo(
-    () => (parentId === undefined ? null : movementBars(argument, parentId)),
-    [argument, parentId],
+    () => (parentId === undefined ? null : movementBars(argument, parentId, month ?? undefined)),
+    [argument, parentId, month],
   );
   const movementMarks = useMemo(() => (movement ? movementDots(movement) : []), [movement]);
 
@@ -115,24 +110,8 @@ export function MapOverlays({ argument }: { argument: Argument }) {
         }}
       />
       <GlassActions argument={argument} />
-      {timeline && (
-        <div
-          className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
-        >
-          <TimeStrip
-            months={distributionMonths(stations)}
-            means={means}
-            value={month}
-            unit={unit}
-            onChange={setMonth}
-          />
-        </div>
-      )}
       {(distribution || timeline) && (
         <>
-          {distribution && (
-            <MonthMenu months={distributionMonths(stations)} value={month} onChange={setMonth} />
-          )}
           <StationDots
             points={points}
             unit={unit}
@@ -159,17 +138,13 @@ export function MapOverlays({ argument }: { argument: Argument }) {
       )}
       {view === "change" && (
         <>
-          <div
-            className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
-          >
-            <ChangeSheet argument={argument} />
-          </div>
           {/* 순이동 막대 + 기사 점(Figma 「변화형 · 청년 유출」). 범례는 유리 아이콘 아래(오른쪽 16 · 위 72) */}
           {(articles.dots.length > 0 || articles.groups.length > 0) && (
             <>
               <ArticleDots
                 dots={articles.dots}
                 groups={articles.groups}
+                month={month}
                 selected={articleKey}
                 onSelect={setArticleKey}
               />
@@ -204,6 +179,7 @@ export function MapOverlays({ argument }: { argument: Argument }) {
                 <ArticleLegend
                   hasDots={articles.dots.length > 0}
                   hasGroups={articles.groups.length > 0}
+                  dimsOthers={month !== null}
                 />
               </div>
             </>
@@ -212,25 +188,22 @@ export function MapOverlays({ argument }: { argument: Argument }) {
       )}
       {/* 이동형(Figma 「결과 · 이동형 · 청년 유출」): 그림 시트 + 도착 시도 대표점 원. 선 · 화살표는 없다 */}
       {view === "movement" && movement && (
-        <>
-          <MovementDots dots={movementMarks} from={movement.from} />
-          <div
-            className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
-          >
-            <MovementSheet data={movement} place={argument.question.place_name} />
-          </div>
-        </>
+        <MovementDots dots={movementMarks} from={movement.from} />
       )}
-      {view === "observationOrder" && (
-        <>
-          <OrderMarkers stops={order} />
-          <div
-            className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex justify-center`}
-          >
-            <OrderSheet stops={order} />
-          </div>
-        </>
-      )}
+      {view === "observationOrder" && <OrderMarkers stops={order} />}
+      {/* 시간 슬라이더(모든 유형 공통) + 그 유형의 그림 시트. 빈 지도 가운데 아래에 위 → 아래로 쌓는다 */}
+      <div
+        className={`pointer-events-none absolute right-0 bottom-24 ${FREE_LEFT} z-control flex flex-col items-center gap-3`}
+      >
+        {view && month && months.length > 1 && (
+          <TimeSlider months={months} value={month} onChange={setMonth} />
+        )}
+        {view === "change" && <ChangeSheet argument={argument} month={month ?? undefined} />}
+        {view === "movement" && movement && (
+          <MovementSheet data={movement} place={argument.question.place_name} />
+        )}
+        {view === "observationOrder" && <OrderSheet stops={order} />}
+      </div>
       <div
         className={`pointer-events-none absolute right-0 bottom-6 ${FREE_LEFT} z-control flex justify-center`}
       >
