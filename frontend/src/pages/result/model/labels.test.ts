@@ -54,6 +54,21 @@ describe("locatorLine — 원문 위치를 한 줄로", () => {
       locatorLine({ tbl_id: "DT_1B26001", C2: "0", prd_de: ["2023", "2024"], sheet: null }),
     ).toBe("tbl_id DT_1B26001 · C2 0 · prd_de 2023 · 2024");
   });
+
+  it("안의 객체는 한 단계만 풀고, 더 깊은 것 · 해시 · 검색 조건은 뺀다", () => {
+    expect(
+      locatorLine({
+        spec_id: "bigkinds_news",
+        locator: {
+          news_id: "01100101.2024",
+          search_query: "여수 AND 청년",
+          obs_key: "obs:ab",
+          query: { keyword: "청년", ranges: [{ from: 1 }] },
+        },
+        content_hash: "ab12",
+      }),
+    ).toBe("spec_id bigkinds_news · news_id 01100101.2024");
+  });
 });
 
 describe("판단 배지(C2 v1)", () => {

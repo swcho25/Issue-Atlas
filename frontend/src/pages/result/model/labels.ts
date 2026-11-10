@@ -135,18 +135,27 @@ export function kstDate(iso: string, withTime = false) {
   return withTime ? `${day} ${get("hour")}:${get("minute")}` : day;
 }
 
-/** 원문 위치(locator)를 한 줄로: 「tbl_id DT_1B26001 · C1 46130 · prd_de 2023 · 2024 · 2025」 */
-export function locatorLine(locator: Record<string, unknown>) {
+/** 원문 위치에서 뺄 칸: 해시 · 수집 검색 조건 */
+const hidden = /hash$|^obs_key$|^search_/i;
+
+/**
+ * 원문 위치(locator)를 한 줄로: 「tbl_id DT_1B26001 · C1 46130 · prd_de 2023 · 2024 · 2025」.
+ * 안에 든 객체(빅카인즈 locator …)는 한 단계만 풀고 더 깊은 것은 뺀다. 해시(content_hash · obs_key)와
+ * 수집할 때 쓴 검색 조건(search_query · search_category)도 원문을 다시 찾는 값이 아니라 뺀다
+ */
+export function locatorLine(locator: Record<string, unknown>, depth = 0): string {
   return Object.entries(locator)
-    .filter(([, value]) => value !== null && value !== undefined)
+    .filter(([key, value]) => value !== null && value !== undefined && !hidden.test(key))
     .map(([key, value]) => {
-      const text = Array.isArray(value)
-        ? value.map(String).join(" · ")
-        : typeof value === "object" && value !== null
-          ? JSON.stringify(value)
-          : String(value);
-      return `${key} ${text}`;
+      if (Array.isArray(value)) {
+        const scalars = value.filter((v) => typeof v !== "object" || v === null);
+        return scalars.length ? `${key} ${scalars.map(String).join(" · ")}` : "";
+      }
+      if (typeof value === "object")
+        return depth ? "" : locatorLine(value as Record<string, unknown>, depth + 1);
+      return `${key} ${String(value)}`;
     })
+    .filter(Boolean)
     .join(" · ");
 }
 
