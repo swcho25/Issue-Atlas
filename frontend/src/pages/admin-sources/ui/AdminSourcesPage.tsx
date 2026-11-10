@@ -57,7 +57,8 @@ async function SourcesContent({ searchParams }: { searchParams: Promise<SearchPa
             },
           ]}
         />
-        {mine.total > 0 && (
+        {/* CSV 업로드 보기에는 「전체 · 처리 필요」 칸이 있어 출처 보기에서만 */}
+        {q.view === "sources" && mine.total > 0 && (
           <Link
             href={sourcesHref({ view: "imports", mine: true })}
             className="text-label-13 text-primary-text hover:underline"
