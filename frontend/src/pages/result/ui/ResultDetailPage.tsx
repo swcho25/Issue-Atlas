@@ -16,6 +16,7 @@ import { EvidenceTab } from "./evidence/EvidenceTab";
 import { SourceReader, SourceReaderFallback } from "./sources/SourceReader";
 import { SourcesList } from "./sources/SourcesList";
 import { SourcesPanel } from "./sources/SourcesPanel";
+import { ResultLoading } from "./state/ResultLoading";
 import { type DetailTab, isDetailTab, sourcesHref } from "./tabs";
 
 // /results/[id]/[tab] — 05 · 근거 수요표(evidence) · 논증 카드(argument) · 원문(sources).
@@ -28,7 +29,7 @@ type Props = {
 
 export function ResultDetailPage({ params, searchParams }: Props) {
   return (
-    <Suspense>
+    <Suspense fallback={<ResultLoading variant="detail" />}>
       <DetailContent params={params} searchParams={searchParams} />
     </Suspense>
   );
