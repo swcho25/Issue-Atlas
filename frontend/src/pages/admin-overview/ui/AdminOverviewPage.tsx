@@ -13,7 +13,7 @@ import type { Overview, SourceStatus } from "../model/schema";
 
 // /admin — 07 · 운영 요약(Figma 2374:6586). 관리자 첫 화면. 들어오는 것은 AdminLayout 이 ADMIN 만 통과시킨다.
 // 값은 모두 GET /v1/admin/overview. Figma 초안 맨 위 「자동 채움률 · 검수 수정 · 정답 일치율」 은 이 API 에 없어
-// (실행 비교 · 정답 세트가 필요) 기간 안 처리 건수로 바꿨다. 카드 · 데이터 소스 화면이 생기면 그 칸도 링크로 잇는다
+// (실행 비교 · 정답 세트가 필요) 기간 안 처리 건수로 바꿨다. 대기 칸 · 출처 줄은 그 화면(카드 승인 · CSV 적재 · 수집 이력)으로 잇는다
 
 export function AdminOverviewPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
@@ -51,12 +51,14 @@ async function OverviewContent({ searchParams }: { searchParams: Promise<SearchP
           title="카드 승인 대기"
           value={approvals.pending}
           sub={`보류 ${approvals.on_hold} · 승인 ${approvals.approved} · 반려 ${approvals.rejected}`}
+          href="/admin/cards"
         />
         <QueueCard
           icon="db"
           title="CSV 적재 대기"
           value={imports.pending}
           sub={`검증 실패 ${imports.validation_failed} · 실패 ${imports.failed} · 완료 보고 ${imports.completed}`}
+          href="/admin/sources/imports?status=pending"
         />
       </div>
 
@@ -224,30 +226,34 @@ function Sources({ sources }: { sources: SourceStatus[] }) {
       </div>
       <ul>
         {sources.map((s) => (
-          <li
-            key={s.source_id}
-            className="flex items-center gap-3 border-t border-border-1 px-4 py-2.5"
-          >
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-body-13 text-text-1">
-                {s.name} <span className="text-caption-12 text-text-3">{s.source_id}</span>
-              </span>
-              <span className="truncate text-caption-12 text-text-3">
-                {[
-                  s.storage_scope && (storageLabel[s.storage_scope] ?? s.storage_scope),
-                  s.reliability_grade && `등급 ${s.reliability_grade}`,
-                  `명세 ${s.spec_count}${s.never_run_spec_count ? ` (안 돈 것 ${s.never_run_spec_count})` : ""}`,
-                  s.last_successful_at
-                    ? `마지막 성공 ${monthDayTime(s.last_successful_at)}`
-                    : "성공 기록 없음",
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            </div>
-            <StatusBadge tone={jobBadge[s.latest_job_status].tone}>
-              {jobBadge[s.latest_job_status].label}
-            </StatusBadge>
+          <li key={s.source_id} className="border-t border-border-1">
+            {/* 줄을 누르면 그 출처의 수집 이력(/admin/sources/jobs?source=) */}
+            <Link
+              href={`/admin/sources/jobs?source=${encodeURIComponent(s.source_id)}`}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2"
+            >
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-body-13 text-text-1">
+                  {s.name} <span className="text-caption-12 text-text-3">{s.source_id}</span>
+                </span>
+                <span className="truncate text-caption-12 text-text-3">
+                  {[
+                    s.storage_scope && (storageLabel[s.storage_scope] ?? s.storage_scope),
+                    s.reliability_grade && `등급 ${s.reliability_grade}`,
+                    `명세 ${s.spec_count}${s.never_run_spec_count ? ` (안 돈 것 ${s.never_run_spec_count})` : ""}`,
+                    s.last_successful_at
+                      ? `마지막 성공 ${monthDayTime(s.last_successful_at)}`
+                      : "성공 기록 없음",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </div>
+              <StatusBadge tone={jobBadge[s.latest_job_status].tone}>
+                {jobBadge[s.latest_job_status].label}
+              </StatusBadge>
+              <Icon name="chevronRight" className="size-4 text-text-3" />
+            </Link>
           </li>
         ))}
       </ul>
