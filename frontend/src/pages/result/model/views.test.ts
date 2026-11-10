@@ -22,17 +22,27 @@ const a3 = argumentSchema.parse(a3Json);
 const unsupported = argumentSchema.parse(unsupportedJson);
 
 describe("유형 전환", () => {
-  it("결과가 가진 그림 모양으로 유형이 켜진다(여수 C1: 변화 · 이동, Figma 「켜짐=변화·이동」)", () => {
-    expect([...availableViews(ready)].sort()).toEqual(["change", "movement"]);
+  it("결과가 가진 그림 모양으로 유형이 켜진다(여수 C1: 변화 · 이동 · 관측 순서 · 사건)", () => {
+    // 막대 → 변화, 이동 줄 → 이동, 기사 건수 줄 → 관측 순서, 근거 기사 → 사건
+    expect([...availableViews(ready)].sort()).toEqual([
+      "change",
+      "event",
+      "movement",
+      "observationOrder",
+    ]);
+    // 기사 · 기사 건수 줄이 없는 결과는 변화 · 이동만(Figma 「켜짐=변화·이동」)
+    const bare = { ...ready, articles: [], series: ready.series.filter((s) => !("tag" in s)) };
+    expect([...availableViews(bare)].sort()).toEqual(["change", "movement"]);
     // 측정소 지도 점은 분포형(한 달) · 변화형(점 + 월 막대, Figma 「변화형 · 대기질」) 둘 다
     expect([...availableViews(a3)].sort()).toEqual(["change", "distribution"]);
     expect(availableViews(unsupported).size).toBe(0);
   });
 
   it("켤 수 있는 건 그림을 만든 유형뿐이고, 처음엔 변화형이(없으면 켤 수 있는 첫 유형이) 열린다", () => {
-    // C1 은 이동(flow) 줄이 있어 이동형도 켜진다(전출지별 막대). 처음 열리는 건 판정에 쓰는 변화형
+    // C1 은 이동(flow) 줄 · 기사 건수 줄이 있어 이동형 · 관측 순서도 켜진다. 사건형은 그림을 아직 안 만들어 꺼 둔다.
+    // 처음 열리는 건 판정에 쓰는 변화형
     expect(openViews(ready)).toEqual({
-      enabled: new Set(["change", "movement"]),
+      enabled: new Set(["change", "movement", "observationOrder"]),
       initial: "change",
     });
     // A3 는 판정에 쓰는 변화형이 처음 열림(Figma 메모)

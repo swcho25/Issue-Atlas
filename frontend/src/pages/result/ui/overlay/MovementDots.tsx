@@ -10,7 +10,8 @@ import type { movementDots } from "../../model/movement";
 // 이동형 지도(사용자 결정 11/09 — 「도착 지역을 지도에 하이라이트, 테두리 말고 대표점으로」): 도착 시도 대표점마다 남색 원
 // (막대와 같은 data-navy, 지름 = 이동자 수 넓이 비율), 모든 원 안에 짧은 이름(사용자 결정 11/09). 출발지에는 점을 찍지 않는다(경계로 보인다).
 // 선 · 화살표는 그리지 않는다(11/01 대표 결정 — 이동 경로로 읽힌다). 지도 층이 아니라 Marker 로 그린다(바탕을 갈아 끼워도 남는다).
-// 켜면 도착지가 모두 보이게 지도를 넓히고(카드 · 그림 시트 자리는 비움), 끄면 원래 자리로 돌아간다
+// 켜면 도착지가 모두 보이게 지도를 넓히고(카드 · 그림 시트 자리는 비움), 끄면 켜기 전 자리로 돌아간다.
+// 달(시간 슬라이더)을 바꿔도 도착지 자리가 같으면 지도는 그대로 둔다
 
 type Dot = ReturnType<typeof movementDots>[number];
 
@@ -28,6 +29,18 @@ function fitPadding(map: MapLibreMap) {
     left: PADDING.left * sx,
     right: PADDING.right * sx,
   };
+}
+
+/**
+ * 지도를 맞출 자리들(도착지 대표점 + 출발지)을 글자 하나로: 「경도,위도|경도,위도 …」. 원이 없으면 빈 글자.
+ * 달이 바뀌어 값(원 크기)만 달라지면 같은 글자라, 지도를 다시 맞추지 않는다
+ */
+export function fitSpots(dots: Pick<Dot, "at">[], from: [number, number] | null) {
+  if (!dots.length) return "";
+  return [...dots.map((d) => d.at), ...(from ? [from] : [])]
+    .map(([lon, lat]) => `${lon},${lat}`)
+    .sort()
+    .join("|");
 }
 
 /**
@@ -65,14 +78,27 @@ export function MovementDots({
     return () => markers.forEach((m) => m.remove());
   }, [map, dots]);
 
-  // 도착지가 모두 보이게 넓히고, 끄면 보던 자리로.
-  // 결과 지도(MapView)는 경계가 올 때 · 창 크기가 바뀔 때 고른 지역에 다시 맞춘다 — 그 뒤(다음 그림 틀)에 맞춰야 이긴다
+  // 이동형을 켜기 전 자리. 켤 때 한 번만 적고, 끌 때(다른 유형으로) 그 자리로 돌아간다.
+  // 달을 바꾸면 원(dots)이 새로 오는데, 그때마다 적으면 이미 넓힌 자리가 「켜기 전 자리」 가 되어
+  // 다른 유형으로 돌아가도 전국으로 넓어진 채 남는다(시간 슬라이더 뒤에 생긴 문제)
   useEffect(() => {
-    if (!map || !dots.length) return;
+    if (!map) return;
     const before = { center: map.getCenter(), zoom: map.getZoom() };
+    return () => {
+      map.easeTo({ ...before, duration: 600 });
+    };
+  }, [map]);
+
+  // 도착지가 모두 보이게 넓힌다. 범위(도착지 · 출발지 자리)가 같으면 달이 바뀌어도 다시 맞추지 않는다 — 지도가 움찔하지 않게.
+  // 결과 지도(MapView)는 경계가 올 때 · 창 크기가 바뀔 때 고른 지역에 다시 맞춘다 — 그 뒤(다음 그림 틀)에 맞춰야 이긴다
+  const spots = fitSpots(dots, from);
+  useEffect(() => {
+    if (!map || !spots) return;
     const bounds = new LngLatBounds();
-    for (const d of dots) bounds.extend(d.at);
-    if (from) bounds.extend(from);
+    for (const spot of spots.split("|")) {
+      const [lon, lat] = spot.split(",").map(Number);
+      bounds.extend([lon, lat]);
+    }
     let frame = 0;
     const fit = (duration: number) => {
       cancelAnimationFrame(frame);
@@ -86,8 +112,7 @@ export function MovementDots({
     return () => {
       cancelAnimationFrame(frame);
       map.off("resize", refit);
-      map.easeTo({ ...before, duration: 600 });
     };
-  }, [map, dots, from]);
+  }, [map, spots]);
   return null;
 }

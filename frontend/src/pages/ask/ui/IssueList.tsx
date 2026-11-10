@@ -2,13 +2,13 @@ import { Icon } from "@/shared/ui/icon";
 
 import { evidenceKinds, evidenceLabel, type IssueCard } from "../model/schema";
 
-/** 근거 4종 막대(있음 = 초록, 없음 = 주황) + n/4. 근거의 품질 · 문제의 심각도가 아니라 종류 수다 */
+/** 근거 4종 막대(있음 = 초록, 없음 = 주황) + n/4종. 근거의 품질 · 문제의 심각도가 아니라 종류 수다 */
 function EvidenceBars({ card }: { card: IssueCard }) {
   const status = new Map(card.evidence.map((e) => [e.kind, e.status]));
   return (
     <div
       className="flex shrink-0 flex-col items-end gap-1.5"
-      aria-label={`근거 ${card.available_kinds}/4`}
+      aria-label={`근거 4종 중 ${card.available_kinds}종`}
     >
       <div className="flex gap-1" aria-hidden="true">
         {evidenceKinds.map((k) => (
@@ -18,7 +18,7 @@ function EvidenceBars({ card }: { card: IssueCard }) {
           />
         ))}
       </div>
-      <span className="text-caption-12 text-text-2">근거 {card.available_kinds}/4</span>
+      <span className="text-caption-12 text-text-2">근거 {card.available_kinds}/4종</span>
     </div>
   );
 }

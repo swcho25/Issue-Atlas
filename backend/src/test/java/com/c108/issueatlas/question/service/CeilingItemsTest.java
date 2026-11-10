@@ -24,9 +24,9 @@ class CeilingItemsTest {
                 .containsExactly(
                         "발생원",
                         "건강 영향",
-                        "기상 자료(강수 · 풍향): 수집하지 않는다 (not_collected)",
-                        "확정자료 최근 2개월: 공표되지 않는다 (not_published)",
-                        "민원: 이용 허락이 없어 쓰지 않는다 (license_blocked)");
+                        "기상 자료(강수 · 풍향): 수집하지 않아요",
+                        "확정자료 최근 2개월: 아직 공표되지 않았어요",
+                        "민원: 이용 허락이 없어 쓰지 않아요");
     }
 
     @Test
