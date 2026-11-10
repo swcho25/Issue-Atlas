@@ -4,6 +4,7 @@ import { getArgument } from "../api/getResult";
 import { ResultCard } from "./ResultCard";
 import { ResultMap } from "./ResultMap";
 import { MapOverlays } from "./overlay/MapOverlays";
+import { ResultLoading } from "./state/ResultLoading";
 
 // /results/[id] — 04 · 결과 · 지도 먼저. id 는 백엔드 run_id(질문 실행 한 번 = 결과 하나).
 // Cache Components: params · 데이터 읽기는 <Suspense> 안에서 한다(밖에서 읽으면 화면 전체가 막힌다).
@@ -11,8 +12,8 @@ import { MapOverlays } from "./overlay/MapOverlays";
 export function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   return (
     <main className="relative h-full bg-bg-canvas">
-      {/* 기다리는 동안 지도를 미리 만들지 않는다(만들면 진짜 지도가 한 번 더 만들어진다) */}
-      <Suspense>
+      {/* 기다리는 동안 지도를 미리 만들지 않는다(만들면 진짜 지도가 한 번 더 만들어진다) — 카드 자리만 */}
+      <Suspense fallback={<ResultLoading />}>
         <ResultContent params={params} />
       </Suspense>
     </main>
