@@ -20,7 +20,7 @@ const columns = [
   { key: "required", label: "필수", width: "w-[70px]" },
   { key: "status", label: "상태", width: "w-[100px]" },
   { key: "count", label: "건수", width: "w-[60px]" },
-  { key: "pending", label: "검수 대기", width: "w-[80px]" },
+  { key: "pending", label: "검증 대기", width: "w-[80px]" },
   { key: "source", label: "소스 · 사유", width: "w-[330px]" },
 ] as const;
 
@@ -63,7 +63,7 @@ export function EvidenceTab({ argument }: { argument: Argument }) {
       {/* 근거 표: 테두리 1 이 자리를 차지하는 것까지 Figma 와 같다(안쪽 칸 x 1) */}
       <div
         role="table"
-        aria-label="근거 수요표"
+        aria-label="자료 현황"
         className="overflow-x-auto rounded-xl border border-border-1 bg-surface-1"
       >
         <div role="rowgroup" className="min-w-max">
@@ -113,12 +113,12 @@ export function EvidenceTab({ argument }: { argument: Argument }) {
 
       {/* 비교 조건: 4개 모두 충족해야 증가 · 감소를 말할 수 있다(FR-C4) */}
       <section
-        aria-label="비교 조건"
+        aria-label="비교 가능성"
         className="flex flex-col gap-2 rounded-xl border border-border-1 bg-surface-1 p-4"
       >
         <div className="flex items-center gap-2">
           <h2 className="text-heading-16 text-text-1">
-            비교 조건 {passed} / {conditions.length}
+            비교 가능성 {passed} / {conditions.length}
           </h2>
           <p className="text-caption-12 text-text-3">4개 모두 충족해야 판정할 수 있어요</p>
         </div>

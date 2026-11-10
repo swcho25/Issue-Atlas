@@ -1,4 +1,4 @@
-import type { Argument, RunStatus } from "@/shared/api";
+import type { Argument } from "@/shared/api";
 import { ProvBadge, StatusBadge } from "@/shared/ui/badge";
 import { Icon, type IconName } from "@/shared/ui/icon";
 import { TabBar } from "@/shared/ui/tab-bar";
@@ -24,18 +24,11 @@ import { resultTabs } from "./tabs";
 // 04 · 결과 · 지도 먼저: 지도 위에 떠 있는 결과 카드(Figma 04 「변화형 · 청년 유출」 Panel).
 // 근거 4종 → 비교 조건 → 판단 순서로 쌓는다(근거 먼저). 머리(뒤로 · 제목 · 탭)는 CardShell
 
-/** 실행 상태 배지(Figma 「ready · 근거 갖춤」). 색은 05 패널과 같다 */
-const runStatusText: Record<RunStatus, string> = {
-  ready: "ready · 근거 갖춤",
-  partial: "partial · 일부 근거",
-  blocked: "blocked · 근거 부족",
-  unsupported: "unsupported · 카드 밖",
-};
-// 카드는 있는데 적용 조건을 못 채운 unsupported(C2 v1)는 「카드 밖」이 아니다(Figma 08 「unsupported · 카드 조건 밖」)
+// 실행 상태 배지(05 패널과 같은 이름 · 색). 카드는 있는데 적용 조건을 못 채운 unsupported(C2 v1)는 「적용 조건 미충족」
 const statusText = (a: Argument) =>
   a.run_status === "unsupported" && a.question.card_id !== null
-    ? "unsupported · 카드 조건 밖"
-    : runStatusText[a.run_status];
+    ? "적용 조건 미충족"
+    : runStatusInfo[a.run_status].label;
 
 /** 머리 아래 한 줄: 「2023–2025 · 실행 10-28 10:00」(회차는 응답에 없어 실행 시각) */
 function metaLine(a: Argument) {
@@ -43,14 +36,14 @@ function metaLine(a: Argument) {
   return [yearSpan(a.question.period_start, a.question.period_end), `실행 ${at}`].join(" · ");
 }
 
-/** 판단 상자 아래 한 줄: 「계산값 · 근거 충실도 상 · A 출처 2 · 독립 근거 3」 */
+/** 분석 결과 상자 아래 한 줄: 「산출값 · 근거 수준 높음 · 공식 통계 2 · 교차 확인 3건」 */
 function claimNote(a: Argument) {
   const c = a.qualifier.components;
   return [
     claimLevelLabel[a.claim.level],
-    `근거 충실도 ${qualifierGrade[a.qualifier.grade].label}`,
-    `A 출처 ${c.a_grade_sources}`,
-    `독립 근거 ${c.independent_evidence}`,
+    `근거 수준 ${qualifierGrade[a.qualifier.grade].label}`,
+    `공식 통계 ${c.a_grade_sources}`,
+    `교차 확인 ${c.independent_evidence}건`,
   ].join(" · ");
 }
 
@@ -116,7 +109,7 @@ export function ResultCard({ argument }: { argument: Argument }) {
                 // 가운데 칸: 검수 대기가 있으면 그것, 0건이면 사유(길면 한 줄로 자르고 전체는 툴팁)
                 const note =
                   row.review_pending_count > 0
-                    ? `검수 대기 ${row.review_pending_count} 별도`
+                    ? `검증 대기 ${row.review_pending_count} 별도`
                     : count === 0
                       ? emptyRefsText(row, 0)
                       : "";
@@ -146,9 +139,9 @@ export function ResultCard({ argument }: { argument: Argument }) {
           </section>
 
           {/* ② 비교 조건: 칩(모서리 6 · 안쪽 3 · 8 · 3 · 6 · 아이콘 12 · Caption 11), 칩 사이 6 */}
-          <section aria-label="비교 조건" className="flex flex-col gap-1">
+          <section aria-label="비교 가능성" className="flex flex-col gap-1">
             <SectionHead
-              title={`② 비교 조건 ${passed} / ${conditions.length}`}
+              title={`② 비교 가능성 ${passed} / ${conditions.length}`}
               note="4개 모두 충족해야 판정할 수 있어요"
             />
             <ul className="flex flex-wrap gap-1.5">
@@ -184,20 +177,20 @@ export function ResultCard({ argument }: { argument: Argument }) {
         </>
       )}
 
-      {/* ③ 판단: surface-2 · 모서리 12 · 안쪽 14 · 사이 8 */}
-      <section aria-label="판단" className="flex flex-col gap-2 rounded-xl bg-surface-2 p-3.5">
+      {/* ③ 분석 결과: surface-2 · 모서리 12 · 안쪽 14 · 사이 8 */}
+      <section aria-label="분석 결과" className="flex flex-col gap-2 rounded-xl bg-surface-2 p-3.5">
         <div className="flex items-center gap-1.5">
-          <h2 className="text-label-12 text-text-1">③ 판단</h2>
+          <h2 className="text-label-12 text-text-1">③ 분석 결과</h2>
           <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
           <ProvBadge kind={provKind[claim.provenance]} />
         </div>
-        <p className="text-heading-16 text-text-1">{claim.text ?? "판단 문장이 없어요."}</p>
+        <p className="text-heading-16 text-text-1">{claim.text ?? "분석 결과 문장이 없어요."}</p>
         <p className="text-caption-12 text-text-2">{claimNote(argument)}</p>
       </section>
 
-      {/* 말하지 않는 것: Label 12 text-2, 줄(close 12 + Caption 12 text-2 · 사이 6), 줄 사이 4 */}
-      <section aria-label="말하지 않는 것" className="flex flex-col gap-1">
-        <h2 className="text-label-12 text-text-2">말하지 않는 것</h2>
+      {/* 분석 범위 밖: Label 12 text-2, 줄(close 12 + Caption 12 text-2 · 사이 6), 줄 사이 4 */}
+      <section aria-label="분석 범위 밖" className="flex flex-col gap-1">
+        <h2 className="text-label-12 text-text-2">분석 범위 밖</h2>
         {argument.ceiling.items.length ? (
           <ul className="contents">
             {argument.ceiling.items.map((item) => (
@@ -209,7 +202,9 @@ export function ResultCard({ argument }: { argument: Argument }) {
           </ul>
         ) : (
           <p className="text-caption-12 text-text-3">
-            {question.card_id ? "카드에 적힌 상한선이 없어요." : "카드가 없어 상한선이 없어요."}
+            {question.card_id
+              ? "카드에 적어 둔 항목이 없어요."
+              : "카드가 없어 적어 둔 항목이 없어요."}
           </p>
         )}
       </section>
@@ -266,7 +261,7 @@ function StationStatChips({ stats }: { stats: StationStats }) {
 function UnmetConditions({ unmet }: { unmet: Argument["applicability"] }) {
   return (
     <section aria-label="못 채운 적용 조건" className="flex flex-col gap-2">
-      <SectionHead title="① 못 채운 적용 조건" note="카드 B6 · 판단 전에 멈춤" />
+      <SectionHead title="① 못 채운 적용 조건" note="카드 B6 · 분석 전에 멈춤" />
       <ul className="flex flex-col gap-2">
         {unmet.map((c) => (
           <li
@@ -282,7 +277,7 @@ function UnmetConditions({ unmet }: { unmet: Argument["applicability"] }) {
         ))}
       </ul>
       <p className="text-caption-12 text-text-2">
-        근거 4종과 비교 조건은 보지 않아요. 조건을 채우는 지역이나 다른 이슈로 다시 물어보세요.
+        근거 4종과 비교 가능성은 보지 않아요. 조건을 채우는 지역이나 다른 이슈로 다시 물어보세요.
       </p>
     </section>
   );

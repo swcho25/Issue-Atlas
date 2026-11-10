@@ -54,7 +54,7 @@ export const evidenceLabel: Record<EvidenceKind, string> = {
   statistics: "통계",
   documents: "문서",
   existing_responses: "기존 대응",
-  denominators: "분모",
+  denominators: "참고 지표",
 };
 
 /** 근거가 하나라도 있으면 판단할 수 있는 이슈로 묶는다. 없으면 실행해도 빈칸이 결과다 */

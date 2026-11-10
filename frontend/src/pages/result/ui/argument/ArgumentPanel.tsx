@@ -4,9 +4,9 @@ import { ProvBadge, type ProvKind } from "@/shared/ui/badge";
 // 「틀린 곳을 봤나요?」(테두리 1 · 안쪽 14 · 칸 사이 6)
 
 const legend: { kind: ProvKind; text: string }[] = [
-  { kind: "rule", text: "같은 입력이면 같은 출력 — 판단 · 한정어" },
-  { kind: "card", text: "카드 양식에 미리 정한 문장 — 보증 · 상한선" },
-  { kind: "ai", text: "문장 다듬기 · 반박 근거 유무 판정만" },
+  { kind: "rule", text: "같은 입력이면 같은 출력 — 분석 결과 · 근거 수준" },
+  { kind: "card", text: "카드 양식에 미리 정한 문장 — 해석 기준 · 분석 범위 밖" },
+  { kind: "ai", text: "문장 다듬기 · 다른 해석의 자료 유무 판정만" },
   { kind: "human", text: "관리자가 고친 칸" },
 ];
 

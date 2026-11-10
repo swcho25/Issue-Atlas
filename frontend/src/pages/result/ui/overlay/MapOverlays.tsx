@@ -285,7 +285,7 @@ function TypeSwitch({
 
 /**
  * 아래 유리 바(Figma Glass/Question bar · 결과: 556 × 56 · 안쪽 10 · 10 · 10 · 22 · 사이 12).
- * 점(앰버) · 결과 한 줄 · 「근거 수요표」(글자 버튼) · 「논증 카드 보기」(키 컬러 M 36)
+ * 점(앰버) · 결과 한 줄 · 「자료 현황」(글자 버튼) · 「분석 근거 보기」(키 컬러 M 36)
  */
 function ResultBar({ argument, summary }: { argument: Argument; summary?: string }) {
   const { question } = argument;
@@ -307,14 +307,14 @@ function ResultBar({ argument, summary }: { argument: Argument; summary?: string
         href={`${base}/evidence`}
         className="shrink-0 rounded-full px-3 py-2 text-body-14 text-text-2 hover:bg-glass-hover"
       >
-        근거 수요표
+        자료 현황
       </Link>
       {/* Figma Button/키 컬러 M(36 · 좌우 18 · Bold 14). 이 바에서만 쓰여 공통으로 빼지 않았다 */}
       <Link
         href={`${base}/argument`}
         className="flex h-9 shrink-0 items-center rounded-full bg-primary px-4.5 text-title-14 text-text-on-primary shadow-button hover:bg-primary-hover"
       >
-        논증 카드 보기
+        분석 근거 보기
       </Link>
     </nav>
   );

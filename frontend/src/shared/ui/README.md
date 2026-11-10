@@ -11,8 +11,8 @@
 | `BackButton` · `backButtonClass` · `BackIcon` ← `@/shared/ui/button` | 36 동그라미 「뒤로」 모양. 이전 화면 · 옆 패널 닫기 등 동작은 쓰는 쪽이 정한다 | `Button/뒤로` |
 | `GlassIconButton` ← `@/shared/ui/button` | 지도 · 결과 위 유리 아이콘 버튼(각주 복사 · 다시 실행 — Figma 의 저장은 두지 않음, 질문은 자동 저장), 글자 형태도 | `Glass/Icon button` |
 | `StatusBadge` ← `@/shared/ui/badge` | 근거 · 작업 상태(확보 · 미수집 · 검수 대기 …) | `v5/Status` |
-| `ProvBadge` ← `@/shared/ui/badge` | 논증 카드 칸을 누가 채웠는지(규칙 · 카드 · AI · 검수) | `v5/Prov badge` |
-| `TabBar` ← `@/shared/ui/tab-bar` | 결과 화면 요약 · 수요표 · 논증 · 원문 오가기 | `Tab bar/Item` |
+| `ProvBadge` ← `@/shared/ui/badge` | 논증 카드 칸을 누가 채웠는지(자동 산출 · 기준 문구 · AI 생성 · 검수 반영) | `v5/Prov badge` |
+| `TabBar` ← `@/shared/ui/tab-bar` | 결과 화면 요약 · 자료 현황 · 분석 근거 · 출처 오가기 | `Tab bar/Item` |
 | `Toggle` ← `@/shared/ui/toggle` | 켜고 끄는 것(지도 레이어 · 테마). 켜짐은 앰버, 누르는 동안 손잡이가 유리 방울로 | `Toggle` |
 | `SegmentLinks` ← `@/shared/ui/segment` | 링크 탭(상태 · 기간 거르기, 칸마다 건수). 칸이 링크라 주소가 상태 | 07 관리자 탭 |
 | `Pager` ← `@/shared/ui/pager` | 쪽 넘기기(이전 · n / 끝 · 다음). 한 쪽뿐이면 안 그린다 | 07 관리자 |

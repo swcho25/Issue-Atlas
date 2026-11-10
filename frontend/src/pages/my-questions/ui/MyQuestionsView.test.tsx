@@ -57,10 +57,10 @@ describe("MyQuestionsView", () => {
     expect(within(panel).getByRole("heading", { name: "1회차 → 2회차" })).toBeInTheDocument();
     const row = (label: string) =>
       within(panel).getByRole("rowheader", { name: label }).closest("tr") as HTMLTableRowElement;
-    expect(await within(panel).findByRole("rowheader", { name: "판단" })).toBeInTheDocument();
-    expect(row("판단")).toHaveTextContent("판단 안 함증가바뀜");
+    expect(await within(panel).findByRole("rowheader", { name: "분석 결과" })).toBeInTheDocument();
+    expect(row("분석 결과")).toHaveTextContent("분석 안 함증가바뀜");
     expect(row("근거 4종")).toHaveTextContent("1 / 44 / 4+3");
-    expect(row("근거 충실도")).toHaveTextContent("하상▲ 올라감");
+    expect(row("근거 수준")).toHaveTextContent("낮음높음▲ 올라감");
     expect(within(panel).getByRole("link", { name: /결과 열기/ })).toHaveAttribute(
       "href",
       "/results/run_0002",

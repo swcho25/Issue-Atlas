@@ -2,10 +2,10 @@ import { ProvBadge, type ProvKind, StatusBadge, type StatusTone } from "@/shared
 
 // v5 화면에서 실제로 쓰인 글자로. data-figma 는 자동 대조용 Figma 변형 이름
 const statuses: { tone: StatusTone; label: string; figma: string }[] = [
-  { tone: "green", label: "확보", figma: "Green" },
+  { tone: "green", label: "수집 완료", figma: "Green" },
   { tone: "red", label: "비교 불가", figma: "Red" },
   { tone: "amber", label: "미수집", figma: "Amber" },
-  { tone: "blue", label: "검수 대기", figma: "Blue" },
+  { tone: "blue", label: "검증 대기", figma: "Blue" },
   { tone: "gray", label: "미공표", figma: "Gray" },
   { tone: "primary", label: "지역 매핑", figma: "Violet" },
 ];

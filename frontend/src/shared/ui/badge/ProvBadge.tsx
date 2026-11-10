@@ -6,10 +6,10 @@ export type ProvKind = "rule" | "card" | "ai" | "human";
 
 // 바탕은 Figma 값 그대로: 규칙 · 카드는 자기 색 10%, AI 는 먹색 10%, 검수는 status-amber 10%(prov-human 이 아니다)
 const kinds: Record<ProvKind, { label: string; className: string }> = {
-  rule: { label: "규칙", className: "bg-prov-rule/10 text-prov-rule" },
-  card: { label: "카드", className: "bg-prov-card/10 text-prov-card" },
-  ai: { label: "AI", className: "bg-text-1/10 text-prov-ai" },
-  human: { label: "검수", className: "bg-status-amber/10 text-prov-human" },
+  rule: { label: "자동 산출", className: "bg-prov-rule/10 text-prov-rule" },
+  card: { label: "기준 문구", className: "bg-prov-card/10 text-prov-card" },
+  ai: { label: "AI 생성", className: "bg-text-1/10 text-prov-ai" },
+  human: { label: "검수 반영", className: "bg-status-amber/10 text-prov-human" },
 };
 
 export function ProvBadge({ kind, className = "" }: { kind: ProvKind; className?: string }) {

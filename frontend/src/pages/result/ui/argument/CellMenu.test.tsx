@@ -20,7 +20,7 @@ HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
 const target = {
   cell: "warrant",
   no: "③",
-  title: "보증",
+  title: "해석 기준",
   provenance: "card",
   quote: "순이동은 정착을 재는 지표다",
 } as const;
@@ -34,7 +34,7 @@ function renderMenu(cardId: string | null = "C1") {
 }
 
 async function openReport(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "보증 칸 메뉴" }));
+  await user.click(screen.getByRole("button", { name: "해석 기준 칸 메뉴" }));
   await user.click(screen.getByRole("menuitem", { name: "오류 신고 · 수정 제안" }));
   return screen.findByRole("dialog", { name: "수정 제안 보내기" });
 }
@@ -43,7 +43,7 @@ describe("CellMenu", () => {
   it("⋯ 를 누르면 메뉴가 열리고 첫 줄로 초점이 간다. Esc 로 닫으면 ⋯ 로 돌아온다", async () => {
     const user = userEvent.setup();
     renderMenu();
-    const button = screen.getByRole("button", { name: "보증 칸 메뉴" });
+    const button = screen.getByRole("button", { name: "해석 기준 칸 메뉴" });
     await user.click(button);
     expect(button).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("menuitem", { name: "원문 보기" })).toHaveFocus();
@@ -63,7 +63,7 @@ describe("CellMenu", () => {
   it("원문 보기는 원문 탭 주소다", async () => {
     const user = userEvent.setup();
     renderMenu();
-    await user.click(screen.getByRole("button", { name: "보증 칸 메뉴" }));
+    await user.click(screen.getByRole("button", { name: "해석 기준 칸 메뉴" }));
     expect(screen.getByRole("menuitem", { name: "원문 보기" })).toHaveAttribute(
       "href",
       "/results/x/sources",
@@ -73,7 +73,7 @@ describe("CellMenu", () => {
   it("바깥을 누르면 닫힌다", async () => {
     const user = userEvent.setup();
     renderMenu();
-    await user.click(screen.getByRole("button", { name: "보증 칸 메뉴" }));
+    await user.click(screen.getByRole("button", { name: "해석 기준 칸 메뉴" }));
     await user.click(document.body);
     expect(screen.queryByRole("menu")).toBeNull();
   });
@@ -81,7 +81,7 @@ describe("CellMenu", () => {
   it("카드가 없는 결과는 오류 신고를 막는다", async () => {
     const user = userEvent.setup();
     renderMenu(null);
-    await user.click(screen.getByRole("button", { name: "보증 칸 메뉴" }));
+    await user.click(screen.getByRole("button", { name: "해석 기준 칸 메뉴" }));
     expect(screen.queryByRole("menuitem", { name: "오류 신고 · 수정 제안" })).toBeNull();
     expect(screen.getByRole("menuitem", { name: /카드가 없는 결과/ })).toHaveAttribute(
       "aria-disabled",
@@ -100,9 +100,9 @@ describe("수정 제안 창", () => {
     const user = userEvent.setup();
     renderMenu();
     const dialog = await openReport(user);
-    expect(dialog).toHaveTextContent("③ 보증 · 청년 유출·정착 · 여수시");
+    expect(dialog).toHaveTextContent("③ 해석 기준 · 청년 유출·정착 · 여수시");
     expect(dialog).toHaveTextContent("「순이동은 정착을 재는 지표다」");
-    expect(dialog).toHaveTextContent("카드");
+    expect(dialog).toHaveTextContent("기준 문구");
 
     const send = screen.getByRole("button", { name: "보내기" });
     expect(send).toBeDisabled();
@@ -142,7 +142,7 @@ describe("수정 제안 창", () => {
       issue_type: "wording",
     });
     expect(body.reason).toBe(
-      "[③ 보증] 청년 유출·정착 · 여수시 · 실행 run_c1\n" +
+      "[③ 해석 기준] 청년 유출·정착 · 여수시 · 실행 run_c1\n" +
         "칸 내용: 「순이동은 정착을 재는 지표다」\n\n" +
         "과한 표현 같아요\n\n근거: https://kosis.kr/x",
     );
