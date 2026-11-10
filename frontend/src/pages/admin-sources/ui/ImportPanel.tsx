@@ -17,7 +17,7 @@ import { FinishForm } from "./FinishForm";
 import { ImportSteps } from "./ImportSteps";
 import { UploadForm } from "./UploadForm";
 
-// CSV 요청 보기: 요청 표(전체 · 내 차례) → 줄을 누르면 요청 하나(검증 결과 · 결과 보고), 「CSV 올리기」는 올리기 양식.
+// CSV 업로드 보기: 업로드 표(전체 · 처리 필요) → 줄을 누르면 업로드 하나(검증 결과 · 결과 보고), 「CSV 올리기」는 올리기 양식.
 // 요청 하나 · 올리기 양식은 같은 자리에 넓게 열고 뒤로 버튼으로 표에 돌아간다
 export async function ImportPanel({
   q,
@@ -41,14 +41,14 @@ export async function ImportPanel({
         <span className={backButtonClass()}>
           <BackIcon />
         </span>
-        CSV 요청
+        CSV 업로드
       </Link>
       {q.isNew ? <NewImport meId={me.id} /> : <ImportView id={q.id ?? ""} meId={me.id} />}
     </>
   );
 }
 
-/** CSV 요청 표(올린 순): 「전체 · 내 차례」. 내 차례 = 내가 반영 담당자인 반영 대기 */
+/** CSV 업로드 표(올린 순): 「전체 · 처리 필요」. 처리 필요 = 내가 반영 담당자인 반영 대기 */
 async function ImportTable({
   q,
   meId,
@@ -67,7 +67,7 @@ async function ImportTable({
   const who = (id: number) =>
     `${admins.find((u) => u.id === id)?.name ?? `#${id}`}${id === meId ? " (나)" : ""}`;
   return (
-    <section aria-label="CSV 요청" className="flex flex-col gap-3">
+    <section aria-label="CSV 업로드" className="flex flex-col gap-3">
       <SegmentLinks
         label="요청 거르기"
         items={[
@@ -80,7 +80,7 @@ async function ImportTable({
           },
           {
             key: "mine",
-            label: "내 차례",
+            label: "처리 필요",
             count: mineTotal,
             href: sourcesHref({ view: "imports", mine: true }),
             active: q.mine,
@@ -89,7 +89,7 @@ async function ImportTable({
       />
       {list.items.length === 0 ? (
         <p className="py-10 text-center text-body-13 text-text-3">
-          {q.mine ? "내 차례인 요청 없음" : "CSV 요청 없음"}
+          {q.mine ? "처리할 업로드 없음" : "CSV 업로드 없음"}
         </p>
       ) : (
         <div className={table.wrap}>
@@ -209,7 +209,7 @@ const stepOf = (d: ImportDetail) =>
       ? 4
       : 2;
 
-/** CSV 요청 하나: 자동 검증 결과(오류 · 중복 행) · 원본 내려받기 · 결과 보고 */
+/** CSV 업로드 하나: 자동 검증 결과(오류 · 중복 행) · 원본 내려받기 · 결과 보고 */
 async function ImportView({ id, meId }: { id: string; meId: number }) {
   const [detail, admins] = await Promise.all([getImport(id), getAdmins()]);
   const r = detail.request;

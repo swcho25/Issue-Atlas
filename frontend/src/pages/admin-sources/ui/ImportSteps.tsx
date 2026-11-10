@@ -1,4 +1,4 @@
-/** CSV 요청 네 단계(Figma 「데이터 소스 추가」). 지금 단계까지 앰버 */
+/** CSV 업로드 네 단계(Figma 「데이터 소스 추가」). 지금 단계까지 앰버 */
 export function ImportSteps({ at }: { at: 1 | 2 | 3 | 4 }) {
   const steps = ["CSV 올리기", "자동 검증", "담당자 반영", "결과 보고"];
   return (

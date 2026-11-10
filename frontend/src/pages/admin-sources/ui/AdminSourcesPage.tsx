@@ -13,7 +13,7 @@ import { JobLog } from "./JobLog";
 import { SourceStatus } from "./SourceStatus";
 
 // /admin/sources — 07 · 데이터 소스 한 화면(위에서 아래로 한 줄). 출처 보기는 출처 상태(출처마다 최근 수집 점 줄) 아래에
-// 수집 기록(기본 전체, 출처 · 실행 상태로 거르기), CSV 요청 보기는 요청 표 → 요청 하나 · 올리기 양식. 상태는 모두 주소에 둔다
+// 수집 기록(기본 전체, 출처 · 실행 상태로 거르기), CSV 업로드 보기는 업로드 표 → 업로드 하나 · 올리기 양식. 상태는 모두 주소에 둔다
 export function AdminSourcesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
     <main className="flex h-full flex-col gap-6 overflow-y-auto bg-bg-app px-7 pt-6 pb-10 *:shrink-0">
@@ -50,7 +50,7 @@ async function SourcesContent({ searchParams }: { searchParams: Promise<SearchPa
             },
             {
               key: "imports",
-              label: "CSV 요청",
+              label: "CSV 업로드",
               count: all.total,
               href: sourcesHref({ view: "imports" }),
               active: q.view === "imports",
@@ -62,7 +62,7 @@ async function SourcesContent({ searchParams }: { searchParams: Promise<SearchPa
             href={sourcesHref({ view: "imports", mine: true })}
             className="text-label-13 text-primary-text hover:underline"
           >
-            내 차례 {mine.total}
+            CSV 처리 필요 {mine.total}
           </Link>
         )}
         <Link
@@ -85,7 +85,7 @@ async function SourcesContent({ searchParams }: { searchParams: Promise<SearchPa
         </>
       ) : (
         <Suspense
-          fallback={<p className="text-body-13 text-text-3">CSV 요청을 불러오는 중이에요</p>}
+          fallback={<p className="text-body-13 text-text-3">CSV 업로드를 불러오는 중이에요</p>}
         >
           <ImportPanel q={q} me={me} mineTotal={mine.total} allTotal={all.total} />
         </Suspense>

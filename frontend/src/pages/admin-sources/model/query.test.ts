@@ -22,7 +22,7 @@ describe("데이터 소스 주소 · 글자", () => {
     expect(sourcesQuery({ status: "failed" }).status).toBe("failed");
   });
 
-  it("CSV 요청 보기: 고른 요청 · 내 차례 · 올리기 양식", () => {
+  it("CSV 업로드 보기: 고른 업로드 · 처리 필요 · 올리기 양식", () => {
     const q = sourcesQuery({ view: "imports", id: "import_9", mine: "1", new: "0" });
     expect(q).toMatchObject({ view: "imports", id: "import_9", mine: true, isNew: false });
   });

@@ -8,7 +8,7 @@ export const jobStatuses: JobStatus[] = ["failed", "aborted", "running", "ok"];
 
 /**
  * /admin/sources 한 화면의 주소. 출처 보기(기본)는 ?source(고른 출처) · status(수집 기록 거르기) · page(수집 기록 쪽),
- * CSV 요청 보기(?view=imports)는 ?id(고른 요청) · mine(내 차례만) · new(올리기 양식) · page(요청 목록 쪽)
+ * CSV 업로드 보기(?view=imports)는 ?id(고른 업로드) · mine(처리 필요만) · new(올리기 양식) · page(업로드 목록 쪽)
  */
 export function sourcesQuery(sp: SearchParams) {
   const view = one(sp.view) === "imports" ? "imports" : "sources";
