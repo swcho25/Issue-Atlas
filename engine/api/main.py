@@ -48,4 +48,9 @@ def argument_phrase(body: Annotated[dict, Body()]):
         return JSONResponse(
             status_code=422, content={"reason_code": "INPUT_INVALID", "problems": problems[:20]}
         )
-    return phrase(body["judgment"], article_sources(body["articles"]), body["card"]).result()
+    return phrase(
+        body["judgment"],
+        article_sources(body["articles"]),
+        body["card"],
+        search=body.get("rebuttal_search"),
+    ).result()

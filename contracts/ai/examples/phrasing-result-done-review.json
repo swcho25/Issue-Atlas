@@ -1,5 +1,5 @@
 {
-  "schema_version": "ai-phrasing-result-0.4",
+  "schema_version": "ai-phrasing-result-0.5",
   "run_id": "run_c1_yeosu_2023_2025",
   "status": "done",
   "reason_code": null,
@@ -46,6 +46,110 @@
     }
   ],
   "model": "gemini-2.5-flash",
-  "prompt_version": "argument-phrasing-v5",
+  "prompt_version": "argument-phrasing-v6",
+  "retrieval": {
+    "method": "rebuttal_r3",
+    "query_version": "rebuttal-query-v1",
+    "k": 5,
+    "candidates": 4,
+    "picked": [
+      {
+        "rebuttal": "R1",
+        "rank": 1,
+        "source_id": "fx-003",
+        "score": 0.4121,
+        "cosine": 0.6012,
+        "lexical": 0.223
+      },
+      {
+        "rebuttal": "R1",
+        "rank": 2,
+        "source_id": "fx-001",
+        "score": 0.3315,
+        "cosine": 0.548,
+        "lexical": 0.115
+      },
+      {
+        "rebuttal": "R1",
+        "rank": 3,
+        "source_id": "fx-004",
+        "score": 0.2987,
+        "cosine": 0.5301,
+        "lexical": 0.0673
+      },
+      {
+        "rebuttal": "R1",
+        "rank": 4,
+        "source_id": "fx-002",
+        "score": 0.285,
+        "cosine": 0.5122,
+        "lexical": 0.0578
+      },
+      {
+        "rebuttal": "R2",
+        "rank": 1,
+        "source_id": "fx-004",
+        "score": 0.3302,
+        "cosine": 0.559,
+        "lexical": 0.1014
+      },
+      {
+        "rebuttal": "R2",
+        "rank": 2,
+        "source_id": "fx-003",
+        "score": 0.2911,
+        "cosine": 0.5207,
+        "lexical": 0.0615
+      },
+      {
+        "rebuttal": "R2",
+        "rank": 3,
+        "source_id": "fx-001",
+        "score": 0.276,
+        "cosine": 0.5013,
+        "lexical": 0.0507
+      },
+      {
+        "rebuttal": "R2",
+        "rank": 4,
+        "source_id": "fx-002",
+        "score": 0.2655,
+        "cosine": 0.499,
+        "lexical": 0.032
+      },
+      {
+        "rebuttal": "R3",
+        "rank": 1,
+        "source_id": "fx-001",
+        "score": 0.4893,
+        "cosine": 0.6475,
+        "lexical": 0.3311
+      },
+      {
+        "rebuttal": "R3",
+        "rank": 2,
+        "source_id": "fx-002",
+        "score": 0.4012,
+        "cosine": 0.6013,
+        "lexical": 0.2011
+      },
+      {
+        "rebuttal": "R3",
+        "rank": 3,
+        "source_id": "fx-003",
+        "score": 0.302,
+        "cosine": 0.531,
+        "lexical": 0.073
+      },
+      {
+        "rebuttal": "R3",
+        "rank": 4,
+        "source_id": "fx-004",
+        "score": 0.2804,
+        "cosine": 0.5161,
+        "lexical": 0.0447
+      }
+    ]
+  },
   "retryable": false
 }

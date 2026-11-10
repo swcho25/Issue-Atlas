@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://issue-atlas.c108/contracts/ai/phrasing-result.schema.json",
-  "title": "AI 모듈 문장화 결과 v0.4 — engine POST /v1/argument/phrase 응답",
-  "description": "rebuttals 는 C2 칸 모양 그대로라 done 이면 backend 가 ⑤ 반박 칸을 바꿔 끼운다. done 이 아니면 빈 반박. ① 판단은 규칙 · ③ 보증은 카드 문장이라 AI 가 쓰지 않는다(v0.3). 반박 하나의 검사 탈락은 그 반박만 needs_review 로 낮추고 done 으로 낸다(v0.4)",
+  "title": "AI 모듈 문장화 결과 v0.5 — engine POST /v1/argument/phrase 응답",
+  "description": "rebuttals 는 C2 칸 모양 그대로라 done 이면 backend 가 ⑤ 반박 칸을 바꿔 끼운다. done 이 아니면 빈 반박. ① 판단은 규칙 · ③ 보증은 카드 문장이라 AI 가 쓰지 않는다(v0.3). 반박 하나의 검사 탈락은 그 반박만 needs_review 로 낮추고 done 으로 낸다(v0.4). 근거 구절을 어떻게 골랐는지는 retrieval(v0.5)",
   "type": "object",
   "properties": {
-    "schema_version": { "const": "ai-phrasing-result-0.4" },
+    "schema_version": { "const": "ai-phrasing-result-0.5" },
     "run_id": { "$ref": "../c2/common.schema.json#/$defs/id" },
     "status": { "enum": ["done", "skipped", "failed"] },
     "reason_code": {
@@ -53,7 +53,11 @@
       }
     },
     "model": { "type": ["string", "null"] },
-    "prompt_version": { "type": "string", "minLength": 1 }
+    "prompt_version": { "type": "string", "minLength": 1 },
+    "retrieval": {
+      "description": "근거 구절을 어떻게 골랐는지(v0.5). 건너뛰었거나(skipped) 입력이 틀려(INPUT_INVALID) 고르지 않았으면 null. C2 응답으로 나가지 않는다",
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/retrieval" }]
+    }
   },
   "required": [
     "schema_version",
@@ -65,7 +69,8 @@
     "citations",
     "problems",
     "model",
-    "prompt_version"
+    "prompt_version",
+    "retrieval"
   ],
   "additionalProperties": false,
   "allOf": [
@@ -90,6 +95,40 @@
     }
   ],
   "$defs": {
+    "retrieval": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "description": "rebuttal_r3 = 요청 rebuttal_search 로 반박마다 고름, card_tags = 요청 articles(카드 꼬리표 기사 앞 40건)",
+          "enum": ["rebuttal_r3", "card_tags"]
+        },
+        "query_version": { "type": ["string", "null"] },
+        "k": { "description": "반박마다 고른 기사 수(card_tags 는 null)", "type": ["integer", "null"], "minimum": 1 },
+        "candidates": { "description": "고를 수 있던 기사 수", "type": "integer", "minimum": 0 },
+        "picked": {
+          "description": "반박마다 고른 기사와 순위 · 점수(score = 0.5 × cosine + 0.5 × lexical, 소수 넷째 자리). card_tags 는 빈 배열",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rebuttal": { "type": "string", "minLength": 1 },
+              "rank": { "type": "integer", "minimum": 1 },
+              "source_id": { "type": "string", "minLength": 1 },
+              "score": { "type": "number" },
+              "cosine": { "type": "number" },
+              "lexical": { "type": "number" }
+            },
+            "required": ["rebuttal", "rank", "source_id", "score", "cosine", "lexical"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["method", "query_version", "k", "candidates", "picked"],
+      "additionalProperties": false,
+      "if": { "properties": { "method": { "const": "card_tags" } } },
+      "then": { "properties": { "query_version": { "const": null }, "k": { "const": null }, "picked": { "maxItems": 0 } } },
+      "else": { "properties": { "query_version": { "type": "string" }, "k": { "type": "integer" } } }
+    },
     "citation": {
       "type": "object",
       "properties": {

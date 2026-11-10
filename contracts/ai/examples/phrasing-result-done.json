@@ -1,5 +1,5 @@
 {
-  "schema_version": "ai-phrasing-result-0.4",
+  "schema_version": "ai-phrasing-result-0.5",
   "run_id": "run_c1_yeosu_2023_2025",
   "status": "done",
   "reason_code": null,
@@ -66,5 +66,12 @@
   "problems": [],
   "model": "gemini-2.5-flash",
   "prompt_version": "argument-phrasing-v2",
+  "retrieval": {
+    "method": "card_tags",
+    "query_version": null,
+    "k": null,
+    "candidates": 4,
+    "picked": []
+  },
   "retryable": false
 }
