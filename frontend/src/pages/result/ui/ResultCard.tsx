@@ -19,6 +19,7 @@ import {
 } from "../model/labels";
 import { emptyRefsText, kindCount } from "../model/sources";
 import { CardShell } from "./card/CardShell";
+import { MovementNote } from "./card/MovementNote";
 import { resultTabs } from "./tabs";
 
 // 04 · 결과 · 지도 먼저: 지도 위에 떠 있는 결과 카드(Figma 04 「변화형 · 청년 유출」 Panel).
@@ -74,11 +75,12 @@ export function ResultCard({ argument }: { argument: Argument }) {
       title={`${question.place_name} · ${question.card_name ?? "목록에 없는 질문"}`}
       tabs={<TabBar variant="clear" items={resultTabs(argument)} current="summary" />}
     >
-      {/* Figma Panel > Meta(세로 · 사이 10): 기간 줄 + 측정소 결과면 관측 요약 칩 */}
+      {/* Figma Panel > Meta(세로 · 사이 10): 기간 줄 + 측정소 결과면 관측 요약 칩 + 이동형을 골랐으면 이동 한 줄 */}
       <div className="flex flex-col gap-2.5">
         {/* 기간 · 실행 시각(Figma 13 Regular text-3 · 줄 높이 16 — 글자 스타일이 없어 Body 13 에 줄 높이만 16) */}
         <p className="text-body-13 leading-4 text-text-3">{metaLine(argument)}</p>
         {stats && <StationStatChips stats={stats} />}
+        <MovementNote />
       </div>
 
       {/* 실행 상태 + 카드 판. 판정 규칙 ID(c1-net-migration-0.1 …)는 사용자에게 뜻이 없어 쓰지 않는다 */}
