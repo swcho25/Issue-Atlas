@@ -54,9 +54,9 @@ async function OverviewContent({ searchParams }: { searchParams: Promise<SearchP
         />
         <QueueCard
           icon="db"
-          title="CSV 적재 대기"
+          title="CSV 반영 대기"
           value={imports.pending}
-          sub={`검증 실패 ${imports.validation_failed} · 실패 ${imports.failed} · 완료 보고 ${imports.completed}`}
+          sub={`검증 오류 ${imports.validation_failed} · 반영 실패 ${imports.failed} · 반영 완료 ${imports.completed}`}
         />
       </div>
 
@@ -156,7 +156,7 @@ function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays 
         ["성공", a.jobs_started.ok],
         ["실패", a.jobs_started.failed],
         ["중단", a.jobs_started.aborted],
-        ["끝 기록 없음", a.jobs_started.running],
+        ["종료 미확인", a.jobs_started.running],
       ],
     },
   ];

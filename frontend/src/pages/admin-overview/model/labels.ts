@@ -9,7 +9,7 @@ export const jobBadge: Record<JobStatus, { tone: StatusTone; label: string }> = 
   ok: { tone: "green", label: "최근 성공" },
   failed: { tone: "red", label: "최근 실패" },
   aborted: { tone: "amber", label: "최근 중단" },
-  running: { tone: "blue", label: "끝 기록 없음" },
+  running: { tone: "blue", label: "종료 미확인" },
   unknown: { tone: "gray", label: "기록 없음" },
 };
 
