@@ -829,7 +829,8 @@ public class QuestionService {
 
     /**
      * 상한선 ⑥ = 카드 상한선 + 카드 설계도의 예상 빈칸(C5 expected_gaps)을 문장으로(S15P31C108-265). 인수 기준 ③
-     * 「license_blocked · not_published 숨김 없이 표시」를 C2 v1(expected_gaps[] 칸) 전까지 이미 있는 칸으로 보인다.
+     * 「license_blocked · not_published 숨김 없이 표시」를 C2 v1(expected_gaps[] 칸) 전까지 이미 있는 칸으로 보인다. 화면에
+     * 그대로 나가는 문장이라 상태 코드는 붙이지 않고 「-요」체로 쓴다.
      */
     static List<String> ceilingItems(JsonNode spec) {
         List<String> items = new ArrayList<>(strings(spec.path("ceiling")));
@@ -838,13 +839,13 @@ public class QuestionService {
             String status = gap.path("status").asText();
             String phrase =
                     switch (status) {
-                        case "license_blocked" -> "이용 허락이 없어 쓰지 않는다";
-                        case "not_published" -> "공표되지 않는다";
-                        case "not_collected" -> "수집하지 않는다";
+                        case "license_blocked" -> "이용 허락이 없어 쓰지 않아요";
+                        case "not_published" -> "아직 공표되지 않았어요";
+                        case "not_collected" -> "수집하지 않아요";
                         default -> null;
                     };
             if (!what.isBlank() && phrase != null) {
-                items.add(what + ": " + phrase + " (" + status + ")");
+                items.add(what + ": " + phrase);
             }
         }
         return items;
