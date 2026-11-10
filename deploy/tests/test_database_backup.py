@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,8 +15,8 @@ spec.loader.exec_module(backup)
 
 class RetentionTest(unittest.TestCase):
     def test_failed_dump_or_archive_read_never_prunes(self):
-        for failed_call in (2, 3):
-            with self.subTest(failed_call=failed_call), tempfile.TemporaryDirectory() as temp:
+        for environment, failed_call in ((e, c) for e in backup.CONTAINERS for c in (2, 3)):
+            with self.subTest(environment=environment, failed_call=failed_call), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp).resolve()
                 old = root / 'manual'
                 old.mkdir()
@@ -29,10 +30,60 @@ class RetentionTest(unittest.TestCase):
                      patch.object(backup.os, 'umask'), \
                      patch.object(backup.shutil, 'disk_usage', return_value=Mock(free=10**12)):
                     with self.assertRaises(subprocess.CalledProcessError):
-                        backup.backup()
+                        backup.backup(environment)
                     prune.assert_not_called()
                 self.assertTrue(old.exists())
-                self.assertEqual(list(root.glob('.partial-*')), [])
+                self.assertEqual(list((root / environment).glob('.partial-*')), [])
+
+    def test_production_publication_and_retention_do_not_touch_development(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            for environment in backup.CONTAINERS:
+                (root / environment).mkdir()
+                for day in range(1, 9):
+                    folder = root / environment / f'202001{day:02d}T190000Z'
+                    folder.mkdir()
+                    (folder / 'database.dump').touch()
+                    (folder / 'manifest.json').write_text('{}')
+            fake_lock = types.SimpleNamespace(LOCK_EX=1, LOCK_NB=2, flock=Mock())
+            real_open, real_close = backup.os.open, backup.os.close
+
+            def open_for_sync(path, flags, *args, **kwargs):
+                # Windows cannot open a directory for fsync. Leave deletion's
+                # directory descriptors real (Linux shutil.rmtree uses fstat).
+                if Path(path) == root / 'production':
+                    return -1
+                return real_open(path, flags, *args, **kwargs)
+
+            def close_after_sync(fd):
+                if fd != -1:
+                    return real_close(fd)
+
+            with patch.dict('sys.modules', {'fcntl': fake_lock}), \
+                 patch.object(backup, 'ROOT', root), \
+                 patch.object(backup, 'run', return_value=Mock(stdout='1')) as run, \
+                 patch.object(backup.os, 'umask'), \
+                 patch.object(backup.os, 'O_DIRECTORY', 0, create=True), \
+                 patch.object(backup.os, 'open', side_effect=open_for_sync), \
+                 patch.object(backup.os, 'close', side_effect=close_after_sync), \
+                 patch.object(backup.os, 'fsync'), \
+                 patch.object(backup.shutil, 'disk_usage', return_value=Mock(free=10**12)):
+                backup.backup('production')
+            self.assertEqual(len(list((root / 'development').iterdir())), 8)
+            published = sorted((root / 'production').glob('*/manifest.json'))
+            self.assertEqual(len(published), 7)
+            manifest = json.loads(published[-1].read_text())
+            self.assertEqual(manifest['environment'], 'production')
+            self.assertEqual(manifest['container'], 'issueatlas-prod-postgres-1')
+            self.assertFalse(manifest['restore_tested'])
+            self.assertTrue(all('issueatlas-prod-postgres-1' in call.args for call in run.call_args_list))
+
+    def test_unknown_environment_cannot_select_arbitrary_container_or_path(self):
+        for environment in ['main', '../development', 'unknown']:
+            with self.subTest(environment=environment), patch.object(backup, 'run') as run:
+                with self.assertRaises(ValueError):
+                    backup.backup(environment)
+                run.assert_not_called()
 
     def test_keeps_seven_completed_and_preserves_manual_and_incomplete(self):
         with tempfile.TemporaryDirectory() as temp:
