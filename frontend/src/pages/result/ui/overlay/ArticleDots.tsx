@@ -42,6 +42,10 @@ function dotElement(d: ArticleDot) {
   return { el, label: `기사 ${d.name}` };
 }
 
+/**
+ * 위치 근사 묶음: 원 + 「N건」. 행정동 중심끼리는 가까워 전체 이름(「위치 근사 · 여수시 중심 3건」)을 늘 쓰면
+ * 이름표끼리 겹친다. 전체 이름은 마우스를 올렸을 때(title) · 눌러 연 창 제목으로 보인다
+ */
 function groupElement(g: ApproxGroup) {
   const el = document.createElement("div");
   el.className = "flex items-center gap-1";
@@ -52,8 +56,9 @@ function groupElement(g: ApproxGroup) {
   const tag = document.createElement("span");
   tag.className =
     "rounded-sm bg-surface-1/92 px-1.5 py-0.5 text-caption-11 font-medium whitespace-nowrap text-text-1";
-  tag.textContent = g.name;
+  tag.textContent = `${g.count}건`;
   el.append(ring, tag);
+  el.title = g.name;
   return { el, label: g.name };
 }
 
