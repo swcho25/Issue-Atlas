@@ -7,7 +7,8 @@ import { renderWithQuery } from "@/shared/lib/test";
 
 import a3Json from "../../../../../../contracts/c2/examples/argument-a3-not-comparable.json";
 import { stationPoints, stationSeries } from "../../model/distribution";
-import { popoverPlacement, StationDetail } from "./StationDetail";
+import { popoverPlacement } from "./MapPopover";
+import { StationDetail } from "./StationDetail";
 
 // 지도는 jsdom 에서 그리지 않는다: 점은 (400, 300), 지도는 1600 × 900 으로 둔다.
 // 실제처럼 같은 지도 하나를 돌려준다(부를 때마다 새 객체면 자리 재기가 끝없이 돈다)
