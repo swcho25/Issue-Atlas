@@ -3,9 +3,9 @@ import { TabBar, type TabBarItem } from "@/shared/ui/tab-bar";
 
 const items: TabBarItem[] = [
   { key: "summary", label: "요약", href: "#summary", icon: <Icon name="grid" /> },
-  { key: "demand", label: "수요표", href: "#demand", icon: <Icon name="table" /> },
-  { key: "argument", label: "논증", href: "#argument", icon: <Icon name="compare" /> },
-  { key: "source", label: "원문 16", href: "#source", icon: <Icon name="doc" /> },
+  { key: "demand", label: "자료 현황", href: "#demand", icon: <Icon name="table" /> },
+  { key: "argument", label: "분석 근거", href: "#argument", icon: <Icon name="compare" /> },
+  { key: "source", label: "출처 16", href: "#source", icon: <Icon name="doc" /> },
 ];
 
 // Figma 의 두 쓰임을 같은 폭으로: 04 결과 카드 안(350) · 05 오른쪽 패널(326)
