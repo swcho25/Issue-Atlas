@@ -49,12 +49,31 @@ describe("기사 점", () => {
       ],
     } as Argument;
     const { dots, groups } = articleMarks(a);
-    expect(dots.map((d) => d.id)).toEqual(["n1", "n2"]);
+    expect(dots.map((d) => d.ids)).toEqual([["n1"], ["n2"]]);
     expect(dots[0].name).toBe("2023-01-27 · 요약 n1");
     expect(groups.map((g) => [g.area, g.count, g.name])).toEqual([
       ["여수시", 2, "위치 근사 · 여수시 중심 2건"],
       // 기사 건수 줄에 이름이 없는 지역
       ["행정구역", 1, "위치 근사 · 행정구역 중심 1건"],
+    ]);
+    // 묶음을 누르면 목록 창 — 묶음에 든 기사 id
+    expect(groups.map((g) => g.ids)).toEqual([["n3", "n4"], ["n5"]]);
+  });
+
+  it("같은 주소의 기사는 점 하나에 모은다(겹쳐 놓으면 맨 위 하나만 눌린다 — 여수 C1 실제: 17건이 4곳)", () => {
+    const a = {
+      ...ready,
+      articles: [
+        { ...article("e1", "address", [127.747131, 34.750901]), place_name: "여수세계박람회장" },
+        { ...article("e2", "address", [127.747132, 34.750902]), place_name: "여수세계박람회장" },
+        { ...article("e3", "address", [127.747131, 34.750901]), place_name: "여수세계박람회장" },
+        { ...article("s1", "address", [127.661524, 34.760494]), place_name: "여수시청" },
+      ],
+    } as Argument;
+    const { dots } = articleMarks(a);
+    expect(dots.map((d) => [d.ids, d.name])).toEqual([
+      [["e1", "e2", "e3"], "여수세계박람회장 · 기사 3건"],
+      [["s1"], "2023-01-27 · 요약 s1"],
     ]);
   });
 

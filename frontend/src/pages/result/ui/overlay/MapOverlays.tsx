@@ -22,7 +22,8 @@ import { movementBars, movementDots } from "../../model/movement";
 import { observationOrder } from "../../model/observationOrder";
 import { changeSeries, openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
-import { ArticleDots, ArticleLegend } from "./ArticleDots";
+import { ArticleDetail, ArticleGroupDetail, ArticleStackDetail } from "./ArticleDetail";
+import { ArticleDots, ArticleLegend, articleMark, groupMark } from "./ArticleDots";
 import { ChangeSheet } from "./ChangeSheet";
 import { DistributionLegend } from "./DistributionLegend";
 import { GlassActions } from "./GlassActions";
@@ -31,7 +32,8 @@ import { MovementDots } from "./MovementDots";
 import { MovementSheet } from "./MovementSheet";
 import { OrderMarkers, OrderSheet } from "./OrderView";
 import { StationDetail } from "./StationDetail";
-import { StationDots } from "./StationDots";
+import { focusMark } from "./pressable";
+import { StationDots, stationMark } from "./StationDots";
 import { TimeStrip } from "./TimeStrip";
 
 // 04 지도 위 부품(Figma 04): 위 유형 전환(+ 분포형이면 시점) · 오른쪽 위 유리 아이콘 · 그림 시트 · 범례 · 아래 유리 바.
@@ -60,12 +62,26 @@ export function MapOverlays({ argument }: { argument: Argument }) {
     const id = stationId;
     setStationId(null);
     // 닫기 · Esc 로 닫으면 그 점으로 초점을 돌린다(지도 빈 곳을 눌러 닫으면 그대로)
-    if (refocus && id)
-      document.querySelector<HTMLElement>(`[data-station="${CSS.escape(id)}"]`)?.focus();
+    if (refocus && id) focusMark(stationMark(id));
   };
 
-  // 변화형 위 기사 점
+  // 변화형 위 기사 점. 누르면 기사 창(그 자리 기사 하나) · 목록 창(같은 자리 여럿 · 위치 근사 묶음) — 「근거 기사 2클릭 → 원문」
   const articles = useMemo(() => articleMarks(argument), [argument]);
+  const [articleKey, setArticleKey] = useState<string | null>(null);
+  const pickedDot = articles.dots.find((d) => articleMark(d.key) === articleKey);
+  const pickedGroup = articles.groups.find((g) => groupMark(g.key) === articleKey);
+  const pickedIds = pickedDot?.ids ?? pickedGroup?.ids;
+  // 고른 자리의 기사(최신 순)
+  const pickedArticles = pickedIds
+    ? argument.articles
+        .filter((a) => pickedIds.includes(a.id))
+        .sort((x, y) => (y.date ?? "").localeCompare(x.date ?? ""))
+    : [];
+  const closeArticle = (refocus: boolean) => {
+    const key = articleKey;
+    setArticleKey(null);
+    if (refocus && key) focusMark(key);
+  };
   // 관측 순서: 지역마다 첫 기사 달 순서
   const order = useMemo(() => observationOrder(argument), [argument]);
   // 이동형: 출발지의 시도(같은 도 안 이동을 막대 밖으로). 결과 지도가 이미 받은 경계(같은 캐시)의 parent_id.
@@ -95,6 +111,7 @@ export function MapOverlays({ argument }: { argument: Argument }) {
         onChange={(v) => {
           setView(v);
           setStationId(null);
+          setArticleKey(null);
         }}
       />
       <GlassActions argument={argument} />
@@ -150,7 +167,39 @@ export function MapOverlays({ argument }: { argument: Argument }) {
           {/* 순이동 막대 + 기사 점(Figma 「변화형 · 청년 유출」). 범례는 유리 아이콘 아래(오른쪽 16 · 위 72) */}
           {(articles.dots.length > 0 || articles.groups.length > 0) && (
             <>
-              <ArticleDots dots={articles.dots} groups={articles.groups} />
+              <ArticleDots
+                dots={articles.dots}
+                groups={articles.groups}
+                selected={articleKey}
+                onSelect={setArticleKey}
+              />
+              {pickedDot && pickedArticles.length === 1 && (
+                <ArticleDetail
+                  article={pickedArticles[0]}
+                  at={pickedDot.at}
+                  markKey={articleMark(pickedDot.key)}
+                  runId={argument.run_id}
+                  onClose={closeArticle}
+                />
+              )}
+              {pickedDot && pickedArticles.length > 1 && (
+                <ArticleStackDetail
+                  dot={pickedDot}
+                  articles={pickedArticles}
+                  markKey={articleMark(pickedDot.key)}
+                  runId={argument.run_id}
+                  onClose={closeArticle}
+                />
+              )}
+              {pickedGroup && (
+                <ArticleGroupDetail
+                  group={pickedGroup}
+                  articles={pickedArticles}
+                  markKey={groupMark(pickedGroup.key)}
+                  runId={argument.run_id}
+                  onClose={closeArticle}
+                />
+              )}
               <div className="absolute top-[72px] right-4 z-control">
                 <ArticleLegend
                   hasDots={articles.dots.length > 0}
