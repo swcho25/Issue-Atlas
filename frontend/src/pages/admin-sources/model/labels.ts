@@ -3,21 +3,22 @@ import type { StatusTone } from "@/shared/ui/badge";
 
 import type { ImportStatus } from "./schema";
 
-// 데이터 소스 화면 글자. running 은 끝 기록이 없다는 뜻일 뿐 수집이 살아 있다는 보장이 아니다(contracts/operations)
+// 데이터 소스 화면 글자(관제 · 데이터 포털에서 쓰는 말). running 은 끝 기록이 없다는 뜻일 뿐 수집이 살아 있다는 보장이 아니어서
+// 「진행 중」이 아니라 「종료 미확인」(contracts/operations). CSV 는 API 가 업무 DB 를 바꾸지 않고 반영 담당자가 따로 넣는다
 
 export const jobBadge: Record<JobStatus, { tone: StatusTone; label: string }> = {
   ok: { tone: "green", label: "성공" },
   failed: { tone: "red", label: "실패" },
   aborted: { tone: "amber", label: "중단" },
-  running: { tone: "blue", label: "끝 기록 없음" },
+  running: { tone: "blue", label: "종료 미확인" },
 };
 
 export const importBadge: Record<ImportStatus, { tone: StatusTone; label: string }> = {
-  pending: { tone: "amber", label: "적재 대기" },
-  validation_failed: { tone: "red", label: "검증 실패" },
-  no_changes: { tone: "gray", label: "새 행 없음" },
-  completed: { tone: "green", label: "완료 보고" },
-  failed: { tone: "red", label: "실패 보고" },
+  pending: { tone: "amber", label: "반영 대기" },
+  validation_failed: { tone: "red", label: "검증 오류" },
+  no_changes: { tone: "gray", label: "변경 없음" },
+  completed: { tone: "green", label: "반영 완료" },
+  failed: { tone: "red", label: "반영 실패" },
 };
 
 export const storageLabel: Record<Source["storage_scope"], string> = {

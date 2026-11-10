@@ -11,7 +11,7 @@ import { FinishForm } from "./FinishForm";
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
-// contracts/csv-imports 「응답과 상태」 예시와 같은 모양(검증 통과 3행 · 중복 1 → 적재 대상 2)
+// contracts/csv-imports 「응답과 상태」 예시와 같은 모양(검증 통과 3행 · 중복 1 → 반영 대상 2)
 const request = {
   import_id: "import_1",
   requested_by: 1,
@@ -47,13 +47,13 @@ describe("FinishForm", () => {
     document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
   });
 
-  it("지정 담당자가 아니면 꺼져 있다", () => {
+  it("반영 담당자가 아니면 꺼져 있다", () => {
     renderWithQuery(<FinishForm detail={detail} meId={1} assigneeName="관리자(admin)" />);
     expect(screen.getByRole("button", { name: "완료 보고" })).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "사유 (필수)" })).toBeDisabled();
   });
 
-  it("완료는 적재 + 건너뜀 = 적재 대상이어야 보내고, 요청 번호를 expected_revision 으로", async () => {
+  it("완료는 반영 + 건너뜀 = 반영 대상이어야 보내고, 요청 번호를 expected_revision 으로", async () => {
     let body: unknown = null;
     mswServer.use(
       http.post("*/api/v1/admin/imports/:id/results", async ({ request: req }) => {
@@ -65,11 +65,11 @@ describe("FinishForm", () => {
       }),
     );
     renderWithQuery(<FinishForm detail={detail} meId={6} assigneeName="관리자(admin)" />);
-    const loaded = screen.getByRole("textbox", { name: "적재" });
+    const loaded = screen.getByRole("textbox", { name: "반영" });
     await userEvent.clear(loaded);
     await userEvent.type(loaded, "1");
     await userEvent.type(screen.getByRole("textbox", { name: "사유 (필수)" }), "별도 적재 확인");
-    expect(screen.getByText("적재 + 건너뜀 = 2")).toBeInTheDocument();
+    expect(screen.getByText("반영 + 건너뜀 = 2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "완료 보고" })).toBeDisabled();
 
     await userEvent.type(screen.getByRole("textbox", { name: "건너뜀" }), "{backspace}1");
@@ -84,10 +84,10 @@ describe("FinishForm", () => {
     });
   });
 
-  it("실패는 합계가 적재 대상 이하면 된다", async () => {
+  it("실패는 합계가 반영 대상 이하면 된다", async () => {
     renderWithQuery(<FinishForm detail={detail} meId={6} assigneeName="관리자(admin)" />);
     await userEvent.click(screen.getByRole("radio", { name: "실패" }));
-    const loaded = screen.getByRole("textbox", { name: "적재" });
+    const loaded = screen.getByRole("textbox", { name: "반영" });
     await userEvent.clear(loaded);
     await userEvent.type(loaded, "0");
     await userEvent.type(screen.getByRole("textbox", { name: "사유 (필수)" }), "참조 오류");
