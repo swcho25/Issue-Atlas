@@ -82,6 +82,7 @@ async function ImportTable({
             key: "mine",
             label: "처리 필요",
             count: mineTotal,
+            alert: mineTotal > 0,
             href: sourcesHref({ view: "imports", mine: true }),
             active: q.mine,
           },

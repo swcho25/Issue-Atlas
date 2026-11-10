@@ -14,7 +14,7 @@
 | `ProvBadge` ← `@/shared/ui/badge` | 논증 카드 칸을 누가 채웠는지(자동 산출 · 기준 문구 · AI 생성 · 검수 반영) | `v5/Prov badge` |
 | `TabBar` ← `@/shared/ui/tab-bar` | 결과 화면 요약 · 자료 현황 · 분석 근거 · 출처 오가기 | `Tab bar/Item` |
 | `Toggle` ← `@/shared/ui/toggle` | 켜고 끄는 것(지도 레이어 · 테마). 켜짐은 앰버, 누르는 동안 손잡이가 유리 방울로 | `Toggle` |
-| `SegmentLinks` ← `@/shared/ui/segment` | 링크 탭(상태 · 기간 거르기, 칸마다 건수). 칸이 링크라 주소가 상태 | 07 관리자 탭 |
+| `SegmentLinks` ← `@/shared/ui/segment` | 링크 탭(상태 · 기간 거르기, 칸마다 건수 · 알림 점 `alert`). 칸이 링크라 주소가 상태 | 07 관리자 탭 |
 | `Pager` ← `@/shared/ui/pager` | 쪽 넘기기(이전 · n / 끝 · 다음). 한 쪽뿐이면 안 그린다 | 07 관리자 |
 | `table` ← `@/shared/ui/table` | 관리자 표 틀 class(`table.wrap` · `box` · `headRow` · `headCell` · `bodyCell`). 좁은 창에서 옆으로 넘긴다 | 07 관리자 표 |
 | `Icon` ← `@/shared/ui/icon` | 모든 줄 아이콘(32개) | `v3/Icon` |
