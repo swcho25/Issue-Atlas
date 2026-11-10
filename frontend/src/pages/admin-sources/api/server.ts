@@ -26,16 +26,14 @@ export const getJobs = (q: { status: JobStatus | null; source: string | null; pa
     jobListSchema,
   );
 
-/** 출처마다 가장 최근 수집 실행 하나(출처 전체가 정상인지 판정하는 값이 아니다) */
-export async function getLatestJobs(sourceIds: string[]) {
-  const latest = await Promise.all(
+/** 출처마다 최근 수집 실행 size 개(최근 시작 순). 실행 기록일 뿐 출처 전체가 정상인지 판정하는 값이 아니다 */
+export async function getRecentJobs(sourceIds: string[], size: number) {
+  const recent = await Promise.all(
     sourceIds.map((id) =>
-      adminGet(href("/v1/admin/jobs", { source_id: id, size: 1 }), jobListSchema).then(
-        (l) => l.jobs[0] ?? null,
-      ),
+      adminGet(href("/v1/admin/jobs", { source_id: id, size }), jobListSchema).then((l) => l.jobs),
     ),
   );
-  return Object.fromEntries(sourceIds.map((id, i) => [id, latest[i]]));
+  return Object.fromEntries(sourceIds.map((id, i) => [id, recent[i]]));
 }
 
 /** CSV 요청(올린 순). assignee 를 주면 그 사람이 반영 담당자인 것만 */
