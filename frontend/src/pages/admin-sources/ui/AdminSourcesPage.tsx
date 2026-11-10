@@ -48,24 +48,26 @@ async function SourcesContent({ searchParams }: { searchParams: Promise<SearchPa
               href: sourcesHref({}),
               active: q.view === "sources",
             },
-            {
-              key: "imports",
-              label: "CSV 업로드",
-              count: all.total,
-              href: sourcesHref({ view: "imports" }),
-              active: q.view === "imports",
-            },
+            // 출처 보기에서는 처리 필요(내가 반영 담당자인 반영 대기)를 알림 숫자로, 누르면 처리 필요만 거른 표로.
+            // CSV 업로드 보기 안에서는 「전체 · 처리 필요」 칸이 같은 일을 해서 알림을 빼고 전체 표로
+            q.view === "sources" && mine.total > 0
+              ? {
+                  key: "imports",
+                  label: "CSV 업로드",
+                  count: all.total,
+                  badge: { count: mine.total, label: "처리 필요" },
+                  href: sourcesHref({ view: "imports", mine: true }),
+                  active: false,
+                }
+              : {
+                  key: "imports",
+                  label: "CSV 업로드",
+                  count: all.total,
+                  href: sourcesHref({ view: "imports" }),
+                  active: q.view === "imports",
+                },
           ]}
         />
-        {/* CSV 업로드 보기에는 「전체 · 처리 필요」 칸이 있어 출처 보기에서만 */}
-        {q.view === "sources" && mine.total > 0 && (
-          <Link
-            href={sourcesHref({ view: "imports", mine: true })}
-            className="text-label-13 text-primary-text hover:underline"
-          >
-            CSV 처리 필요 {mine.total}
-          </Link>
-        )}
         <Link
           href={sourcesHref({ view: "imports", isNew: true })}
           className={buttonClass({ className: "ml-auto" })}
