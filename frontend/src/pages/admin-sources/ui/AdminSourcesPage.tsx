@@ -62,8 +62,10 @@ async function SourcesContent({ searchParams }: { searchParams: Promise<SearchPa
         {q.view === "sources" && mine > 0 && (
           <Link
             href={sourcesHref({ view: "imports", mine: true })}
-            className="text-label-13 text-primary-text hover:underline"
+            className="flex items-center gap-1.5 text-label-13 text-primary-text hover:underline"
           >
+            {/* 왼쪽 띠 「데이터 소스」 알림 점과 같은 빨간 점 */}
+            <span aria-hidden className="size-2 shrink-0 rounded-full bg-status-red" />
             CSV 처리 필요 {mine}
           </Link>
         )}
