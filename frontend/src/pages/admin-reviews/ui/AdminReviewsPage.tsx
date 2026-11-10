@@ -46,15 +46,21 @@ async function ReviewsContent({ searchParams }: { searchParams: Promise<SearchPa
           changeTotal={changeTotal}
           origin={q.origin}
         />
-        <SegmentLinks
-          label="요청 출처"
-          items={originTabs.map((o) => ({
-            key: o ?? "all",
-            label: o ? originLabel[o] : "전체",
-            href: href("/admin/reviews", { status, origin: o }),
-            active: q.origin === o,
-          }))}
-        />
+        {/* 왼쪽 상태 탭과 헷갈리지 않게 이 묶음이 무엇으로 거르는지 적는다 */}
+        <div className="flex items-center gap-2">
+          <span aria-hidden className="text-caption-12 text-text-3">
+            요청 출처
+          </span>
+          <SegmentLinks
+            label="요청 출처"
+            items={originTabs.map((o) => ({
+              key: o ?? "all",
+              label: o ? originLabel[o] : "전체",
+              href: href("/admin/reviews", { status, origin: o }),
+              active: q.origin === o,
+            }))}
+          />
+        </div>
       </div>
       {list.items.length === 0 ? (
         <p className="rounded-xl border border-border-1 px-4 py-10 text-center text-body-13 text-text-3">

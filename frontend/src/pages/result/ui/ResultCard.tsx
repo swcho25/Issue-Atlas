@@ -81,17 +81,14 @@ export function ResultCard({ argument }: { argument: Argument }) {
         {stats && <StationStatChips stats={stats} />}
       </div>
 
-      {/* 실행 상태 + 카드 · 규칙 판 */}
+      {/* 실행 상태 + 카드 판. 판정 규칙 ID(c1-net-migration-0.1 …)는 사용자에게 뜻이 없어 쓰지 않는다 */}
       <div className="flex items-center gap-2">
         <StatusBadge tone={status.tone}>{statusText(argument)}</StatusBadge>
-        <span className="min-w-0 text-caption-11 text-text-3">
-          {[
-            argument.card_version !== null && `카드 v${argument.card_version}`,
-            argument.formula_version && `규칙 ${argument.formula_version}`,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
+        {argument.card_version !== null && (
+          <span className="min-w-0 text-caption-11 text-text-3">
+            카드 {argument.card_version}판
+          </span>
+        )}
       </div>
 
       {/* 적용 조건을 못 채우면(C2 v1) 근거 4종 · 비교 조건 대신 못 채운 조건만(Figma 08 「카드 조건 밖」) */}

@@ -120,11 +120,14 @@ export async function SourceReader({ item }: { item: EvidenceRef | null }) {
         )}
       </section>
 
+      {/* 원문 위치는 다시 찾을 때만 쓰는 값이라 접어 둔다 */}
       {locator && (
-        <section className="grid gap-1">
-          <h3 className="text-caption-11 text-text-3">원문 위치 (locator)</h3>
+        <details className="grid gap-1">
+          <summary className="cursor-pointer text-caption-11 text-text-3">
+            원문을 다시 찾는 값
+          </summary>
           <p className="text-caption-12 break-all text-text-2">{locator}</p>
-        </section>
+        </details>
       )}
 
       {/* 각주 상자: 테두리 1 이 자리를 차지한다(Figma 안쪽 14 + 1) */}

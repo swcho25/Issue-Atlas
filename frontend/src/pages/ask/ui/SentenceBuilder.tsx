@@ -137,7 +137,7 @@ export function SentenceBuilder({
     if (draft.trim()) onSubmit(draft.trim());
   };
   const evidence = (c: IssueCard) =>
-    `근거 ${c.available_kinds}/4${c.available_kinds === 0 ? " · 근거를 아직 모으지 않았어요" : ""}`;
+    `근거 ${c.available_kinds}/4종${c.available_kinds === 0 ? " · 근거를 아직 모으지 않았어요" : ""}`;
 
   return (
     <div className="flex flex-col gap-4.5">
@@ -165,7 +165,7 @@ export function SentenceBuilder({
             <div className="flex items-center gap-2">
               <h2 className="text-title-14 text-text-1">이렇게 이해했어요</h2>
               <span className="text-body-13 text-text-3">
-                규칙 해석 · 지명 사전 · 이슈 키워드 · 기간 표현
+                문장에서 지역 · 이슈 · 기간을 찾았어요
               </span>
             </div>
             <div className="flex flex-wrap gap-2">
