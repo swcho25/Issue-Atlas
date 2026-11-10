@@ -109,6 +109,23 @@ public class QuestionRepository {
               AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
             """;
 
+    // ⑤ 반박별 근거 기사 재료(S15P31C108-326, AI 계약 v0.5): 질문 지역(앞자리가 같은 읍면동 포함) · 기간의 기사 중
+    // 활성 벡터가 있는 것 전부(카드 태그와 상관없음)와, 그 판의 활성 반박 질의마다 1 - 코사인 거리. 한 행 = 기사 × 질의
+    private static final String REBUTTAL_ARTICLES =
+            """
+            SELECT o.what_id AS id, to_char(o.when_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS date,
+                   o.summary, q.rebuttal_id, 1 - (d.embedding <=> q.embedding) AS cosine
+            FROM observation o
+            JOIN document_search_input i ON i.news_id = o.what_id
+            JOIN document_embedding_v1 d ON d.input_id = i.input_id AND d.is_active
+            JOIN card_rebuttal_profile q ON q.card_id = :card AND q.card_version = :version AND q.is_active
+                 AND q.model = d.model
+            WHERE o.source_table = 'news_event' AND starts_with(o.place_id, :place)
+              AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+              AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+            ORDER BY o.when_start, o.what_id, q.rebuttal_id
+            """;
+
     private static final String ARTICLES =
             "SELECT a.id, to_char(a.when_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS date,"
                     + " a.place_id, a.lon, a.lat, a.location_precision, a.summary, a.place_name,"
@@ -542,12 +559,15 @@ public class QuestionRepository {
                 .update();
     }
 
-    /** 실행 한 건의 문장화 기록(V0046). problems · citations 는 JSON 문자열. */
+    /**
+     * 실행 한 건의 문장화 기록(V0046 · V0054). problems · citations · retrieval 은 JSON 문자열(retrieval 은 null
+     * 가능).
+     */
     public void insertPhrasing(String runId, PhrasingRow row) {
         jdbc.sql(
                         "INSERT INTO argument_phrasing (run_id, status, reason_code, problems,"
-                                + " citations, model, prompt_version, duration_ms)"
-                                + " VALUES (?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)")
+                                + " citations, model, prompt_version, duration_ms, retrieval)"
+                                + " VALUES (?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?::jsonb)")
                 .params(
                         runId,
                         row.status(),
@@ -556,7 +576,8 @@ public class QuestionRepository {
                         row.citations(),
                         row.model(),
                         row.promptVersion(),
-                        row.durationMs())
+                        row.durationMs(),
+                        row.retrieval())
                 .update();
     }
 
@@ -649,6 +670,30 @@ public class QuestionRepository {
                 .list();
     }
 
+    /** 그 카드 판의 활성 반박 검색 질의(V0053). */
+    public List<RebuttalQuery> rebuttalQueries(String cardId, int cardVersion) {
+        return jdbc.sql(
+                        "SELECT rebuttal_id, query_text, query_version FROM card_rebuttal_profile"
+                                + " WHERE card_id = ? AND card_version = ? AND is_active"
+                                + " ORDER BY rebuttal_id")
+                .params(cardId, cardVersion)
+                .query(RebuttalQuery.class)
+                .list();
+    }
+
+    /** 반박별 근거 기사 재료: 지역 · 기간 기사 × 그 판의 활성 반박 질의 코사인. */
+    public List<RebuttalArticleRow> rebuttalArticles(
+            String cardId, int cardVersion, String placeId, LocalDate start, LocalDate end) {
+        return jdbc.sql(REBUTTAL_ARTICLES)
+                .param("card", cardId)
+                .param("version", cardVersion)
+                .param("place", placeId)
+                .param("start", start)
+                .param("end", end)
+                .query(RebuttalArticleRow.class)
+                .list();
+    }
+
     /** 지역 대표점 [경도, 위도]. 좌표가 없으면 null 두 개. */
     public List<Double> point(String placeId) {
         return jdbc.sql(
@@ -705,7 +750,7 @@ public class QuestionRepository {
 
     public record MatchedResponse(String responseId, String evidenceId) {}
 
-    /** argument_phrasing 한 행. reasonCode 는 done 이면 null */
+    /** argument_phrasing 한 행. reasonCode 는 done 이면 null, retrieval 은 engine 이 고르지 않았으면 null */
     public record PhrasingRow(
             String status,
             String reasonCode,
@@ -713,7 +758,15 @@ public class QuestionRepository {
             String citations,
             String model,
             String promptVersion,
-            int durationMs) {}
+            int durationMs,
+            String retrieval) {}
+
+    /** 반박 검색 질의 한 개(card_rebuttal_profile). */
+    public record RebuttalQuery(String rebuttalId, String queryText, String queryVersion) {}
+
+    /** 기사 한 건 × 반박 질의 한 개의 코사인. */
+    public record RebuttalArticleRow(
+            String id, String date, String summary, String rebuttalId, double cosine) {}
 
     /** 재실행 로그의 앞 실행. 칸이 생기기 전(V0033) 실행은 지표가 null */
     public record PreviousRun(String runId, Integer filledCells, Integer durationMs) {}

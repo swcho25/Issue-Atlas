@@ -1,15 +1,53 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://issue-atlas.c108/contracts/ai/phrasing-request.schema.json",
-  "title": "AI 모듈 문장화 요청 v0.2 — engine POST /v1/argument/phrase 본문",
+  "title": "AI 모듈 문장화 요청 v0.3 — engine POST /v1/argument/phrase 본문",
   "description": "backend 가 질문 실행 한 건의 규칙 판정을 끝낸 뒤 보낸다. AI 는 ③ 보증 · ⑤ 반박만 쓰고 판정 · 수치는 바꾸지 않는다",
   "type": "object",
   "properties": {
     "judgment": { "$ref": "judgment-input.schema.json" },
     "articles": {
-      "description": "그 실행의 C2 articles[] 그대로. 요약 문장이 근거 구절이 된다(앞 40건)",
+      "description": "그 실행의 C2 articles[] 그대로. rebuttal_search 가 없으면 요약 문장이 근거 구절이 된다(앞 40건)",
       "type": "array",
       "items": { "$ref": "../c2/argument.schema.json#/$defs/article" }
+    },
+    "rebuttal_search": {
+      "description": "v0.3: ⑤ 반박마다 근거 기사를 고를 재료. 승인 판의 활성 반박 질의(card_rebuttal_profile)가 카드 반박을 모두 덮을 때만 backend 가 보낸다. 있으면 engine 은 articles 대신 이 기사에서 반박마다 고른다",
+      "type": "object",
+      "properties": {
+        "query_version": { "type": "string", "minLength": 1 },
+        "queries": {
+          "description": "반박 ID 와 그 검색 질의 문장(card_rebuttal_profile.query_text)",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "text": { "type": "string", "minLength": 1 }
+            },
+            "required": ["id", "text"],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "articles": {
+          "description": "질문 지역(앞자리가 같은 읍면동 포함) · 기간의 기사 중 활성 벡터가 있는 것 전부. 카드 꼬리표와 상관없다. cosine 은 질의마다 1 - 코사인 거리",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "date": { "$ref": "../c2/common.schema.json#/$defs/date" },
+              "summary": { "type": ["string", "null"] },
+              "cosine": { "type": "object", "additionalProperties": { "type": "number" } }
+            },
+            "required": ["id", "date", "summary", "cosine"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["query_version", "queries", "articles"],
+      "additionalProperties": false
     },
     "card": {
       "description": "그 실행이 쓴 카드 승인본(card_version.spec) 그대로. 문장화는 card_id · card_version · forbidden_terms 만 읽는다",

@@ -11,7 +11,7 @@ import re
 from datetime import date, timedelta
 from decimal import Decimal
 
-PROMPT_VERSION = "argument-phrasing-v5"
+PROMPT_VERSION = "argument-phrasing-v6"
 MAX_SOURCES = 40
 STATUSES = ("supported", "not_found", "needs_review")
 # C2 「공통 규칙」: 문구에 쓰지 않는다. 카드 금지어와 합친다
@@ -21,6 +21,10 @@ COMMON_FORBIDDEN = ("확산", "전파", "원인", "효과")
 # 모델은 ⑤ 반박만 쓴다(Figma: AI 칩은 ⑤ 만)
 # v5(S15P31C108-286): 카드 sign_words 가 있는 통계 값은 부호 대신 낱말 글자(value_text)를 함께 보내
 # 반박 note 가 「순유출 1,537명」처럼 쓰게 한다
+# v6(S15P31C108-326): 반박마다 그 지역 · 기간 기사에서 고른 구절(retrieve.py)을 받는다.
+# 같은 주제지만 그 변화가 일어났다는 사실은 아닌 구절(사업 소개 · 범죄 사건)을
+# 근거로 쓰지 않게 규칙 3-1 을 더한다.
+# 반박 실험 확인 실험에서 헛인용 3 → 0
 SYSTEM = "\n".join(
     [
         "너는 논증 카드의 ⑤ 반박 칸을 쓰는 도우미다."
@@ -39,6 +43,12 @@ SYSTEM = "\n".join(
         " passages 에 그 경쟁 설명을 뒷받침하는 내용이 있으면 status 를 supported 로 하고"
         " citations 에 passage id 와, 그 구절에서 글자 그대로 옮긴 quote 를 넣는다."
         " 관련 구절이 없으면 not_found, 애매하면 needs_review. note 는 한 문장 또는 null.",
+        "3-1. supported 는 구절이 그 경쟁 설명이 말하는 변화나 사건"
+        "(예: 고용 감소 · 공장 화재 · 휴업, 통계 · 주민등록 기준 개편, 황사 관측,"
+        " 측정소 이전 · 장비 교체, 기준값 개정, 이례적 기상)이"
+        " 이 지역 · 기간에 실제로 일어났다는 사실을 직접 말할 때만 쓴다."
+        " 지원 사업 · 정책 · 행사 · 계획 · 목표 소개,"
+        " 범죄 · 행정 처분 사건, 같은 낱말만 나오는 구절은 근거가 아니다. 애매하면 needs_review.",
         "4. ceiling 에 있는 것은 말하지 않는다. forbidden_terms 의 낱말은 쓰지 않는다.",
         '5. 출력은 JSON 하나: {"claim_value": "...",'
         ' "rebuttals": [{"id": "R1", "status": "...", "note": null,'

@@ -1,6 +1,6 @@
-# AI 모듈 입력 · 문장화 v0.4
+# AI 모듈 입력 · 문장화 v0.5
 
-AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지, backend 에 알릴 처리 상태, 논증 문장화 요청 · 결과(v0.4).
+AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지, backend 에 알릴 처리 상태, 논증 문장화 요청 · 결과(v0.5).
 주는 쪽: 정제(P2) · 지역 · 시간(P3) · 규칙 엔진(P5) → 받는 쪽: AI 모듈(P4 · P5) · backend(P7).
 계약 변경은 박준우(P2) · 정우현(P3) · 장성우(P7) 리뷰가 필요하다. 연동은 문장화(backend → engine `POST /v1/argument/phrase`)부터다. 입력 예시는 모두 가상(`fixture: true`)이고, 샘플 요청 목록은 요청할 실제 문서의 목록일 뿐 추출 결과가 아니다.
 
@@ -9,8 +9,8 @@ AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지, bac
 | `document-input.schema.json` | 문서 입력 — 문서 1건 (카드 분류 · 근거 연결용) |
 | `judgment-input.schema.json` | 판정 입력 — 실행 1건의 통계 · 규칙 판정 결과. 칸 모양은 [C2](../c2/) argument 를 `$ref` 로 쓴다 |
 | `status.schema.json` | 처리 상태 — backend 공유용. 문장화 결과 모양은 아래 `phrasing-result` |
-| `phrasing-request.schema.json` | 문장화 요청 — 판정 입력 + 그 실행의 C2 `articles[]` + 카드 승인본 (v0.2) |
-| `phrasing-result.schema.json` | 문장화 결과 — ⑤ 반박(C2 칸 모양) + 상태 · 사유 · 인용 · 검사 기록 (v0.4) |
+| `phrasing-request.schema.json` | 문장화 요청 — 판정 입력 + 그 실행의 C2 `articles[]` + 카드 승인본 + ⑤ 반박 검색 재료 `rebuttal_search` (v0.3) |
+| `phrasing-result.schema.json` | 문장화 결과 — ⑤ 반박(C2 칸 모양) + 상태 · 사유 · 인용 · 검사 기록 · 검색 기록 `retrieval` (v0.5) |
 | `examples/` | 가상 입력 · 상태 · 문장화 결과 예시 (아래 「예시」) |
 | `samples/` | P3 에 요청할 실제 문서 목록 (본문 없음) |
 
@@ -104,20 +104,31 @@ AI 모듈(P4 카드 분류 · P5 논증 문장)이 받는 입력 두 가지, bac
 
 `task` 는 `classify_document`(입력 `doc_id`) · `write_argument`(입력 `run_id`). `write_argument` 의 결과는 아래 「문장화」의 결과 모양을 쓴다.
 
-## 문장화 (`write_argument`) v0.4
+## 문장화 (`write_argument`) v0.5
 
 backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argument/phrase` 로 부른다. AI 는 논증 카드 **⑤ 반박만** 쓴다(v0.3, S15P31C108-282 — Figma: ① 판단 = 규칙이 쓴 연 값 문장, ③ 보증 = 카드 문장, 「AI」 칩은 ⑤ 만). C2 동결(11/4)에서 ① 판단 · ④ 한정어 · ⑥ 상한선의 `provenance` 는 `rule` · `card` 만이다. 코드는 `engine/ai/argument/`.
 
 | | 모양 | 비고 |
 | --- | --- | --- |
-| 요청 | `{judgment, articles, card}` | `judgment` = 판정 입력, `articles` = 그 실행의 C2 `articles[]`, `card` = 카드 승인본(`card_version.spec`) 그대로. `card_id` · `card_version` 이 판정 입력과 다르면 `INPUT_INVALID`(다른 판의 금지어 · 경쟁 설명이 섞이지 않게) |
-| 결과 | `{schema_version, run_id, status, reason_code, retryable, rebuttals, citations, problems, model, prompt_version}` | `rebuttals` 는 C2 칸 모양. `done` 이면 backend 가 ⑤ 칸을 바꿔 끼우고, 아니면 `rebuttals = []`. `done` 이어도 `problems` 가 있을 수 있다 — 낮춘 반박의 검사 기록이고 backend 는 지금처럼 `argument_phrasing.problems` 에 남기기만 한다(v0.4). v0.2 의 `warrant` 칸은 없다 — backend 는 옛 engine 이 보내도 쓰지 않는다 |
+| 요청 | `{judgment, articles, card, rebuttal_search?}` | `judgment` = 판정 입력, `articles` = 그 실행의 C2 `articles[]`, `card` = 카드 승인본(`card_version.spec`) 그대로. `card_id` · `card_version` 이 판정 입력과 다르면 `INPUT_INVALID`(다른 판의 금지어 · 경쟁 설명이 섞이지 않게). `rebuttal_search` 는 아래 「반박별 근거 기사」(v0.5) |
+| 결과 | `{schema_version, run_id, status, reason_code, retryable, rebuttals, citations, problems, model, prompt_version, retrieval}` | `rebuttals` 는 C2 칸 모양. `done` 이면 backend 가 ⑤ 칸을 바꿔 끼우고, 아니면 `rebuttals = []`. `done` 이어도 `problems` 가 있을 수 있다 — 낮춘 반박의 검사 기록이고 backend 는 지금처럼 `argument_phrasing.problems` 에 남기기만 한다(v0.4). v0.2 의 `warrant` 칸은 없다 — backend 는 옛 engine 이 보내도 쓰지 않는다. `retrieval` 은 근거 구절을 어떻게 골랐는지(v0.5), backend 가 `argument_phrasing.retrieval` 에 남긴다 |
 | 계약 위반 | HTTP 422 `{reason_code: "INPUT_INVALID", problems}` | `problems` 는 어긴 칸 경로와 규칙 이름만. 값은 돌려주지 않는다 |
 
-- 모델에 보내는 입력(프롬프트 `argument-phrasing-v5`): 질문 · 고정 판단(값 · 수준 · ① 문장 · 한정어 · 비교 조건) · 통계 연 값(카드 `sign_words` 가 있으면 낱말 글자 `value_text` 도) · 근거 제목 · 경쟁 설명 · 구절 · 상한선 · 금지어. 보증을 쓰지 않으므로 카드 보증 · 규칙 결과 뜻은 보내지 않는다(v3 의 보증 규칙을 뺐다)
+- 모델에 보내는 입력(프롬프트 `argument-phrasing-v6`): 질문 · 고정 판단(값 · 수준 · ① 문장 · 한정어 · 비교 조건) · 통계 연 값(카드 `sign_words` 가 있으면 낱말 글자 `value_text` 도) · 근거 제목 · 경쟁 설명 · 구절 · 상한선 · 금지어. 보증을 쓰지 않으므로 카드 보증 · 규칙 결과 뜻은 보내지 않는다(v3 의 보증 규칙을 뺐다)
 - `provenance`: 모델이 근거 유무를 정한 반박은 `llm_judgment`, 규칙이 정한 반박(`decided_by_rule`)은 `rule`. 반박 문장은 카드 경쟁 설명 그대로(+ 모델이 쓴 한 문장 `note`)
-- 근거 구절: 기사 요약을 문장 하나씩 나눈 P1 … (앞 40건). 원문 위치 = `{kind, source_id, field, sentence, date, url}`. 보도자료 · 정책 문서도 같은 모양으로 넣는다(-161)
+- 근거 구절: 기사 요약을 문장 하나씩 나눈 P1 … (앞 40건). 기사는 `rebuttal_search` 가 있으면 반박마다 고른 것, 없으면 `articles`(아래 「반박별 근거 기사」). 원문 위치 = `{kind, source_id, field, sentence, date, url}` — 반박별로 고른 기사는 링크를 받지 않아 `url` 이 null 이다(원천 ID 로 찾는다). 보도자료 · 정책 문서도 같은 모양으로 넣는다(-161)
 - `citations` 는 C2 응답에 나가지 않는다. backend 가 실행마다 따로 남긴다([DB 계약](../database/README.md) `argument_phrasing`)
+
+### 반박별 근거 기사 (v0.5, S15P31C108-326)
+
+⑤ 반박마다 그 경쟁 설명에 맞는 기사를 따로 고른다. 카드 꼬리표 기사를 날짜순으로 40건 보내면 관련 기사가 있어도 모델이 놓쳤고, 관련 기사 대부분은 꼬리표 밖에 있었다(반박 실험, 로컬 전용).
+
+- **backend**: 그 실행 카드 판의 활성 반박 질의([기사·카드 검색 계약](../article-card-search/README.md) `card_rebuttal_profile`)가 모델에 물을 반박(`decided_by_rule` 이 null)을 **모두** 덮을 때만 `rebuttal_search` 를 보낸다. 하나라도 없으면(질의를 아직 안 만듦 · 카드 판이 바뀜) 보내지 않고 engine 은 지금처럼 `articles` 를 쓴다.
+  - `query_version` · `queries[] = {id, text}`: 반박 ID 와 질의 문장(`query_text`)
+  - `articles[] = {id, date, summary, cosine}`: 질문 지역(앞자리가 같은 읍면동 포함) · 기간의 `news_event` 기사 중 활성 벡터(`document_embedding_v1`)가 있는 것 **전부**(카드 꼬리표와 상관없음). `cosine` 은 질의마다 `1 - (기사 벡터 <=> 질의 벡터)`. 링크는 보내지 않는다
+- **engine**(`engine/ai/argument/retrieve.py`): 그 `articles` 요약으로 글자 2~4조각 TF-IDF 를 만들고(소문자 · 연속 공백 한 칸 · sublinear · `idf = ln((1+n)/(1+df)) + 1` · L2, scikit-learn `TfidfVectorizer(analyzer="char")` 와 같은 값), 반박마다 `score = 0.5 × cosine + 0.5 × lexical` 상위 **5건**을 고른다(같은 점수는 기사 ID 순). 반박 순서대로 합치고 겹치는 기사는 한 번만 둔다. 점수 하한은 없다. 기사 ID 가 겹치거나 물을 반박의 `cosine` 이 빠졌으면 `INPUT_INVALID`.
+- **기록** `retrieval = {method, query_version, k, candidates, picked[]}`: `method` 는 `rebuttal_r3` · `card_tags`, `picked[] = {rebuttal, rank, source_id, score, cosine, lexical}`(소수 넷째 자리). `skipped` · `INPUT_INVALID` 는 고르기 전이라 `null`. C2 응답에는 나가지 않는다.
+- TF-IDF 를 미리 저장하지 않는 이유: 전체 기사로 미리 만든 TF-IDF 는 2023–2025 질문에서 관련 기사 1건 이상 적중이 62% → 46% 로 떨어졌다. 그 지역 · 기간 기사로 그때 만든다(여수 2023–2025 기준 545건, 요약 평균 55자).
 
 ### 출력 검사
 
@@ -144,7 +155,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | engine → 모델(GMS Gemini 2.5 Flash) | 한 번에 30초. 429 · 5xx 만 두 번까지 다시 부른다 → `LLM_TIMEOUT` · `LLM_ERROR` |
 | backend → engine | 연결 2초 · 응답 40초. 넘거나 못 닿으면 backend 가 `ENGINE_TIMEOUT` · `ENGINE_ERROR`, 주소 설정이 없으면 `ENGINE_DISABLED` 로 남기고 카드 문구로 응답 |
 
-실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v5`, 결과에 `model` · `prompt_version` 을 남긴다. v5: 카드 `sign_words` 가 있는 통계 값은 engine 이 부호 대신 낱말로 쓴 글자(`value_text`, 예 「순유출 1,537명」)를 함께 보내고, 모델은 반박 note 에 그 값을 쓸 때 그 글자를 그대로 쓴다. 낱말이 없는 카드의 입력은 v4 와 같다.
+실행 한 건에 모델 호출 한 번. 프롬프트 판 `argument-phrasing-v6`, 결과에 `model` · `prompt_version` 을 남긴다. v6: 규칙 3-1 — `supported` 는 구절이 경쟁 설명이 말하는 변화 · 사건이 그 지역 · 기간에 실제로 일어났다는 사실을 직접 말할 때만. 지원 사업 · 정책 · 행사 · 계획 소개, 범죄 · 행정 처분 사건, 같은 낱말만 나오는 구절은 근거가 아니다(반박별로 고른 기사에서 헛인용이 생겨 더했다). v5: 카드 `sign_words` 가 있는 통계 값은 engine 이 부호 대신 낱말로 쓴 글자(`value_text`, 예 「순유출 1,537명」)를 함께 보내고, 모델은 반박 note 에 그 값을 쓸 때 그 글자를 그대로 쓴다. 낱말이 없는 카드의 입력은 v4 와 같다.
 
 ## 예시 · 샘플
 
@@ -161,7 +172,7 @@ backend 가 질문 실행의 규칙 판정을 끝낸 뒤 engine `POST /v1/argume
 | `judgment-not-comparable.json` | 비교 불가 — C2 `argument-a3-not-comparable` + 가상 여천동(여수) PM2.5 |
 | `status-done.json` · `status-waiting-input.json` · `status-failed.json` | 처리 상태 |
 | `phrasing-result-done.json` | 문장화 성공 — `judgment-ready` + 가상 기사 4건으로 GMS 를 실제로 부른 결과(v0.2, `prompt_version` 그대로)에서 v0.3 에 없는 `warrant` 칸만 뺀 것 |
-| `phrasing-result-done-review.json` | 문장화 성공 · 반박 하나 낮춤 — R1 인용이 구절 원문과 글자가 달라(`quote_not_in_source`) R1 만 `needs_review`, R2 · R3 는 모델 답 그대로(v0.4) |
+| `phrasing-result-done-review.json` | 문장화 성공 · 반박 하나 낮춤 — R1 인용이 구절 원문과 글자가 달라(`quote_not_in_source`) R1 만 `needs_review`, R2 · R3 는 모델 답 그대로(v0.4). 근거 기사를 반박마다 고른 기록 `retrieval`(`rebuttal_r3`, 가상 기사 4건이라 반박마다 4건, v0.5) |
 | `phrasing-result-rejected.json` | 문장화 검사 탈락 — 모델이 판단 값을 바꿈(`judgment_changed`) → 빈 반박(v0.4 부터 반박 하나의 탈락은 이 예시가 아니라 위 예시처럼 처리) |
 
 판정 예시의 근거 수요표 · 비교 조건 · 판단 · 한정어는 C2 예시를 그대로 옮겼다. `statistics_points` 의 값은 가상이다.
@@ -199,6 +210,7 @@ pnpm --package=ajv-cli@5 --package=ajv-formats@3 dlx ajv validate --spec=draft20
 
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
+| v0.5 | 2026-11-10 | ⑤ 반박별 근거 기사: 요청 v0.3 `rebuttal_search`(반박 질의 · 지역 · 기간 기사 요약 · 질의별 코사인) — 있으면 engine 이 반박마다 R3(코사인과 지역 글자 TF-IDF 평균) 상위 5건을 근거 구절로, 없으면 지금처럼 `articles`. 결과 `schema_version` `ai-phrasing-result-0.5`, 검색 기록 `retrieval`(backend `argument_phrasing.retrieval`, V0054). 프롬프트 v6(규칙 3-1). 예시 3개에 `retrieval` (S15P31C108-326) |
 | v0.4 | 2026-11-10 | 출력 검사를 반박 단위로: `where` 가 반박 ID 인 탈락은 그 반박만 `needs_review`(note · 인용 지움)로 낮추고 `done`. 모양 · 판단 값 · 경쟁 설명 목록이 어긋날 때만 `OUTPUT_REJECTED`. 결과 `schema_version` `ai-phrasing-result-0.4`, `done` 에도 `problems` 허용, 검사 이름에 `sign_wording`(v0.3.1 에서 빠졌던 것) 추가, 예시 `phrasing-result-done-review.json` 추가 · rejected 예시를 `judgment_changed` 로. backend · DB 는 그대로(`problems` 를 상태와 상관없이 저장) (S15P31C108-325) |
 | v0.3.1 | 2026-11-09 | 문장화 프롬프트 v5 · 출력 검사 `sign_wording`: 카드 `sign_words` 값은 ⑤ 반박 note 에서 「순유출 1,537명」처럼 부호 대신 낱말로(v4 의 「AI 는 반박만」은 그대로). 요청 · 결과 스키마는 그대로(카드 승인본은 이미 통째로 보낸다) (S15P31C108-286) |
 | v0.3 | 2026-11-06 | 문장화 결과에서 `warrant` · `citations.warrant` 를 뺀다 — AI 는 ⑤ 반박만(「오류」 페이지 결정 3, Figma). 프롬프트 v4(보증 규칙 · 카드 보증 · 규칙 결과 뜻 입력을 뺌), 출력 검사에서 보증 검사 제거, 예시 2개 갱신. 요청 · 판정 입력은 그대로 (S15P31C108-282) |

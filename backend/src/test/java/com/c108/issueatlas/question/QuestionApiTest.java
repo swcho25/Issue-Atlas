@@ -1,6 +1,7 @@
 package com.c108.issueatlas.question;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -206,36 +207,7 @@ class QuestionApiTest {
 
     /** 질문 지역 기사 한 건을 카드 하나로 1차 분류해 둔다(V0035 표 → V0036 view 의 기사 tags). */
     private void classifiedArticle(String newsId, String card) {
-        String hash = "sha256:news-" + newsId;
-        jdbc.update(
-                "INSERT INTO job_run(job_run_id,spec_id,collector_version,started_at)"
-                        + " VALUES ('run-q-news','airkorea_final_yeosu_gwangju','test',now())"
-                        + " ON CONFLICT DO NOTHING");
-        jdbc.update(
-                "INSERT INTO raw_record(job_run_id,spec_id,raw_url,content_hash,collected_at)"
-                        + " VALUES ('run-q-news','airkorea_final_yeosu_gwangju','https://bigkinds.or.kr',?,now())",
-                hash);
-        jdbc.update(
-                "INSERT INTO news_event(news_id,summary,event_start,time_precision,place_id,sido)"
-                        + " VALUES (?,'청년 유출 기사 요약',TIMESTAMPTZ '2024-05-01 00:00+09','day',?,"
-                        + "'전남광주통합특별시')",
-                newsId,
-                PLACE);
-        jdbc.update(
-                "INSERT INTO document_search_input(input_id,doc_id,news_id,raw_content_hash,input_version,"
-                        + "input_text,input_hash) VALUES ('dsi:' || encode(sha256(convert_to(?, 'UTF8')), 'hex'),"
-                        + "'news:' || ?,?,?,'news-title-summary-v1','요약',"
-                        + "encode(sha256(convert_to('요약', 'UTF8')), 'hex'))",
-                newsId,
-                newsId,
-                newsId,
-                hash);
-        jdbc.update(
-                "INSERT INTO document_embedding_v1(input_id,doc_id,model,embedding,is_active)"
-                        + " SELECT input_id, doc_id, 'gemini-embedding-2',"
-                        + " array_fill(0.01::real, ARRAY[1536])::vector, true"
-                        + " FROM document_search_input WHERE news_id = ?",
-                newsId);
+        embeddedArticle(newsId, PLACE, "청년 유출 기사 요약");
         jdbc.update(
                 "INSERT INTO card_search_profile(card_id,card_version,profile_version,profile_text,"
                         + "profile_hash,model,embedding,is_active)"
@@ -251,6 +223,40 @@ class QuestionApiTest {
                         + " FROM document_embedding_v1 d, card c WHERE d.doc_id = 'news:' || ? AND c.card_id = ?",
                 newsId,
                 card);
+    }
+
+    /** 기사 한 건과 그 제목 · 요약 입력의 활성 벡터. 카드 점수는 없다(태그 없음). */
+    private void embeddedArticle(String newsId, String placeId, String summary) {
+        String hash = "sha256:news-" + newsId;
+        jdbc.update(
+                "INSERT INTO job_run(job_run_id,spec_id,collector_version,started_at)"
+                        + " VALUES ('run-q-news','airkorea_final_yeosu_gwangju','test',now())"
+                        + " ON CONFLICT DO NOTHING");
+        jdbc.update(
+                "INSERT INTO raw_record(job_run_id,spec_id,raw_url,content_hash,collected_at)"
+                        + " VALUES ('run-q-news','airkorea_final_yeosu_gwangju','https://bigkinds.or.kr',?,now())",
+                hash);
+        jdbc.update(
+                "INSERT INTO news_event(news_id,summary,event_start,time_precision,place_id,sido)"
+                        + " VALUES (?,?,TIMESTAMPTZ '2024-05-01 00:00+09','day',?,'전남광주통합특별시')",
+                newsId,
+                summary,
+                placeId);
+        jdbc.update(
+                "INSERT INTO document_search_input(input_id,doc_id,news_id,raw_content_hash,input_version,"
+                        + "input_text,input_hash) VALUES ('dsi:' || encode(sha256(convert_to(?, 'UTF8')), 'hex'),"
+                        + "'news:' || ?,?,?,'news-title-summary-v1','요약',"
+                        + "encode(sha256(convert_to('요약', 'UTF8')), 'hex'))",
+                newsId,
+                newsId,
+                newsId,
+                hash);
+        jdbc.update(
+                "INSERT INTO document_embedding_v1(input_id,doc_id,model,embedding,is_active)"
+                        + " SELECT input_id, doc_id, 'gemini-embedding-2',"
+                        + " array_fill(0.01::real, ARRAY[1536])::vector, true"
+                        + " FROM document_search_input WHERE news_id = ?",
+                newsId);
     }
 
     private ResultActions ask(String body) throws Exception {
@@ -1405,6 +1411,9 @@ class QuestionApiTest {
         assertThat((String) JsonPath.read(sent, "$.judgment.rebuttal_candidates[0].id"))
                 .isEqualTo("C1-R1");
         assertThat((String) JsonPath.read(sent, "$.card.card_id")).isEqualTo("C1");
+        // 반박 질의(V0053)가 없으면 반박별 검색 재료를 보내지 않는다 → engine 은 카드 태그 기사
+        assertThat((Map<String, Object>) JsonPath.read(sent, "$"))
+                .doesNotContainKey("rebuttal_search");
         Map<String, Object> row = phrasing(runId);
         assertThat(row.get("status")).isEqualTo("done");
         assertThat(row.get("reason_code")).isNull();
@@ -1498,6 +1507,77 @@ class QuestionApiTest {
         assertThat(ENGINE_REQUESTS).hasSize(3);
         assertThat(phrasing(again).get("status")).isEqualTo("done");
         assertThat(phrasing(otherPeriod).get("status")).isEqualTo("done");
+    }
+
+    /** 그 카드 현재 판의 활성 반박 검색 질의(V0053). ids 가 반박 전부가 아니면 덮지 못한다. */
+    private void rebuttalQueries(String card, List<String> ids) {
+        for (String id : ids) {
+            jdbc.update(
+                    "INSERT INTO card_rebuttal_profile(card_id,card_version,rebuttal_id,query_version,"
+                            + "query_text,query_hash,model,embedding,is_active)"
+                            + " SELECT card_id, current_version, ?, 'rebuttal-query-v1',"
+                            + " name || '의 다른 설명: ' || ?, encode(sha256(convert_to(?, 'UTF8')), 'hex'),"
+                            + " 'gemini-embedding-2', array_fill(0.01::real, ARRAY[1536])::vector, true"
+                            + " FROM card WHERE card_id = ?",
+                    id,
+                    id,
+                    id,
+                    card);
+        }
+    }
+
+    private static final List<String> C1_REBUTTALS = List.of("C1-R1", "C1-R2", "C1-R3", "C1-R4");
+    // 반박별로 고른 기록이 붙은 engine 결과(AI 계약 v0.5)
+    private static final String PHRASED_R3 =
+            PHRASED.replace(
+                    "\"prompt_version\": \"argument-phrasing-v4\"}",
+                    "\"prompt_version\": \"argument-phrasing-v6\", \"retrieval\": {\"method\": \"rebuttal_r3\", \"query_version\": \"rebuttal-query-v1\", \"k\": 5, \"candidates\": 1, \"picked\": [{\"rebuttal\": \"C1-R3\", \"rank\": 1, \"source_id\": \"n-r3\", \"score\": 0.61, \"cosine\": 1.0, \"lexical\": 0.22}]}}");
+
+    @Test
+    void rebuttalQueriesSendRegionArticlesAndKeepWhyTheyWerePicked() throws Exception {
+        engineAnswer = new EngineAnswer(200, PHRASED_R3, 0);
+        rebuttalQueries("C1", C1_REBUTTALS);
+        // 카드 태그가 없어도 질문 지역(읍면동 포함) · 기간 기사면 후보다. 지역 밖 기사는 빠진다
+        embeddedArticle("n-r3", "kr-12130110", "산단 공장이 문을 닫았다.");
+        embeddedArticle("n-out", "kr-12210", "다른 지역 기사");
+        String runId = judgedC1Run();
+        String sent = ENGINE_REQUESTS.getLast();
+        C2Contract.assertAiMatches("phrasing-request", sent);
+        assertThat((String) JsonPath.read(sent, "$.rebuttal_search.query_version"))
+                .isEqualTo("rebuttal-query-v1");
+        assertThat((List<String>) JsonPath.read(sent, "$.rebuttal_search.queries[*].id"))
+                .containsExactlyElementsOf(C1_REBUTTALS);
+        assertThat((String) JsonPath.read(sent, "$.rebuttal_search.queries[2].text"))
+                .isEqualTo("청년 유출·정착의 다른 설명: C1-R3");
+        assertThat((List<String>) JsonPath.read(sent, "$.rebuttal_search.articles[*].id"))
+                .containsExactly("n-r3");
+        Map<String, Number> cosine = JsonPath.read(sent, "$.rebuttal_search.articles[0].cosine");
+        assertThat(cosine).containsOnlyKeys(C1_REBUTTALS);
+        assertThat(cosine.get("C1-R1").doubleValue()).isCloseTo(1.0, within(1e-6));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT retrieval->>'method' || ' ' || (retrieval->'picked'->0->>'source_id')"
+                                        + " FROM argument_phrasing WHERE run_id = ?",
+                                String.class,
+                                runId))
+                .isEqualTo("rebuttal_r3 n-r3");
+    }
+
+    @Test
+    void rebuttalSearchNeedsAQueryForEveryRebuttal() throws Exception {
+        engineAnswer = new EngineAnswer(200, PHRASED, 0);
+        rebuttalQueries("C1", C1_REBUTTALS.subList(0, 3));
+        embeddedArticle("n-r3", "kr-12130110", "산단 공장이 문을 닫았다.");
+        String runId = judgedC1Run();
+        assertThat((Map<String, Object>) JsonPath.read(ENGINE_REQUESTS.getLast(), "$"))
+                .doesNotContainKey("rebuttal_search");
+        // 옛 engine(검색 기록 없음)이면 retrieval 은 비운다
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT retrieval IS NULL FROM argument_phrasing WHERE run_id = ?",
+                                Boolean.class,
+                                runId))
+                .isTrue();
     }
 
     @Test
