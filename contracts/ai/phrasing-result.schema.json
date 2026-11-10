@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/ai/phrasing-result.schema.json",
+  "title": "AI 모듈 문장화 결과 v0.5 — engine POST /v1/argument/phrase 응답",
+  "description": "rebuttals 는 C2 칸 모양 그대로라 done 이면 backend 가 ⑤ 반박 칸을 바꿔 끼운다. done 이 아니면 빈 반박. ① 판단은 규칙 · ③ 보증은 카드 문장이라 AI 가 쓰지 않는다(v0.3). 반박 하나의 검사 탈락은 그 반박만 needs_review 로 낮추고 done 으로 낸다(v0.4). 근거 구절을 어떻게 골랐는지는 retrieval(v0.5)",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": "ai-phrasing-result-0.5" },
+    "run_id": { "$ref": "../c2/common.schema.json#/$defs/id" },
+    "status": { "enum": ["done", "skipped", "failed"] },
+    "reason_code": {
+      "enum": [
+        null,
+        "RUN_BLOCKED",
+        "RUN_UNSUPPORTED",
+        "NOT_JUDGED",
+        "INPUT_INVALID",
+        "LLM_TIMEOUT",
+        "LLM_ERROR",
+        "OUTPUT_REJECTED"
+      ]
+    },
+    "retryable": { "description": "같은 입력으로 다시 부르면 달라질 수 있는가(모델 호출 실패만 true)", "type": "boolean" },
+    "rebuttals": { "$ref": "../c2/argument.schema.json#/properties/rebuttals" },
+    "citations": {
+      "description": "반박 ID → 구절과 원문 위치. C2 응답으로 나가지 않는다(감사용)",
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/citation" } }
+    },
+    "problems": {
+      "description": "떨어진 검사. OUTPUT_REJECTED 면 출력 전체를 되돌린 이유, done 이면 needs_review 로 낮춘 반박의 이유(where = 반박 ID, v0.4). 검사 이름은 README 「출력 검사」",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "enum": [
+              "format",
+              "judgment_changed",
+              "unknown_citation",
+              "quote_not_in_source",
+              "number_mismatch",
+              "unsupported",
+              "forbidden_term",
+              "sign_wording"
+            ]
+          },
+          "where": { "type": "string" },
+          "detail": { "type": "string" }
+        },
+        "required": ["check", "where", "detail"],
+        "additionalProperties": false
+      }
+    },
+    "model": { "type": ["string", "null"] },
+    "prompt_version": { "type": "string", "minLength": 1 },
+    "retrieval": {
+      "description": "근거 구절을 어떻게 골랐는지(v0.5). 건너뛰었거나(skipped) 입력이 틀려(INPUT_INVALID) 고르지 않았으면 null. C2 응답으로 나가지 않는다",
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/retrieval" }]
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "status",
+    "reason_code",
+    "retryable",
+    "rebuttals",
+    "citations",
+    "problems",
+    "model",
+    "prompt_version",
+    "retrieval"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "done" } } },
+      "then": { "properties": { "reason_code": { "const": null } } },
+      "else": { "properties": { "rebuttals": { "maxItems": 0 }, "citations": { "maxProperties": 0 } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "skipped" } } },
+      "then": { "properties": { "reason_code": { "enum": ["RUN_BLOCKED", "RUN_UNSUPPORTED", "NOT_JUDGED"] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "failed" } } },
+      "then": {
+        "properties": { "reason_code": { "enum": ["INPUT_INVALID", "LLM_TIMEOUT", "LLM_ERROR", "OUTPUT_REJECTED"] } }
+      }
+    },
+    {
+      "if": { "properties": { "reason_code": { "const": "OUTPUT_REJECTED" } }, "required": ["reason_code"] },
+      "then": { "properties": { "problems": { "minItems": 1 } } }
+    }
+  ],
+  "$defs": {
+    "retrieval": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "description": "rebuttal_r3 = 요청 rebuttal_search 로 반박마다 고름, card_tags = 요청 articles(카드 꼬리표 기사 앞 40건)",
+          "enum": ["rebuttal_r3", "card_tags"]
+        },
+        "query_version": { "type": ["string", "null"] },
+        "k": { "description": "반박마다 고른 기사 수(card_tags 는 null)", "type": ["integer", "null"], "minimum": 1 },
+        "candidates": { "description": "고를 수 있던 기사 수", "type": "integer", "minimum": 0 },
+        "picked": {
+          "description": "반박마다 고른 기사와 순위 · 점수(score = 0.5 × cosine + 0.5 × lexical, 소수 넷째 자리). card_tags 는 빈 배열",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rebuttal": { "type": "string", "minLength": 1 },
+              "rank": { "type": "integer", "minimum": 1 },
+              "source_id": { "type": "string", "minLength": 1 },
+              "score": { "type": "number" },
+              "cosine": { "type": "number" },
+              "lexical": { "type": "number" }
+            },
+            "required": ["rebuttal", "rank", "source_id", "score", "cosine", "lexical"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["method", "query_version", "k", "candidates", "picked"],
+      "additionalProperties": false,
+      "if": { "properties": { "method": { "const": "card_tags" } } },
+      "then": { "properties": { "query_version": { "const": null }, "k": { "const": null }, "picked": { "maxItems": 0 } } },
+      "else": { "properties": { "query_version": { "type": "string" }, "k": { "type": "integer" } } }
+    },
+    "citation": {
+      "type": "object",
+      "properties": {
+        "passage": { "type": "string", "minLength": 1 },
+        "quote": { "type": "string", "minLength": 1 },
+        "locator": {
+          "description": "원문 위치: 자료 종류 · 원천 ID(기사는 news_id) · 칸 · 몇 번째 문장 · 날짜 · 링크",
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string" },
+            "source_id": { "type": "string" },
+            "field": { "type": "string" },
+            "sentence": { "type": "integer", "minimum": 1 },
+            "date": { "$ref": "../c2/common.schema.json#/$defs/date" },
+            "url": { "type": ["string", "null"] }
+          },
+          "required": ["kind", "source_id", "field", "sentence", "date", "url"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["passage", "quote", "locator"],
+      "additionalProperties": false
+    }
+  }
+}

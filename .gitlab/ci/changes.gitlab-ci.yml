@@ -1,13 +1,18 @@
-# 같은 경로 목록을 검사·빌드·배포에서 공유한다. MR은 대상 브랜치, push는 이전 커밋과 비교한다.
-.frontend-scope:
+# MR은 대상 브랜치, push는 이전 커밋과 비교한다. 설명 MD는 배포 대상이 아니다.
+.frontend-build-scope:
   rules:
+    - if: &frontend-redeploy '$CI_PIPELINE_SOURCE == "web" && $REDEPLOY_COMPONENT == "frontend" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: never
     - changes: &frontend-paths
         - frontend/src/**/*
         - frontend/app/**/*
         - frontend/public/**/*
         - frontend/e2e/**/*
         - frontend/scripts/**/*
-        - deploy/frontend/*.mjs
+        - deploy/frontend/*.{mjs,yaml,yml,conf}
+        - deploy/frontend/*.template
+        - frontend/Dockerfile*
         - frontend/*.{ts,js,mjs,cjs,json,css,yaml,yml,toml}
         - frontend/.prettierignore
         - frontend/.npmrc
@@ -15,17 +20,26 @@
         - pnpm-lock.yaml
         - pnpm-workspace.yaml
         - scripts/**/*
-        - contracts/**/*
         - .gitlab-ci.yml
         - .gitlab/ci/**/*
+.frontend-scope:
+  rules:
+    - !reference [.frontend-build-scope, rules]
+    # 계약 변경은 수신 측 검사를 유지하되 FE 실행 산출물은 바꾸지 않는다.
+    - changes: &contract-paths
+        - contracts/**/*.{json,yaml,yml}
 .frontend-release:
   rules:
+    - if: *frontend-redeploy
     - if: &release-condition '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(develop|main)$/ && $CI_COMMIT_REF_PROTECTED == "true"'
       changes: *frontend-paths
     - when: never
 
-.backend-scope:
+.backend-build-scope:
   rules:
+    # web 파이프라인의 changes는 push diff가 없어 참이 될 수 있다. FE 전용 실행에서 제외.
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: never
     - changes: &backend-paths
         - backend/src/**/*
         - backend/gradle/**/*
@@ -34,12 +48,15 @@
         - backend/gradlew.bat
         - backend/Dockerfile
         - backend/.dockerignore
-        - contracts/**/*
         - docker-compose.yml
         - deploy/dev/*.{yaml,yml,py}
         - deploy/ci/*.{py,json}
         - .gitlab-ci.yml
         - .gitlab/ci/**/*
+.backend-scope:
+  rules:
+    - !reference [.backend-build-scope, rules]
+    - changes: *contract-paths
 .backend-release:
   rules:
     - if: *release-condition
@@ -48,13 +65,18 @@
 
 .collector-scope:
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: never
     - changes: &collector-paths
-        - engine/pipeline/**/*
+        - engine/pipeline/**/*.{py,json,yaml,yml,toml,sql,txt,csv}
+        # 이미지가 싣는 ai 는 embed·score 실행에 쓰인다.
+        - engine/ai/**/*.{py,json,yaml,yml,toml,sql,txt,csv}
         - engine/pyproject.toml
         - engine/uv.lock
         - engine/Dockerfile
         - engine/Dockerfile.dockerignore
-        - contracts/**/*
+        # C1은 실행 중 읽는 스키마와 이미지 smoke test의 fixture를 포함한다.
+        - contracts/c1/**/*.json
         - deploy/collector/*.{py,yaml,yml}
         - deploy/ci/*.{py,json}
         - .gitlab-ci.yml
@@ -65,10 +87,31 @@
       changes: *collector-paths
     - when: never
 
+# 논증 문장화 API(engine/api). 보호된 develop/main에 환경별 배포한다(315번).
+.engine-release:
+  rules:
+    - if: *release-condition
+      changes:
+        - engine/api/**/*.py
+        - engine/ai/**/*.{py,json,yaml,yml,toml,sql,txt,csv}
+        - engine/pyproject.toml
+        - engine/uv.lock
+        - engine/Dockerfile
+        - engine/Dockerfile.dockerignore
+        # API 가 실행 중 읽는 요청 스키마
+        - contracts/ai/**/*.json
+        - contracts/c2/schemas/**/*.json
+        - deploy/dev/*.{yaml,yml}
+        - deploy/ci/*.{py,json}
+        - .gitlab-ci.yml
+        - .gitlab/ci/**/*
+    - when: never
+
 .engine-scope:
   rules:
     - !reference [.collector-scope, rules]
     - changes:
+        - contracts/**/*.{json,yaml,yml}
         - engine/api/**/*
         - engine/ai/**/*
         - engine/tests/**/*

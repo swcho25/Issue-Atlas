@@ -23,7 +23,7 @@
       "type": "object"
     },
     "display": {
-      "description": "저장 범위 안에서 보여줄 내용. link_only 면 null",
+      "description": "저장 범위 안에서 보여줄 내용(원문 탭 「이 질문에 쓴 값」). 근거 종류별 문장은 README 「근거 상세 display」. link_only 면 null",
       "type": ["string", "null"]
     },
     "url": { "type": ["string", "null"], "format": "uri" },

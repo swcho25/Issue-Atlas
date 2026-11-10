@@ -1,0 +1,99 @@
+{
+  "card_id": "C1",
+  "name": "청년 유출·정착",
+  "parent_question": "청년은 어디로 떠나고, 지역은 어떻게 늙어가는가?",
+  "domain": "C 인구·지역소멸",
+  "st_type": ["변화형", "이동형"],
+  "status": "candidate",
+  "card_version": 1,
+  "inclusion": ["청년 전입·전출 통계", "청년 인구 비율 변화", "청년 유출·정착·귀향 기사·보도", "청년 주거·정착 지원 사업"],
+  "exclusion": ["청년 일자리 수(F3)", "대학 진학 이동(E)", "관광객 유입(F5)", "전체 인구 감소(C2)"],
+  "claim_template": "{지역}에서 {기간} 청년(19–39세) 순이동이 {판정값}",
+  "claim_items": [
+    { "indicator_id": "population_net_migration_19_39", "role": "main", "sign_words": { "negative": "순유출", "positive": "순유입" } },
+    { "indicator_id": "population_movers", "role": "related" }
+  ],
+  "comparability": {
+    "same_indicator": "지표 사전의 같은 행(population_net_migration_19_39). 19–34세 · 전체 순이동으로 바꿔 채우지 않는다",
+    "same_period_length": "연 = 1–12월 합. 12개월이 모두 있는 해만 연 값이 있다",
+    "same_boundary": "같은 place_id. 2026-07-01 코드 개편(46130 → 12130)은 place_code_map 으로 같은 place_id",
+    "same_method": "전입 − 전출, 19–39세 밴드 고정"
+  },
+  "rule": {
+    "rule_id": "net_migration_trend",
+    "formula_version": "c1-net-migration-0.1",
+    "indicator_id": "population_net_migration_19_39",
+    "min_years": 3,
+    "thresholds": {},
+    "outcomes": [
+      { "when": "fewer_than_min_years", "label": "근거 부족", "claim": "insufficient", "meaning": "연 값(12개월이 모두 있는 해)이 3개 미만. 연 값이 없는 해는 건너뛰고 남은 해를 순서대로 본다" },
+      { "when": "all_negative_abs_increasing", "label": "청년 순유출 확대", "claim": "increasing", "meaning": "모든 해가 음수이고 절대값이 해마다 커짐(같으면 아님)",
+        "claim_text": "{지역} 청년(19–39세) 순유출은 {첫해}년 {첫값}명에서 {끝해}년 {끝값}명으로 매년 커졌습니다." },
+      { "when": "all_negative_abs_decreasing", "label": "청년 순유출 축소", "claim": "decreasing", "meaning": "모든 해가 음수이고 절대값이 해마다 작아짐(같으면 아님)",
+        "claim_text": "{지역} 청년(19–39세) 순유출은 {첫해}년 {첫값}명에서 {끝해}년 {끝값}명으로 매년 줄었습니다." },
+      { "when": "turned_positive", "label": "순유입 전환", "claim": "decreasing", "meaning": "앞선 해 가운데 음수가 있고 마지막 해가 양수. 모두 양수면 해당 없음",
+        "claim_text": "{지역} 청년(19–39세) 순이동은 앞선 해의 순유출과 달리 {끝해}년 {끝값}명 순유입으로 바뀌었습니다." },
+      { "when": "otherwise", "label": "불분명", "claim": "unclear", "meaning": "위 어느 것도 아님(같은 값, 오르내림, 모두 양수). 0 은 음수도 양수도 아니다. 변화 폭 임계는 없다",
+        "claim_text": "{지역} 청년(19–39세) 순이동은 {기간} 변화 방향이 분명하지 않습니다." }
+    ]
+  },
+  "max_claim_level": "calculated",
+  "applicability": {
+    "place_level": "sigungu",
+    "min_complete_years": 3,
+    "population": "청년 19–39세"
+  },
+  "evidence": {
+    "statistics": [
+      { "spec_id": "SP01", "indicator_id": "population_net_migration_19_39" },
+      { "spec_id": "SP10", "indicator_id": "population_youth_share_19_39", "note": "청년 인구 비율(포함 기준 「청년 인구 비율 변화」). 판정에는 쓰지 않는 맥락" }
+    ],
+    "documents": [
+      { "spec_id": "bigkinds_news_yeosu_gwangju", "note": "빅카인즈 기사. 본문은 요약 · 분류 뒤 폐기(2026-11-01 결정)" },
+      { "spec_id": "press_release_yeosu", "note": "여수시 보도자료 목록(제목 · 등록일 · 링크). 공공누리 4유형이라 본문 없음" },
+      { "spec_id": "press_release_gwangju", "note": "광주광역시 보도자료 목록. 공공누리 표시 없음(협의 전)이라 본문 없음. 발행 기관 지역은 시 전체(29)" }
+    ],
+    "existing_responses": [
+      { "spec_id": "youthcenter_policy_yeosu_gwangju", "note": "온통청년 청년정책 → existing_response" },
+      { "spec_id": "lofin_expenditure_gwangju_yeosu", "note": "지방재정365 세출 최신본(local_expenditure_latest) → existing_response" }
+    ],
+    "denominators": [
+      { "spec_id": "SP10", "indicator_id": "population_registered_19_39", "note": "19–39세 순이동률의 분모 · 청년 인구 비율의 분자" },
+      { "spec_id": "SP10", "indicator_id": "population_registered_total", "note": "맥락 표시 · 청년 인구 비율의 분모" }
+    ]
+  },
+  "expected_gaps": [
+    { "what": "민원", "status": "license_blocked" },
+    { "what": "읍면동 순이동", "status": "not_published" }
+  ],
+  "required_for_claim": {
+    "statistics": "required",
+    "documents": "optional",
+    "existing_responses": "optional",
+    "denominators": "optional"
+  },
+  "warrant": {
+    "status": "draft",
+    "text": "청년 순유출이 여러 해 지속되면 그 지역의 청년 정착 기반이 약해지고 있다고 본다. 순이동은 정착 여부를 직접 재는 유일한 공식 지표다"
+  },
+  "rebuttals": {
+    "status": "draft",
+    "items": [
+      { "id": "C1-R1", "text": "대학 진학 · 군 입대 연령의 구조적 전출(19–24세가 지배하는가)" },
+      { "id": "C1-R2", "text": "통계 기준 변경(7/1 개편, 주민등록 정비)" },
+      { "id": "C1-R3", "text": "산단 · 대형 사업장 고용 변동에 따른 일시 전입 · 전출" },
+      { "id": "C1-R4", "text": "코로나 이후 이동 회복" }
+    ]
+  },
+  "ceiling": ["떠난 이유", "행선지 해석", "정책 효과", "향후 추세", "타 지역과 우열"],
+  "map_mode": "시계열만(시군구). 이동은 그림만, 판정 없음",
+  "legend_text": ["집계 이동량, 이동 경로 아님", "첫 관측 순서, 옮겨 간 경로·원인 아님"],
+  "forbidden_terms": ["확산", "전파", "원인", "효과", "소멸", "탈여수"],
+  "keywords": ["청년 유출", "청년 순유출", "청년 정착", "청년 주거지원", "청년 귀향", "인구 감소", "전입 전출", "청년 유입"],
+  "approval": {
+    "approved_by": "대표",
+    "approved_at": "2026-11-01",
+    "approved_fields": ["claim_items", "rule", "applicability", "required_for_claim", "ceiling", "legend_text"],
+    "source": "회사 노션 「Issue Atlas — 5차 멘토링 검토 및 2주 개발 플랜 (11/2 ~ 11/13)」 표 1 결정 2 · 4 · 5"
+  }
+}

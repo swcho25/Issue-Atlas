@@ -91,10 +91,39 @@ class SenderTests(unittest.TestCase):
 
         self.invoke(execute)
 
+    def test_engine_uses_its_own_artifact_and_repository(self):
+        self.env["DEPLOY_COMPONENT"] = "engine"
+        self.env["ENGINE_IMAGE_REPOSITORY"] = "test/engine"
+        (self.root / "engine-image.txt").write_text("test/engine@sha256:" + "e" * 64)
+
+        def execute(command, **kwargs):
+            payload = json.loads(kwargs["input"])
+            self.assertEqual(payload["component"], "engine")
+            self.assertEqual(payload["image"], "test/engine@sha256:" + "e" * 64)
+
+        self.invoke(execute)
+
     def test_unknown_component_never_contacts_server(self):
         self.env["DEPLOY_COMPONENT"] = "database"
         with self.assertRaises(ValueError):
             self.invoke(lambda *args, **kwargs: self.fail("Unexpected SSH"))
+
+    def test_frontend_push_and_explicit_manual_deployment_use_frontend_digest(self):
+        self.env.update(DEPLOY_COMPONENT="frontend", FRONTEND_IMAGE_REPOSITORY="test/frontend")
+        (self.root / "frontend-image.txt").write_text("test/frontend@sha256:" + "f" * 64)
+        for source in ("push", "web"):
+            self.env.update(CI_PIPELINE_SOURCE=source, REDEPLOY_COMPONENT="frontend")
+            def execute(command, **kwargs):
+                payload = json.loads(kwargs["input"])
+                self.assertEqual(payload["component"], "frontend")
+                self.assertEqual(payload["image"], "test/frontend@sha256:" + "f" * 64)
+            self.invoke(execute)
+
+    def test_manual_deployment_cannot_enable_other_components_or_unspecified_frontend(self):
+        for component, selection in (("backend", "frontend"), ("frontend", "none")):
+            self.env.update(CI_PIPELINE_SOURCE="web", DEPLOY_COMPONENT=component, REDEPLOY_COMPONENT=selection)
+            with self.assertRaises(ValueError):
+                self.invoke(lambda *a, **k: self.fail("Unexpected SSH"))
 
 
 if __name__ == "__main__":

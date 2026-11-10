@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><title>지구 사진 나누기</title><style>body { font: 13px monospace; white-space: pre; padding: 8px; }</style></head>
+<body>준비 중…
+<script type="module">
+// 8K 지구 사진을 나눈다
+//  ① earth-base: 아주 작은 전체 사진 — 지구 모양부터 바로 띄운다
+//  ② earth-t0~t7: 2K 사진을 경도 45°씩 자른 조각 — 화면 정면에 가까운 조각부터 받아 채운다
+//  ③ earth-asia: 확대해 들어갈 동아시아만 8K 해상도로 자른 조각
+const log = (s) => (document.body.textContent += "\n" + s);
+const img = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+const save = async (c, name, q = 0.86) => { const b = await new Promise((ok) => c.toBlob(ok, "image/webp", q)); await fetch("/save/" + name, { method: "POST", body: b }); log(`${name} ${c.width}×${c.height} ${Math.round(b.size / 1024)}KB`); };
+const draw = (src, w, h, sx = 0, sy = 0, sw = src.width, sh = src.height) => { const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(src, sx, sy, sw, sh, 0, 0, w, h); return c; };
+const [earth, clouds] = await Promise.all([img("earth_8192.webp"), img("clouds_4096.webp")]);
+await save(draw(earth, 256, 128), "earth-base.webp", 0.8);
+const e2k = draw(earth, 2048, 1024), TILES = 8, tw = 2048 / TILES;
+for (let i = 0; i < TILES; i++) await save(draw(e2k, tw, 1024, i * tw, 0, tw, 1024), `earth-t${i}.webp`);
+await save(draw(clouds, 2048, 1024), "clouds-2048.webp");
+const PATCH = { lon: [87, 167], lat: [10, 60] }, px = earth.width / 360;
+const sx = (PATCH.lon[0] + 180) * px, sy = (90 - PATCH.lat[1]) * px, sw = (PATCH.lon[1] - PATCH.lon[0]) * px, sh = (PATCH.lat[1] - PATCH.lat[0]) * px;
+await save(draw(earth, Math.round(sw), Math.round(sh), sx, sy, sw, sh), "earth-asia.webp", 0.9);
+log("끝"); window.__done = true;
+</script>
+</body>
+</html>

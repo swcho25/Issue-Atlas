@@ -1,0 +1,13 @@
+**
+!frontend/
+!frontend/.next/
+!frontend/.next/standalone/
+!frontend/.next/standalone/**
+!frontend/.next/static/
+!frontend/.next/static/**
+!frontend/public/
+!frontend/public/**
+**/.env*
+**/.dev.vars*
+**/*.pem
+**/*.key

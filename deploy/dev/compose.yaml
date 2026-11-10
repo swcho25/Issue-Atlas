@@ -46,11 +46,18 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       SERVER_PORT: "8080"
+      # 별도 내부 포트만 Prometheus에 제공. 호스트에는 publish하지 않는다.
+      MONITORING_ENABLED: "true"
+      MONITORING_PORT: "9091"
+      # 논증 문장화 engine 주소. 비우면 반박 문장화를 생략한다(ENGINE_DISABLED).
+      # 켤 때 .env 에 http://engine:8000 (익명 질문 요청 수 제한이 배포된 뒤)
+      ENGINE_URL: ${ENGINE_URL:-}
     ports:
       - "127.0.0.1:${BACKEND_HOST_PORT:-8080}:8080"
     networks:
       default:
         aliases: ["${BACKEND_NETWORK_ALIAS:-issueatlas-development-backend}"]
+      engine: {}
     healthcheck:
       test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8080"]
       interval: 10s
@@ -59,6 +66,44 @@ services:
       retries: 12
     mem_limit: 2g
     logging: *bounded-logging
+
+  # 논증 문장화 API (engine/api, S15P31C108-243). backend 만 engine 네트워크로 부른다.
+  # 호스트 포트를 열지 않고 DB 네트워크(default)에도 붙지 않는다. GMS 호출을 위해 외부로 나가는 길만 있다.
+  engine:
+    image: issueatlas-engine:dev
+    build:
+      context: ../..
+      dockerfile: engine/Dockerfile
+      target: api
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=64m,mode=1777"]
+    environment:
+      TZ: UTC
+    volumes:
+      # GMS_API_KEY 만 든 서버 파일. 환경변수·이미지·저장소에 키를 넣지 않는다.
+      - type: bind
+        source: ${ENGINE_ENV_FILE:-/etc/issueatlas/engine.env}
+        target: /app/.env
+        read_only: true
+        bind: {create_host_path: false}
+    networks: [engine]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 128
+    logging: *bounded-logging
+
+networks:
+  engine: {}
 
 volumes:
   postgres-data:

@@ -168,3 +168,13 @@ def test_fetch_page_checks_response(monkeypatch, body, code):
     else:
         with pytest.raises(CollectionError, match=code):
             bigkinds.fetch_page(date(2025, 1, 1), 0, "secret-key")
+
+
+def test_output_file_gets_saved_records_per_chunk(monkeypatch, tmp_path):
+    # 서버 실행기는 언제나 --output 을 붙인다. 저장하는 레코드를 묶음마다 JSONL 로 남긴다
+    monkeypatch.setattr(bigkinds, "SAVE_EVERY", 1)
+    out = tmp_path / "c1.json"
+    fake = Search({"2025-01-01": [news("a"), news("b", link=None)]})
+    collect(QUERY, "key", MemoryStore(), fetch=fake, output=out, **options(Web()))
+    lines = [json.loads(line) for line in out.read_bytes().splitlines()]
+    assert sorted(r["locator"]["news_id"] for r in lines) == ["a", "b"]

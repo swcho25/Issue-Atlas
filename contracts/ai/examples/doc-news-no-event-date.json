@@ -1,0 +1,43 @@
+{
+  "schema_version": "ai-doc-input-0.1",
+  "fixture": true,
+  "doc_id": "bigkinds:fixture-news-0003",
+  "version": {
+    "content_hash": "fixture-hash-news-0003",
+    "refine_rule_version": "p2-0.5.0",
+    "extraction_version": "fixture-p3"
+  },
+  "content": {
+    "kind": "news",
+    "title": "[fixture] 여수 인구 감소 대응 기고",
+    "summary": "[fixture] 여수 인구 감소 대응 방향을 말한 가상 기고 요약. 글에 사건 날짜가 없다.",
+    "body": "[fixture] 가상 기고 본문. 실제 기사가 아니다.",
+    "excerpt": null,
+    "categories": ["오피니언"],
+    "keywords": ["여수", "인구"],
+    "entities": { "locations": ["여수"], "persons": [], "organizations": [] }
+  },
+  "extraction_status": "done",
+  "regions": [
+    {
+      "sido": "전남광주통합특별시",
+      "sigun": "여수시",
+      "gu": null,
+      "place_id": "kr-12130",
+      "raw": null,
+      "source": "extraction",
+      "status": "confirmed"
+    }
+  ],
+  "event_period": null,
+  "published_at": "2024-07-24T00:00:00+09:00",
+  "published_precision": "day",
+  "source": {
+    "source_id": "bigkinds",
+    "publisher": "가상 언론사",
+    "link": "https://news.example.com/article/fixture-news-0003",
+    "raw_url": "https://tools.kinds.or.kr/search/news",
+    "locator": { "news_id": "fixture-news-0003" }
+  },
+  "usage": { "license_type": "BIGKINDS-이용약관", "storage_scope": "full" }
+}

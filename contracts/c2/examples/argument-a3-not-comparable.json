@@ -3,7 +3,7 @@
   "run_id": "run_a3_yeosu_2023_2025",
   "question": {
     "question_id": "q_0003",
-    "place_id": "plc_yeosu",
+    "place_id": "kr-12130",
     "place_name": "여수시",
     "card_id": "A3",
     "card_name": "대기질",
@@ -11,7 +11,7 @@
     "period_end": "2026-01-01"
   },
   "card_version": 1,
-  "formula_version": "a3-pm25-0.1",
+  "formula_version": "a3-pm25-diff-0.2",
   "taxonomy_version": "tax-2026.10",
   "run_status": "partial",
   "created_at": "2026-10-28T10:10:00+09:00",
@@ -20,6 +20,11 @@
     { "kind": "documents", "required": false, "status": "available", "count": 5, "review_pending_count": 0, "reason": null },
     { "kind": "existing_responses", "required": false, "status": "available", "count": 1, "review_pending_count": 0, "reason": null },
     { "kind": "denominators", "required": false, "status": "not_collected", "count": 0, "review_pending_count": 0, "reason": "기상(강수·풍향) 자료는 수집하지 않습니다." }
+  ],
+  "applicability": [
+    { "condition": "place_level", "label": "시군구 단위", "passed": true, "note": "여수시(시군구)" },
+    { "condition": "min_complete_years", "label": "완전한 연 값 3개 이상", "passed": true, "note": "3개(2023–2025)" },
+    { "condition": "min_stations", "label": "측정소 1곳 이상", "passed": true, "note": "측정소 9곳" }
   ],
   "comparability": {
     "same_indicator": { "passed": true, "note": "PM2.5 연평균 (µg/m³)" },
@@ -32,6 +37,7 @@
   },
   "claim": {
     "value": "not_comparable",
+    "label": "비교 불가",
     "level": "observed_fact",
     "text": "여수시 측정소 9곳의 2023–2025 PM2.5 관측값은 있지만, 측정 위치가 같은지 확인되지 않아 증가·감소를 말하지 않습니다.",
     "provenance": "rule"
@@ -71,5 +77,9 @@
   "ceiling": {
     "items": ["배출원(산단·차량·국외)", "오염의 이동 경로", "건강 영향", "저감 정책의 효과", "측정소가 없는 읍면동의 대기질"],
     "provenance": "card"
-  }
+  },
+  "series": [
+    {"indicator_id": "air_pm25", "place_id": "kr-12130", "station_id": "kr-12130-s336121", "name": "서강동", "coordinates": [127.725967, 34.741301], "unit": "µg/m³", "periods": ["2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06", "2024-07", "2024-08", "2024-09", "2024-10", "2024-11", "2024-12", "2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12"], "values": [19.3, 19.4, 22.8, 15.6, 13.2, 9.4, 9.6, 9.3, 8.0, 10.2, 10.1, 15.4, 14.5, 13.1, 15.7, 14.9, 10.9, 10.7, 6.0, 10.3, 7.2, 8.2, 9.0, 11.0, 17.4, 13.3, 16.1, 13.3, 12.0, 10.8, 9.7, 8.3, 7.4, 7.1, 12.3, 12.7], "statuses": ["available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available", "available"]}
+  ],
+  "articles": []
 }

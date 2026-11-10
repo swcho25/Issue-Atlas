@@ -1,0 +1,25 @@
+# Root-owned deployment program supplies settings; no frontend secret env file.
+name: ${FRONTEND_PROJECT:?FRONTEND_PROJECT required}
+services:
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE digest required}
+    restart: unless-stopped
+    init: true
+    environment:
+      API_BASE_URL: http://backend:8080
+      DEPLOYMENT_REVISION: ${DEPLOYMENT_REVISION:?DEPLOYMENT_REVISION required}
+    ports:
+      - "127.0.0.1:${FRONTEND_HOST_PORT:?FRONTEND_HOST_PORT required}:3000"
+    networks: [backend]
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+networks:
+  backend:
+    external: true
+    name: ${FRONTEND_NETWORK:?FRONTEND_NETWORK required}

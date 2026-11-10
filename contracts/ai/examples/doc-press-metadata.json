@@ -1,0 +1,43 @@
+{
+  "schema_version": "ai-doc-input-0.1",
+  "fixture": true,
+  "doc_id": "press:yeosu:fixture-0001",
+  "version": {
+    "content_hash": null,
+    "refine_rule_version": null,
+    "extraction_version": null
+  },
+  "content": {
+    "kind": "press_release",
+    "title": "[fixture] 여수시, 청년 일자리 박람회 개최",
+    "summary": null,
+    "body": null,
+    "excerpt": null,
+    "categories": ["행정"],
+    "keywords": [],
+    "entities": { "locations": [], "persons": [], "organizations": [] }
+  },
+  "extraction_status": "pending",
+  "regions": [
+    {
+      "sido": null,
+      "sigun": null,
+      "gu": null,
+      "place_id": null,
+      "raw": "46130",
+      "source": "publisher",
+      "status": "candidate"
+    }
+  ],
+  "event_period": null,
+  "published_at": "2026-10-29T00:00:00+09:00",
+  "published_precision": "day",
+  "source": {
+    "source_id": null,
+    "publisher": "여수시",
+    "link": "https://press.example.com/yeosu/fixture-0001",
+    "raw_url": "https://www.yeosu.go.kr/www/govt/news/release/press?page_scale=100&page=1",
+    "locator": { "press_id": "yeosu:fixture-0001" }
+  },
+  "usage": { "license_type": "KOGL-4", "storage_scope": "metadata" }
+}

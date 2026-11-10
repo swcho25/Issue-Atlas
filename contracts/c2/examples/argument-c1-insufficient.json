@@ -3,7 +3,7 @@
   "run_id": "run_c1_gwangju_donggu_2026",
   "question": {
     "question_id": "q_0002",
-    "place_id": "plc_gwangju_donggu",
+    "place_id": "kr-12210",
     "place_name": "광주 동구",
     "card_id": "C1",
     "card_name": "청년 유출·정착",
@@ -28,6 +28,11 @@
     { "kind": "existing_responses", "required": false, "status": "not_collected", "count": 0, "review_pending_count": 0, "reason": "광주 구 단위 청년 계획은 아직 수집하지 않았습니다." },
     { "kind": "denominators", "required": false, "status": "available", "count": 1, "review_pending_count": 0, "reason": null }
   ],
+  "applicability": [
+    { "condition": "place_level", "label": "시군구 단위", "passed": true, "note": "동구(시군구)" },
+    { "condition": "min_complete_years", "label": "완전한 연 값 3개 이상", "passed": null, "note": "필수 근거(통계)가 없어 확인하지 않음" },
+    { "condition": "population", "label": "대상: 청년 19–39세", "passed": null, "note": null }
+  ],
   "comparability": {
     "same_indicator": { "passed": null, "note": "필수 근거가 없어 검사하지 않음" },
     "same_period_length": { "passed": null, "note": "필수 근거가 없어 검사하지 않음" },
@@ -36,6 +41,7 @@
   },
   "claim": {
     "value": "insufficient",
+    "label": null,
     "level": "insufficient_evidence",
     "text": "필수 근거(통계)가 없어 판단하지 않습니다.",
     "provenance": "rule"
@@ -68,5 +74,7 @@
   "ceiling": {
     "items": ["청년이 떠나는 원인", "읍면동 단위 순이동(미공표)", "정책 효과"],
     "provenance": "card"
-  }
+  },
+  "series": [],
+  "articles": []
 }

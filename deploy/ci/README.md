@@ -1,16 +1,19 @@
 # 백엔드 CI/CD — S15P31C108-103
 
+> 현재 290·315번 구성: 백엔드 전용 주소는 [Nginx·HTTPS 직접 연결](../backend/README.md). 공통 Compose는 `compose.yaml` + `compose.https.yaml` + `compose.release.yaml`이며, 운영은 release 앞에 `compose.production-engine.yaml`을 추가해 운영 키 경로를 고정한다. Tunnel은 사용하지 않는다. 아래 137번 최초 전환의 Tunnel 설명은 과거 설치 기록이다. 공개 API·health 주소와 환경 분리는 유지한다.
+
 수집기 이미지 자동 갱신·수동 실행은 [수집기 배포](../collector/README.md)를 참고한다.
 
 ## 실행 조건
 
 | 이벤트 | 동작 |
 | --- | --- |
-| develop/main 대상 MR 생성·갱신 | 변경 영역 검사, FE 변경 시 Workers 빌드·검사 포함. 배포 없음 |
-| 보호된 develop/main에 병합(push 파이프라인) | 변경 영역 검사 → 해당 이미지/Workers 빌드 → 해당 서비스만 자동 배포 |
-| 다른 브랜치 push·태그·스케줄·웹 수동 파이프라인 | 실행 안 함 |
+| develop/main 대상 MR 생성·갱신 | 변경 영역 검사, FE 변경 시 standalone 빌드·E2E 포함. 배포 없음 |
+| 보호된 develop/main에 병합(push 파이프라인) | 변경 영역 검사 → 해당 이미지 빌드 → 해당 서비스만 자동 배포 |
+| New pipeline에서 보호된 develop/main 및 REDEPLOY_COMPONENT=frontend 선택 | FE 검사·standalone 빌드 → FE 이미지 → EC2 FE만 배포 |
+| 다른 브랜치 push·태그·스케줄·그 밖의 웹 수동 파이프라인 | 실행 안 함 |
 
-137번부터 `develop → development`, `main → production`으로 분리한다. 같은 EC2를 사용하되 개발은 `/opt/issueatlas-dev`(기존 볼륨 유지), 운영은 `/opt/issueatlas-prod`(새 볼륨)를 사용한다. 환경별 잠금·pipeline 상한·복구 기록을 분리하고, 같은 환경의 BE·수집기는 직렬 배포한다. 직접 push는 계속 금지하며 MR로만 병합한다.
+137번부터 `develop → development`, `main → production`으로 분리한다. 같은 EC2를 사용하되 개발은 `/opt/issueatlas-dev`(기존 볼륨 유지), 운영은 `/opt/issueatlas-prod`(새 볼륨)를 사용한다. 환경별 잠금·pipeline 상한·복구 기록을 분리하고, 같은 환경의 BE·수집기·engine·FE는 직렬 배포한다. 직접 push는 계속 금지하며 MR로만 병합한다.
 
 ## 환경 분리 전환 — S15P31C108-137
 
@@ -33,29 +36,92 @@
 6. GitLab의 `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`, `DEPLOY_HOST`, `DEPLOY_USER`, `DOCKERHUB_PULL_TOKEN`은 기존 `shared-ec2` 범위를 `*-ec2`로 바꾼다. development-ec2/production-ec2와 전환 중 shared-ec2에서 같은 EC2 인증을 사용하며 빌드·검사 job에는 전달하지 않는다. 값은 로그/저장소에 출력하지 않는다. Cloudflare 변수·Docker push 변수는 기존 protected `*` 범위를 유지한다. 각 환경의 배포 변수는 MR에 제공하지 않는다.
 7. develop MR로 개발 배포를 확인한다. 이어 develop 전체를 main에 MR하여 운영 FE·BE·수집기를 모두 최초 배포한다. Flyway MR 순서 V0011→V0012→V0013→V0014를 유지한다. 화면·API·인증·서로 다른 DB 연결 및 수집기 배포 기록을 확인한다.
 
-설정 파일의 서버 설치는 자동 CD 범위가 아니다. 첫 병합 전에 서버 준비와 GitLab 변수 전환을 마쳐야 한다. 기존 환경으로 되돌릴 때는 백업한 프로그램·설정·Compose·변수 범위·Tunnel origin을 함께 복구하며 볼륨은 보존한다. 프론트 배포 실패 후 자동 원복은 기존과 동일하게 제공하지 않는다.
+설정 파일의 서버 설치는 자동 CD 범위가 아니다. 첫 병합 전에 서버 준비와 GitLab 변수 전환을 마쳐야 한다. 기존 환경으로 되돌릴 때는 백업한 프로그램·설정·Compose·변수 범위·Tunnel origin을 함께 복구하며 볼륨은 보존한다. 257번 FE는 이전 FE 이미지가 있으면 자동 복구한다. DNS·Custom Domain 전환의 복구는 별도 수동 절차다.
 
 ### 변경 영역 선택 (S15P31C108-113)
 
-경로 목록은 `.gitlab/ci/changes.gitlab-ci.yml`에서 검사·빌드·배포가 공유한다. MR은 대상 브랜치와의 차이, 병합 후 push는 해당 브랜치의 이전 커밋과의 차이를 사용한다. 현재 workflow는 MR과 develop/main push만 허용하므로 스케줄에서 changes가 무조건 참이 되는 경우는 없다.
+경로 목록은 `.gitlab/ci/changes.gitlab-ci.yml`에서 관리한다. 151번부터 계약 검사와 실행 산출물의 빌드·배포 조건을 분리한다. MR은 대상 브랜치와의 차이, 병합 후 push는 해당 브랜치의 이전 커밋과의 차이를 사용한다. 명시적 FE 수동 실행은 별도 조건을 사용하며 BE/engine의 web 실행을 차단한다. 스케줄은 workflow에서 허용하지 않는다.
 
 | 변경 | 추가로 실행할 작업 (harness·infra는 항상 실행) |
 | --- | --- |
-| FE 소스·설정·E2E, pnpm 잠금/설정, FE 점검 스크립트 | FE 검사·Workers 빌드, 병합 후 FE 배포 |
+| FE 소스·설정·E2E, pnpm 잠금/설정, FE 점검 스크립트 | FE 검사·standalone 빌드, 병합 후 FE 이미지·EC2 배포 |
 | BE 소스·Flyway·Gradle·Dockerfile, 개발 Compose | BE 검사·이미지, 병합 후 BE 배포 |
-| engine/pipeline·의존성·Dockerfile, 수집기 실행 설정 | engine 검사·수집기 이미지, 병합 후 수집기 버전 갱신 (수집 자동 실행 없음) |
-| engine/api·ai·tests·tests_postgres | engine 검사만 |
-| contracts, 공통 CI YAML | FE·BE·engine 모두 검사하고 병합 후 모두 배포 |
-| deploy/ci의 공통 Python·JSON | BE·수집기 검사·이미지·배포 |
-| docs, 루트/서비스 README | 가벼운 harness·infra 검사만 |
+| engine/pipeline·ai·의존성·Dockerfile, 수집기 실행 설정 | engine 검사·수집기 이미지, 병합 후 수집기 버전 갱신 (수집 자동 실행 없음) |
+| engine/api, contracts/ai·c2 schemas | engine 검사. 보호된 develop/main 병합 후 해당 환경 engine(문장화 API) 이미지·배포 |
+| engine/tests·tests_postgres, ai의 MD 설명 | engine 검사만 |
+| contracts의 JSON/YAML | FE·BE·engine 검사. C1 JSON은 수집기 실행 및 이미지 smoke test에서 읽으므로 수집기 이미지·배포도 실행. FE·BE 이미지·배포는 생략 |
+| 공통 CI YAML | FE·BE·engine 모두 검사하고 병합 후 모두 배포 |
+| deploy/ci의 공통 Python·JSON | BE·수집기 검사·이미지·배포 (FE 로직 변경은 FE 경로도 함께 변경) |
+| docs, 루트/서비스/계약 README, pipeline의 MD 설명 | 가벼운 harness·infra 검사만 |
 
-여러 영역을 바꾸면 합집합으로 실행한다. scripts 변경은 FE 검사·빌드에도 반영한다. 이미지에 포함되는 pipeline 내부 문서/자료는 보수적으로 수집기 변경으로 취급한다. 새 소스 디렉터리·설정 형식을 도입하면 경로 목록과 선택 시나리오 테스트도 함께 갱신한다.
+engine(문장화 API) 이미지는 ai·의존성·Dockerfile·Compose·공통 CI·deploy/ci 변경에도 다시 만든다. 315번부터 보호된 develop/main 각각의 환경에 배포한다. pipeline만 수정한 경우 수집기만 갱신하며 engine API는 재배포하지 않는다. 서버 준비와 Spring 연결 활성화는 [engine 안내](../dev/README.md#운영-준비연결-s15p31c108-315)를 따른다. engine 자동 배포와 ENGINE_URL 활성화는 별개다.
+
+여러 영역을 바꾸면 합집합으로 실행한다. scripts 변경은 FE 검사·빌드에도 반영한다. pipeline·ai 실행 입력은 py/json/yaml/yml/toml/sql/txt/csv를 대상으로 하며 MD 설명은 제외한다. 수집기 이미지가 `engine/ai`를 싣고 embed·score 명령이 이를 실행하므로 ai도 수집기 경로에 포함한다(233번). 새 소스 디렉터리·설정 형식을 도입하면 경로 목록과 선택 시나리오 테스트도 함께 갱신한다.
 
 FE·수집기 배포의 `backend-deploy` 의존성은 optional이다. BE 작업이 없으면 기존 BE/DB를 사용하고, 있으면 성공을 기다린다. 이미지 작업은 check 단계를 모두 통과해야 실행하며, 배포 이미지 artifact 의존성은 필수다. 공통 계약이나 Flyway를 함께 바꿀 때의 호환성 검토는 계속 필요하다.
 
-실패한 배포는 해당 파이프라인의 실패 job을 재시도한다. 이후 무관한 변경을 병합해도 누락된 서비스를 자동 재배포하지 않는다. 서비스마다 마지막 배포 SHA가 달라지는 것은 정상이며, FE는 `/healthz`, BE·수집기는 각 배포 기록으로 확인한다. 변경 없는 서비스를 포함한 강제 전체 배포 기능은 이번 범위에 없다.
+실패한 배포는 해당 파이프라인의 실패 job을 재시도한다. 이후 무관한 변경을 병합해도 누락된 서비스를 자동 재배포하지 않는다. 서비스마다 마지막 배포 SHA가 달라지는 것은 정상이며, FE는 `/healthz`, BE·수집기는 각 배포 기록으로 확인한다. 변경 없는 서비스를 포함한 강제 전체 배포 기능은 제공하지 않는다.
 
-FE 배포도 빌드·검사와 같은 pnpm store 캐시를 재사용한다. Runner 동시 실행 수·기존 테스트·로컬 pre-push 규칙은 변경하지 않는다. 실제 시간 감소는 다음 GitLab 실행에서 확인한다.
+### 누락된 FE 배포 복구 (151번 후속)
+
+오래된 BE 배포가 차단되어 같은 파이프라인의 frontend-deploy가 skipped된 경우, 이전 BE job을 반복 실행하지 않는다. 아래 수동 실행으로 현재 브랜치의 FE를 새로 검사·빌드·배포한다.
+
+1. 보완 코드가 들어간 브랜치에서 GitLab **Build → Pipelines → New pipeline**을 연다.
+2. **Branch**는 `develop`(개발) 또는 `main`(운영)을 선택한다. 해당 브랜치 병합/실행 권한이 필요하다.
+3. 표시된 **REDEPLOY_COMPONENT**를 `frontend`로 선택하고 실행한다. SSH 키·Cloudflare 토큰이나 WORKER_ENV/FRONTEND_URL을 직접 입력하지 않는다. 기존 보호 변수와 브랜치별 환경을 사용한다.
+4. harness·infra·frontend 검사 → frontend-image 포장·게시 → frontend-deploy 및 HTTPS 검증 성공을 확인한다. BE·수집기 job은 생성하지 않으므로 기존 정상 BE에 연결한다.
+5. 대상 환경의 `/healthz` revision이 이번 파이프라인 커밋과 같은지 확인한다. 실행을 기다리는 동안 브랜치가 갱신되면 배포 직전 최신 SHA 확인에서 차단하므로 최신 브랜치로 New pipeline을 다시 생성한다.
+
+기존 push/MR 실행과 같은 환경별 resource group·배포 후 검증을 유지한다. 이전 파이프라인 artifact를 가져오거나 검사 없이 배포하지 않는다. 새 보완 코드는 main에도 병합되어야 main 수동 실행을 사용할 수 있다. 자동 배포 파이프라인에서 BE도 함께 변경된 경우에는 기존처럼 BE 배포 성공을 기다린다.
+
+257번부터 FE 검사는 공식 Playwright 이미지에서 standalone 빌드와 Node E2E를 수행한다. 같은 파이프라인의 artifact를 `frontend-image`가 포장하며 배포 job은 빌드·pnpm 설치를 반복하지 않는다. Node 이미지·Playwright 이미지는 digest로 고정한다. MR artifact를 병합 후 배포에 재사용하지 않는다. pnpm store·Next 컴파일 캐시는 잠금 파일과 환경 기준으로 유지한다.
+
+FE도 기존 protected SSH·Docker Hub 변수와 development-ec2/production-ec2 환경을 사용한다. Workers 토큰은 복구용 구성을 유지하는 동안 남겨두되 새 CI는 사용하지 않는다. 서버 설치·도메인 전환 순서와 첫 배포 상태는 [프론트 EC2 배포](../frontend/README.md)를 따른다. 초기 137번 절차의 Workers 관련 설명보다 이 전환 절차를 우선한다. Runner 동시 실행 수·로컬 pre-push 규칙은 변경하지 않는다.
+
+## 운영 배포 리허설 체크리스트 — S15P31C108-178
+
+develop → main 반영(운영 배포)을 할 때 위에서 아래로 확인한다. main 병합 · 서버 작업은 사람이 한다.
+
+**2026-11-09 기준 상태** (11/5 판에서 고침)
+
+| 항목 | 운영(main) | 개발(develop) |
+| --- | --- | --- |
+| 코드 | `8281550`(10/30) | 503 커밋 앞섬 |
+| Flyway | V0014 | V0051 — 이번 반영은 **migration 36개(V0015–V0051)를 운영 DB 에 한 번에**. V0049 는 없다(번호만 비었고 정상) |
+| API 주소 | `backend.issue-atlas.kr` — Nginx 직접 연결(-290, Tunnel 없음) | `dev-backend.issue-atlas.kr` 같음 |
+| 화면 주소 | `issue-atlas.kr` — **아직 Cloudflare Workers**. EC2 운영 FE 는 한 번도 배포되지 않았다(검증 주소 `ec2-prod.issue-atlas.kr` 는 Nginx 만 있고 502) | `dev.issue-atlas.kr` — EC2 |
+| engine(문장화) | 315번에서 준비, 11/10 main 반영 후 배포·연결 | 배포됨 |
+
+**전날 · 시작 전**
+- [ ] develop · main 파이프라인이 모두 끝났고 develop 최신 커밋의 개발 배포가 성공했다(같은 환경 직렬 배포)
+- [ ] 운영 DB 를 수동 백업했다 — 자동 백업(`deploy/backup`)은 개발 DB 만 한다. `pg_dump -Fc` 결과를 `/var/backups/issueatlas` 아래 운영 전용 경로에 두고 `pg_restore --list` 로 읽히는지 본다
+- [ ] 새 migration 중 데이터를 지우거나 옮기는 것을 다시 읽었다: V0024 · V0032(ID 바꾸기), V0043 · V0044(보도자료 표 정리), V0042(경계 시드, 크다), V0048 · V0051(저장된 근거 · 실행 결과 UPDATE — 운영은 행이 거의 없다), V0050(`question.asked_by` 칸 · FK 추가). 이전 이미지로 롤백해도 DB 는 돌아가지 않는다
+- [ ] 운영 서버의 Compose 파일이 develop 판이다 — CD 는 서버 Compose 를 바꾸지 않는다. `/opt/issueatlas-prod/deploy/dev/` 의 `compose.yaml`(모니터링 · `ENGINE_URL` · engine 서비스 정의) · `compose.https.yaml`(-290) · `compose.release.yaml`(`ENGINE_IMAGE` 칸)을 저장소 판과 비교한다. engine 을 배포하지 않는 환경은 배포 프로그램이 `ENGINE_IMAGE` 에 자리 값(`issueatlas-engine:not-deployed`)을 넣으므로, 서버 배포 프로그램(`/usr/local/sbin/issueatlas-deploy.py`, 개발과 같은 파일)이 그 판인지도 본다
+- [ ] `/etc/issueatlas/cicd.json`의 `environments.main`에 `engine_image_repository`와 FE 항목이 있고, Compose 목록에 `compose.production-engine.yaml`이 있다. 운영 키는 `/etc/issueatlas/production/engine.env`(10001:10001, 0400)로 준비했다. `frontend_url`은 도메인 전환 전까지 `https://ec2-prod.issue-atlas.kr`을 유지한다
+- [ ] 운영 `.env` 변수를 정했다: `QUESTIONS_PER_MINUTE`(기본 10), `ENGINE_URL`은 engine healthy·외부 통신·최신 Spring 확인 전까지 비운다. 확인 뒤 `http://engine:8000`으로 켜고 Spring을 재생성한다. 나머지 새 변수(`ENGINE_TIMEOUT` · `ENGINE_CACHE_*` · `MONITORING_*`)는 기본값으로 둔다
+- [ ] Flyway 밖 시드 `backend/db/seed/cards-c1-a3.sql`(카드 C1 · A3 승인본)을 운영 DB 에 넣을지 정했다. 넣지 않으면 운영 질문은 카드 없음(`unsupported`)이다. 넣으면 반영 **뒤에** 운영 관리자 이메일로 `SET issue_atlas.approver` 를 하고 돌린다(새 DB 라 첫 승인본 v2 가 결과별 판단 문장까지 포함해 들어간다, -282). 그 뒤에 카드 계약이 바뀌는 MR(예 !196 · !197 `sign_words`)이 운영에 들어가면 시드를 다시 돌려 다음 판으로 승인한다
+- [ ] 운영 DB 에는 수집 자료가 없다(수집기 자동 실행 없음, -137). 통계 · 측정소 · 기사 없이 무엇을 보여 줄지(빈 상태 · 개발 주소로 데모) 정했다
+- [ ] 운영 화면에도 「로그인해야 결과 보기」(-268)가 적용된다. 데모에 쓸 운영 관리자 · 조회자 계정을 정했다(운영 계정은 개발과 따로다. 비밀번호는 저장소 · Jira 에 적지 않는다)
+- [ ] 운영 주소에서 Swagger(`/swagger-ui/index.html`)를 계속 열어 둘지 정했다 — 지금은 열려 있고 관리자 API 설명까지 보인다(호출은 로그인 · 관리자 권한으로 막힘)
+
+**반영**
+- [ ] MR `chore: develop → main 반영 (YYYY-MM-DD)` 을 만들고 변경 영역 검사가 통과한다
+- [ ] 병합 뒤 push 파이프라인에서 backend 배포 → frontend · 수집기 배포 순서로 성공한다(engine job 은 main 에서 만들지 않는다). backend 가 바뀐 develop 파이프라인이 12–15분 걸렸으니(11/6) 그 이상을 잡고, 걸린 시간을 적는다
+- [ ] 운영 FE 는 이번이 **EC2 첫 배포**다. 실패하면 후보만 멈추고 「이전 버전으로 복구」로 표시되지 않는다(이전 FE 가 없음, [프론트 EC2 배포](../frontend/README.md))
+- [ ] 실패하면 그 job 만 재시도한다. backend 는 이전 image ID 로 자동 복구를 시도하지만 migration 은 되돌리지 않는다 — DB 가 반쯤 바뀌었으면 위 백업에서 복원할지 정한다
+
+**확인 (운영 주소)**
+- [ ] `https://backend.issue-atlas.kr/actuator/health` UP
+- [ ] `https://ec2-prod.issue-atlas.kr/healthz` 의 revision 이 병합 커밋이다. `issue-atlas.kr` 은 DNS 를 바꾸기 전까지 Workers(옛 화면)라 여기서 보지 않는다
+- [ ] 로그인 없이 `GET /v1/places` 200(시군구 6곳 `kr-*`), `GET /v1/places/kr-12130/boundaries` 200 — 10/30 판은 401 이었다(11/9 에도 401 확인)
+- [ ] EC2 에서 `python3 deploy/dev/verify.py --base-url https://backend.issue-atlas.kr --session-auth`(관리자 로그인 · CSRF · 쿠키)
+- [ ] `python deploy/dev/measure.py --base-url https://backend.issue-atlas.kr --question-runs 1` 로 질문 1건 · 응답 시간 표. 카드 시드가 없으면 질문 단계에서 멈춘다(위 결정대로)
+- [ ] `ec2-prod.issue-atlas.kr` 에서 로그인 → 결과 화면 · `/admin`(관리자만)을 브라우저로 본다
+- [ ] 개발 주소(dev-backend · dev)는 그대로 동작한다(환경 간 DB 분리)
+
+**리허설 뒤 (별도 작업)**
+- [ ] `issue-atlas.kr` DNS 를 Workers 에서 EC2 로 바꾸는 것은 [프론트 EC2 배포](../frontend/README.md) 5–6단계를 따른다(인증서 · Nginx 준비 → Worker Custom Domain 해제 → A 레코드). 코드 반영과 같은 날 하지 않아도 된다
+- [ ] 걸린 시간 · 막힌 곳을 `docs/plans/active/perf-demo-response-time.md` 「진행」에 적는다
 
 ## 최초 GitLab 설정 (Maintainer 필요)
 

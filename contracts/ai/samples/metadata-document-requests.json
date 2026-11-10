@@ -1,0 +1,71 @@
+{
+  "list": "metadata-document-requests",
+  "fixture": false,
+  "purpose": "본문 없이(storage_scope=metadata) 제목 · 등록일 · 발행 기관만으로 들어올 실제 문서 5건. 카드 분류가 제목만으로 어디까지 되는지와 지역 힌트(발행 기관)를 확인한다",
+  "requested_from": "P1 보도자료 목록(press_release) → P3 지역 · 시간",
+  "requested_fields": ["regions", "event_period"],
+  "selected_from": "여수시 3건은 보도자료 게시판 목록 첫 쪽(2026-10-30 열람, 글 보기 페이지는 열지 않음), 광주광역시 2건은 로컬 DB(c108 press_release, P1 수집기 press-0.1.0)의 분석 기간(2023–2025) 안 행",
+  "body_included": false,
+  "items": [
+    {
+      "doc_id": "press:yeosu:584220",
+      "title": "여수시, 돌봄·민생 현장에 인력 보강… 정원 50명 증원 추진",
+      "published_on": "2026-10-29",
+      "category": "행정",
+      "department": "총무과",
+      "link": "https://www.yeosu.go.kr/www/govt/news/release/press?idx=584220&mode=view",
+      "publisher": "여수시",
+      "publisher_place_code_raw": "46130",
+      "license_type": "KOGL-4",
+      "check": "발행 기관 지역(여수시)이 곧 문서 지역인 기본 경우"
+    },
+    {
+      "doc_id": "press:yeosu:584231",
+      "title": "전남광주 동부권 상생협의회, 여수 섬박람회장에서 공식 출범",
+      "published_on": "2026-10-29",
+      "category": "행정",
+      "department": "시민소통담당관",
+      "link": "https://www.yeosu.go.kr/www/govt/news/release/press?idx=584231&mode=view",
+      "publisher": "여수시",
+      "publisher_place_code_raw": "46130",
+      "license_type": "KOGL-4",
+      "check": "여러 시군(동부권)에 걸친 글 — 발행 기관 지역만 후보로 두고 확정하지 않는가"
+    },
+    {
+      "doc_id": "press:yeosu:584261",
+      "title": "여수시, 가을철 산불예방 총력 대응… 산불조심기간 운영",
+      "published_on": "2026-10-30",
+      "category": "환경",
+      "department": "산림과",
+      "link": "https://www.yeosu.go.kr/www/govt/news/release/press?idx=584261&mode=view",
+      "publisher": "여수시",
+      "publisher_place_code_raw": "46130",
+      "license_type": "KOGL-4",
+      "check": "당일 글은 목록 날짜 칸에 시각(11:00:34)만 보인다 — P1 수집기가 한국 시간 그날 날짜로 받는다(S15P31C108-121). 카드에 맞지 않는 주제(분류 제외 후보)"
+    },
+    {
+      "doc_id": "press:gwangju:18923",
+      "title": "광주시, 12월부터 ‘미세먼지 계절관리제’ 시행",
+      "published_on": "2024-12-01",
+      "category": "환경",
+      "department": null,
+      "link": "https://www.gwangju.go.kr/boardView.do?pageId=www789&boardId=BD_0000000027&seq=18923",
+      "publisher": "광주광역시",
+      "publisher_place_code_raw": "29",
+      "license_type": "KOGL-미표시",
+      "check": "A3 후보. 계절관리제 기간(12월~이듬해 3월)이 게시일 하루가 아니라 month 정밀도 사건 기간으로 나오는가. 발행 기관이 광역(시 전체)이라 구 단위 지역이 없다"
+    },
+    {
+      "doc_id": "press:gwangju:19039",
+      "title": "광주청년 470명, 서로의 일경험 나눴다",
+      "published_on": "2024-12-19",
+      "category": "소통",
+      "department": null,
+      "link": "https://www.gwangju.go.kr/boardView.do?pageId=www789&boardId=BD_0000000027&seq=19039",
+      "publisher": "광주광역시",
+      "publisher_place_code_raw": "29",
+      "license_type": "KOGL-미표시",
+      "check": "C1 기존 대응 후보인데 원천 분류는 「소통」 — 원천 분류 말고 제목으로 카드에 붙는가. 행사 날짜가 제목에 없다. 통합 전 광주광역시 코드(29)를 통합 뒤 지역에 어떻게 잇는가"
+    }
+  ]
+}

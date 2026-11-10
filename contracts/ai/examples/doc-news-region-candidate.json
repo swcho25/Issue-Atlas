@@ -1,0 +1,65 @@
+{
+  "schema_version": "ai-doc-input-0.1",
+  "fixture": true,
+  "doc_id": "bigkinds:fixture-news-0002",
+  "version": {
+    "content_hash": "fixture-hash-news-0002",
+    "refine_rule_version": "p2-0.5.0",
+    "extraction_version": "fixture-p3"
+  },
+  "content": {
+    "kind": "news",
+    "title": "[fixture] 광주 도심 미세먼지 저감 사업 확대",
+    "summary": "[fixture] 광주 여러 구에서 미세먼지 저감 사업을 넓힌다는 가상 기사 요약.",
+    "body": "[fixture] 가상 기사 본문. 실제 기사가 아니다.",
+    "excerpt": null,
+    "categories": ["사회"],
+    "keywords": ["광주", "미세먼지"],
+    "entities": { "locations": ["광주", "동구", "광산구"], "persons": [], "organizations": [] }
+  },
+  "extraction_status": "done",
+  "regions": [
+    {
+      "sido": "전남광주통합특별시",
+      "sigun": "광주",
+      "gu": null,
+      "place_id": null,
+      "raw": null,
+      "source": "extraction",
+      "status": "confirmed"
+    },
+    {
+      "sido": null,
+      "sigun": null,
+      "gu": null,
+      "place_id": null,
+      "raw": "동구",
+      "source": "source_meta",
+      "status": "candidate"
+    },
+    {
+      "sido": null,
+      "sigun": null,
+      "gu": null,
+      "place_id": null,
+      "raw": "광산구",
+      "source": "source_meta",
+      "status": "candidate"
+    }
+  ],
+  "event_period": {
+    "start": "2024-11-01T00:00:00+09:00",
+    "end": "2024-12-01T00:00:00+09:00",
+    "precision": "month"
+  },
+  "published_at": "2024-11-03T10:30:00+09:00",
+  "published_precision": "time",
+  "source": {
+    "source_id": "bigkinds",
+    "publisher": "가상 언론사",
+    "link": "https://news.example.com/article/fixture-news-0002",
+    "raw_url": "https://tools.kinds.or.kr/search/news",
+    "locator": { "news_id": "fixture-news-0002" }
+  },
+  "usage": { "license_type": "BIGKINDS-이용약관", "storage_scope": "full" }
+}

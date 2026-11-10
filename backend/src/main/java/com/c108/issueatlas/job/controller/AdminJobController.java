@@ -2,6 +2,8 @@ package com.c108.issueatlas.job.controller;
 
 import com.c108.issueatlas.job.dto.JobResponse;
 import com.c108.issueatlas.job.service.JobService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -9,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** 관리자 전용 수집 이력(FR-F5). 권한은 경로({@code /v1/admin/**})로 보안 필터 체인에서만 판정한다. 재실행은 없다. */
+@Tag(name = "admin")
 @RestController
 @RequestMapping("/v1/admin/jobs")
 public class AdminJobController {
@@ -18,6 +21,7 @@ public class AdminJobController {
         this.jobs = jobs;
     }
 
+    @Operation(operationId = "listJobs", summary = "수집 이력 목록 (관리자 전용, FR-F5). 최근 시작 순, 재실행 없음")
     @GetMapping
     public JobResponse.Page list(
             @RequestParam(required = false) String status,
@@ -28,8 +32,9 @@ public class AdminJobController {
         return jobs.list(status, sourceId, specId, page, size);
     }
 
-    @GetMapping("/{jobRunId}")
-    public JobResponse.Single get(@PathVariable String jobRunId) {
+    @Operation(operationId = "getJob", summary = "수집 실행 1건 (관리자 전용)")
+    @GetMapping("/{job_run_id}")
+    public JobResponse.Single get(@PathVariable("job_run_id") String jobRunId) {
         return jobs.get(jobRunId);
     }
 }

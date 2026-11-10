@@ -1,0 +1,112 @@
+{
+  "list": "real-article-requests",
+  "fixture": false,
+  "purpose": "P3(지역 · 시간)에 먼저 돌려 달라고 요청할 실제 기사 10건. 결과를 document-input 모양으로 받아 카드 분류 입력을 확인한다",
+  "requested_from": "P3 지역 · 시간 (news_event)",
+  "requested_fields": ["summary", "regions", "event_period", "version.extraction_version"],
+  "selected_from": "임베딩 평가 때 본문을 직접 읽고 지역 범위를 판정한 실제 기사 20건(test/embedding-model-evaluation 브랜치 engine/embedding_eval/manual-chunk-labels.md 의 D01–D20)",
+  "body_included": false,
+  "published_at_note": "로컬 평가 DB(p4_eval news_article)의 기사 30건 발행 시각이 모두 한국 시각 0시다(2026-10-30 확인). 날짜만 오는 것으로 보고 published_precision=day 로 둔다. 빅카인즈 응답 원문은 DB 에 없어 원천 형식까지는 확인하지 못했다",
+  "items": [
+    {
+      "label_id": "D03",
+      "doc_id": "bigkinds:01100751.20240922103908002",
+      "title": "여수, 저출생·고령화 인구감소대응 전담팀(TF) 발족 '35개 사업' 추진",
+      "published_at": "2024-09-22T00:00:00+09:00",
+      "link": "https://www.asiatoday.co.kr/view.php?key=20240922010011652",
+      "label_region": "여수",
+      "card": "C1",
+      "check": "여수시 단일 지역 · 발족 날짜가 사건 기간으로 나오는가"
+    },
+    {
+      "label_id": "D04",
+      "doc_id": "bigkinds:01400351.20240923220213001",
+      "title": "여수시, 인구감소대응 전담팀 발족",
+      "published_at": "2024-09-23T00:00:00+09:00",
+      "link": "https://www.joongdo.co.kr/web/view.php?key=20240923010005324",
+      "label_region": "여수",
+      "card": "C1",
+      "check": "D03 과 같은 사건을 다른 언론사가 씀 — 사건 기간이 D03 과 같게 나오는가(독립 근거로 세지 않을 후보)"
+    },
+    {
+      "label_id": "D20",
+      "doc_id": "bigkinds:08100101.20240724194520001",
+      "title": "[여기는 전남] 경고등에도 소극적…발등에 불 떨어진 여수시",
+      "published_at": "2024-07-24T00:00:00+09:00",
+      "link": "https://news.kbs.co.kr/news/view.do?ncd=8020137&ref=DA",
+      "label_region": "여수",
+      "card": "C1",
+      "check": "기획 보도 — 글에 사건 날짜가 없으면 event_period 가 null 로 오는가"
+    },
+    {
+      "label_id": "D02",
+      "doc_id": "bigkinds:01100201.20251209111750001",
+      "title": "“양질 일자리가 없다”…청년 유출 가장 심각한 이 도시",
+      "published_at": "2025-12-09T00:00:00+09:00",
+      "link": "https://www.kmib.co.kr/article/view.asp?arcid=0029088077&code=61121111&cp=kd",
+      "label_region": "광주",
+      "card": "C1",
+      "check": "제목에 지명이 없음 — 본문에서 광주(구 null)를 찾는가"
+    },
+    {
+      "label_id": "D08",
+      "doc_id": "bigkinds:01600451.20241029110906001",
+      "title": "광주의 대기질 상태 '청정'",
+      "published_at": "2024-10-29T00:00:00+09:00",
+      "link": "http://www.namdonews.com/news/articleView.html?idxno=795899",
+      "label_region": "광주",
+      "card": "A3",
+      "check": "2023년 대기질 평가를 2024-10 에 보도 — 사건 기간이 게시일이 아니라 2023년으로 나오는가"
+    },
+    {
+      "label_id": "D15",
+      "doc_id": "bigkinds:02100501.20240415152838001",
+      "title": "'광주 미세먼지 농도 최근 5년 새 최저 수준'...광주광역시, 미세먼지 계절관리제 성과",
+      "published_at": "2024-04-15T00:00:00+09:00",
+      "link": "http://www.fnnews.com/news/202404151520297322",
+      "label_region": "광주",
+      "card": "A3",
+      "check": "계절관리제 기간(여러 달)이 사건 기간 · month 정밀도로 나오는가"
+    },
+    {
+      "label_id": "D05",
+      "doc_id": "bigkinds:01600201.20251117214042001",
+      "title": "광주·전남 떠나는 20대 청년인구…올해에만 9천여명 순유출",
+      "published_at": "2025-11-17T00:00:00+09:00",
+      "link": "http://www.kjdaily.com/news_view.php?n=667768&tmp=20251117&s=4",
+      "label_region": "광주·전남",
+      "card": "C1",
+      "check": "광주 · 전남 두 곳 — 넓은 단위 하나(sido = 전남광주통합특별시, sigun null)로 오는가"
+    },
+    {
+      "label_id": "D10",
+      "doc_id": "bigkinds:01600801.20240107180050002",
+      "title": "[전남일보]“탁한 공기 일상 돼”··· 작년 광주·전남 초미세먼지 ‘주의보’ 발령 많아졌다",
+      "published_at": "2024-01-07T00:00:00+09:00",
+      "link": "http://www.jnilbo.com/72444078469",
+      "label_region": "광주·전남",
+      "card": "A3",
+      "check": "「작년」 — 2023년 한 해가 사건 기간으로 나오는가"
+    },
+    {
+      "label_id": "D11",
+      "doc_id": "bigkinds:01600801.20240219161823001",
+      "title": "[전남일보]전남 대기질 '청정'…초미세먼지 농도 낮아",
+      "published_at": "2024-02-19T00:00:00+09:00",
+      "link": "http://www.jnilbo.com/72801773480",
+      "label_region": "전남",
+      "card": "A3",
+      "check": "2022년 자료 보도 — 분석 기간(2023–2025) 밖 사건 기간이 그대로 오는가"
+    },
+    {
+      "label_id": "D01",
+      "doc_id": "bigkinds:01100101.20240429085556001",
+      "title": "울산시, 초미세먼지 농도 특·광역시 중 최저 수준···5차 계절관리제 추진결과",
+      "published_at": "2024-04-29T00:00:00+09:00",
+      "link": "https://www.khan.co.kr/local/Ulsan/article/202404290855001",
+      "label_region": "울산",
+      "card": "A3",
+      "check": "서비스 지역 밖 — sido 가 울산으로 와서 어느 카드에도 붙지 않는가"
+    }
+  ]
+}

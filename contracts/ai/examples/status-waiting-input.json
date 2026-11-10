@@ -1,0 +1,11 @@
+{
+  "schema_version": "ai-status-0.1",
+  "fixture": true,
+  "task": "classify_document",
+  "input_ref": "press:yeosu:fixture-0001",
+  "status": "waiting_input",
+  "reason_code": "WAITING_EXTRACTION",
+  "retryable": true,
+  "updated_at": "2026-10-30T15:00:00+09:00",
+  "output": null
+}

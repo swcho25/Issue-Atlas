@@ -1,245 +1,986 @@
 /*
- * 확정 랜딩(Figma v4 보드 02, S15P31C108-144)의 배치.
- * 1684 × 934 설계 프레임(세로 화면은 390 × 844) 위의 픽셀 값에 --u 를 곱해, 구도 전체가 한 덩어리로
- * 커지고 줄며 가운데에 머문다. 이 계산 배치만 CSS 모듈에 두고, 색·글꼴은 globals.css 토큰 유틸리티로 건다.
+ * 랜딩(Figma 「02 · 로그인 · 랜딩」). 시제품 docs/design/landing-scroll 을 옮겼다 — 값의 이유는 그 폴더 README 표에 있다.
+ * --landing-* 토큰만 쓴다(밝은 · 어두운 값은 globals.css). 도착 지도와 그 위 표시(--landing-map-*)는 테마와 상관없이 밝다.
+ * 테마를 따로 보는 곳은 구름 밝기와 헤더(지도 위에서는 짙게)뿐.
  */
 .page {
-  --fw: 1684;
-  --fh: 934;
-  --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
-  /* 지구 중심 · 반지름, 석상 상자(왼쪽 · 위 · 폭), 양옆 라벨 · 문장 · 버튼의 위쪽 — 프레임 px */
-  --gx: 845;
-  --gy: 288;
-  --gr: 225;
-  --sx: 705;
-  --sy: 470;
-  --sw: 280;
-  --wy: 342;
-  --ly: 745;
-  --by: 814;
+  background: var(--landing-bg-2);
+  color: var(--landing-ink);
+}
+
+/* ---------- 지구 → 구름 → 지도 구간: 스크롤 길이만큼 화면이 고정된 채 진행된다(360vh, 도착은 84% 지점) ---------- */
+.journey {
   position: relative;
+  height: 360vh;
+}
+
+.stage {
+  position: sticky;
+  top: 0;
   height: 100vh;
   overflow: hidden;
-  color-scheme: light;
   background: linear-gradient(
     180deg,
     var(--landing-bg-0) 0%,
-    var(--landing-bg-1) 13%,
-    var(--landing-bg-2) 30%,
-    var(--landing-bg-3) 56%,
-    var(--landing-bg-2) 70%,
+    var(--landing-bg-1) 11%,
+    var(--landing-bg-3) 28%,
+    var(--landing-bg-4) 36%,
     var(--landing-bg-4) 100%
   );
 }
 
-@media (max-aspect-ratio: 1/1) {
-  .page {
-    --fw: 390;
-    --fh: 844;
-    --gx: 196.1;
-    --gy: 330;
-    --gr: 102.3;
-    --sx: 132.1;
-    --sy: 410;
-    --sw: 128;
-    --wy: 324.5;
-    --ly: 560;
-    --by: 646;
-  }
+.layer {
+  position: absolute;
+  inset: 0;
 }
 
+/* 세로로 밀면 스크롤, 가로로 끌면 지구가 돈다 */
+.globe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+}
+
+.ground {
+  display: block;
+  width: 100%;
+  height: 100%;
+  visibility: hidden;
+}
+
+/*
+ * 히어로 설계틀 = 1586 × 992 시안 화면(그 화면에서 배율 1, 다른 화면은 이 틀을 키우고 줄인다).
+ * 지구 중심(--gx, --gy) · 반지름(--gr)은 lib/journey.ts 의 GX · GY · GR 과 같은 값. 석상 폭(--sw)은 반지름에 비례(225 일 때 280).
+ * 큰 이름 글자 크기(--mfs)만 따로 막는다: 글자 폭(글자 크기 × 4.814)이 본문 폭(로고~로그인, 최대 1036px)의 80% 를 넘지 않게
+ */
 .frame {
+  --fw: 1586;
+  --fh: 992;
+  --u: min(calc(100vw / var(--fw)), calc(100vh / var(--fh)));
+  --gx: 793;
+  --gy: 425.5;
+  --gr: 205;
+  --sx: 665.44;
+  --sy: 587.74;
+  --sw: 255.11;
+  --mf: 166;
+  --mfs: min(calc(var(--mf) * var(--u)), calc(min(1036px, 100vw - 80px) * 0.8 / 4.814));
   position: absolute;
   left: 50%;
   top: 50%;
   width: calc(var(--fw) * var(--u));
   height: calc(var(--fh) * var(--u));
   transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 .at {
   position: absolute;
 }
 
-.px {
-  font-size: calc(var(--fs) * var(--u));
+/* 지구를 따라 옮기고 키운다(매 프레임 transform 만 바꾼다) */
+.atlas {
+  will-change: transform;
 }
 
-/* 지구 캔버스: 지구 중심 둘레로 반지름 2.2배 정사각형(가장자리 빛 테두리 여유) */
-.globe {
-  left: calc((var(--gx) - var(--gr) * 1.1) * var(--u));
-  top: calc((var(--gy) - var(--gr) * 1.1) * var(--u));
-  width: calc(var(--gr) * 2.2 * var(--u));
-  height: calc(var(--gr) * 2.2 * var(--u));
-  display: block;
-  cursor: grab;
-  touch-action: pan-y;
-  z-index: 1;
-}
-
-.globe[data-dragging] {
-  cursor: grabbing;
-}
-
-/* --sx · --sy 는 시작값이다. 스크립트가 목이 지구 맨 아래, 손바닥이 아래 가장자리에 닿도록 다시 맞춘다 */
 .statue {
   left: calc(var(--sx) * var(--u));
   top: calc(var(--sy) * var(--u));
   width: calc(var(--sw) * var(--u));
   height: auto;
-  z-index: 2;
-  pointer-events: none;
-  user-select: none;
 }
 
-/* 석상 실루엣으로 계산한 바닥 그림자. 석상 이미지 좌표 x -2300..3700, y 605..1505(바닥선 1055)에 놓이고,
-   흐림이 안에서 다 사라질 만큼 크며, 네 변 모두 서서히 사라져 상자 모서리가 보이지 않는다 */
 .shadow {
   left: calc((var(--sx) - 2300 * var(--sw) / 1402) * var(--u));
   top: calc((var(--sy) + 605 * var(--sw) / 1402) * var(--u));
   width: calc(6000 * var(--sw) / 1402 * var(--u));
   height: calc(900 * var(--sw) / 1402 * var(--u));
-  pointer-events: none;
   mask-image:
-    linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent),
-    linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+    linear-gradient(to bottom, transparent, black 22%, black 78%, transparent),
+    linear-gradient(to right, transparent, black 14%, black 86%, transparent);
   mask-composite: intersect;
 }
 
-.nav {
-  left: calc(297 * var(--u));
-  right: calc(295 * var(--u));
-  top: calc(24 * var(--u));
-  height: calc(48 * var(--u));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  z-index: 3;
-}
-
-/* Figma 확정 프레임의 Logo/Lockup: 워드마크 19 px(1440 폭) = 설계 프레임 22.3 */
-.brand {
-  font-size: calc(22.3 * var(--u));
-}
-
-.login {
-  --fs: 16;
-  width: calc(103 * var(--u));
-  height: calc(48 * var(--u));
-  padding: 0;
-  border-width: 1px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-/* 양옆 라벨: 자간 넓은 작은 대문자와 지구 쪽으로 뻗은 가는 선. 지구 중심선 위, 가장자리에서 28 떨어져 */
-.word {
-  --fs: 14;
-  top: calc(var(--gy) * var(--u));
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: calc(16 * var(--u));
-  font-weight: 500;
-  letter-spacing: 0.38em;
-  line-height: 1;
-  text-transform: uppercase;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.rule {
-  display: block;
-  width: calc(90 * var(--u));
-  height: 1px;
-}
-
-.wordLeft {
-  right: calc((var(--fw) - var(--gx) + var(--gr) + 28) * var(--u));
-}
-
-.wordRight {
-  left: calc((var(--gx) + var(--gr) + 28) * var(--u));
-}
-
-.line {
-  --fs: 37;
+/*
+ * 큰 Issue Atlas: 지구 캔버스 뒤에 깔려 지구 윗부분이 글자 아랫부분을 가린다(잡지 표지 제호처럼).
+ * 글자 줄 가운데를 지구 꼭대기에 맞춰, 글자 크기와 상관없이 지구가 글자 높이의 약 1/3 만 가린다.
+ * 왼쪽으로 0.04em: 마지막 글자 뒤 자간 몫만큼 잉크가 오른쪽에 치우쳐 보이는 것을 바로잡는다. 영문뿐인 글자라 맞추지 않은 Gothic A1
+ */
+.mast {
   left: 0;
   right: 0;
-  top: calc(var(--ly) * var(--u));
+  top: calc((var(--gy) - var(--gr)) * var(--u) - 0.012 * var(--mfs));
   margin: 0;
+  transform: translate(-0.04em, -50%);
   text-align: center;
-  word-break: keep-all;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  white-space: nowrap;
+  font:
+    900 var(--mfs) / 1 var(--font-gothic-a1),
+    sans-serif;
+  letter-spacing: -0.056em;
+  color: var(--landing-mast);
+}
+
+/* 석상 아래: 굵은 한 줄 + 회색 부제 + 아래로 내리라는 꺾쇠. 좁은 화면에서 최소 글자 크기가 걸려도 서로 겹치지 않게 위아래로 흘려 놓는다 */
+.tag {
+  left: 0;
+  right: 0;
+  top: calc((var(--gy) + 400.5) * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.lead {
+  margin: 0;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: max(16px, calc(40.45 * var(--u)));
   line-height: 1.2;
-  z-index: 3;
+  letter-spacing: 0.032em;
+  color: var(--landing-ink);
 }
 
-.cta {
-  --fs: 18;
-  left: calc(755 * var(--u));
-  top: calc(var(--by) * var(--u));
-  width: calc(175 * var(--u));
-  height: calc(58 * var(--u));
+.sub {
+  margin: calc(9 * var(--u)) 0 0;
+  white-space: nowrap;
+  font-weight: 500;
+  font-size: max(12px, calc(20.22 * var(--u)));
+  line-height: 1.2;
+  letter-spacing: 0.076em;
+  color: var(--landing-text-2);
+}
+
+.cue {
+  margin-top: calc(36.2 * var(--u));
+  width: max(14px, calc(21 * var(--u)));
+  height: auto;
+  color: var(--landing-cue);
+}
+
+/* 구름 통과: 구름 알파맵을 화면 앞에 겹쳐 키우며 지나간다 */
+.clouds {
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  will-change: opacity;
+}
+
+.cloud {
+  position: absolute;
+  inset: -20%;
+  background-position: center;
+  background-size: 140% auto;
+  background-repeat: no-repeat;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* 어두운 화면: 흰 구름이 밤하늘에서 튀지 않게 밝기를 낮춘다(테마를 고른 경우 · 고르지 않고 OS 가 어두운 경우) */
+:global(:root[data-theme="dark"]) .cloud {
+  filter: brightness(0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"])) .cloud {
+    filter: brightness(0.55);
+  }
+}
+
+.fog {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    var(--landing-fog) 0%,
+    var(--landing-fog) 45%,
+    color-mix(in srgb, var(--landing-fog) 85%, transparent) 70%,
+    color-mix(in srgb, var(--landing-fog) 60%, transparent) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wait {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font:
+    500 12px var(--font-ibm-plex-mono),
+    monospace;
+  letter-spacing: 0.2em;
+  color: var(--landing-text-3);
+  opacity: 0;
+}
+
+/*
+ * 지도 위 표시: 판 위 좌표를 화면 좌표로 옮겨 글자 · 점을 얹는다(lib/journey.ts 가 만든다, 클래스는 전역 이름).
+ * 숨길 때는 display 로 뺀다: visibility 로 숨기면 글자마다 붙인 visibility: visible 이 이겨서 지구 위에 남는다.
+ * 점 · 말풍선 · 지명은 화면 폭에 맞춰 커진다(1440px 기준 → 넓은 화면에서 작아 보이지 않게)
+ */
+.marks {
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.marks > div {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+
+.marks :global(.place) {
+  font-size: clamp(14px, 0.9vw, 18px);
+  font-weight: 700;
+  color: var(--landing-map-place);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-shadow:
+    0 0 2px white,
+    0 0 6px white,
+    0 0 10px white;
+}
+
+.marks :global(.place.city) {
+  font-size: clamp(19px, 1.25vw, 25px);
+  font-weight: 800;
+  color: var(--landing-map-navy);
+}
+
+.marks :global(.place.gu) {
+  font-size: clamp(17px, 1.1vw, 22px);
+  font-weight: 800;
+  color: var(--landing-map-navy);
+  letter-spacing: 0.08em;
+}
+
+.marks :global(.pin) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+}
+
+.marks :global(.bubble) {
+  position: relative;
+  display: flex;
+  gap: 0.55em;
+  align-items: center;
+  margin-bottom: 0.6em;
+  padding: 0.6em 1.05em 0.6em 0.9em;
   border-radius: 999px;
+  background: var(--landing-map-surface);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.14);
+  color: var(--landing-map-ink);
+  white-space: nowrap;
+  font-size: clamp(15px, 1vw, 20px);
+  font-weight: 500;
+}
+
+.marks :global(.bubble b) {
+  font-size: 0.86em;
+  font-weight: 700;
+  color: var(--landing-map-navy);
+}
+
+.marks :global(.bubble)::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--landing-map-surface);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.marks :global(.dot) {
+  --d: clamp(24px, 1.6vw, 32px);
+  width: var(--d);
+  height: var(--d);
+  border: 4px solid white;
+  border-radius: 50%;
+  background: var(--landing-map-navy);
+  box-shadow:
+    0 0 0 5px rgb(255 255 255 / 0.45),
+    0 2px 10px rgb(0 0 0 / 0.28);
+}
+
+.marks :global(.dot.doc) {
+  border-color: var(--landing-map-navy);
+  background: white;
+}
+
+.marks :global(.dot.small) {
+  --d: clamp(17px, 1.15vw, 24px);
+  border-width: 3px;
+}
+
+.caption {
+  left: 50%;
+  bottom: 6vh;
+  padding: 0.85em 1.5em;
+  border-radius: 999px;
+  background: var(--landing-map-caption);
+  color: white;
+  font-weight: 700;
+  font-size: clamp(16px, 1.05vw, 20px);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  pointer-events: none;
+}
+
+.title {
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 9vh 0 10vh;
+  background: linear-gradient(
+    var(--landing-map-bg) 0%,
+    color-mix(in srgb, var(--landing-map-bg) 92%, transparent) 55%,
+    color-mix(in srgb, var(--landing-map-bg) 0%, transparent) 100%
+  );
+  color: var(--landing-map-ink);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.title h2 {
+  margin: 0;
+  font-weight: 800;
+  font-size: clamp(32px, 4vw, 56px);
+  line-height: 1.28;
+  letter-spacing: -0.03em;
+}
+
+.attrib {
+  left: 12px;
+  bottom: 8px;
+  font-size: 10px;
+  color: var(--landing-map-muted);
+  opacity: 0;
+}
+
+/* ---------- 헤더: 스크롤해도 늘 맨 위, 띠 없이 로고와 유리 로그인만 뜬다. 높이 78px, 본문 폭(로고~로그인) 1036px 를 가운데에 ---------- */
+.site {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 78px;
+  padding: 0 max(40px, calc((100% - 1036px) / 2));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+/*
+ * 헤더 색. 어두운 화면에서는 로고를 밝은 로고(paper)로 — 로고 토큰을 종이색으로 바꿔 끼운다.
+ * 다만 헤더가 밝은 도착 지도 위에 있을 때(<html data-landing-map>, journey.ts)는 테마와 상관없이 밝은 화면 색 그대로
+ */
+:global(:root[data-theme="dark"]:not([data-landing-map])) .site {
+  --logo-ink: var(--logo-paper);
+  --logo-clay-0: var(--logo-clay-paper-0);
+  --logo-clay-1: var(--logo-clay-paper-1);
+  --logo-clay-2: var(--logo-clay-paper-2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"]):not([data-landing-map])) .site {
+    --logo-ink: var(--logo-paper);
+    --logo-clay-0: var(--logo-clay-paper-0);
+    --logo-clay-1: var(--logo-clay-paper-1);
+    --logo-clay-2: var(--logo-clay-paper-2);
+  }
+}
+
+:global(:root[data-landing-map]) .site {
+  --landing-ink: #111318;
+  --landing-logo: #252624;
+  --landing-glass-hi: rgb(255 255 255 / 0.95);
+  --landing-glass-lo: rgb(255 255 255 / 0.3);
+}
+
+@media (max-width: 1279px) {
+  .site {
+    padding: 0 max(32px, calc((100% - 1036px) / 2));
+  }
+}
+
+@media (max-width: 767px) {
+  .site {
+    padding: 0 20px;
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.mark {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+}
+
+/*
+ * 맨 위에선 축약형(심벌만, 이름은 히어로의 큰 글자가 맡음). 스크롤을 시작하면 워드마크가 심벌 뒤에서 오른쪽으로 튀어나온다(조금 지나쳤다 돌아옴).
+ * Figma Logo/Lockup(심벌 44 · 간격 12 · Source Serif 4 Regular 34px · 자간 -2%)을 심벌 28px 에 맞춘 크기. 왼쪽만 잘라 심벌 뒤에서 나오는 것처럼
+ */
+.wm {
+  clip-path: inset(-12px -40px -12px 0);
+}
+
+.wm span {
+  display: block;
+  padding-left: 7.6px;
+  font:
+    400 21.6px / 1 var(--font-source-serif-4),
+    serif;
+  letter-spacing: -0.02em;
+  color: var(--landing-logo);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-104%);
+  transition:
+    transform 0.28s cubic-bezier(0.5, 0, 0.9, 0.4),
+    opacity 0.18s 0.1s;
+}
+
+.scrolled .wm span {
+  opacity: 1;
+  transform: none;
+  transition:
+    transform 0.62s cubic-bezier(0.3, 1.6, 0.55, 1),
+    opacity 0.16s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wm span,
+  .scrolled .wm span {
+    transform: none;
+    transition: opacity 0.2s;
+  }
+}
+
+/*
+ * 투명 유리 로그인: 흰빛 10% · 위 왼쪽이 밝은 테두리 · 그림자 없음. 밝은 바탕에서도 보이게 옅은 회색 테두리 한 줄.
+ * 커서 자리에 반사광이 맺혀 따라다닌다(호버만). 누르면 로그인 창이 바로 덮어 보이지 않으므로 누름 움직임은 두지 않는다
+ */
+/* 헤더 오른쪽: 테마 토글 · 로그인 */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  pointer-events: auto;
+}
+
+.glassBtn {
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--landing-ink) 14%, transparent);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(6px) saturate(1.6);
+  box-shadow:
+    inset 1px 1px 0 var(--landing-glass-hi),
+    inset -1px -1px 0 var(--landing-glass-lo);
+  color: var(--landing-ink);
+  font-weight: 700;
+  font-size: 13px;
   cursor: pointer;
-  z-index: 3;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.cta:hover {
-  filter: brightness(1.06);
+.glassBtn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(
+    80px circle at var(--mx) var(--my),
+    rgb(255 255 255 / 0.45),
+    transparent 60%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
 }
 
-.cta:focus-visible,
-.login:focus-visible {
-  outline: 2px solid var(--cta);
+.glassBtn:hover::before {
+  opacity: 1;
+}
+
+.glassBtn:focus-visible,
+.start:focus-visible,
+.foot a:focus-visible,
+.brand:focus-visible {
+  outline: 2px solid var(--landing-navy);
   outline-offset: 3px;
 }
 
-@media (max-aspect-ratio: 1/1) {
-  .nav {
-    left: calc(20 * var(--u));
-    right: calc(20 * var(--u));
-    top: calc(16 * var(--u));
-    height: calc(40 * var(--u));
-  }
-  .brand {
-    font-size: calc(19 * var(--u));
-  }
-  .login {
-    --fs: 14;
-    width: calc(78 * var(--u));
-    height: calc(38 * var(--u));
-  }
-  /* 세로 화면: 선 없이 화면 양 끝, --wy 줄에 지구 옆으로 */
-  .word {
-    --fs: 11;
-    letter-spacing: 0.32em;
-    top: calc(var(--wy) * var(--u));
-    transform: none;
-  }
-  .rule {
+/* ---------- 지도 다음 설명 섹션: 상황 한 줄 + 큰 제목 두 줄 + 한 줄 설명 → 그림. 넓은 화면 폭 1168, 좁으면 한 줄씩 쌓인다 ---------- */
+.sec {
+  padding: clamp(120px, 14vw, 220px) 20px 0;
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0 0 16px;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--landing-text-3);
+}
+
+.sec h2 {
+  margin: 0;
+  font-weight: 800;
+  font-size: clamp(34px, 3.6vw, 56px);
+  line-height: 1.28;
+  letter-spacing: -0.03em;
+  color: var(--landing-ink);
+}
+
+.lede {
+  max-width: 900px;
+  margin: 22px auto 0;
+  font-size: clamp(16px, 1.25vw, 19px);
+  line-height: 1.6;
+  color: var(--landing-text-2);
+}
+
+.grid {
+  display: grid;
+  gap: 48px;
+  justify-content: center;
+  max-width: 1168px;
+  margin: 80px auto 0;
+  padding: 0;
+  list-style: none;
+}
+
+.num {
+  display: block;
+  font-weight: 700;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--landing-amber-text);
+}
+
+.panel {
+  position: relative;
+  border-radius: 28px;
+  background: var(--landing-panel);
+}
+
+/* 결과 화면 둘러보기: 데스크톱 화면 하나 + 아래 세 칸. 칸을 누르거나, 화면이 보이는 동안 6초마다 다음 칸으로 넘어간다(막대가 차오름) */
+.tour {
+  max-width: 1168px;
+  margin: 80px auto 0;
+}
+
+.screen {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--landing-surface);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--landing-ink) 6%, transparent),
+    0 40px 80px -40px color-mix(in srgb, var(--landing-shadow) 35%, transparent);
+}
+
+.screen img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.screen img.on {
+  opacity: 1;
+}
+
+/* 밝은 · 어두운 캡처 한 벌(ThemeImage): 화면 테마에 맞는 쪽만 보인다(테마를 고른 경우 · 고르지 않고 OS 가 어두운 경우). 숨긴 쪽은 늦게 읽기라 받지 않는다 */
+.dark {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .light {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .dark {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"])) .light {
     display: none;
   }
-  .wordLeft {
-    right: auto;
-    left: calc(20 * var(--u));
+
+  :global(:root:not([data-theme="light"])) .dark {
+    display: block;
   }
-  .wordRight {
-    left: auto;
-    right: calc(20 * var(--u));
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  margin-top: 36px;
+  text-align: left;
+}
+
+.tab {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--landing-navy);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+.bar {
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--landing-ink) 10%, transparent);
+}
+
+.bar i {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--landing-ink);
+}
+
+.tab.on .bar i {
+  animation: fill 6s linear forwards;
+}
+
+.paused .tab.on .bar i {
+  animation-play-state: paused;
+}
+
+@keyframes fill {
+  to {
+    width: 100%;
   }
-  .line {
-    --fs: 24;
-    line-height: 1.3;
-    padding: 0 calc(20 * var(--u));
+}
+
+.tabTitle {
+  display: block;
+  margin: 18px 0 8px;
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--landing-muted);
+  transition: color 0.3s;
+}
+
+.tabText {
+  display: block;
+  font-size: 16px;
+  line-height: 26px;
+  color: var(--landing-muted);
+  transition: color 0.3s;
+}
+
+.tab.on .tabTitle {
+  color: var(--landing-ink);
+}
+
+.tab.on .tabText {
+  color: var(--landing-text-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab.on .bar i {
+    width: 100%;
+    animation: none;
   }
-  .cta {
-    --fs: 16;
-    left: calc(124 * var(--u));
-    width: calc(142 * var(--u));
-    height: calc(50 * var(--u));
+
+  .screen img {
+    transition: none;
+  }
+}
+
+/* 판단 · 말하지 않는 것 */
+.feats {
+  grid-template-columns: repeat(2, minmax(0, 560px));
+  text-align: left;
+}
+
+.feat .panel {
+  height: 400px;
+}
+
+.feat .num {
+  margin-top: 36px;
+}
+
+.feat h3 {
+  margin: 8px 0 10px;
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 34px;
+  letter-spacing: -0.02em;
+}
+
+.feat p {
+  margin: 0;
+  font-size: 17px;
+  line-height: 28px;
+  color: var(--landing-text-2);
+}
+
+/* 예시 그림: 실제 결과 화면에서 잘라 낸 조각(2배로 찍음). 판 가운데에 두고, 줄이기만 하고 키우지 않는다 */
+.shot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shot img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--landing-ink) 6%, transparent),
+    0 24px 48px -28px color-mix(in srgb, var(--landing-shadow) 45%, transparent);
+}
+
+.feat .shot {
+  padding: 28px;
+}
+
+/* 출처 · 원문 · 각주 세 단계 */
+.steps {
+  grid-template-columns: repeat(3, minmax(0, 368px));
+  gap: 32px;
+  text-align: left;
+}
+
+.step .panel {
+  height: 220px;
+  padding: 22px;
+}
+
+.step .num {
+  margin-top: 28px;
+}
+
+.step h3 {
+  margin: 6px 0 8px;
+  font-weight: 800;
+  font-size: 21px;
+}
+
+.step p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--landing-text-2);
+}
+
+/* 어느 지역부터 + 시작 버튼 + 지역 줄. 열린 곳(광주 · 여수)만 테두리 + 앰버 점 */
+.ask h2 {
+  font-size: clamp(40px, 4.2vw, 64px);
+  line-height: 1.25;
+}
+
+/* 영문뿐인 글자라 맞추지 않은 Gothic A1 */
+.start {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  height: 55px;
+  margin-top: 40px;
+  padding: 0 26px 0 30px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--landing-amber);
+  color: var(--landing-on-amber);
+  font:
+    800 16px var(--font-gothic-a1),
+    sans-serif;
+  cursor: pointer;
+}
+
+.start span {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.places {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  margin-top: 68px;
+  overflow: hidden;
+}
+
+.places::before,
+.places::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: min(200px, 15vw);
+  pointer-events: none;
+}
+
+.places::before {
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    var(--landing-bg-2),
+    color-mix(in srgb, var(--landing-bg-2) 0%, transparent)
+  );
+}
+
+.places::after {
+  right: 0;
+  background: linear-gradient(
+    270deg,
+    var(--landing-bg-2),
+    color-mix(in srgb, var(--landing-bg-2) 0%, transparent)
+  );
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  animation: drift 70s linear infinite;
+}
+
+.rev {
+  animation-direction: reverse;
+}
+
+@keyframes drift {
+  to {
+    transform: translateX(calc(-50% - 6px));
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--landing-chip);
+  color: var(--landing-chip-text);
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.chip.open {
+  background: var(--landing-surface);
+  color: var(--landing-ink);
+  box-shadow: inset 0 0 0 1px var(--landing-ink);
+}
+
+.chip.open::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--landing-amber);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row {
+    animation: none;
+  }
+}
+
+/* 푸터: 로고 전체형(헤더와 같은 비율, 심벌 25) + 만든 곳 */
+.foot {
+  box-sizing: content-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  max-width: 1036px;
+  margin: 145px auto 0;
+  padding: 32px 20px 64px;
+  border-top: 1px solid color-mix(in srgb, var(--landing-ink) 8%, transparent);
+}
+
+.foot small {
+  font-size: 13px;
+  color: var(--landing-text-3);
+}
+
+.lock {
+  font-size: 19.7px;
+}
+
+@media (max-width: 899px) {
+  .tabs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .steps {
+    grid-template-columns: minmax(0, 368px);
+  }
+
+  .feats {
+    grid-template-columns: minmax(0, 560px);
+  }
+
+  .feat .panel {
+    height: auto;
+    aspect-ratio: 560 / 400;
+  }
+}
+
+@media (max-width: 599px) {
+  /* 좁은 화면: 판 높이를 사진에 맞춘다(고정 높이면 줄어든 사진 위아래가 빈다) */
+  .feat .panel {
+    height: auto;
+    aspect-ratio: auto;
+  }
+
+  .foot {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

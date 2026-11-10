@@ -11,14 +11,21 @@
 
 ## 엔드포인트
 
+관리자 카드·지표 저장/검증/승인/버전 API는 [C3 계약](../c3/README.md)과 별도 OpenAPI 초안에 정의한다. 기존 질문/논증 응답 구조는 유지한다. 후보·보류 카드는 일반 목록과 질문 대상에서 제외한다.
+
 | # | 메서드·경로 | 화면 | 스키마 | 예시 |
 | --- | --- | --- | --- | --- |
 | ① | `GET /v1/places` | 지역 선택 | `place-list` | `place-list.json` |
+| ① | `GET /v1/places?parent_id=<시군구>` | 고른 시군구 안의 범위 (읍·면·동) | `place-list` | `place-list-emd-donggu.json` |
 | ② | `GET /v1/places/{place_id}/cards?period_start&period_end` | 이슈 카드 목록 (근거 n/4) | `place-cards` | `place-cards-yeosu.json` |
+| ① | `GET /v1/places/{place_id}/boundaries` | 지도 테두리 · 행정동 고르기 (시군구 + 그 행정동 경계 한 번에) | `place-boundaries` | `place-boundaries-donggu.json` (좌표를 줄인 예시) |
 | ③ | `POST /v1/questions` | 질문 저장 | `question-create-request` · `-response` | `question-create-*.json` |
-| ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 3개 |
+| ③ | `GET /v1/arguments/{run_id}` | 근거 수요표 + 논증 카드 | `argument` | `argument-*.json` 5개 |
 | ④ | `GET /v1/evidence/{evidence_id}` | 원문 탭 · 각주 복사 | `evidence` | `evidence-kosis.json` |
 | ⑤ | `GET /v1/observations?place_id&card_id&period_start&period_end` | 지도 점 | `observations` | `observations-a3-yeosu.json` |
+| 보조 | `GET /v1/sources` | 근거 출처 · 이용 조건 · 마지막 수집 (8장 보조) | `source-list` | `source-list.json` |
+| 보조 | `GET /v1/me/questions` | 내 질문 (저장한 질문 · 새 이슈 후보 · 회차 비교) | `my-question-list` | `my-question-list.json` |
+| 보조 | `POST /v1/questions/{question_id}/runs` | 내 질문 다시 실행 (새 회차) | `question-create-response` | `question-create-response.json` |
 | 보조 | `GET /v1/admin/jobs?status&source_id&spec_id&page&size` · `GET /v1/admin/jobs/{job_run_id}` | 관리자 수집 이력 (FR-F5) | `job-list` · `job` | `job-list.json` · `job-failed.json` |
 
 ## 카드 목록 구현 (S15P31C108-132)
@@ -27,7 +34,74 @@
 
 현재 카드 seed는 C1·A3 두 개다. 카드 목록은 대분류 → 한국어 가나다 → 카드 ID로 고정 정렬하며 확보 수와 무관하다. 네 종류는 statistics·documents·existing_responses·denominators 순서로 각각 한 번씩 반환한다.
 
-상태는 [DB 계약](../database/README.md)의 `card_evidence_status`에서 정확히 같은 지역·조회 기간·카드 버전만 읽는다. 미등록 종류는 `not_collected`다. `available_kinds`는 available 종류 수, `review_pending_count`는 종류별 보류 항목 수의 합이다. 예시 JSON의 가상 확보 상태를 실서비스 seed에 복사하지 않는다. P3/P4의 근거 연결·상태 작성은 후속 작업이며, 연결 전 0/4 응답은 자료가 없다는 판정이 아니라 확보 상태가 등록되지 않았다는 뜻이다.
+상태는 고를 때마다 **질문 실행과 같은 규칙으로 바로 센다**(S15P31C108-281). 규칙은 backend `CardEvidenceStatus` 하나이고, 질문 실행은 근거 행을 만든 뒤 이은 수로, 카드 목록은 근거 행을 만들지 않고 같은 고르기 SQL 로 센 수로 부른다 — 그래서 같은 지역 · 기간 · 카드 판이면 카드 목록의 4종 상태와 실행의 근거 수요표 상태가 같다. 사용자가 고른 아무 기간이나 되고, 상태 표를 미리 채우지 않는다.
+
+1. [DB 계약](../database/README.md)의 `card_evidence_status`(정확히 같은 지역 · 조회 기간 · 카드 판)에 등록된 상태가 먼저다(수동 등록 `not_published` · `license_blocked` 등). 등록이 없으면 `not_collected` 로 보고 아래로 센다
+2. 통계: 승인본이 있으면 규칙 주 지표의 월 관측 — available 한 달이 있으면 `available`, 없고 미공표 달이 있으면 `not_published`
+3. 기존 대응: 아래 「질문 · 실행 구현」의 「기존 대응」 후보가 있으면 `available`, 출처 등급이 없는 후보만 있으면 `review_pending`(보류 수 = 그 후보 수)
+4. 문서 · 분모: 통계가 `available` 이고 카드 규칙을 지원할 때만(질문 실행이 판정까지 갈 때만) 「문서」 · 「분모」 항목대로 맞는 근거가 있으면 `available`
+
+`available_kinds`는 available 종류 수, `review_pending_count`는 종류별 보류 항목 수의 합이다. 지난 실행 결과(`argument_run`)는 읽지 않는다(S15P31C108-264 의 「최근 실행」 대신). 「비교 조건 4가지 충족」은 카드 목록에 칸이 없어 내지 않는다. 예시 JSON의 가상 확보 상태를 실서비스 seed에 복사하지 않는다. 개발 DB(11/6): 여수 2023–2025 C1 · A3 모두 4/4(통계 available · 보도자료 8 · 기존 대응 115 · 18 · 분모 1).
+
+## 질문 · 실행 구현 (S15P31C108-133)
+
+`POST /v1/questions` 는 요청마다 질문 하나와 실행 하나를 저장하고 새 `run_id` 를 준다(같은 질문을 다시 보내도 새 실행). 결과는 실행 때 한 번 만들어 `argument_run.result` 에 저장하고, `GET /v1/arguments/{run_id}` 는 그 값을 그대로 준다 — 지난 실행을 다시 계산하거나 덮어쓰지 않는다. 잘못된 기간(시작 ≥ 끝 · 날짜 형식) · 빠진 칸은 `400 INVALID_REQUEST`, 없는 지역 · 카드 · 실행은 `404 RESOURCE_NOT_FOUND`.
+
+재실행 로그: 실행마다 같은 지역 × 카드 × 기간의 앞 실행과 2회차 지표 3종(자동 채움 칸 수 · 수정 건수 · 실행 시간)을 `argument_run` 칸과 서버 로그에 남긴다([DB](../database/README.md) v0.1.27). 응답 칸은 그대로다.
+
+| 경우 | `run_status` | 판단 ① 문장 |
+| --- | --- | --- |
+| `card_id = null` (목록에 없는 질문) | `unsupported`, `candidate: true`, `card_version` · `formula_version` null | 신규 카드 후보로 저장했습니다. 판단하지 않습니다 |
+| 필수 근거(통계)가 `available` 아님 | `blocked` | 필수 근거(통계)가 없어 판단하지 않습니다 |
+| 카드 판정 규칙이 연결되지 않음 | `unsupported`, `formula_version` null | 이 카드의 판정 규칙이 아직 연결되지 않아 판단하지 않습니다 |
+| 규칙 판정 · 선택 근거가 빠짐 | `partial` | 템플릿 (규칙의 claim · 지표 이름) |
+| 규칙 판정 · 네 종류 모두 있음 | `ready` | 템플릿 |
+
+- 판단(claim · 비교 조건 · 통계 · 문서 · 분모 근거)은 실행 시 카드 버전의 승인본을 읽어 `rule_id`별 `RuleType`으로 계산한다. C1(`net_migration_trend`)과 A3(`first_last_diff`)를 지원하며, 승인본 없는 legacy 카드는 `unsupported`다. 판단 ① 문장은 고른 결과의 문장(승인본 `rule.outcomes[].claim_text`)에 판정에 쓴 첫해 · 끝해 연 값을 넣는다(S15P31C108-282, 예: 「여수시 청년(19–39세) 순유출은 2023년 1,537명에서 2025년 2,262명으로 매년 커졌습니다.」, [카드 계약](../cards/README.md) 「판단 문장」). 결과 문장이 없는 승인본(v3 전)은 승인 `claim_template`의 `{판정값}`에 결과 `label`을 넣는다(예: 「여수시에서 2023–2025 청년(19–39세) 순이동이 청년 순유출 확대.」). 규칙 결과가 증가 · 감소인데 비교 조건이 하나라도 통과가 아니면 실행이 실패한다(고쳐 쓰지 않음). 아직 지원하지 않는 `rule_id`는 판단하지 않는다.
+- 필수 근거(통계) 상태: 카드 확보 상태(`card_evidence_status`)가 `not_collected`(등록 없음 포함)면 규칙의 주 지표 월 관측(observation)으로 정한다 — available 한 달이 있으면 `available`, 없고 미공표 달이 있으면 `not_published`. 통계 근거는 실행 때 지역 · 기간 · 지표마다 한 행(`ev_stat_<md5>`)을 만들고, 출처 등급이 없는 출처면 만들지 않는다(기존 대응과 같은 규칙)
+- 6칸 문장은 템플릿으로 만든다. 보증 ③ · 상한선 ⑥ 은 카드 정의(규칙이 함께 줌), 반박 ⑤ 는 `[]`. 상한선 ⑥ 끝에는 카드 설계도의 예상 빈칸(`expected_gaps`)을 「무엇: 문장 (상태)」로 붙인다 — `license_blocked` 「이용 허락이 없어 쓰지 않는다」 · `not_published` 「공표되지 않는다」 · `not_collected` 「수집하지 않는다」(예: 「민원: 이용 허락이 없어 쓰지 않는다 (license_blocked)」). 인수 기준 ③ 을 C2 v1 `expected_gaps[]` 칸 전까지 이 칸으로 보인다(S15P31C108-265). 승인본이 있는 실행은 engine 논증 문장화([AI 계약](../ai/README.md) v0.3 「문장화」)를 부르고, 결과가 `done` 이면 ⑤ 만 카드 경쟁 설명마다 근거 유무(`supported` · `not_found` · `needs_review`, `llm_judgment` · 규칙이 정한 것은 `rule`)로 바꾼다. 판단 ① · 근거 ② · 보증 ③(늘 카드 문장, `card`) · 한정어 ④ · 상한선 ⑥ 은 바꾸지 않는다(S15P31C108-282, Figma: 「AI」 칩은 ⑤ 만). engine 이 꺼져 있거나(`ENGINE_URL` 없음) 실패 · 시간 초과(40초) · 검사 탈락이면 위 템플릿 그대로이고, 사유는 [DB](../database/README.md) `argument_phrasing` 에 남긴다. 칸 · enum 은 그대로(동결 문서 「해도 된다」: 빈 배열이 차는 것 · 값이 바뀌는 것)
+- 「기존 대응」: [-136 후보](../existing-response/) 중 같은 카드 · 지역(`place_id`)이고 기간이 겹치는 현재 판만 잇는다. 세출은 회계연도 `[Y-01-01, Y+1-01-01)`, 온통청년은 사업 기간으로 겹침을 본다. 기간을 모르는 후보와 광역 후보(광주 본청 `kr-29` · `place_id` null)는 시군구 질문에 잇지 않는다. 출처 등급(`source.reliability_grade`)이 정해진 출처의 후보만 근거(`evidence`, ID `ev_<후보 해시>`)로 만들고, 등급 없는 후보는 근거 수요표에 `review_pending`(보류 수 = 후보 수)으로만 센다
+- 근거 수요표 상태는 「카드 목록 구현」과 같은 규칙(`CardEvidenceStatus`)이다: 등록된 `card_evidence_status`(정확히 같은 기간 · 카드 판)가 먼저, 기존 대응은 이번 실행이 이은 후보가 있으면 그것으로 정한다
+- 「분모」: 승인본 `evidence.denominators` 의 지표마다 질문 지역 · 기간에 available 관측(observation) 행이 있으면 근거 한 행(`ev_den_<md5>`, 이름은 지표 사전 `label`)을 만들어 `data.denominators` 에 넣는다. 판정이 이은 분모 · 문서 근거가 있으면 확보 상태 `not_collected`(등록 없음 포함)를 `available` 로 본다(통계와 같은 임시 방식). 분모는 한정어 구성 값에서 뺀다. 지금 C1 · A3 승인본의 분모는 SP10 전체 인구(`population_registered_total`)뿐 — 19–39세 인구는 관측 view 에 합계 행이 없어 아직 잇지 않는다
+- 「문서」: 정제된 보도자료(`normalized_ready`, C1 문서 `kind = press_release`, [보도자료 계약](../press/README.md)) 가운데 ① 승인본 `evidence.documents` 의 명세(`press_release_yeosu` · `press_release_gwangju`) ② 발행 기관 지역(`place_code_raw` → `place_code_map`)이 질문 `place_id` 와 같고 ③ 등록일(`published_at`)이 질문 기간 `[start, end)`(한국 날짜) 안이고 ④ 제목에 승인본 `keywords` 중 하나의 낱말(띄어쓰기로 나눔)이 **모두** 든 글마다 근거 한 행(`ev_doc_<md5(obs_key|content_hash)>`)을 만들어 `data.documents` 에 등록일 순으로 넣는다. 근거는 제목 · 등록일 · 원문 링크(`url`)만 두고 본문은 없다(목록만 수집). `display` 는 제목에 맞은 카드 키워드(아래 「근거 상세 `display`」). 광주광역시 글은 발행 기관이 시 전체(`kr-29`)라 구 질문에 잇지 않는다(기존 대응 광역 후보와 같은 규칙). 출처 등급 없는 출처는 뺀다. 빅카인즈 기사는 문서 근거로 세지 않고 `articles[]`(P4 카드 태그)로만 낸다. 개발 DB(11/5): 여수 2023–2025 에 C1 8건 · A3 8건
+- 근거 수요표 `reason`: `available` 이면 null, 아니면 「없는 이유」 문장(회사 플랜 Goal ①). 상태가 `not_published` · `license_blocked` · `review_pending` 이면 상태별 문장, `not_collected` 면 근거 종류별 문장(예: 분모 「카드의 분모 지표에 이 지역 · 기간 관측 값이 없습니다.」, 문서 「이 지역 · 기간 보도자료 가운데 카드 키워드에 맞는 글이 없습니다.」)
+- 한정어 ④ 는 위 「정하지 않은 것」의 임시 방식으로 센다
+
+## 내 질문 · 다시 실행
+
+- 로그인한 사람이 `POST /v1/questions` 로 물으면 질문에 묻는 사람(`question.asked_by`, V0050)을 남긴다. 로그인 없이 묻는 질문과 그 전 질문은 비어 있어 누구의 내 질문에도 뜨지 않는다
+- `GET /v1/me/questions`(로그인 필요, 없으면 `401`): 내가 물은 질문을 마지막 실행이 새로운 것부터. 질문마다 `runs[]` 는 실행(회차)을 새것부터 주고, `claim` · `claim_text` 는 그 실행에 저장된 결과의 `claim.value` · `claim.text` 그대로다(다시 계산하지 않는다). `card_id` 가 null 이면 `candidate: true`(새 이슈 후보)
+- `POST /v1/questions/{question_id}/runs`(로그인 필요): 내 질문을 같은 지역 · 카드 · 기간으로 다시 실행해 **같은 질문의 새 실행**을 만든다. 응답은 `POST /v1/questions` 와 같은 `question-create-response`(같은 `question_id`, 새 `run_id`). 없는 질문 · 남이 물은 질문은 `404 RESOURCE_NOT_FOUND`. 회차 비교는 화면이 두 실행의 `GET /v1/arguments/{run_id}` 를 읽어 한다
+
+## 그림 자료 `series[]` · 근거 기사 `articles[]`
+
+argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자료를 싣는다. 판정과 따로, 카드가 있으면 규칙 · 통계 확보 상태와 상관없이 늘 보낸다(카드가 없으면 둘 다 `[]`). 실행 때 [관측 행](../observation/README.md) view 를 읽어 결과와 함께 저장하므로, 지난 실행은 그때 자료 그대로다. 화면은 다시 요청하지 않고 이 응답 하나로 그린다.
+
+| 모양 | 칸 | 그림 |
+| --- | --- | --- |
+| 통계 | `indicator_id` · `place_id` · `station_id` · `name` · `coordinates`(측정소면 [경도, 위도], 집계 통계면 null) | 측정소 지도(좌표 있음) · 월별 막대(좌표 없음) |
+| 이동 | `indicator_id` · `from` · `to` · `to_name` · `from_coordinates`(출발 시군구 대표점) · `to_coordinates`(도착 시도 대표점) | 이동 선 지도 |
+| 기사 건수 | `tag` · `place_id` · `name` · `coordinates`, `values` = 그 달 근거 기사 수 | 확산 |
+
+- 공통 칸 `unit` · `periods[]`(`YYYY-MM`, 질문 기간의 달 모두) · `values[]` · `statuses[]`. 세 배열 길이가 같고, `available` 이 아니면 값은 null. 그 달 관측 행이 없으면 `not_collected`. 연으로 묶지 않는다
+- `baseline`(선택, 통계 모양만): 그래프 기준선 `{value, above, below}` — 기준 값과 그 위 · 아래의 뜻. 실행이 쓴 카드 승인본 `claim_items[].sign_words`([카드 계약](../cards/README.md) v0.6)가 그 지표에 있으면 `{value: 0, above: positive, below: negative}`(C1 순이동: 0 · 순유입 · 순유출). 값은 부호 그대로이고, 낱말이 없는 지표 · 지난 실행에는 칸이 없다. 0 이 아닌 기준선(예: PM2.5 기준)도 같은 칸으로 보낼 수 있다
+- 카드에 연결한 지표(명세 7절 그림 순서): C1 = `population_net_migration_19_39`(순이동 막대) → `population_movers`(이동, 도착 시도마다 한 줄), A3 = `air_pm25`(측정소마다 한 줄). 카드가 늘면 카드 ↔ 지표 표로 옮긴다
+- `articles[]`: `id`(news_id) · `date`(한국 날짜) · `place_id` · `point` · `precision` · `summary` · `place_name` · `url`(원문 링크 — 빅카인즈 원본 레코드의 언론사 링크, 없으면 null. 본문은 저장하지 않는다). 선택 칸 `evidence_id` · `source_grade`: 질문 실행 때 기사마다 문서 근거 행(`ev_news_<md5(obs_key|content_hash)>`, `kind = documents`, 제목 · 공표일 · 원문 링크 · 원문 위치(`news_id` · 언론사), 본문 없음, `display` 는 AI 요약)을 만들고 그 ID 와 출처 등급(빅카인즈 C)을 준다. 원문 탭은 이 ID 로 근거 상세를 연다. 기사는 `data.documents` 에 넣지 않는다. 출처 등급이 없거나 원본 레코드를 못 찾으면 둘 다 null, 지난 실행 결과에는 칸이 없다. 카드 태그가 있고 질문 지역(앞자리가 같은 읍면동 포함) · 기간 안인 기사. **지금은 기사에 카드 태그가 없어(기사 분류 P4 전) 늘 빈 배열**이고 기사 건수 series 도 나오지 않는다
+
+## 근거 상세 `display` (「이 질문에 쓴 값」, S15P31C108-320)
+
+근거 상세 `GET /v1/evidence/{evidence_id}` 의 `display` 는 원문 탭 「이 질문에 쓴 값」이다. 근거 행을 만들 때 채우고, 이미 있는 근거 행은 `display` 가 비어 있을 때만 채운다(근거의 다른 칸은 만든 때의 값 그대로). `storage_scope = link_only` 면 늘 `null`.
+
+| 근거 | `display` | 예 (개발 DB 여수 2023–2025) |
+| --- | --- | --- |
+| 통계 `ev_stat_` | 지역 · 지표 이름 · 묶는 법(단위): 질문 기간에 통째로 든 해마다 판정에 쓴 연 값. 롤업에서 빠진 해는 「제외(N개월)」, 관측 없는 해는 「자료 없음」. 측정소가 여럿이면 측정소마다 「 / 」 | 여수시 · 청년(19–39세) 순이동 · 연 합계(명): 2023 제외(11개월) · 2024 −1,935 · 2025 −2,262 |
+| 분모 `ev_den_` | 통계와 같은 모양(지표 정의는 승인본 사본, 없으면 지표 사전) | 여수시 · 주민등록인구 (연말) · 연말(명): 2023 271,696 · … |
+| 기존 대응 `ev_` 지방재정 | 회계연도 · 회계 · 예산 · 지출(억 · 만 원, 만 원 아래 반올림, 만 원 미만은 원) · 분야/부문 | 2024년 일반회계 · 예산 47억 2,497만 원 · 지출 37억 773만 원 · 환경/대기 |
+| 기존 대응 `ev_` 온통청년 | 대상 · 담당(기간은 근거의 `period_start` · `period_end`) | 대상 … · 담당 여수시 문화관광체육국 |
+| 문서 `ev_doc_` 보도자료 | 제목에 맞은 카드 키워드. 같은 글이 다른 카드에도 맞으면 「 / 」로 덧붙인다 | 제목에 맞은 C1 카드 키워드: 청년 정착 |
+| 문서 `ev_news_` 기사 | 「AI 요약 · 」+ 정제 요약(원문 인용이 아님) | AI 요약 · 여수시가 … |
+
+숫자는 천 단위 쉼표, 음수는 −(U+2212), 평균은 소수 한 자리. 칸 · 타입은 그대로이고 null 이던 칸에 값이 차는 변경이다(동결 문서 「해도 된다」).
 
 ## 공통 규칙
 
@@ -41,11 +115,11 @@
 
 ## 논증 카드 (`argument`)
 
-근거 수요표(`evidence_table`)와 비교 조건(`comparability`) 다음에 6칸이 온다. 칸은 6개뿐이다.
+근거 수요표(`evidence_table`) · 적용 조건(`applicability`, C2 v1) · 비교 조건(`comparability`) 다음에 6칸이 온다. 칸은 6개뿐이다.
 
 | 칸 | 키 | 작성 주체(`provenance`) |
 | --- | --- | --- |
-| ① 판단 | `claim` `{value, level, text}` | `rule`·`card` 만 |
+| ① 판단 | `claim` `{value, label, level, text}` | `rule`·`card` 만 |
 | ② 근거 | `data` `{statistics[], documents[], existing_responses[], denominators[]}` | — |
 | ③ 보증 | `warrant` `{text}` | 보통 `card` |
 | ④ 한정어 | `qualifier` `{grade, components, formula_version}` | `rule`·`card` 만 |
@@ -62,6 +136,44 @@
 | `storage_scope` 가 `link_only` 면 `evidence.display` 는 `null` | FR-E3 |
 | `candidate: true` 면 `run_status` 는 `unsupported` | FR-A3 |
 | `qualifier.grade` 는 아래 규칙표와 `components` 가 맞아야 한다 | PRD 7.3 |
+| `run_status` 가 `blocked`·`unsupported` 면 `claim.label` 은 `null` | C2 v1 |
+| `applicability` 에 `passed: false` 가 하나라도 있으면 `run_status` 는 `unsupported` · 카드가 없으면(`card_id = null`) `applicability = []` | 카드 양식 B6 · C2 v1 |
+
+## 판단 배지 · 적용 조건 (C2 v1, S15P31C108-283)
+
+「오류」 페이지 결정 2 · 7(2026-11-06). Figma 04 · 05 결과의 판단 배지와 unsupported 화면의 「못 채운 적용 조건」 목록을 응답에 싣는다. **11/4 동결 대상이라 주는 쪽(backend P7) · 받는 쪽(프론트) 리뷰 MR 로 바꾼다**([동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」).
+
+`claim.label` (문자열 또는 null, 필수)
+
+- 판정한 실행은 고른 규칙 결과의 이름 = 승인본 `rule.outcomes[].label`([카드 계약](../cards/README.md)). C1: 청년 순유출 확대 · 청년 순유출 축소 · 순유입 전환 · 불분명 / A3: 악화 · 개선 · 불분명 · 비교 불가. 판정 코드가 이미 갖고 있는 값이다
+- 판정하지 않은 실행(`blocked` · `unsupported`)은 `null`. 이때만 화면은 `run_status` 로 「자료 부족」(blocked) · 「근거 부족」(unsupported) — Figma 08 상태 화면 글자
+- 화면은 배지에 이 값을 그대로 쓴다(Figma 메모 「판단 배지 글자는 API 의 claim.label 그대로」). `claim.value` 로 글자를 짓지 않는다
+- 예외: `ready` · `partial` 인데 `null` 이면 C2 v1 전에 저장된 실행이다(V0051 이 `null` 로 채움). 화면은 이전 배지(`claim.value`: 증가 · 감소 · 뚜렷하지 않음 · 비교 불가)로 대신한다. 새 실행은 판정하면 늘 값이 있다(카드 계약이 `rule.outcomes[].label` 을 필수로 둔다)
+
+`applicability[]` `{condition, label, passed, note}` (필수 배열)
+
+승인본 `applicability`(양식 B6)의 칸마다 한 줄. 순서는 [카드 계약](../cards/card.schema.json)의 칸 순서(`place_level` · `min_complete_years` · `min_stations` · `population`, 모르는 칸은 뒤) — 승인본은 jsonb 라 칸 순서가 남지 않는다. 카드가 없거나(`card_id = null`) 승인본이 없는 카드면 `[]`.
+
+지역 단위는 근거와 상관없이 정해지므로 먼저 본다. 못 채우면 통계가 없어도 `blocked` 가 아니라 `unsupported` 이고, 나머지 조건은 `passed: null`(확인하지 않음).
+
+| `condition` | `label` 예 | `passed` | `note` 예 |
+| --- | --- | --- | --- |
+| `place_level` | 시군구 단위 | 질문 지역의 단위가 카드 `place_level` 과 같으면 true | 여수시(시군구) |
+| `min_complete_years` | 완전한 연 값 3개 이상 | 판정에 쓴 완전한 연 값 수 ≥ N 이면 true, 아니면 false. 통계가 없어 판정 전에 멈추면(blocked) null | 3개(2023–2025) · 2개(2024–2025) · 빠진 해가 있으면 2개(2023 · 2025) · 1개(2025) |
+| `min_stations` | 측정소 1곳 이상 | 연평균이 있는 측정소 수 ≥ N. 판정 전에 멈추면(blocked · 규칙 없음) null | 측정소 9곳 |
+| `population` | 대상: 청년 19–39세 | 늘 null(표시만 하는 조건) | null |
+
+- `passed`: true 충족 · false 못 채움 · null 확인하지 못함 또는 표시만. 하나라도 false 면 `run_status = unsupported`(스키마가 검사)
+- 화면: unsupported 의 ✕ 목록 = `passed: false` 줄(`label` — `note`). 비교 조건 컴포넌트를 다시 쓴다. Figma 의 「해안 · 하구」 · 「측정지점 0곳」은 아직 없는 카드(하천 · 연안 수질)의 예시다. 지금 생길 수 있는 unsupported 사유는 카드 없음 · 규칙 없음 · 지역 단위 다름 · 완전한 연 값 부족 · 측정소 부족
+- 승인본에 새 조건 칸이 생기면 backend 가 그 칸의 `label` · 확인 방법을 더한다(모르는 칸은 `passed: null`)
+
+구현 순서
+
+1. 계약 + backend 구현을 한 MR 로(!191). 계약만 먼저 들어가면 backend 계약 테스트 `C2Contract` 가 깨진다. 프론트는 다음 MR(정우현) — 지금 zod 는 모르는 칸을 버려서 이 MR 만으로 화면이 깨지지 않는다
+2. engine: 코드 변경 없음. 문장화 요청의 판정 입력이 C2 `claim` 을 그대로 `$ref` 하고 engine 은 요청을 `contracts/` 스키마로 엄격히 검사한다(모르는 칸 거절) → **배포 순서는 계약 → engine → backend**. engine 이미지가 `contracts/` 를 싣으므로 계약이 들어간 engine 이 먼저 떠야 한다. 거꾸로면 문장화 요청이 `INPUT_INVALID` 로 거절돼 ⑤ 가 빈 반박이 된다(판단은 그대로). `applicability` 는 판정 입력에 넣지 않는다
+3. backend: `ArgumentResponse.Claim.label` · `applicability` 를 채운다. 저장된 지난 실행 결과(`argument_run.result`)에는 칸이 없으므로 Flyway 로 `claim.label = null` · `applicability = []` 를 채운다(지난 실행은 다시 계산하지 않는다)
+4. 프론트(다음 MR): `shared/api/c2/argument.ts` zod 에 두 칸, 배지는 `claim.label`(blocked · unsupported 의 null 은 run_status 문구, ready · partial 의 null 은 이전 배지), unsupported 화면의 ✕ 목록
+- `schema_version` 은 `c2-0.1` 그대로 둔다(모든 엔드포인트가 같은 값을 쓴다). C2 v1 로 올릴지는 리뷰에서 정한다
 
 ## 근거 충실도 규칙표 (`qualifier-0.1`)
 
@@ -78,7 +190,7 @@
 | `a_grade_sources` | 근거의 출처 중 출처 등급 A 의 수 |
 | `ab_grade_sources` | 근거의 출처 중 출처 등급 A 또는 B 의 수 |
 | `independent_evidence` | 독립 근거 수 |
-| `latest_observed_at` | 가장 최근 근거의 시점. 근거가 없으면 `null` |
+| `latest_observed_at` | 가장 최근 근거의 시점. 통계 · 분모는 마지막 관측 기간의 마지막 날 한국 0시(2025-12 월 값 → 2025-12-31, 끝 경계 2026-01-01 이 아님), 문서는 등록일. 근거가 없으면 `null` |
 | `latest_within_one_year` | 최신 근거가 분석 기간 말 기준 1년 이내인가. `latest_observed_at` 이 `null` 이면 `false` |
 
 같은 `components` 는 언제나 같은 등급이다. 스키마가 이를 검사한다(등급만 바꾼 응답은 검증 실패). 예시 셋이 한 등급씩이다: `argument-c1-ready` 상 · `argument-a3-not-comparable` 중 · `argument-c1-insufficient` 하.
@@ -106,15 +218,15 @@ PRD 7.3 은 등급 조건만 정했다. 아래는 정해지기 전까지 예시 
 | `provenance` | `rule` `card` `llm_phrasing` `llm_judgment` `human` | 칸마다 |
 | `qualifier_grade` | `high` `medium` `low` (화면: 상·중·하) | 근거 충실도 |
 | `rebuttal_status` | `supported` `not_found` `needs_review` | 경쟁 설명 |
-| `source_grade` | `A` `B` `C` | 출처 등급 |
+| `source_grade` | `A` `B` `C` | 출처 등급. 기준 · 출처별 값은 [database 「출처 등급」](../database/README.md) |
 
-PRD 1.2(근거 상태 5가지)와 카드 양식 C6(ready·partial·blocked·unsupported)의 상태가 달랐던 것은 **근거 행 단위**(`evidence_status`)와 **실행 단위**(`run_status`)로 나눠 둘 다 쓴다. 필수 근거가 하나라도 `available` 이 아니면 `blocked`, 선택 근거만 빠지면 `partial`, 카드의 적용 조건(B6)을 못 채우거나 카드가 없으면 `unsupported`.
+PRD 1.2(근거 상태 5가지)와 카드 양식 C6(ready·partial·blocked·unsupported)의 상태가 달랐던 것은 **근거 행 단위**(`evidence_status`)와 **실행 단위**(`run_status`)로 나눠 둘 다 쓴다. 필수 근거가 하나라도 `available` 이 아니면 `blocked`, 선택 근거만 빠지면 `partial`, 카드의 적용 조건(B6)을 못 채우거나 카드가 없으면 `unsupported`. 통계 근거가 있어도 승인본 `applicability.min_complete_years`보다 완전한 연 값이 적으면 `unsupported`와 `claim.value = insufficient`를 돌려준다.
 
 ## 예시 값
 
 | 실제로 받은 값 | 가짜 값 (화면 개발용) |
 | --- | --- |
-| 지역 코드(옛·새), 측정소 좌표·이름·망, KOSIS 20–24세 순이동(−747·−719·−930), KOSIS 공표일, 통계표 ID | `place_id`·`run_id`·`evidence_id` (실제는 ULID), 15–39세 판정 결과, 보도자료 건수·제목, 측정소 월평균·나쁨 일수, 근거 충실도 구성 값 |
+| 지역 코드(옛·새), 측정소 좌표·이름·망, KOSIS 20–24세 순이동(−747·−719·−930), KOSIS 공표일, 통계표 ID | `place_id`·`run_id`·`evidence_id` (실제는 ULID), 19–39세 판정 결과, 보도자료 건수·제목, 측정소 월평균·나쁨 일수, 근거 충실도 구성 값 |
 
 - `argument-a3-not-comparable.json` 의 여천동(여수) 측정소 주소 차이는 실제로 확인한 사실이다(2024 확정자료 vs 현재 측정소 정보). 이전 여부는 아직 모른다.
 - 예시끼리 ID를 맞췄다: `argument-c1-ready` 의 통계 근거 `ev_kosis_net_yeosu` → `evidence-kosis.json`.
@@ -142,3 +254,27 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - v0.1 (2026-10-22): 초안. API 5종(엔드포인트 6개) 성공 응답, 예시 9개. 화면팀 리뷰 대기, 10/30 동결 목표.
 - v0.1 (2026-10-29): 근거 충실도 규칙표 `qualifier-0.1` 추가(S15P31C108-131). `components` 에 `ab_grade_sources` · `latest_within_one_year` 를 더하고, 스키마가 등급과 구성 값이 맞는지 검사한다. 구성 값을 세는 방법 4가지는 미결. 동결 전.
 - v0.1 (2026-10-29): 관리자 수집 이력 `GET /v1/admin/jobs` · `/{job_run_id}` 추가(FR-F5). 상태 · 수집 대상(`source_id` · `spec_id`) 필터, 페이지네이션(`page` 1부터, `size` 최대 100). 관리자 전용이라 `/v1/admin/**` 아래에 둔다. 오류 코드 목록에 `UNAUTHORIZED` · `FORBIDDEN` 을 더했다.
+- v0.1 (2026-10-30): 출처 목록 `GET /v1/sources` 추가(8장 보조 API). 출처마다 등급 · 이용허락 · 저장 범위와 수집 명세별 마지막 성공 수집 시각. 등급을 아직 정하지 않은 출처는 `source_grade: null`.
+- v0.1 (2026-11-01): 지역 목록에 `parent_id` 추가(PRD FR-A1 시 → 구·군 → 읍·면·동). 주지 않으면 지금처럼 시군구 6곳, 시군구 `place_id` 를 주면 그 아래 행정동(`level: emd`, 코드 `sgis` 통합 전 · 뒤 두 줄)을 돌려준다. 없는 지역은 `404 RESOURCE_NOT_FOUND`. 예시 `place-list-emd-donggu.json`(S15P31C108-167).
+- v0.1 (2026-11-01): 지역 목록의 시군구 `parent_id` 가 상위 지역(광주 5개 구 `kr-29`, 여수시 `kr-46`)으로 나간다(V0021). 시도는 목록에 없으니 화면은 시군구를 맨 위로 둔다. 예시 `place-list.json` 갱신(S15P31C108-169).
+- v0.1 (2026-11-01): 질문 · 실행 구현(S15P31C108-133). argument 의 `question.card_id` · `card_name` · `card_version` · `formula_version` 을 null 허용으로 바꾼다 — 목록에 없는 질문(FR-A3)과 판정 규칙이 없는 카드. `card_id` 가 null 이면 `run_status = unsupported` · `card_version = null` 을 스키마가 검사한다. 예시 `argument-unsupported.json` 추가.
+- v0.1 (2026-11-02): 시군구 `place_id` 가 `kr-<KOSIS 새 시군구 5자리>` 로 바뀐다(V0024): 광주 동구 `kr-12210` · 서구 `kr-12240` · 남구 `kr-12270` · 북구 `kr-12300` · 광산구 `kr-12330` · 여수시 `kr-12130`. 옛 `plc_*` 는 404. 예시를 모두 새 ID 로 바꿨다. 측정소 `plc_stn_*` 은 그대로.
+- v0.1 (2026-11-03): 측정소 ID(`series[].station_id` · 관측 행 `station_id`)가 `kr-<부모 시군구 5자리>-s<에어코리아 코드>` 로 바뀐다(V0032): `plc_stn_336121` → `kr-12130-s336121`. 예시를 새 ID 로 바꿨다. 옛 `plc_stn_*` 는 404
+- v0.1 (2026-11-02): argument 에 `series[]`(그림 자료: 통계 · 이동 · 기사 건수 세 모양) · `articles[]`(근거 기사)를 더한다 — 「시공간 표시 개발 명세」 5 · 6절. 둘 다 필수 칸이고 카드가 없으면 빈 배열. 예시 4개에 추가(여수 C1 · A3 는 로컬 실데이터 값).
+- v0.1 (2026-11-02): `articles[]` 에 `url`(원문 링크, null 허용)을 더한다 — 데모 「근거 기사 2클릭 → 원문」. C1 예시 문구의 청년 연령을 카드 계약(contracts/cards, 대표 결정 2026-11-01)대로 15–39세 → 19–39세.
+- v0.1 (2026-11-02): C1 판정 규칙 연결(`c1-net-migration-0.1`, 대표 결정 2026-11-01). 통계 상태가 등록되지 않았으면 관측 행으로 정하고, 통계 근거를 실행 때 만든다. 판단 문장은 카드 결과 이름(`rule.outcomes[].label`)을 쓴다.
+- v0.1 (2026-11-04): 지역 경계 `GET /v1/places/{place_id}/boundaries` 추가(S15P31C108-238, 11/4 동결 뒤라 기존 응답은 그대로 두고 **새 엔드포인트**로). GeoJSON FeatureCollection(WGS84 [경도, 위도], 소수 5자리)에 `schema_version`. 시군구를 주면 시군구 경계 + 그 행정동, 행정동을 주면 그 하나, 경계 없는 place 는 빈 `features`, 없는 place 는 404. feature `properties` 는 `place_id` · `name` · `level` · `parent_id` · `source` · `source_year`. 경계 자료는 contracts/p3 v0.12 「경계」(SGIS 2025, 10 m 단순화)
+- c2-0.1 값 변경 (2026-11-04): 승인본이 있는 실행의 보증 ③ · 반박 ⑤ 를 engine 논증 문장화 결과로 채운다(S15P31C108-231). 칸 · enum · 스키마는 그대로 — `warrant.provenance` 가 `llm_phrasing`, `rebuttals[]` 가 `llm_judgment` · `rule` 로 찰 수 있다. 판단 ① 등 나머지 칸은 규칙 그대로.
+- v0.1 (2026-11-05): 근거 수요표 분모 칸 · 빈 칸 이유(S15P31C108-249). 칸 · 타입은 그대로(동결 규칙의 「빈 배열 · null 칸에 값이 차는 것」). 승인본 분모 지표의 관측 행이 있으면 `data.denominators` 에 `ev_den_<md5>` 근거가 차고 분모 줄이 `available`, `available` 이 아닌 줄은 `reason` 이 늘 문장이다. 「질문 · 실행 구현」의 「분모」 · 「근거 수요표 `reason`」 항목
+- v0.1 (2026-11-05): 근거 수요표 문서 칸 — 보도자료 연결(S15P31C108-253). 칸 · 타입 그대로(빈 `data.documents` 에 값이 차는 것). 카드 문서 명세 · 같은 지역 · 기간 안 · 제목이 카드 `keywords` 에 맞는 보도자료가 `ev_doc_<md5>` 근거(`kind = documents`, `url` = 원문 링크, 본문 없음)로 차고 문서 줄이 `available`. 없으면 `not_collected` + 「이 지역 · 기간 보도자료 가운데 카드 키워드에 맞는 글이 없습니다.」. 「질문 · 실행 구현」의 「문서」 항목
+- v0.1 (2026-11-05): `POST /v1/questions` 의 `429 TOO_MANY_REQUESTS` 를 openapi 에 적는다(S15P31C108-250). 동작은 이미 backend 에 있다(-208 후속, `QuestionRateLimitFilter`): 클라이언트 IP 당 분당 10건(`QUESTIONS_PER_MINUTE`)을 넘으면 질문 · 실행을 만들지 않고 `Retry-After: 60`. 오류 응답 스키마를 `components/schemas/Problem` 으로 분리하고 `code` enum 에 `TOO_MANY_REQUESTS` 를 더했다. 성공 응답은 그대로
+- v0.1 (2026-11-05): 상한선 ⑥ `ceiling.items` 끝에 카드 예상 빈칸(`expected_gaps`)을 「무엇: 문장 (상태)」로 붙인다(S15P31C108-265). 칸 그대로(값만 바뀜). 구조 칸 `expected_gaps[]` 는 C2 v1 에서 주는 쪽 · 받는 쪽 리뷰 MR 로
+- v0.1 (2026-11-05): 카드 목록 근거 상태 = 등록된 `card_evidence_status` → 없으면 같은 지역 · 카드 · 카드 버전 · 기간의 최근 실행 근거 수요표 → 없으면 `not_collected`(S15P31C108-264). 응답 모양 그대로(동결 규칙의 「값이 바뀌는 것」)
+- v0.1 (2026-11-05): 통계 · 분모 근거 시점(`observed_at`, 한정어 `latest_observed_at`)을 마지막 관측 기간의 끝 경계(다음 달 1일 0시)에서 그 기간의 마지막 날(한국 0시)로(S15P31C108-272). 화면 ④ 가 「최신 2026-01-01」(기간 밖)로 보이고 「1년 이내」가 하루 후했다. 저장된 근거 행은 V0048 이 고치고, 저장된 실행 결과는 그대로(다시 실행하면 새 값). 응답 모양 그대로(값만 바뀜)
+- v0.1 (2026-11-06): 카드 목록 근거 상태를 고를 때마다 질문 실행과 같은 규칙으로 센다(S15P31C108-281, 「오류」 페이지 결정 1). 등록된 `card_evidence_status` 가 먼저이고, 없으면 통계 관측 · 기존 대응 후보 · 보도자료 · 분모 관측을 근거 행을 만들지 않고 센다. -264 의 「최근 실행 근거 수요표」는 읽지 않는다. 응답 모양 그대로(값만 바뀜). 개발 DB 여수 2023–2025 C1 · A3 4/4, 카드 2개 약 0.8초(첫 조회 2.5초)
+- c2-0.1 값 변경 (2026-11-06): 판단 ① 문장에 첫해 · 끝해 연 값(카드 v0.5 `rule.outcomes[].claim_text`), 보증 ③ 은 늘 카드 문장(`provenance: card`), engine 문장화는 반박 ⑤ 만(AI v0.3). 「오류」 페이지 결정 3 · Figma ① · ③ (S15P31C108-282). 칸 · enum · 스키마는 그대로(동결 규칙의 「값이 바뀌는 것」). 결과 문장은 카드 v3 승인본부터 — 개발 · 운영 DB 는 카드 seed 를 다시 돌리면 v3
+- C2 v1 계약 제안 (2026-11-06, S15P31C108-283): argument 에 `claim.label`(결과 이름, 판정 안 함은 null) · 최상위 `applicability[]`(`{condition, label, passed, note}`, 카드 적용 조건 B6 를 조건마다)를 더한다. 둘 다 필수. 스키마 검사 2개(blocked · unsupported → label null, passed false → unsupported) · 카드 없음 → `[]`. 예시 4개에 두 칸, 예시 `argument-c1-unsupported-years.json`(완전한 연 값 2개 → ✕) 추가. 「오류」 페이지 결정 2 · 7. 동결 대상 — backend · 프론트 리뷰. backend 구현 · V0051(지난 실행 채움)은 같은 MR, 프론트는 다음 MR. 리뷰 반영: ready · partial 인데 label null(지난 실행)이면 이전 배지, 연 값 note 는 빠진 해를 나열. 「판단 배지 · 적용 조건」
+- C2 선택 칸 추가 (2026-11-06 · 11-09 develop 반영, S15P31C108-286): argument `series[]` 에 선택 칸 `baseline {value, above, below}`(그래프 기준선과 위 · 아래 뜻) — 카드 승인본 `claim_items[].sign_words`(카드 계약 v0.6)에서 만든다. 화면이 기준선 뜻(순유입 · 순유출)을 카드에서 받는다. 동결 뒤 추가라 [동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」에 기록, 예시 `argument-c1-ready.json` 에 값 (S15P31C108-286)
+- C2 선택 칸 추가 (2026-11-09, S15P31C108-318): argument `articles[]` 에 선택 칸 `evidence_id` · `source_grade` — 근거 기사를 보도자료처럼 근거 상세(`GET /v1/evidence/{evidence_id}`)로 연다. 기사마다 실행 때 `ev_news_<md5>` 문서 근거 행을 만든다(같은 판이면 한 행). 없어도 되는 칸이라 지난 실행 · 예시는 그대로 통과한다. 동결 뒤 추가라 [동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」에 기록
+- c2-0.1 값 변경 (2026-11-09, S15P31C108-320): 근거 상세 `display`(「이 질문에 쓴 값」)를 근거 종류마다 채운다 — 통계 · 분모 연 값, 기존 대응 예산 · 대상, 보도자료 맞은 키워드, 기사 AI 요약. 칸 · 타입 그대로(null 이던 칸에 값이 차는 것). 이미 있는 근거 행은 비어 있을 때만 채운다. 「근거 상세 `display`」 절
+- c2-0.1 값 변경 (2026-11-09, S15P31C108-320 후속): 기존 대응 `display` 의 금액을 억 · 만 원으로(「472,497만 원」 → 「47억 2,497만 원」). 칸 그대로

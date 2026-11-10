@@ -1,0 +1,23 @@
+# Frontend, contract test fixtures and pinned workspace manifests only.
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!frontend/
+!frontend/**
+!contracts/
+!contracts/c2/
+!contracts/c2/examples/
+!contracts/c2/examples/**
+frontend/node_modules
+frontend/.next
+frontend/.open-next
+frontend/.wrangler
+frontend/test-results
+frontend/playwright-report
+frontend/blob-report
+**/.env*
+**/.dev.vars*
+**/*.pem
+**/*.key
+**/.git

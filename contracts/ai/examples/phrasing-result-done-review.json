@@ -1,0 +1,155 @@
+{
+  "schema_version": "ai-phrasing-result-0.5",
+  "run_id": "run_c1_yeosu_2023_2025",
+  "status": "done",
+  "reason_code": null,
+  "rebuttals": [
+    {
+      "text": "대학 진학·군 입대 연령(19–24세)의 구조적 전출",
+      "status": "needs_review",
+      "provenance": "llm_judgment"
+    },
+    {
+      "text": "통계 기준 변경(2026-07 행정구역 개편, 주민등록 정비)",
+      "status": "not_found",
+      "provenance": "llm_judgment"
+    },
+    {
+      "text": "산단·대형 사업장 고용 변동에 따른 일시 전입·전출 — 산단 업체 가동 축소 뒤 협력업체 직원 300여 명이 옮겼다는 보도가 있다.",
+      "status": "supported",
+      "provenance": "llm_judgment"
+    }
+  ],
+  "citations": {
+    "R1": [],
+    "R2": [],
+    "R3": [
+      {
+        "passage": "P2",
+        "quote": "협력업체 직원 300여 명이 일자리를 찾아 다른 지역으로 옮긴 것으로 알려졌다.",
+        "locator": {
+          "kind": "article",
+          "source_id": "fx-001",
+          "field": "summary",
+          "date": "2024-02-14",
+          "url": "https://example.com/news/1",
+          "sentence": 2
+        }
+      }
+    ]
+  },
+  "problems": [
+    {
+      "check": "quote_not_in_source",
+      "where": "R1",
+      "detail": "P3"
+    }
+  ],
+  "model": "gemini-2.5-flash",
+  "prompt_version": "argument-phrasing-v6",
+  "retrieval": {
+    "method": "rebuttal_r3",
+    "query_version": "rebuttal-query-v1",
+    "k": 5,
+    "candidates": 4,
+    "picked": [
+      {
+        "rebuttal": "R1",
+        "rank": 1,
+        "source_id": "fx-003",
+        "score": 0.4121,
+        "cosine": 0.6012,
+        "lexical": 0.223
+      },
+      {
+        "rebuttal": "R1",
+        "rank": 2,
+        "source_id": "fx-001",
+        "score": 0.3315,
+        "cosine": 0.548,
+        "lexical": 0.115
+      },
+      {
+        "rebuttal": "R1",
+        "rank": 3,
+        "source_id": "fx-004",
+        "score": 0.2987,
+        "cosine": 0.5301,
+        "lexical": 0.0673
+      },
+      {
+        "rebuttal": "R1",
+        "rank": 4,
+        "source_id": "fx-002",
+        "score": 0.285,
+        "cosine": 0.5122,
+        "lexical": 0.0578
+      },
+      {
+        "rebuttal": "R2",
+        "rank": 1,
+        "source_id": "fx-004",
+        "score": 0.3302,
+        "cosine": 0.559,
+        "lexical": 0.1014
+      },
+      {
+        "rebuttal": "R2",
+        "rank": 2,
+        "source_id": "fx-003",
+        "score": 0.2911,
+        "cosine": 0.5207,
+        "lexical": 0.0615
+      },
+      {
+        "rebuttal": "R2",
+        "rank": 3,
+        "source_id": "fx-001",
+        "score": 0.276,
+        "cosine": 0.5013,
+        "lexical": 0.0507
+      },
+      {
+        "rebuttal": "R2",
+        "rank": 4,
+        "source_id": "fx-002",
+        "score": 0.2655,
+        "cosine": 0.499,
+        "lexical": 0.032
+      },
+      {
+        "rebuttal": "R3",
+        "rank": 1,
+        "source_id": "fx-001",
+        "score": 0.4893,
+        "cosine": 0.6475,
+        "lexical": 0.3311
+      },
+      {
+        "rebuttal": "R3",
+        "rank": 2,
+        "source_id": "fx-002",
+        "score": 0.4012,
+        "cosine": 0.6013,
+        "lexical": 0.2011
+      },
+      {
+        "rebuttal": "R3",
+        "rank": 3,
+        "source_id": "fx-003",
+        "score": 0.302,
+        "cosine": 0.531,
+        "lexical": 0.073
+      },
+      {
+        "rebuttal": "R3",
+        "rank": 4,
+        "source_id": "fx-004",
+        "score": 0.2804,
+        "cosine": 0.5161,
+        "lexical": 0.0447
+      }
+    ]
+  },
+  "retryable": false
+}

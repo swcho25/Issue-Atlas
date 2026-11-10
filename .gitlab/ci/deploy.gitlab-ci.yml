@@ -68,3 +68,30 @@ collector-deploy:
     - job: backend-deploy
       artifacts: false
       optional: true
+
+# 같은 Dockerfile 의 api 대상. 네트워크·키 없이 앱을 불러와(계약 스키마 읽기 포함) 확인만 한다.
+engine-image:
+  extends: backend-image
+  rules: !reference [.engine-release, rules]
+  variables:
+    ENGINE_IMAGE_REPOSITORY: swcho25/issueatlas-backend
+  script:
+    - test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_PUSH_TOKEN"
+    - echo "$DOCKERHUB_PUSH_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
+    - docker build -f engine/Dockerfile --target api --label "org.opencontainers.image.component=engine" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$ENGINE_IMAGE_REPOSITORY:engine-$CI_COMMIT_SHA" .
+    - docker run --rm --network none --read-only --cap-drop ALL --tmpfs /tmp:rw,nosuid,nodev,size=64m,mode=1777 --entrypoint python "$ENGINE_IMAGE_REPOSITORY:engine-$CI_COMMIT_SHA" -c "import api.main"
+    - docker push "$ENGINE_IMAGE_REPOSITORY:engine-$CI_COMMIT_SHA"
+    - docker inspect --format '{{index .RepoDigests 0}}' "$ENGINE_IMAGE_REPOSITORY:engine-$CI_COMMIT_SHA" > engine-image.txt
+  artifacts:
+    paths: [engine-image.txt]
+    expire_in: 7 days
+
+engine-deploy:
+  extends: backend-deploy
+  rules: !reference [.engine-release, rules]
+  variables:
+    DEPLOY_COMPONENT: engine
+    ENGINE_IMAGE_REPOSITORY: swcho25/issueatlas-backend
+  needs:
+    - job: engine-image
+      artifacts: true

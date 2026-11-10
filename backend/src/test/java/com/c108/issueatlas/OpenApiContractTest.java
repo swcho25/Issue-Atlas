@@ -1,0 +1,247 @@
+package com.c108.issueatlas;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.file.Files;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.web.servlet.MockMvc;
+import org.yaml.snakeyaml.Yaml;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * C2 계약(contracts/c2/openapi.yaml)의 엔드포인트가 실제 Swagger 문서(/v3/api-docs)에 경로 · 메서드 · operationId 까지
+ * 같게 있는지 본다(FR-J1). 응답 모양은 각 API 테스트의 {@link C2Contract} 가 본다.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Import(TestcontainersConfiguration.class)
+class OpenApiContractTest {
+    private static final Set<String> METHODS = Set.of("get", "post", "put", "patch", "delete");
+
+    @Autowired MockMvc mvc;
+    @Autowired ObjectMapper json;
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void everyC2EndpointIsInSwagger() throws Exception {
+        Map<String, Object> contract =
+                new Yaml().load(Files.readString(C2Contract.DIR.resolve("openapi.yaml")));
+        Set<String> expected = new TreeSet<>();
+        ((Map<String, Map<String, Map<String, Object>>>) contract.get("paths"))
+                .forEach(
+                        (path, item) ->
+                                item.forEach(
+                                        (m, op) -> {
+                                            if (METHODS.contains(m)) {
+                                                expected.add(
+                                                        operation(m, path, op.get("operationId")));
+                                            }
+                                        }));
+
+        Set<String> actual = new TreeSet<>();
+        docs().get("paths")
+                .properties()
+                .forEach(
+                        p ->
+                                p.getValue().properties().stream()
+                                        .filter(op -> METHODS.contains(op.getKey()))
+                                        .forEach(
+                                                op ->
+                                                        actual.add(
+                                                                operation(
+                                                                        op.getKey(),
+                                                                        p.getKey(),
+                                                                        op.getValue()
+                                                                                .path("operationId")
+                                                                                .asString()))));
+
+        assertThat(expected).hasSize(12);
+        assertThat(actual).containsAll(expected);
+    }
+
+    /** Swagger 의 모든 API 에 한 줄 설명(summary)이 있다. 새 API 에 @Operation 을 빠뜨리면 여기서 걸린다. */
+    @Test
+    void everyOperationHasSummary() throws Exception {
+        Set<String> missing = new TreeSet<>();
+        docs().get("paths")
+                .properties()
+                .forEach(
+                        p ->
+                                p.getValue().properties().stream()
+                                        .filter(op -> METHODS.contains(op.getKey()))
+                                        .filter(
+                                                op ->
+                                                        op.getValue()
+                                                                .path("summary")
+                                                                .asString("")
+                                                                .isBlank())
+                                        .forEach(
+                                                op ->
+                                                        missing.add(
+                                                                op.getKey().toUpperCase()
+                                                                        + " "
+                                                                        + p.getKey())));
+
+        assertThat(missing).isEmpty();
+    }
+
+    /** 모든 API 에 공통 오류(400 · 500, problem+json)가 있고, 로그인 · 관리자 · 경로 변수에 따라 401 · 403 · 404 가 붙는다. */
+    @Test
+    void everyOperationDocumentsCommonErrors() throws Exception {
+        JsonNode paths = docs().get("paths");
+        Set<String> missing = new TreeSet<>();
+        paths.properties()
+                .forEach(
+                        p ->
+                                p.getValue().properties().stream()
+                                        .filter(op -> METHODS.contains(op.getKey()))
+                                        .forEach(
+                                                op -> {
+                                                    for (String code : List.of("400", "500")) {
+                                                        if (!op.getValue()
+                                                                .path("responses")
+                                                                .path(code)
+                                                                .path("content")
+                                                                .has("application/problem+json")) {
+                                                            missing.add(
+                                                                    code
+                                                                            + " "
+                                                                            + op.getKey()
+                                                                            + " "
+                                                                            + p.getKey());
+                                                        }
+                                                    }
+                                                }));
+        assertThat(missing).isEmpty();
+
+        assertThat(paths.at("/~1v1~1me~1questions/get/responses").has("401")).isTrue();
+        assertThat(paths.at("/~1v1~1places/get/responses").has("401")).isFalse();
+        assertThat(paths.at("/~1v1~1admin~1jobs/get/responses").has("403")).isTrue();
+        assertThat(paths.at("/~1v1~1evidence~1{evidence_id}/get/responses").has("404")).isTrue();
+        assertThat(paths.at("/~1v1~1questions/post/responses").has("429")).isTrue();
+        // 예시 본문은 상태마다 실제 code 를 보여 준다
+        assertThat(
+                        paths.at(
+                                        "/~1v1~1me~1questions/get/responses/401/content/application~1problem+json/example/code")
+                                .asString())
+                .isEqualTo("UNAUTHORIZED");
+    }
+
+    /** 모든 파라미터와 요청 본문 칸에 설명이 있다. 새 파라미터 · 칸을 표에 빠뜨리면 여기서 걸린다. */
+    @Test
+    void everyParameterAndRequestFieldIsDescribed() throws Exception {
+        JsonNode docs = docs();
+        Set<String> missing = new TreeSet<>();
+        docs.get("paths")
+                .properties()
+                .forEach(
+                        p ->
+                                p.getValue().properties().stream()
+                                        .filter(op -> METHODS.contains(op.getKey()))
+                                        .forEach(
+                                                op -> {
+                                                    String where =
+                                                            op.getKey().toUpperCase()
+                                                                    + " "
+                                                                    + p.getKey();
+                                                    for (JsonNode param :
+                                                            op.getValue().path("parameters")) {
+                                                        if (param.path("description")
+                                                                .asString("")
+                                                                .isBlank()) {
+                                                            missing.add(
+                                                                    where
+                                                                            + " ?"
+                                                                            + param.path("name")
+                                                                                    .asString());
+                                                        }
+                                                    }
+                                                    for (JsonNode media :
+                                                            op.getValue()
+                                                                    .path("requestBody")
+                                                                    .path("content")) {
+                                                        JsonNode schema = media.path("schema");
+                                                        String ref =
+                                                                schema.path("$ref").asString("");
+                                                        if (!ref.isEmpty()) {
+                                                            schema =
+                                                                    docs.at(
+                                                                            "/components/schemas/"
+                                                                                    + ref.substring(
+                                                                                            ref
+                                                                                                            .lastIndexOf(
+                                                                                                                    '/')
+                                                                                                    + 1));
+                                                        }
+                                                        schema.path("properties")
+                                                                .properties()
+                                                                .forEach(
+                                                                        f -> {
+                                                                            if (f.getValue()
+                                                                                    .path(
+                                                                                            "description")
+                                                                                    .asString("")
+                                                                                    .isBlank()) {
+                                                                                missing.add(
+                                                                                        where
+                                                                                                + " ."
+                                                                                                + f
+                                                                                                        .getKey());
+                                                                            }
+                                                                        });
+                                                    }
+                                                }));
+
+        assertThat(missing).isEmpty();
+    }
+
+    /** 이름이 같은 안쪽 record(Submit …)가 한 스키마로 합쳐지지 않는다 — 카드 승인 요청 본문에 검수 칸이 섞이면 안 된다. */
+    @Test
+    void sameNamedRecordsStaySeparate() throws Exception {
+        JsonNode schemas = docs().get("components").get("schemas");
+        assertThat(schemas.path("CardApprovalSubmit").path("properties").has("approver_id"))
+                .isTrue();
+        assertThat(schemas.path("CardApprovalSubmit").path("properties").has("target_type"))
+                .isFalse();
+        assertThat(schemas.path("ReviewSubmit").path("properties").has("target_type")).isTrue();
+        assertThat(schemas.path("CardApprovalDecide").path("properties").has("decision")).isTrue();
+        assertThat(schemas.path("ReviewDecide").path("properties").has("action")).isTrue();
+    }
+
+    /** 문서의 칸 이름이 실제 JSON(snake_case)과 같아야 Swagger 의 Try it out 요청이 400 이 안 난다. */
+    @Test
+    void schemaFieldsAreSnakeCase() throws Exception {
+        Set<String> fields = new TreeSet<>();
+        docs().at("/components/schemas/QuestionCreateRequest/properties")
+                .propertyNames()
+                .forEach(fields::add);
+
+        assertThat(fields)
+                .containsExactlyInAnyOrder(
+                        "place_id", "card_id", "period_start", "period_end", "raw_text");
+    }
+
+    private JsonNode docs() throws Exception {
+        return json.readTree(
+                mvc.perform(get("/v3/api-docs"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString());
+    }
+
+    private static String operation(String method, String path, Object operationId) {
+        return method.toUpperCase() + " " + path + " " + operationId;
+    }
+}

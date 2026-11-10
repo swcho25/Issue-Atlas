@@ -41,6 +41,11 @@ def kosis_2024():
     return record
 
 
+def station():
+    # 계약 예시의 이용허락은 TBD 라, 측정소 수집기가 쓰는 KOGL-3 으로
+    return {**copy.deepcopy(STATION[0]), "content_hash": HASH, "license_type": "KOGL-3"}
+
+
 def issue(code, field):
     return {"code": code, "field": field}
 
@@ -53,11 +58,11 @@ def test_same_source_cell_gets_same_obs_key_across_revisions():
     assert old["obs_key"] != other["obs_key"]
 
 
-def test_station_meta_record_has_no_obs_key():
-    out = refine_records([{**copy.deepcopy(STATION[0]), "content_hash": HASH}])
+def test_station_meta_record_is_its_own_cell_and_latest():
+    out = refine_records([station()])
 
-    assert out[0]["obs_key"] is None
-    assert out[0]["is_latest"] is None
+    assert re.fullmatch(r"obs:[0-9a-f]{64}", out[0]["obs_key"])
+    assert out[0]["is_latest"] is True
 
 
 def test_newest_revision_is_latest_and_old_one_is_kept():
@@ -181,10 +186,9 @@ def test_recollected_with_unreadable_collected_at_loses_to_valid_one(broken):
     "change",
     [
         {"value": -1},
-        {"content_hash": HASH2},
         {"value": None, "missing_reason": "not_collected"},
     ],
-    ids=["value", "content_hash", "missing_reason"],
+    ids=["value", "missing_reason"],
 )
 def test_recollected_with_other_field_changed_is_still_conflict(change):
     changed = {**kosis_2023_recollected(), **change}
@@ -192,6 +196,43 @@ def test_recollected_with_other_field_changed_is_still_conflict(change):
     out = refine_records([kosis_2023(), changed])
 
     assert len(out) == 2
+    for r in out:
+        assert r["validation_status"] == "held"
+        assert r["issues"] == [issue("DEDUP_KEY_CONFLICT", "dedup_key")]
+        assert r["is_latest"] is False
+
+
+def test_copy_with_only_content_hash_changed_is_same_version():
+    # 원천의 장부 밖 칸(KOSIS 이름표 등)만 바뀌어 원본이 새로 생긴 재수집. 장부 내용은 같다
+    copied = {**kosis_2023_recollected(), "content_hash": HASH2}
+
+    for records in ([kosis_2023(), copied], [copied, kosis_2023()]):
+        out = refine_records(records)
+        assert [(r["validation_status"], r["issues"]) for r in out] == [("pass", [])] * 2
+        # 원본 한 행 = 정제 한 행이라 둘 다 남고, 늦게 받은 사본만 최신
+        latest = {r["content_hash"]: r["is_latest"] for r in out}
+        assert latest == {HASH: False, HASH2: True}
+
+
+def test_station_copies_leave_one_latest():
+    # 측정소 응답의 장부 밖 칸(측정 항목 item 등)만 바뀐 재수집
+    first = station()
+    later = {**station(), "content_hash": HASH2, "collected_at": "2026-10-30T11:30:00+09:00"}
+
+    out = refine_records([first, later])
+
+    assert [r["validation_status"] for r in out] == ["pass", "pass"]
+    assert out[0]["obs_key"] == out[1]["obs_key"]
+    assert [r["is_latest"] for r in out] == [False, True]
+
+
+def test_copies_with_a_conflicting_value_are_all_held():
+    copied = {**kosis_2023_recollected(), "content_hash": HASH2}
+    conflicting = {**kosis_2023(), "content_hash": "sha256:" + "2" * 64, "value": -1}
+
+    out = refine_records([kosis_2023(), copied, conflicting])
+
+    assert len(out) == 3
     for r in out:
         assert r["validation_status"] == "held"
         assert r["issues"] == [issue("DEDUP_KEY_CONFLICT", "dedup_key")]

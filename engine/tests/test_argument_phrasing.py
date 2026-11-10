@@ -1,0 +1,734 @@
+"""P5 ⑤ 반박 문장화(v4: 보증은 카드 문장). 모델은 가짜로 바꿔 네트워크 없이 돈다. 기사 · A3 개선 입력은 가상이다."""
+
+import copy
+import io
+import json
+from pathlib import Path
+from urllib.error import HTTPError
+
+import pytest
+from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
+
+from ai.argument import gms
+from ai.argument.__main__ import main
+from ai.argument.check import check
+from ai.argument.phrase import phrase
+from ai.argument.prompt import SYSTEM, article_sources, build, passages, value_text
+from api.main import app
+
+CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+# 카드 승인본(card_version.spec) 중 문장화가 읽는 칸만
+C1_CARD = {
+    "card_id": "C1",
+    "card_version": 1,
+    "forbidden_terms": ["확산", "전파", "원인", "효과", "소멸", "탈여수"],
+}
+A3_CARD = {
+    "card_id": "A3",
+    "card_version": 1,
+    "forbidden_terms": ["확산", "전파", "원인", "효과", "소멸", "오염 유입", "배출원"],
+}
+
+
+def example(name):
+    return json.loads((CONTRACTS / "ai/examples" / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def c1():
+    return example("judgment-ready")
+
+
+def a3():
+    """A3 비교 불가 예시를 같은 측정소 개선(끝해 − 첫해 −3.5)으로 바꾼 가상 입력"""
+    record = example("judgment-not-comparable")
+    record["run_status"] = "ready"
+    record["comparability"]["same_boundary"] = {"passed": True, "note": "같은 측정소끼리만 비교"}
+    record["claim"] = {
+        "value": "decreasing",
+        "label": "개선",
+        "level": "calculated",
+        "text": "여수시의 측정소 1곳에서 2023–2025 초미세먼지(PM2.5) 연평균이 개선.",
+        "provenance": "rule",
+    }
+    for point, value in zip(record["statistics_points"], [18.6, 16.94, 15.1], strict=True):
+        point["value"] = value
+    return record
+
+
+ARTICLES = [
+    {
+        "id": "fx-001",
+        "date": "2025-03-04",
+        "place_id": "kr-12130",
+        "point": None,
+        "precision": "none",
+        "summary": "[fixture] 여수 국가산단의 한 업체가 공장 가동을 줄였다. 협력업체 직원 300여 명이 다른 지역으로 옮긴 것으로 알려졌다.",
+        "place_name": "여수시",
+        "url": "https://example.com/news/1",
+    },
+    {
+        "id": "fx-002",
+        "date": "2025-05-10",
+        "place_id": "kr-12130",
+        "point": None,
+        "precision": "none",
+        "summary": "[fixture] 여수시가 청년 월세 지원 신청을 받는다.",
+        "place_name": "여수시",
+        "url": None,
+    },
+]
+SOURCES = article_sources(ARTICLES)
+
+
+def c1_output():
+    return {
+        "claim_value": "increasing",
+        "rebuttals": [
+            {"id": "R1", "status": "not_found", "note": None, "citations": []},
+            {"id": "R2", "status": "needs_review", "note": None, "citations": []},
+            {
+                "id": "R3",
+                "status": "supported",
+                "note": "산단 업체 가동 축소 뒤 협력업체 직원 300여 명이 옮겼다는 보도가 있다.",
+                "citations": [
+                    {"passage": "P2", "quote": "협력업체 직원 300여 명이 다른 지역으로 옮긴"}
+                ],
+            },
+        ],
+    }
+
+
+def problems(output, judgment=None, card=C1_CARD):
+    return {(p.check, p.where) for p in check(build(judgment or c1(), SOURCES, card), output)}
+
+
+# ── 입력 ──
+
+
+def test_passages_split_text_and_keep_source_location():
+    found = passages(SOURCES)
+    assert [p["id"] for p in found] == ["P1", "P2", "P3"]
+    assert found[1]["text"] == "협력업체 직원 300여 명이 다른 지역으로 옮긴 것으로 알려졌다."
+    assert found[1]["locator"] == {
+        "kind": "article",
+        "source_id": "fx-001",
+        "field": "summary",
+        "sentence": 2,
+        "date": "2025-03-04",
+        "url": "https://example.com/news/1",
+    }
+
+
+def test_other_source_kinds_use_the_same_passages():
+    """보도자료 · 정책 문서도 source 모양으로만 바꾸면 같은 구절 · 원문 위치가 된다(-161)"""
+    press = {
+        "kind": "press_release",
+        "source_id": "press:1",
+        "field": "title",
+        "text": "여수시, 청년 정착 지원 확대",
+        "date": "2025-03-01",
+        "url": None,
+    }
+    found = passages([*SOURCES, press])
+    assert found[-1]["kind"] == "press_release"
+    assert found[-1]["locator"]["source_id"] == "press:1"
+
+
+def test_build_sends_only_undecided_rebuttals_and_fixed_judgment():
+    sent = build(a3(), SOURCES, A3_CARD)
+    assert [c["id"] for c in sent["rebuttal_candidates"]] == ["R1", "R2"]
+    assert sent["fixed"]["claim_value"] == "decreasing"
+    assert sent["question"]["period"] == "2023–2025"
+    assert sent["passages"][0] == {
+        "id": "P1",
+        "kind": "article",
+        "text": "[fixture] 여수 국가산단의 한 업체가 공장 가동을 줄였다.",
+    }
+    assert sent["forbidden_terms"].count("원인") == 1
+    assert "배출원" in sent["forbidden_terms"]
+
+
+SCHEMAS = [
+    json.loads(p.read_text(encoding="utf-8"))
+    for p in [*(CONTRACTS / "c2/schemas").glob("*.json"), *(CONTRACTS / "ai").glob("*.json")]
+]
+REGISTRY = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in SCHEMAS)
+
+
+def contract(name):
+    schema = next(s for s in SCHEMAS if s["$id"].endswith(f"/ai/{name}.schema.json"))
+    return Draft202012Validator(schema, registry=REGISTRY)
+
+
+def test_a3_fixture_follows_judgment_input_contract():
+    contract("judgment-input").validate(a3())
+
+
+def test_card_rebuttal_ids_replace_order_numbers():
+    judgment = c1()
+    for n, candidate in enumerate(judgment["rebuttal_candidates"], 1):
+        candidate["id"] = f"C1-R{n}"
+    contract("judgment-input").validate(judgment)
+    sent = build(judgment, SOURCES, C1_CARD)
+    assert [c["id"] for c in sent["rebuttal_candidates"]] == ["C1-R1", "C1-R2", "C1-R3"]
+    output = c1_output()
+    for n, rebuttal in enumerate(output["rebuttals"], 1):
+        rebuttal["id"] = f"C1-R{n}"
+    result = phrase(judgment, SOURCES, C1_CARD, answer(output)[0])
+    assert result.status == "done" and "C1-R3" in result.citations
+
+
+# ── 검사기 ──
+
+
+def test_valid_output_passes():
+    assert problems(c1_output()) == set()
+
+
+def test_rounded_input_number_passes_and_new_number_fails():
+    output = {
+        "claim_value": "decreasing",
+        "rebuttals": [
+            {
+                "id": "R1",
+                "status": "not_found",
+                "note": "연평균이 18.6에서 16.9, 15.1로 낮아진 해에 관련 기사가 없다.",
+                "citations": [],
+            },
+            {"id": "R2", "status": "not_found", "note": None, "citations": []},
+        ],
+    }
+    assert problems(output, a3(), A3_CARD) == set()
+    output["rebuttals"][0]["note"] = "연평균이 3.5 낮아졌다."
+    assert problems(output, a3(), A3_CARD) == {("number_mismatch", "R1")}
+
+
+def test_wrong_number_is_rejected():
+    output = c1_output()
+    output["rebuttals"][0]["note"] = "2025년 순유출 2,240명은 진학 전출로 설명되지 않는다."
+    assert problems(output) == set()
+    output["rebuttals"][0]["note"] = "2025년 순유출 2,300명은 진학 전출로 설명되지 않는다."
+    assert problems(output) == {("number_mismatch", "R1")}
+
+
+def test_number_must_come_from_the_cited_passage():
+    output = c1_output()
+    output["rebuttals"][2]["citations"] = [
+        {"passage": "P3", "quote": "여수시가 청년 월세 지원 신청을"}
+    ]
+    assert problems(output) == {("number_mismatch", "R3")}
+
+
+def test_fake_citations_are_rejected():
+    output = c1_output()
+    output["rebuttals"][2]["note"] = None
+    output["rebuttals"][2]["citations"] = [
+        {"passage": "P9", "quote": "협력업체 직원 300여 명이 다른 지역으로 옮긴"},
+        {"passage": "P1", "quote": "협력업체 직원 300여 명이 다른 지역으로 옮긴"},
+    ]
+    assert problems(output) == {
+        ("unknown_citation", "R3"),
+        ("quote_not_in_source", "R3"),
+        ("unsupported", "R3"),
+    }
+
+
+def test_too_short_quote_is_not_a_citation():
+    output = c1_output()
+    output["rebuttals"][2]["citations"] = [{"passage": "P2", "quote": "직원"}]
+    assert ("quote_not_in_source", "R3") in problems(output)
+
+
+def test_claims_without_evidence_are_rejected():
+    output = c1_output()
+    output["rebuttals"][0] = {"id": "R1", "status": "supported", "note": None, "citations": []}
+    assert problems(output) == {("unsupported", "R1")}
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda o: o.update(claim_value="decreasing"),
+        lambda o: o["rebuttals"].pop(1),
+        lambda o: o["rebuttals"].append(
+            {"id": "R9", "status": "not_found", "note": None, "citations": []}
+        ),
+        lambda o: o["rebuttals"][1].update(id="R1"),
+    ],
+)
+def test_changed_judgment_is_rejected(change):
+    output = c1_output()
+    change(output)
+    assert {check for check, _ in problems(output)} == {"judgment_changed"}
+
+
+@pytest.mark.parametrize("term", ["원인", "탈여수"])
+def test_forbidden_terms_are_rejected(term):
+    output = c1_output()
+    output["rebuttals"][2]["note"] = f"산단 고용 변동이 {term}일 수 있다."
+    assert problems(output) == {("forbidden_term", "R3")}
+
+
+# ── 부호 낱말(카드 sign_words, 프롬프트 v5 — 모델이 쓰는 ⑤ 반박 note 에만 쓰인다) ──
+
+SIGN_WORDS = {"negative": "순유출", "positive": "순유입"}
+# C1 카드 계약 v0.6 처럼 주 지표에 sign_words 가 있는 승인본
+SIGN_CARD = {
+    **C1_CARD,
+    "claim_items": [
+        {"indicator_id": "population_net_migration", "role": "main", "sign_words": SIGN_WORDS}
+    ],
+}
+
+
+def signed_output(text):
+    """경쟁 설명 R1 의 note 에 통계 값을 쓴 출력"""
+    output = c1_output()
+    output["rebuttals"][0]["note"] = text
+    return output
+
+
+def mixed():
+    """해마다 부호가 바뀌는 가상 입력(광주 동구 같은 순유입 → 순유출)"""
+    record = c1()
+    for point, value in zip(record["statistics_points"], [916, -101, -294], strict=True):
+        point["value"] = value
+    return record
+
+
+@pytest.mark.parametrize(
+    ("value", "unit", "words", "text"),
+    [
+        (-1537, "명", SIGN_WORDS, "순유출 1,537명"),
+        (916, "명", SIGN_WORDS, "순유입 916명"),
+        (-1537.0, "명", SIGN_WORDS, "순유출 1,537명"),
+        (-1.5, "명", SIGN_WORDS, "순유출 1.5명"),
+        (0, "명", SIGN_WORDS, "0명"),
+        (None, "명", SIGN_WORDS, None),
+        (-1537, "명", None, None),
+    ],
+)
+def test_value_text_reads_the_sign_as_a_word(value, unit, words, text):
+    assert value_text(value, unit, words) == text
+
+
+def test_card_sign_words_add_value_text_and_keep_the_value():
+    sent = build(c1(), SOURCES, SIGN_CARD)
+    assert [s["value"] for s in sent["statistics"]] == [-1850, -2010, -2240]
+    assert [s["value_text"] for s in sent["statistics"]] == [
+        "순유출 1,850명",
+        "순유출 2,010명",
+        "순유출 2,240명",
+    ]
+    assert sent["sign_words"] == {"population_net_migration": SIGN_WORDS}
+
+
+@pytest.mark.parametrize(
+    ("judgment", "card"),
+    [
+        (c1(), C1_CARD),
+        (
+            c1(),
+            {
+                **C1_CARD,
+                "claim_items": [{"indicator_id": "population_net_migration", "role": "main"}],
+            },
+        ),
+        (a3(), A3_CARD),
+    ],
+)
+def test_cards_without_sign_words_send_the_v4_input(judgment, card):
+    sent = build(judgment, SOURCES, card)
+    assert "sign_words" not in sent
+    assert all("value_text" not in s for s in sent["statistics"])
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "여수시 청년(19–39세) 순유출은 2023년 1,850명, 2024년 2,010명, 2025년 2,240명으로 해마다 커졌다.",
+        "여수시 청년 순유출이 2023년 1,850명에서 2025년 2,240명으로 커졌다. 순이동은 공식 지표다.",
+    ],
+)
+def test_sign_words_written_as_words_pass(text):
+    assert problems(signed_output(text), card=SIGN_CARD) == set()
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 부호 그대로(v3 까지 나오던 문장)
+        "여수시의 청년(19–39세) 순이동은 2023년 -1,850명, 2024년 -2,010명, 2025년 -2,240명으로 커졌다.",
+        # 부호와 낱말이 겹침
+        "여수시 청년 순유출은 2023년 −1,850명에서 2025년 −2,240명으로 커졌다.",
+        # 부호도 낱말도 없음 — 순유입으로 읽힐 수 있다
+        "여수시 청년 순이동은 2023년 1,850명에서 2025년 2,240명으로 커졌다.",
+        # 반대 낱말
+        "여수시 청년 순유입이 2023년 1,850명에서 2025년 2,240명으로 커졌다.",
+    ],
+)
+def test_sign_words_written_with_a_minus_or_a_wrong_word_are_rejected(text):
+    assert problems(signed_output(text), card=SIGN_CARD) == {("sign_wording", "R1")}
+
+
+def test_each_value_needs_the_word_for_its_own_sign():
+    good = "2023년 순유입 916명에서 2024년 순유출 101명, 2025년 순유출 294명으로 바뀌었다."
+    assert problems(signed_output(good), mixed(), SIGN_CARD) == set()
+    bad = "2023년 916명, 2024년 101명, 2025년 294명으로 순유출이 이어졌다."
+    assert problems(signed_output(bad), mixed(), SIGN_CARD) == {("sign_wording", "R1")}
+    bad = "순유출이 2023년 916명, 2024년 101명, 2025년 294명이다."
+    assert problems(signed_output(bad), mixed(), SIGN_CARD) == {("sign_wording", "R1")}
+
+
+def test_cards_without_sign_words_keep_signed_numbers():
+    assert problems(c1_output(), card=C1_CARD) == set()
+
+
+def test_minus_signed_note_lowers_only_that_rebuttal():
+    """v0.4: 부호 낱말 탈락은 그 반박(R1)만 needs_review, 다른 반박은 모델 답 그대로"""
+    call, calls = answer(signed_output("여수시 청년 순이동은 2025년 -2,240명이다."))
+    result = phrase(c1(), SOURCES, SIGN_CARD, call)
+    assert (result.status, result.reason_code) == ("done", None)
+    assert {(p.check, p.where) for p in result.problems} == {("sign_wording", "R1")}
+    candidate = c1()["rebuttal_candidates"][0]["text"]
+    assert result.rebuttals[0] == {
+        "text": candidate,
+        "status": "needs_review",
+        "provenance": "llm_judgment",
+    }
+    assert "-2,240" not in result.rebuttals[0]["text"]
+    assert [r["status"] for r in result.rebuttals[1:]] == ["needs_review", "supported"]
+    assert result.citations["R1"] == [] and len(result.citations["R3"]) == 1
+    assert calls[0]["statistics"][0]["value_text"] == "순유출 1,850명"
+    contract("phrasing-result").validate(result.result())
+
+
+def broken_quote_output():
+    """깨진 기사 요약을 모델이 고쳐 인용한 경우: R3 인용 글자가 구절 원문과 다르다"""
+    output = c1_output()
+    output["rebuttals"][2]["citations"][0]["quote"] = (
+        "협력업체 직원 300여 명이 다른 지역으로 이주한"
+    )
+    return output
+
+
+def test_one_broken_quote_lowers_only_that_rebuttal_and_keeps_the_rest():
+    output = c1_output()
+    output["rebuttals"][0] = {
+        "id": "R1",
+        "status": "supported",
+        "note": None,
+        "citations": [{"passage": "P3", "quote": "여수시가 청년 월세 지원 신청을 받는다"}],
+    }
+    output["rebuttals"][2] = broken_quote_output()["rebuttals"][2]
+    result = phrase(c1(), SOURCES, C1_CARD, answer(output)[0])
+    assert result.status == "done"
+    # 인용이 깨지면 note 의 「300」도 근거 구절을 잃는다. 문제는 모두 R3 안에 있다
+    assert {(p.check, p.where) for p in result.problems} == {
+        ("quote_not_in_source", "R3"),
+        ("unsupported", "R3"),
+        ("number_mismatch", "R3"),
+    }
+    assert [r["status"] for r in result.rebuttals] == ["supported", "needs_review", "needs_review"]
+    assert result.rebuttals[2]["text"] == c1()["rebuttal_candidates"][2]["text"]
+    assert result.citations["R1"][0]["locator"]["source_id"] == "fx-002"
+    assert result.citations["R3"] == []
+    contract("phrasing-result").validate(result.result())
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda o: o.update(claim_value="decreasing"),
+        lambda o: o["rebuttals"].pop(),
+        lambda o: o["rebuttals"][0].update(id="R9"),
+    ],
+)
+def test_changed_judgment_still_rejects_the_whole_output(change):
+    """반박 하나의 탈락이 함께 있어도 판단 · 경쟁 설명 목록이 바뀌면 전체를 되돌린다"""
+    output = broken_quote_output()
+    change(output)
+    result = phrase(c1(), SOURCES, C1_CARD, answer(output)[0])
+    assert (result.status, result.reason_code) == ("failed", "OUTPUT_REJECTED")
+    assert result.rebuttals == [] and result.citations == {}
+    assert "judgment_changed" in {p.check for p in result.problems}
+    contract("phrasing-result").validate(result.result())
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda o: o.pop("rebuttals"),
+        lambda o: o.update(qualifier="high"),
+        lambda o: o["rebuttals"][0].update(status="maybe"),
+        # v4: 보증은 카드 문장이라 모델이 보증을 쓰면 모양 위반
+        lambda o: o.update(warrant={"text": "보증", "citations": []}),
+    ],
+)
+def test_malformed_output_is_rejected(change):
+    output = c1_output()
+    change(output)
+    assert {check for check, _ in problems(output)} == {"format"}
+
+
+# ── 문장화 · 되돌리기 ──
+
+
+def answer(output):
+    calls = []
+
+    def call(system, user):
+        calls.append(json.loads(user))
+        return json.dumps(output, ensure_ascii=False)
+
+    return call, calls
+
+
+def test_phrase_fills_only_rebuttals_with_llm_provenance():
+    call, calls = answer(c1_output())
+    result = phrase(c1(), SOURCES, C1_CARD, call)
+    assert (result.status, result.reason_code, result.problems) == ("done", None, [])
+    assert "warrant" not in result.result()
+    assert [r["provenance"] for r in result.rebuttals] == ["llm_judgment"] * 3
+    assert result.rebuttals[2] == {
+        "text": "산단·대형 사업장 고용 변동에 따른 일시 전입·전출 — "
+        "산단 업체 가동 축소 뒤 협력업체 직원 300여 명이 옮겼다는 보도가 있다.",
+        "status": "supported",
+        "provenance": "llm_judgment",
+    }
+    assert result.citations["R3"][0]["locator"]["source_id"] == "fx-001"
+    assert calls[0]["fixed"]["claim_value"] == "increasing"
+
+
+def test_rule_decided_rebuttal_keeps_its_status_and_order():
+    output = {
+        "claim_value": "decreasing",
+        "rebuttals": [
+            {"id": "R1", "status": "needs_review", "note": None, "citations": []},
+            {"id": "R2", "status": "not_found", "note": None, "citations": []},
+        ],
+    }
+    result = phrase(a3(), SOURCES, A3_CARD, answer(output)[0])
+    assert [(r["status"], r["provenance"]) for r in result.rebuttals] == [
+        ("needs_review", "llm_judgment"),
+        ("not_found", "llm_judgment"),
+        ("supported", "rule"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("judgment", "reason"),
+    [
+        (example("judgment-insufficient"), "RUN_BLOCKED"),
+        ({**c1(), "run_status": "unsupported"}, "RUN_UNSUPPORTED"),
+        (example("judgment-not-comparable"), "NOT_JUDGED"),
+    ],
+)
+def test_skipped_runs_do_not_call_the_model(judgment, reason):
+    call, calls = answer(c1_output())
+    result = phrase(judgment, SOURCES, C1_CARD, call)
+    assert (result.status, result.reason_code, calls) == ("skipped", reason, [])
+    assert result.rebuttals == []
+
+
+def test_new_approved_card_needs_no_code_change():
+    judgment = c1()
+    judgment["question"]["card_id"] = "E1"
+    card = {"card_id": "E1", "card_version": 1, "forbidden_terms": ["무상"]}
+    call, calls = answer(c1_output())
+    assert phrase(judgment, SOURCES, card, call).status == "done"
+    assert "무상" in calls[0]["forbidden_terms"]
+
+
+@pytest.mark.parametrize(
+    "card", [{**C1_CARD, "card_version": 2}, {**C1_CARD, "card_id": "A3"}, {"forbidden_terms": []}]
+)
+def test_card_from_another_version_is_refused(card):
+    call, calls = answer(c1_output())
+    result = phrase(c1(), SOURCES, card, call)
+    assert (result.status, result.reason_code, result.retryable, calls) == (
+        "failed",
+        "INPUT_INVALID",
+        False,
+        [],
+    )
+    assert result.rebuttals == []
+
+
+def raises(error):
+    def call(system, user):
+        raise error
+
+    return call
+
+
+def rejected_answer():
+    """v0.4: 반박 하나의 탈락은 done 이라, 전체 탈락은 판단 값을 바꾼 출력으로 본다"""
+    output = c1_output()
+    output["claim_value"] = "decreasing"
+    return answer(output)[0]
+
+
+@pytest.mark.parametrize(
+    ("call", "reason", "retryable"),
+    [
+        (raises(gms.LlmTimeout("시간 초과")), "LLM_TIMEOUT", True),
+        (raises(gms.LlmError("HTTP 500")), "LLM_ERROR", True),
+        (lambda system, user: "죄송합니다", "OUTPUT_REJECTED", False),
+        (rejected_answer(), "OUTPUT_REJECTED", False),
+    ],
+)
+def test_failures_fall_back_to_empty_rebuttals_with_reason(call, reason, retryable):
+    result = phrase(c1(), SOURCES, C1_CARD, call)
+    assert (result.status, result.reason_code, result.retryable) == ("failed", reason, retryable)
+    assert result.rebuttals == [] and result.citations == {}
+    assert (reason == "OUTPUT_REJECTED") == bool(result.problems)
+    contract("phrasing-result").validate(result.result())
+
+
+def test_every_result_follows_the_phrasing_result_contract():
+    results = [
+        phrase(c1(), SOURCES, C1_CARD, answer(c1_output())[0]),
+        phrase(example("judgment-insufficient"), SOURCES, C1_CARD),
+        phrase(c1(), SOURCES, {**C1_CARD, "card_version": 9}),
+    ]
+    assert [r.status for r in results] == ["done", "skipped", "failed"]
+    for result in results:
+        contract("phrasing-result").validate(result.result())
+
+
+def test_cli_prints_the_result(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(gms, "generate", answer(c1_output())[0])
+    judgment, articles = tmp_path / "judgment.json", tmp_path / "articles.json"
+    judgment.write_text(json.dumps({**c1(), "fixture": False}), encoding="utf-8")
+    articles.write_text(json.dumps(ARTICLES), encoding="utf-8")
+    assert main([str(judgment), str(articles)]) == 0
+    contract("phrasing-result").validate(json.loads(capsys.readouterr().out))
+
+
+def test_phrase_does_not_change_the_input():
+    judgment = c1()
+    before = copy.deepcopy(judgment)
+    phrase(judgment, SOURCES, C1_CARD, answer(c1_output())[0])
+    assert judgment == before
+
+
+# ── GMS 호출 ──
+
+
+class Response(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+def test_generate_reads_text_and_maps_errors(monkeypatch):
+    monkeypatch.setattr(gms, "api_key", lambda: "test-key")
+    body = {"candidates": [{"content": {"parts": [{"text": '{"a": '}, {"text": "1}"}]}}]}
+    monkeypatch.setattr(
+        gms, "urlopen", lambda request, timeout: Response(json.dumps(body).encode())
+    )
+    assert gms.generate("system", "user") == '{"a": 1}'
+
+    def fail(error):
+        def urlopen(request, timeout):
+            raise error
+
+        return urlopen
+
+    monkeypatch.setattr(gms, "urlopen", fail(TimeoutError()))
+    with pytest.raises(gms.LlmTimeout):
+        gms.generate("system", "user")
+    monkeypatch.setattr(gms, "urlopen", fail(HTTPError("u", 400, "bad", {}, None)))
+    with pytest.raises(gms.LlmError, match="HTTP 400"):
+        gms.generate("system", "user")
+
+
+# ── engine API (backend 가 부른다) ──
+
+
+def request(judgment=None, card=C1_CARD):
+    return copy.deepcopy({"judgment": judgment or c1(), "articles": ARTICLES, "card": card})
+
+
+def test_api_phrases_a_valid_request(monkeypatch):
+    call, calls = answer(c1_output())
+    monkeypatch.setattr(gms, "generate", call)
+    contract("phrasing-request").validate(request())
+    response = TestClient(app).post("/v1/argument/phrase", json=request())
+    assert response.status_code == 200
+    contract("phrasing-result").validate(response.json())
+    assert "warrant" not in response.json()
+    assert response.json()["rebuttals"][0]["provenance"] == "llm_judgment"
+    assert len(calls) == 1
+
+
+def test_api_refuses_request_outside_the_contract_without_echoing_values(monkeypatch):
+    call, calls = answer(c1_output())
+    monkeypatch.setattr(gms, "generate", call)
+    body = request()
+    body["judgment"]["claim"]["value"] = "비밀 값"
+    del body["card"]["card_version"]
+    response = TestClient(app).post("/v1/argument/phrase", json=body)
+    assert response.status_code == 422
+    assert response.json()["reason_code"] == "INPUT_INVALID"
+    assert "비밀 값" not in response.text
+    assert calls == []
+
+
+def test_api_skips_blocked_run_without_model(monkeypatch):
+    call, calls = answer(c1_output())
+    monkeypatch.setattr(gms, "generate", call)
+    response = TestClient(app).post(
+        "/v1/argument/phrase", json=request(example("judgment-insufficient"))
+    )
+    assert response.json()["reason_code"] == "RUN_BLOCKED" and calls == []
+
+
+# ── 프롬프트 v4: 모델은 ⑤ 반박만(① 판단 = 규칙 연 값 문장, ③ 보증 = 카드 문장) ──
+
+
+def card(name):
+    return json.loads((CONTRACTS / "cards" / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def test_prompt_asks_only_for_rebuttals():
+    sent = build(c1(), SOURCES, card("C1"))
+    # 보증을 쓰지 않으므로 카드 보증 · 규칙 결과 뜻은 보내지 않는다(토큰도 준다)
+    assert "card_warrant" not in sent
+    assert {"rule_meaning", "rule_outcomes"}.isdisjoint(sent["fixed"])
+    assert "warrant" not in SYSTEM
+
+
+def test_statistics_say_whether_a_value_is_the_place_or_a_station():
+    judgment = a3()
+    judgment["statistics_points"].append(
+        {**judgment["statistics_points"][0], "place_id": "kr-12130", "value": 17.25}
+    )
+    places = [s["place"] for s in build(judgment, SOURCES, card("A3"))["statistics"]]
+    assert places == ["kr-12130-s336127"] * 3 + ["여수시"]
+
+
+def test_numbers_in_the_claim_sentence_may_be_used():
+    # ① 판단 문장(규칙)에 든 연 값은 반박 note 에 써도 된다
+    judgment = a3()
+    judgment["claim"]["text"] = (
+        "여수시 측정소 1곳의 초미세먼지(PM2.5) 연평균은 2023년 18.6µg/m³에서 2025년 15.1µg/m³로 낮아졌습니다."
+    )
+    output = {
+        "claim_value": "decreasing",
+        "rebuttals": [
+            {
+                "id": "R1",
+                "status": "not_found",
+                "note": "2025년 15.1µg/m³ 무렵 강수 · 풍향 기사는 없다.",
+                "citations": [],
+            },
+            {"id": "R2", "status": "not_found", "note": None, "citations": []},
+        ],
+    }
+    assert problems(output, judgment, card("A3")) == set()

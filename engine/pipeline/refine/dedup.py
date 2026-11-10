@@ -4,42 +4,51 @@ import hashlib
 import json
 from datetime import datetime
 
+from .storage import had_body
+
 # 수집 실행마다 바뀌는 칸. 이것만 다르면 같은 내용을 다시 받은 것(재수집)으로 본다
 RUN_FIELDS = ("collected_at", "run_id", "collector_version")
+# 원본 지문. 장부 내용이 같고 이것만 다르면 원천의 장부 밖 칸(이름표 · 부가 속성)만 바뀐
+# 같은 판의 사본이다. 원본 한 행 = 정제 한 행이라 사본은 모두 남기고, 최신본은 하나만
+SOURCE_FIELDS = ("content_hash",)
 
 
-def obs_key(record: dict) -> str | None:
-    """원천의 같은 칸이면 판이 바뀌어도 같은 키. 관측값(indicator_id) · 문서(document)에 붙인다.
+def obs_key(record: dict) -> str:
+    """원천의 같은 칸이면 판이 바뀌어도 같은 키. 관측값 · 문서 · 측정소 메타 모든 레코드에 붙인다.
 
     문서는 원천 문서 하나(빅카인즈 news_id 등)가 한 칸이라, 같은 기사를 다시 받은 행이 한 키다.
     """
-    if record.get("indicator_id") is None and not _is_document(record):
-        return None
     where = {k: record.get(k) for k in ("source_id", "spec_id", "locator")}
     canon = json.dumps(where, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return "obs:" + hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
 def split_repeats(records: list[dict]) -> tuple[list[dict], set[str]]:
-    """같은 dedup_key·같은 내용(수집 실행 칸 빼고)은 마지막으로 확인한 것 하나만 남긴다.
+    """같은 dedup_key·같은 내용(수집 실행 칸 · 원본 지문 빼고)은 한 판이다.
 
-    내용이 다른 dedup_key 는 충돌로 돌려준다. 남는 레코드는 입력 순서를 지킨다.
+    원본(content_hash)까지 같으면 반복이라 마지막으로 확인한 것 하나만 남기고, 원본만 다른 사본은
+    모두 남긴다(최신본은 mark_latest 가 하나만 고른다). 내용이 다른 dedup_key 는 충돌로 돌려준다.
+    남는 레코드는 입력 순서를 지킨다.
     """
-    variants: dict[str, list[list]] = {}  # dedup_key → [[내용, 남길 레코드], ...]
+    # dedup_key → [[내용, {원본 지문: 남길 레코드}], ...]
+    variants: dict[str, list[list]] = {}
     for record in records:
         key = record.get("dedup_key")
         if not isinstance(key, str):
             continue
-        content = {k: v for k, v in record.items() if k not in RUN_FIELDS}
+        content = {k: v for k, v in record.items() if k not in RUN_FIELDS + SOURCE_FIELDS}
         for variant in variants.setdefault(key, []):
             if variant[0] == content:
-                if _check_order(record) > _check_order(variant[1]):
-                    variant[1] = record
                 break
         else:
-            variants[key].append([content, record])
+            variant = [content, {}]
+            variants[key].append(variant)
+        source = str(record.get("content_hash"))
+        same = variant[1].get(source)
+        if same is None or _check_order(record) > _check_order(same):
+            variant[1][source] = record
 
-    chosen = {id(v[1]) for vs in variants.values() for v in vs}
+    chosen = {id(r) for vs in variants.values() for v in vs for r in v[1].values()}
     kept = []
     for record in records:
         if not isinstance(record.get("dedup_key"), str):
@@ -52,15 +61,13 @@ def split_repeats(records: list[dict]) -> tuple[list[dict], set[str]]:
 
 
 def mark_latest(refined: list[dict]) -> None:
-    """같은 obs_key 중 보류가 아닌 판 하나만 is_latest. obs_key 가 없으면 None.
+    """같은 obs_key 중 보류가 아닌 판 하나만 is_latest.
 
-    관측값은 가장 늦게 공표된 판, 문서는 본문이 있는 판 중 가장 늦게 받은 판.
+    관측값 · 측정소 메타는 가장 늦게 공표된 판, 문서는 본문이 있는 판 중 가장 늦게 받은 판.
+    같은 판의 사본(원본만 다름)은 늦게 받은 것.
     """
     groups: dict[str, list[dict]] = {}
     for r in refined:
-        if r["obs_key"] is None:
-            r["is_latest"] = None
-            continue
         r["is_latest"] = False
         if r["validation_status"] != "held":
             groups.setdefault(r["obs_key"], []).append(r)
@@ -94,16 +101,20 @@ def _is_document(record: dict) -> bool:
 
 def _revision_order(r: dict) -> tuple:
     if _is_document(r):
-        # 같은 기사를 실패 → 성공으로 다시 받았으면 본문 있는 판이 먼저, 같으면 늦게 받은 판
+        # 같은 기사를 실패 → 성공으로 다시 받았으면 본문을 받은 판(요약 뒤 지운 판 포함)이 먼저,
+        # 같으면 늦게 받은 판
         return (
-            r["document"].get("body") is not None,
+            had_body(r["document"]),
             datetime.fromisoformat(r["collected_at"]),
             r["dedup_key"],
+            str(r["content_hash"]),
         )
-    # 공표 시각이 없으면(에어코리아 확정 파일) 수집 시각으로. 같으면 dedup_key 로 정해 늘 같은 결과
+    # 공표 시각이 없으면(에어코리아 확정 파일) 수집 시각으로. 같으면 dedup_key · 원본 지문으로
+    # 정해 늘 같은 결과
     published = r.get("published_at") or r["collected_at"]
     return (
         datetime.fromisoformat(published),
         datetime.fromisoformat(r["collected_at"]),
         r["dedup_key"],
+        str(r["content_hash"]),
     )

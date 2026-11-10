@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://issue-atlas.c108/contracts/ai/status.schema.json",
+  "title": "AI 모듈 처리 상태 v0.1 초안 — backend 공유용",
+  "description": "입력 1건을 AI 모듈이 어디까지 처리했는가. output 의 모양은 아직 정하지 않았다",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": "ai-status-0.1" },
+    "fixture": { "type": "boolean" },
+    "task": { "description": "classify_document 문서 → 카드 분류 · write_argument 논증 카드 문장 · 반박 확인", "enum": ["classify_document", "write_argument"] },
+    "input_ref": { "description": "classify_document 는 doc_id, write_argument 는 run_id", "type": "string", "minLength": 1 },
+    "status": { "enum": ["done", "waiting_input", "skipped", "failed"] },
+    "reason_code": {
+      "type": ["string", "null"],
+      "enum": [
+        null,
+        "WAITING_REFINE",
+        "WAITING_EXTRACTION",
+        "WAITING_JUDGMENT",
+        "RUN_BLOCKED",
+        "RUN_UNSUPPORTED",
+        "NOT_JUDGED",
+        "INPUT_INVALID",
+        "FIXTURE_IN_PRODUCTION",
+        "LLM_TIMEOUT",
+        "LLM_ERROR",
+        "OUTPUT_REJECTED"
+      ]
+    },
+    "retryable": { "description": "같은 입력으로 다시 돌리면 결과가 달라질 수 있는가", "type": "boolean" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "output": { "description": "done 일 때만. 모양은 v0.2 에서 정한다", "type": ["object", "null"] }
+  },
+  "required": ["schema_version", "fixture", "task", "input_ref", "status", "reason_code", "retryable", "updated_at", "output"],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "done" } } },
+      "then": { "properties": { "reason_code": { "type": "null" }, "output": { "type": "object" } } },
+      "else": { "properties": { "output": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "waiting_input" } } },
+      "then": { "properties": { "reason_code": { "enum": ["WAITING_REFINE", "WAITING_EXTRACTION", "WAITING_JUDGMENT"] }, "retryable": { "const": true } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "skipped" } } },
+      "then": { "properties": { "reason_code": { "enum": ["RUN_BLOCKED", "RUN_UNSUPPORTED", "NOT_JUDGED"] }, "retryable": { "const": false } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "failed" } } },
+      "then": {
+        "properties": { "reason_code": { "enum": ["INPUT_INVALID", "FIXTURE_IN_PRODUCTION", "LLM_TIMEOUT", "LLM_ERROR", "OUTPUT_REJECTED"] } }
+      }
+    }
+  ]
+}

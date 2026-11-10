@@ -1,10 +1,17 @@
-# MR: 검사·배포 빌드만. 보호된 develop/main 병합: 검사 → 빌드 → EC2/Workers 배포.
+# MR: 검사·배포 빌드만. 보호된 develop/main 병합: 검사 → 빌드 → EC2 배포.
 variables:
+  REDEPLOY_COMPONENT:
+    value: "none"
+    options: ["none", "frontend"]
+    description: "수동 재배포: 보호된 develop/main에서 frontend 선택. 새 검사·빌드 후 해당 환경 FE만 배포."
   WORKER_ENV: development
   FRONTEND_URL: https://dev.issue-atlas.kr
 
 workflow:
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $REDEPLOY_COMPONENT == "frontend" && $CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
+      variables: { WORKER_ENV: production, FRONTEND_URL: "https://issue-atlas.kr" }
+    - if: '$CI_PIPELINE_SOURCE == "web" && $REDEPLOY_COMPONENT == "frontend" && $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_REF_PROTECTED == "true"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
       variables: { WORKER_ENV: production, FRONTEND_URL: "https://issue-atlas.kr" }
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'

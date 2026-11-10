@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.c108.issueatlas.C2Contract;
 import com.c108.issueatlas.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 가상 지역 · 측정소 · 월 값으로 확인한다. 실제 측정소 좌표 적재는 담당 확인 뒤(S15P31C108-135).
+ * 가상 지역 · 측정소 · 월 값으로 확인한다. V0017 이 넣은 실제 측정소는 「시드된_여수_측정소」에서 본다.
  *
  * <p>측정소 b 는 2024-02 부터 코드가 바뀐다(T002 → T003). 측정소 d 는 좌표가 없고, x 는 다른 지역이다.
  *
@@ -67,6 +68,7 @@ class ObservationApiTest {
     void A3_는_지역_측정소의_달마다_점_하나() throws Exception {
         mvc.perform(observations("obs_city", "A3", "2024-01-01", "2024-03-01"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("observations"))
                 .andExpect(jsonPath("$.schema_version").value("c2-0.1"))
                 .andExpect(jsonPath("$.type").value("FeatureCollection"))
                 .andExpect(jsonPath("$.legend_text").value("측정소 값, 도시 평균 아님"))
@@ -105,9 +107,39 @@ class ObservationApiTest {
 
     @Test
     @WithMockUser
+    void 시드된_여수_측정소_9곳이_지도_점으로_나온다() throws Exception {
+        // 실제 월 값은 없어 모두 not_collected. 점 순서는 측정소 코드 순
+        mvc.perform(observations("kr-12130", "A3", "2024-01-01", "2024-02-01"))
+                .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("observations"))
+                .andExpect(jsonPath("$.summary.station_count").value(9))
+                .andExpect(
+                        jsonPath("$.features[*].properties.place_id")
+                                .value(
+                                        contains(
+                                                "kr-12130-s336121",
+                                                "kr-12130-s336124",
+                                                "kr-12130-s336125",
+                                                "kr-12130-s336127",
+                                                "kr-12130-s336128",
+                                                "kr-12130-s336221",
+                                                "kr-12130-s336222",
+                                                "kr-12130-s336223",
+                                                "kr-12130-s336903")))
+                .andExpect(
+                        jsonPath("$.features[0].geometry.coordinates")
+                                .value(contains(127.725967, 34.741301)))
+                .andExpect(jsonPath("$.features[0].properties.name").value("서강동"))
+                .andExpect(
+                        jsonPath("$.features[0].properties.missing_reason").value("not_collected"));
+    }
+
+    @Test
+    @WithMockUser
     void 좌표_없는_카드_C1_은_빈_점() throws Exception {
         mvc.perform(observations("obs_city", "C1", "2023-01-01", "2026-01-01"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("observations"))
                 .andExpect(jsonPath("$.summary").value(nullValue()))
                 .andExpect(jsonPath("$.features").isEmpty());
     }
@@ -130,9 +162,9 @@ class ObservationApiTest {
     }
 
     @Test
-    void 로그인_없이는_401() throws Exception {
+    void 로그인_없이도_조회된다() throws Exception {
         mvc.perform(observations("obs_city", "A3", "2024-01-01", "2024-02-01"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
     }
 
     private static MockHttpServletRequestBuilder observations(

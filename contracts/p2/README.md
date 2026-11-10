@@ -1,4 +1,4 @@
-# P2 정제 레코드 v0.5
+# P2 정제 레코드 v0.11
 
 정제(P2) → 지역·시간(P3) · 분류(P4). 만드는 곳: `engine/pipeline/refine/` (`refine_records`). DB 에 저장한 결과는 아래 「저장」, 에어코리아 확정 시간값은 「월별 집계」에만 저장한다.
 계약 변경은 받는 쪽 정우현(P3)·최동준(P4) 리뷰가 필요하다.
@@ -21,8 +21,8 @@
 | `validation_status` | `pass` / `fixed` / `held` | 문제 없음 / P2 가 고쳐서 넘김 / 보류(다음 단계로 안 넘김) |
 | `issues` | `{code, field}` 배열 | 사유. `pass` 면 빈 배열 |
 | `rule_version` | `p2-…` | 정제 규칙 판. 같은 입력 + 같은 판이면 같은 출력(바이트 단위) |
-| `obs_key` | `obs:<sha256 64자리>` 또는 null | 원천의 같은 칸(source_id · spec_id · locator). 판(수정본)이 달라도 같다. 관측값(indicator_id 있음)과 문서(document 있음)에 붙고, 측정소 메타처럼 둘 다 아니면 null. 문서는 원천 문서 하나(빅카인즈 `locator.news_id`)가 한 칸이라 같은 기사를 다시 받은 행이 같은 키다 |
-| `is_latest` | bool 또는 null | 같은 `obs_key` 중 보류가 아닌 판 하나. 관측값은 가장 늦은 판(published_at, 없으면 collected_at), 문서는 본문이 있는 판이 먼저이고 같으면 가장 늦게 받은 판(collected_at). 이전 판은 지우지 않고 false 로 남긴다. `obs_key` 가 null 이면 null |
+| `obs_key` | `obs:<sha256 64자리>` (v0.7 전 측정소 메타는 null) | 원천의 같은 칸(source_id · spec_id · locator). 판(수정본)이 달라도 같다. 관측값 · 문서 · 측정소 메타 모든 레코드에 붙는다. 문서는 원천 문서 하나(빅카인즈 `locator.news_id`)가 한 칸이라 같은 기사를 다시 받은 행이 같은 키다 |
+| `is_latest` | bool (v0.7 전 측정소 메타는 null) | 같은 `obs_key` 중 보류가 아닌 판 하나. 관측값 · 측정소 메타는 가장 늦은 판(published_at, 없으면 collected_at), 문서는 본문을 받은 판(요약 뒤 본문을 지운 판 포함)이 먼저이고 같으면 가장 늦게 받은 판(collected_at). 같은 판의 사본(원본만 다름, 아래 `DEDUP_KEY_CONFLICT`)은 늦게 받은 것 하나. 이전 판 · 사본은 지우지 않고 false 로 남긴다 |
 
 ## 사유 코드
 
@@ -33,12 +33,12 @@
 | `UNKNOWN_FIELD` | held | C1 에 없는 칸 |
 | `FORBIDDEN_SOURCE` | held | 네이버 · 카카오 주소 (PRD 7.5). 빅카인즈는 언론 기사 수집원으로 쓰기로 해 금지에서 뺐다 (노션 결정 2026-10-26) |
 | `SECRET_IN_URL` | held | URL 쿼리에 실제 API 키. 출력 raw_url 은 `<KEY>` 로 가림 |
-| `LICENSE_UNKNOWN` | held | 이용허락 표(`engine/pipeline/refine/license_scopes.json`)에 없는 license_type. 빅카인즈 기사는 `BIGKINDS-이용약관` (최대 `full`: 본문 저장, 팀 결정 2026-10-28. 본문은 내부 분석(요약 · 분류)에만 쓰고 화면 · API 로 내보내지 않는다) |
-| `DEDUP_KEY_CONFLICT` | held | 같은 dedup_key 인데 수집 실행 칸(`collected_at` · `run_id` · `collector_version`) 말고 다른 칸이 다른 레코드가 함께 옴. 수집 실행 칸만 다르면 재수집으로 보고, 마지막으로 확인한 것(`collected_at` 이 가장 늦은 것, 같으면 `run_id` 가 큰 것) 하나만 내보냄 |
+| `LICENSE_UNKNOWN` | held | 이용허락 표(`engine/pipeline/refine/license_scopes.json`)에 없는 license_type. 빅카인즈 기사는 `BIGKINDS-이용약관` (최대 `full`: 본문을 받아 내부 분석(요약 · 분류)에만 쓰고 화면 · API 로 내보내지 않는다. 요약이 제대로 생긴 기사는 P3 가 본문을 지운다 — 대표 결정 2026-11-01, [기사 계약](../article/README.md) 「본문 지우기」) |
+| `DEDUP_KEY_CONFLICT` | held | 같은 dedup_key 인데 장부 내용이 다른 레코드가 함께 옴 — 수집 실행 칸(`collected_at` · `run_id` · `collector_version`)과 원본 지문(`content_hash`) 말고 다른 칸이 다름. 수집 실행 칸만 다르면 재수집으로 보고, 마지막으로 확인한 것(`collected_at` 이 가장 늦은 것, 같으면 `run_id` 가 큰 것) 하나만 내보냄. `content_hash` 도 다르면(원천의 장부 밖 칸 — KOSIS 이름표 · 측정소 측정 항목 등 — 만 바뀐 재수집) 같은 판의 사본이라 충돌이 아니다: 원본 한 행 = 정제 한 행이라 모두 내보내고 `is_latest` 는 늦게 받은 사본 하나만 |
 | `SCOPE_DOWNGRADED` | fixed | P1 의 storage_scope 가 이용허락보다 넓어 낮춤 |
 | `VALUE_STRIPPED_BY_SCOPE` | fixed | 저장 범위가 full 이 아닌 관측값이라 value 를 지우고 missing_reason 을 license_blocked 로 |
 | `BODY_STRIPPED_BY_SCOPE` | fixed | 저장 범위가 full 이 아닌 문서라 `document.body` 를 null 로 (C1 v0.2: full ⇔ 본문 있음). field 는 `document` |
-| `BODY_MISSING` | held | 기사(`document.kind = news`)인데 이용허락이 본문(`full`)을 허락하는데도 `document.body` 가 없음(원문 링크 없음 · robots 차단 · 본문 못 찾음 등). P3 가 본문을 읽어 지역 · 시간 · 요약을 뽑으므로 다음 단계로 넘기지 않는다. 같은 기사를 다시 받아 본문이 생기면 그 판이 나간다. field 는 `document` |
+| `BODY_MISSING` | held | 기사(`document.kind = news`)인데 이용허락이 본문(`full`)을 허락하는데도 `document.body` 가 없음(원문 링크 없음 · robots 차단 · 본문 못 찾음 등). P3 가 본문을 읽어 지역 · 시간 · 요약을 뽑으므로 다음 단계로 넘기지 않는다. 같은 기사를 다시 받아 본문이 생기면 그 판이 나간다. **본문을 받은 뒤 요약하고 지운 기사**(`fetch.status = ok` · `body = null` · `storage_scope = metadata`)는 보류하지 않는다(v0.9). 본문을 못 받은 기사는 쓰지 않는다(2026-11-02 결정, 개발 서버 1,263건 삭제). field 는 `document` |
 
 `fixed` 사유만 있으면 `fixed`, 그 밖의 사유가 하나라도 있으면 `held`.
 
@@ -54,9 +54,12 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 - **관측 일 묶음으로 나눠 정제한다.** 묶음은 장부의 `observed_period_start`(없으면 `observed_at`) 앞 10자(`YYYY-MM-DD`, 적힌 시간대 그대로의 날짜)이고, 시각이 없거나 그 모양이 아니면 `''` 한 묶음이다. 메모리에는 한 번에 한 묶음만 올리고, 저장은 묶음마다 커밋한다. 실행 결과의 `buckets` 가 묶음 수다
   - 최신본은 같은 `obs_key` 끼리, 반복 · 충돌은 같은 `dedup_key` 끼리만 보므로 결과는 전체를 한 번에 정제한 것과 같다. 같은 `dedup_key` 나 같은 관측 칸(`obs_key` 재료: source_id · spec_id · locator)이 여러 묶음에 갈라지면(예: 시각이 깨진 장부) 그 레코드는 모두 한 묶음(`~`)으로 모아 함께 정제한다
   - 같은 측정값의 판 · 재수집본은 시각 표기(시간대 포함)가 같아야 같은 묶음에 든다. 다르면 위 규칙으로 모은 묶음에 가서 결과는 같지만 그 묶음이 커진다
+- **출처만 골라 정제할 수 있다(v0.10).** `--source <출처>`(여러 번 가능)는 그 출처의 장부만, `--changed-since <ISO 시각>` 은 그 시각 뒤에 수집 실행 이력(`job_run`)이 생긴 출처만 정제한다. 두 키(`obs_key` 는 출처 · 수집 명세 안, `dedup_key` 는 수집기가 출처마다 만든다)가 출처 밖과 겹치지 않으므로 결과는 전체 정제와 같다. 실행 결과에 `sources`. 원본의 99% 가 에어코리아 시간값이라 다른 출처만 정제하면 40분 → 1–2분
+  - 서버 실행기는 원본 장부에 쓰는 수집(kosis · airkorea · press · youth-policy · bigkinds)이 성공하면 같은 잠금 안에서 `refine --changed-since <수집 시작 시각>` 을 이어 돈다([수집기 실행](../../deploy/collector/README.md))
+  - 규칙 판(`rule_version`)을 올린 뒤에는 출처를 고르지 말고 전체를 한 번 정제한다
 - 장부가 없는 원본(`c1_record` 가 null — 이 칸이 생기기 전에 저장된 원본 포함)은 건너뛰고 실행 결과의 `skipped` 에 source_id 별로 센다
 - 장부의 `content_hash` 가 그 행의 원본과 다르면 `C1_HASH_MISMATCH` 로 멈춘다. 이 검사는 정제 전에 전체 장부에 한 번 해서, 어느 묶음도 저장하지 않고 멈춘다
-- **원본 한 행 = 정제 한 행.** `content_hash` 가 UNIQUE 이고 `raw_record.content_hash` 를 가리킨다. 같은 `dedup_key` 라도 원본이 다르면(충돌) 각자 held 로 남는다. **단, 에어코리아 확정 시간값은 정제 행으로 저장하지 않는다** — 아래 「월별 집계」
+- **원본 한 행 = 정제 한 행.** `content_hash` 가 UNIQUE 이고 `raw_record.content_hash` 를 가리킨다. 같은 `dedup_key` 라도 장부 내용이 다르면(충돌) 각자 held 로 남고, 원본만 다르면(사본) 각자 남되 하나만 최신이다. **단, 에어코리아 확정 시간값은 정제 행으로 저장하지 않는다** — 아래 「월별 집계」
 - 저장된 행의 `run_id` · `collected_at` 은 장부 값을 따른다. 재수집 때 P1 이 장부를 갱신하지 않으면 원본을 처음 저장한 실행이다(위 「모양」의 「마지막으로 확인한 실행」은 장부가 그렇게 채워질 때만 맞다)
 - 같은 장부 · 같은 `rule_version` 으로 다시 돌리면 아무 행도 바뀌지 않는다. 결과가 바뀐 행(예: 새 판이 들어와 `is_latest` 가 false 가 된 이전 판)만 `refined_at` 이 새로 찍힌다
 
@@ -70,7 +73,7 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 | `record` | 정제 레코드 전체(C1 칸 + P2 칸, jsonb). 위 칸은 모두 여기서 꺼낸 값이다 |
 | `refined_at` | 이 행의 결과가 마지막으로 바뀐 시각 |
 
-**다음 단계가 읽는 곳은 `normalized_ready` 뷰다.** `validation_status` 가 pass·fixed 이고 `is_latest` 가 false 가 아닌 행 — 관측값은 최신본만, 기사는 본문이 있는 것만 원천 문서 하나에 1건, `is_latest` 가 null 인 메타 레코드는 모두. 이 조건을 각자 다시 쓰지 않는다.
+**다음 단계가 읽는 곳은 `normalized_ready` 뷰다.** `validation_status` 가 pass·fixed 이고 `is_latest` 가 false 가 아닌 행 — 관측값은 최신본만, 기사는 본문을 받은 것만(요약 뒤 지웠으면 `body = null`) 원천 문서 하나에 1건, 측정소 메타도 측정소 하나에 1건(v0.7 전에는 `is_latest` 가 null 이라 모두). 이 조건을 각자 다시 쓰지 않는다.
 
 ## 월별 집계 — `air_monthly`
 
@@ -79,7 +82,7 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 
 - **검증은 시간마다 그대로 한다.** 하루 묶음으로 정제하면서 결측 · 충돌 · 잠정/확정 판을 시간마다 판정하고, 보류가 아닌 최신본만 월 합계에 더한다. 확정 자료가 잠정 자료를 대신하면 확정 값만 센다
 - **월은 한국 시각으로 자른다.** 원천 「1월 31일 24시」(31일 23–24시)는 1월이다
-- **`refine --db` 가 모든 묶음을 정제한 뒤 이 표를 한 번에 다시 쓴다**(한 트랜잭션, 쓰는 동안 읽는 쪽은 이전 값을 본다). 정제가 중간에 멈추면 이전 값이 그대로 남으니 다시 돌린다. 실행 결과의 `air_monthly` 가 행 수, `air_unplaced` 가 측정소 · 지표 · 시간을 읽을 수 없어 어느 달에도 넣지 못한 레코드 수다. 같은 지표의 단위가 한 달 안에서 다르면 `AIR_UNIT_MISMATCH` 로 멈춘다
+- **`refine --db` 가 모든 묶음을 정제한 뒤 이 표를 한 번에 다시 쓴다**(출처를 골랐으면 에어코리아 확정 출처 `airkorea_final` 을 고른 실행만 — 아니면 표는 그대로, 실행 결과 `air_monthly` 는 null. 한 트랜잭션, 쓰는 동안 읽는 쪽은 이전 값을 본다). 정제가 중간에 멈추면 이전 값이 그대로 남으니 다시 돌린다. 실행 결과의 `air_monthly` 가 행 수, `air_unplaced` 가 측정소 · 지표 · 시간을 읽을 수 없어 어느 달에도 넣지 못한 레코드 수다. 같은 지표의 단위가 한 달 안에서 다르면 `AIR_UNIT_MISMATCH` 로 멈춘다
 - 한 행 = (`station_code`, `indicator_id`, `month_start`). 기본 키
 
 | 칸 | 뜻 |
@@ -99,9 +102,27 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 - 시군구 단위 평균은 없다. 측정소 ↔ 시군구 연결은 P3 몫
 - 일평균 · 최고 시간값 같은 다른 집계가 필요하면 원본에서 다시 정제해야 한다(시간 단위 정제 결과를 남기지 않으므로)
 
+## 전재 묶음 — `news_syndication`
+
+같은 소식을 여러 언론사가 실은 기사를 한 묶음으로 잇는다(S15P31C108-267). 근거 기사 수가 같은 소식으로 부풀지 않게 세는 데 쓴다. 만드는 곳: `python -m pipeline.refine.syndication --db [--apply]`(서버 실행기 `sudo issueatlas-collect syndicate --apply`). 기본은 시험 실행(건수만, 되돌림).
+
+| 칸 | 뜻 |
+| --- | --- |
+| `news_id` | 정제된 최신 기사(`normalized_ready`, `document.kind = news`) 하나. 혼자인 기사도 한 행 |
+| `group_id` | 묶음 번호 = 묶음에서 가장 먼저 발행된 기사의 `news_id`(같은 시각이면 `news_id` 가 작은 것) |
+| `group_size` | 묶음 기사 수(1 = 혼자) |
+| `rule_version` | 묶은 규칙 판 |
+
+규칙 `syn-0.1`
+- 제목을 다듬는다: 괄호 속 말머리(`[단독]` · `(종합)` · `【】` · `<>`) · 한글 · 영문 · 숫자 밖 글자 · 띄어쓰기를 빼고 소문자
+- 다듬은 제목의 글자 2개 묶음(bigram) 집합 Jaccard 가 **0.7 이상**이고 발행일(한국 날짜)이 **3일 안**이면 이어진 것으로 본다. 이어진 기사는 모두 한 묶음(연결 요소)
+- 0.7 의 근거(개발 DB 3,483건, 11/5): 같은 제목만 묶으면 107묶음 · 246건, 0.7 이면 172묶음 · 434건(최대 5건), 0.6 이면 210묶음 · 551건인데 0.6 부터 다른 기관의 같은 행사 기사(「○○, 희망2026 나눔캠페인 성금 전달」)가 섞인다. 다른 소식을 잘못 묶기보다 몇 개 놓치는 쪽을 골랐다
+- 본문은 쓰지 않는다(요약 뒤 폐기). 제목 · 발행일만
+- 매번 전체를 다시 계산해 표를 통째로 바꾼다. 새 기사가 들어오면(빅카인즈 수집 · 정제 뒤) 다시 돌린다
+- 아직 쓰는 곳 없음: 근거 기사 목록(C2 `articles[]`) · 기사 건수 그림을 묶음 단위로 세는 일은 응답 쪽(P7) 후속
+
 ## 아직 없는 것
 
-- 전재 묶음 칸(`syndication_group_id` 등) — 같은 보도자료를 여러 언론사가 쓴 기사 묶기
 - 문서의 관측 일 묶음 — 문서는 `observed_period_start` · `observed_at` 이 비어 모두 `''` 한 묶음으로 정제된다. 기사가 많아지면 발행일(`published_at`)로 나눈다
 - 수집기가 `c1_record` 를 채우는 것 (P1). 그 전까지 정제 저장은 모든 원본을 건너뛴다
 
@@ -117,4 +138,10 @@ engine 테스트(`pnpm engine:test`)가 C1 계약 예시를 정제한 결과를 
 | v0.2.2 | 2026-10-27 | 저장: 장부를 관측 일 묶음으로 나눠 정제 · 묶음마다 커밋, 실행 결과에 `buckets`. 정제 결과는 한 번에 할 때와 같아 `rule_version` 그대로. 스키마는 그대로 (S15P31C108-111) |
 | v0.3 | 2026-10-27 | 월별 집계 `air_monthly`(V0008): 에어코리아 시간값의 측정소 × 지표 × 월 평균 · 유효 시간 · 최솟값 · 최댓값 · 잠정 포함. 75% 미만이면 평균 null. `refine --db` 가 저장 뒤 새로 고침, 실행 결과에 `air_monthly`. 정제 레코드 스키마 · 결과는 그대로 (S15P31C108-114) |
 | v0.4 | 2026-10-27 | 에어코리아 확정 시간값을 `normalized_record` 에 저장하지 않고 `air_monthly` 표(V0009, materialized view → 표)에만 저장. 정제가 시간마다 검증한 뒤 묶음마다 월 합계에 더해 마지막에 다시 씀. `held_hours` 추가, 실행 결과에 `air_unplaced`. V0009 가 기존 에어코리아 시간 정제 행을 지운다. 정제 규칙 · `rule_version` 은 그대로 (S15P31C108-115) |
+| v0.6 | 2026-10-30 | 이용허락 표에 `공공데이터-이용허락범위제한없음` → `full` 추가(공공데이터포털 「이용허락범위 제한 없음」, 온통청년 청년정책 · 지방재정365). 표는 최대치이고 실제 저장 범위는 레코드의 `storage_scope` 와의 min. 결과가 달라지므로 `rule_version` `p2-0.4.0` (박준우 요청) |
 | v0.5 | 2026-10-28 | 문서(C1 v0.2 기사 칸) 정제: 이용허락 표 `BIGKINDS-이용약관` → `full`(기사 본문 저장, 팀 결정), 저장 범위가 full 이 아닌 문서는 본문을 지우고 `BODY_STRIPPED_BY_SCOPE`(fixed). 문서에도 `obs_key` · `is_latest` — 같은 기사의 여러 판 중 본문 있는 판, 같으면 늦게 받은 판 하나만 `normalized_ready`. `source_text` 문서는 `place_code_raw = ""` 허용. 본문을 허락하는데 본문이 없는 기사는 `BODY_MISSING`(held). 결과가 달라지므로 `rule_version` `p2-0.3.0` — 저장된 행은 다음 정제 때 새 판으로 갱신된다. DB 변경 없음 (S15P31C108-122) |
+| v0.7 | 2026-10-30 | 원본만 다른 재수집: 같은 dedup_key · 같은 장부 내용인데 `content_hash` 만 다르면(원천의 장부 밖 칸만 바뀜 — KOSIS 이름표 · 측정소 측정 항목 등) 충돌이 아니라 같은 판의 사본. 모두 정제 행으로 남고 늦게 받은 사본 하나만 `is_latest`. 이전에는 둘 다 `DEDUP_KEY_CONFLICT` 로 보류돼 그 칸이 `normalized_ready` 에서 빠졌다. 측정소 메타에도 `obs_key` · `is_latest` 를 붙여(모든 레코드) 사본 중 하나만 `normalized_ready`. 정제 저장의 묶음 모으기도 모든 레코드의 관측 칸을 본다. 결과가 달라지므로 `rule_version` `p2-0.5.0` — 저장된 행은 다음 정제 때 새 판으로 갱신된다. 스키마 · DB 변경 없음 (S15P31C108-155) |
+| v0.8 | 2026-11-02 | 보도자료(C1 문서 `kind = press_release`)가 원본 장부 → 정제를 거친다. 이용허락 표에 `KOGL-미표시` → `metadata` 추가(광주광역시 보도자료, 담당자 협의 전). 같은 글은 `locator.press_id` 로 한 칸이고 제목 정정 등 보이는 칸이 바뀐 판 중 늦게 받은 판 하나만 `is_latest`. 결과가 달라지므로 `rule_version` `p2-0.6.0`. 스키마 · DB 변경 없음 (S15P31C108-172) |
+| v0.9 | 2026-11-02 | 요약 뒤 본문을 지운 기사(`fetch.status = ok` · `body = null` · `metadata`)는 `BODY_MISSING` 으로 보류하지 않고 `normalized_ready` 에 남긴다. 같은 기사의 판 순서도 「본문을 받은 판」(지운 판 포함)이 먼저. 본문을 못 받은 기사(`fetch.status` ≠ ok)는 그대로 보류. `rule_version` `p2-0.7.0`. 스키마 · DB 변경 없음 (S15P31C108-189) |
+| v0.10 | 2026-11-02 | 출처 단위 정제: `refine --db --source <출처>` · `--changed-since <ISO 시각>`(그 뒤 `job_run` 이 생긴 출처). 결과는 전체 정제와 같고, `air_monthly` 는 `airkorea_final` 을 고른 실행만 다시 쓴다. 서버 실행기가 수집 성공 뒤 이어 돈다. 실행 결과에 `sources`. 정제 규칙 · `rule_version` · 스키마 · DB 그대로 (S15P31C108-191) |
+| v0.11 | 2026-11-05 | 전재 묶음 표 `news_syndication`(V0047): 정제된 최신 기사를 제목 bigram Jaccard 0.7 이상 · 발행일 3일 안이면 한 묶음(`syn-0.1`), 묶음 번호 = 가장 먼저 발행된 기사. `python -m pipeline.refine.syndication --db [--apply]`. 정제 레코드 칸 · `rule_version` 그대로 (S15P31C108-267) |

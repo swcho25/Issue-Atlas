@@ -12,7 +12,7 @@ v0.2는 **문서 1건 = 레코드 1개**도 지원한다. 선택 키 `document`�
 
 | document 내부 필드 | 타입 | 의미 |
 | --- | --- | --- |
-| kind | news / press_release | 뉴스 / 보도자료 |
+| kind | news / press_release / policy | 뉴스 / 보도자료 / 정책(온통청년 청년정책 등, 근거 ③ 기존 대응) |
 | title | 비어 있지 않은 string | 제목 |
 | publisher | string 또는 null | 언론사·발행 기관. 미제공이면 null |
 | categories | string 배열 | 원천 분류. 미제공이면 빈 배열 |
@@ -32,6 +32,8 @@ v0.2는 **문서 1건 = 레코드 1개**도 지원한다. 선택 키 `document`�
 문서 원천의 지명이 코드가 아니면 `place_code_system=source_text`, `place_code_raw`에 원문 지명을 남기고(원천이 지명을 주지 않으면 수집 검색어. 빅카인즈는 `여수 OR 광주`. 빈 문자열은 P2 입구에서 필수 칸 누락이다) `place_map_status=unmapped`, `place_id=null`로 둔다. 수집 검색어를 실제 기사 지명·행정 코드로 만들지 않는다. `source_text`는 문서에서만 허용한다. 지역·시각 확정은 P3의 역할이다.
 
 `locator`에는 원천 기사 ID(빅카인즈 `news_id`)를, `dedup_key`에는 출처와 기사 ID로 만든 안정적인 키(`bigkinds:<news_id>`)를 둔다. 실제 원문 링크를 제공하지 않은 응답에는 링크를 추측해 넣지 않는다.
+
+같은 문서의 내용이 바뀌면(판) `dedup_key`는 판마다 다르게, `locator`는 같게 둔다. 같은 `dedup_key`에 내용이 다른 레코드가 오면 P2가 충돌(`DEDUP_KEY_CONFLICT`)로 모두 보류하고, `locator`가 같으면 P2가 같은 칸의 판으로 묶어 최신본을 고른다. 온통청년 정책은 `locator` `{plcyNo, zipCd}`, `dedup_key` `youthcenter:<plcyNo>:<zipCd>:<내용 지문 앞 12자리>`다.
 
 [bigkinds-news.json](examples/bigkinds-news.json)은 API 실호출 없이 만든 **합성 계약 예시**다(본문 수집 `ok` · `full`). 가상 기사 ID·제목·언론사·본문·링크를 사용하며 실제 뉴스·유효한 기사 링크가 아니다. 계약 미확정 license_type 때문에 운영 적재에 사용하지 않는다. C1 스키마만 검증하며 빅카인즈 금지 출처 해제를 뜻하지 않는다.
 
@@ -192,6 +194,8 @@ try {
 
 | 버전 | 날짜 | 내용 |
 | --- | --- | --- |
+| v0.2 초안 | 2026-10-30 | 문구: 문서의 판은 `dedup_key` 를 판마다 다르게, `locator` 를 같게. 온통청년 정책 `dedup_key` 에 내용 지문 앞 12자리(수정본이 원본과 충돌해 둘 다 보류되던 문제). 스키마는 그대로 |
+| v0.2 초안 | 2026-10-29 | document.kind 에 `policy` 추가(온통청년 청년정책 수집). 정책 한 건 × 대상 지역 한 곳이 레코드 하나, `place_code_raw` 는 법정 시군구 코드(`bjd`), 원천 행 전체는 payload. 링크를 주지 않는 원천이라 `link` 는 null |
 | v0.2 초안 | 2026-10-28 | 문구: 기사 본문은 저장(팀 결정), 문서 P2 정제는 P2 계약 v0.5 로 연결. 스키마는 그대로 (S15P31C108-122) |
 | v0.2 초안 | 2026-10-28 | document 에 link · fetch(본문 수집 결과) · body 추가, 본문이 있으면 `full` 허용(박준우 요청, 본문 저장은 팀·멘토 확인 전). raw_url 은 받아 온 곳, locator 는 `news_id` |
 | v0.2 초안 | 2026-10-26 | document 칸·문서 조건·source_text, 합성 빅카인즈 예시. P2·P3·P4 리뷰 대기 |

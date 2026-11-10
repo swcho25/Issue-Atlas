@@ -40,7 +40,11 @@ ONE_PER_CODE = {
     "BODY_MISSING": news(
         license_type="BIGKINDS-이용약관",
         storage_scope="metadata",
-        document={**NEWS[0]["document"], "body": None},
+        document={
+            **NEWS[0]["document"],
+            "body": None,
+            "fetch": {**NEWS[0]["document"]["fetch"], "status": "NO_BODY"},
+        },
     ),
 }
 

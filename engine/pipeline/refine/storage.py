@@ -51,14 +51,26 @@ def apply_storage_scope(record: dict, scopes: dict | None = None) -> tuple[dict,
     ):
         document["body"] = None
         issues.append({"code": "BODY_STRIPPED_BY_SCOPE", "field": "document"})
-    # 기사는 본문을 읽어 지역 · 시간 · 요약을 뽑는다. 이용허락이 본문을 허락하는데 본문이 없으면
-    # (원문 링크 없음 · robots 차단 등) 보류해 다음 단계로 넘기지 않는다.
-    # 다시 받아 본문이 생기면 그 판이 나간다
+    # 기사는 본문을 읽어 지역 · 시간 · 요약을 뽑는다. 이용허락이 본문을 허락하는데
+    # 본문을 못 받았으면(원문 링크 없음 · robots 차단 등) 보류해 다음 단계로 넘기지 않는다.
+    # 다시 받아 본문이 생기면 그 판이 나간다. 요약 뒤 본문을 지운 기사는 받은 것으로 본다
     if (
         limit == "full"
         and isinstance(document, dict)
         and document.get("kind") == "news"
-        and document.get("body") is None
+        and not had_body(document)
     ):
         issues.append({"code": "BODY_MISSING", "field": "document"})
     return out, issues
+
+
+def had_body(document: dict) -> bool:
+    """본문을 받은 문서인가. 본문이 있거나, 받은 뒤(fetch.status = ok) 지웠으면 참.
+
+    대표 결정(2026-11-01): 기사 본문은 요약 뒤 지운다. P3 가 요약이 제대로 생긴 기사만
+    본문을 null 로, storage_scope 를 metadata 로 바꾸고 fetch.status 는 ok 로 둔다.
+    """
+    fetch = document.get("fetch")
+    return document.get("body") is not None or (
+        isinstance(fetch, dict) and fetch.get("status") == "ok"
+    )

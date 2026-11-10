@@ -42,19 +42,39 @@ def write_json(path, value):
     pending.replace(path)
 
 
+# Compose interpolates every service, even ones a command does not target. Until the first engine
+# release, this placeholder lets backend deployments pass; `--no-deps backend` never starts it.
+ENGINE_NOT_DEPLOYED = "issueatlas-engine:not-deployed"
+
+
 class Deployment:
+    service = "backend"
+    image_variable = "BACKEND_IMAGE"
+
     def __init__(self, config):
         self.config = config
         self.app = Path(config["app_dir"])
         self.state = self.app / ".deploy"
         self.state.mkdir(mode=0o700, exist_ok=True)
         self.env = dict(os.environ)
+        self.env.update(self.released_images())
         self.compose = ["docker", "compose", "--env-file", str(self.app / "deploy/dev/.env")]
         files = config.get(
-            "compose_files", ("compose.yaml", "compose.tunnel.yaml", "compose.release.yaml")
+            "compose_files", ("compose.yaml", "compose.https.yaml", "compose.release.yaml")
         )
         for name in files:
             self.compose += ["-f", str(self.app / "deploy/dev" / name)]
+
+    def released_images(self):
+        """Current digests of the compose.release.yaml services, from their release records."""
+        images = {"ENGINE_IMAGE": ENGINE_NOT_DEPLOYED}
+        for variable, record in (
+            ("BACKEND_IMAGE", self.app / ".deploy/current.json"),
+            ("ENGINE_IMAGE", self.app / ".deploy/engine/current.json"),
+        ):
+            if record.exists():
+                images[variable] = json.loads(record.read_text())["image"]
+        return images
 
     def run(self, *args, input=None, timeout=180):
         result = subprocess.run(
@@ -75,16 +95,16 @@ class Deployment:
         return json.loads(self.run("docker", "image", "inspect", image))[0]
 
     def current_image(self):
-        container = self.run(*self.compose, "ps", "-q", "backend")
+        container = self.run(*self.compose, "ps", "-q", self.service)
         if not container:
             return None
         return json.loads(self.run("docker", "inspect", container, timeout=30))[0]["Image"]
 
     def apply(self, image):
         if image is None:
-            self.run(*self.compose, "stop", "backend")
+            self.run(*self.compose, "stop", self.service)
             return
-        self.env["BACKEND_IMAGE"] = image
+        self.env[self.image_variable] = image
         self.run(*self.compose, "config", "--quiet")
         self.run(
             *self.compose,
@@ -97,7 +117,7 @@ class Deployment:
             "--wait",
             "--wait-timeout",
             "120",
-            "backend",
+            self.service,
             timeout=150,
         )
 
@@ -137,7 +157,7 @@ class Deployment:
             raise RuntimeError("Pipeline retry changed its release identity")
         metadata = {key: request[key] for key in ("image", "revision", "branch", "pipeline_id")}
         write_json(watermark, metadata)
-        self.env["BACKEND_IMAGE"] = request["image"]
+        self.env[self.image_variable] = request["image"]
         previous_image = self.current_image()
         previous_state_file = self.state / "current.json"
         previous_state = (
@@ -196,11 +216,92 @@ class Deployment:
             raise RuntimeError(
                 f"Deployment failed; inspect {self.state / 'last-result.json'} and job logs"
             ) from None
-        prefix = "collector " if request.get("component") == "collector" else ""
+        component = request.get("component", "backend")
+        prefix = "" if component == "backend" else f"{component} "
         print(
             f"Deployed {prefix}{request['branch']} {request['revision']} "
             f"(pipeline {request['pipeline_id']})"
         )
+
+
+class FrontendDeployment(Deployment):
+    """Separate Next.js project; never recreates Spring or database containers."""
+
+    service = "frontend"
+    image_variable = "FRONTEND_IMAGE"
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.state = self.state / "frontend"
+        self.state.mkdir(mode=0o700, exist_ok=True)
+        self.compose = ["docker", "compose", "-f", str(self.app / "deploy/frontend/compose.yaml")]
+        self.env.update(
+            FRONTEND_PROJECT=config["frontend_project"],
+            FRONTEND_HOST_PORT=str(config["frontend_host_port"]),
+            FRONTEND_NETWORK=config["frontend_network"],
+            DEPLOYMENT_REVISION="not-deployed",
+        )
+
+    def apply(self, image):
+        if image is not None:
+            # Rollback must restore the old SHA as well as the old image.
+            revision = self.inspect(image)["Config"]["Labels"]["org.opencontainers.image.revision"]
+            self.env["DEPLOYMENT_REVISION"] = revision
+        super().apply(image)
+
+    def healthy(self):
+        for _ in range(12):
+            try:
+                for base in (
+                    f"http://127.0.0.1:{self.config['frontend_host_port']}",
+                    self.config["frontend_url"],
+                ):
+                    for path in ("/healthz", "/", "/api/actuator/health"):
+                        req = urllib.request.Request(base + path, headers={"User-Agent": "IssueAtlasDeploymentCheck/1.0"})
+                        with urllib.request.urlopen(req, timeout=10) as response:
+                            if response.status != 200:
+                                raise RuntimeError("Frontend HTTP check failed")
+                            if path == "/":
+                                if "text/html" not in response.headers.get("Content-Type", ""):
+                                    raise RuntimeError("Frontend HTML missing")
+                                response.read()
+                                continue
+                            value = json.load(response)
+                            if path == "/healthz" and (
+                                "no-store" not in response.headers.get("Cache-Control", "")
+                                or response.headers.get("CF-Cache-Status", "").upper() == "HIT"
+                            ):
+                                raise RuntimeError("Cached frontend health response")
+                            if value.get("status") != "UP":
+                                raise RuntimeError("Frontend or API is not UP")
+                            if path == "/healthz" and value.get("revision") != self.env["DEPLOYMENT_REVISION"]:
+                                raise RuntimeError("Published frontend revision mismatch")
+                return
+            except Exception:
+                time.sleep(2)
+        raise RuntimeError("Frontend internal/external revision, HTML or API check failed")
+
+
+class EngineDeployment(Deployment):
+    """Argument phrasing API (engine/api). No host port: trust the compose /health healthcheck."""
+
+    service = "engine"
+    image_variable = "ENGINE_IMAGE"
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.state = self.state / "engine"
+        self.state.mkdir(mode=0o700, exist_ok=True)
+
+    def healthy(self):
+        container = self.run(*self.compose, "ps", "-q", self.service)
+        status = ""
+        if container:
+            status = self.run(
+                "docker", "inspect", "--format", "{{.State.Health.Status}}", container, timeout=30
+            )
+        if status != "healthy":
+            raise RuntimeError("Engine health check failed")
 
 
 class CollectorDeployment(Deployment):
@@ -255,6 +356,26 @@ class CollectorDeployment(Deployment):
         pass
 
 
+def deployment_for(config, component):
+    """Pick the handler for one environment's config (already narrowed by environment_config)."""
+    if component == "frontend":
+        if not config.get("frontend_image_repository"):
+            raise ValueError("Frontend is not configured for this environment")
+        return FrontendDeployment({**config, "image_repository": config["frontend_image_repository"]})
+    if component == "collector":
+        return CollectorDeployment(
+            {**config, "image_repository": config["collector_image_repository"]}
+        )
+    if component == "engine":
+        # Opt-in per environment: only environments with engine_image_repository run the API.
+        if not config.get("engine_image_repository"):
+            raise ValueError("Engine is not configured for this environment")
+        return EngineDeployment({**config, "image_repository": config["engine_image_repository"]})
+    if component == "backend":
+        return Deployment(config)
+    raise ValueError("Unsupported deployment component")
+
+
 def main():
     import fcntl  # Linux-only deployment lock; the module is importable for local unit tests.
 
@@ -267,15 +388,7 @@ def main():
         raise ValueError("Release request too large")
     request = json.loads(raw)
     config = environment_config(config, request.get("branch"))
-    component = request.get("component", "backend")
-    if component == "collector":
-        deployment = CollectorDeployment(
-            {**config, "image_repository": config["collector_image_repository"]}
-        )
-    elif component == "backend":
-        deployment = Deployment(config)
-    else:
-        raise ValueError("Unsupported deployment component")
+    deployment = deployment_for(config, request.get("component", "backend"))
     # Serialize both kinds of deployment; their release records/watermarks stay separate.
     with (Path(config["app_dir"]) / ".deploy/lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)

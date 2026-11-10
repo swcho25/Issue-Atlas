@@ -1,0 +1,110 @@
+{
+  "version": "0.3",
+  "decided_at": "2026-11-01",
+  "indicators": [
+    {
+      "id": "population_net_migration_19_39",
+      "label": "청년(19–39세) 순이동",
+      "unit": "명",
+      "period_type": "M",
+      "place_level": "sigungu",
+      "roll": { "method": "sum", "min_months": 12 },
+      "value_direction": "음수 = 순유출, 양수 = 순유입. 전입 − 전출",
+      "source": { "spec_id": "SP01", "c1_indicator_id": "population_net_migration", "locator": { "C3": "905" } },
+      "cards": ["C1"],
+      "added_by_card": "C1"
+    },
+    {
+      "id": "population_net_migration_19_34",
+      "label": "청년(19–34세) 순이동",
+      "unit": "명",
+      "period_type": "M",
+      "place_level": "sigungu",
+      "roll": { "method": "sum", "min_months": 12 },
+      "value_direction": "음수 = 순유출, 양수 = 순유입. 전입 − 전출",
+      "source": { "spec_id": "SP01", "c1_indicator_id": "population_net_migration", "locator": { "C3": "901" } },
+      "cards": []
+    },
+    {
+      "id": "population_net_migration_total",
+      "label": "전체 순이동",
+      "unit": "명",
+      "period_type": "M",
+      "place_level": "sigungu",
+      "roll": { "method": "sum", "min_months": 12 },
+      "value_direction": "음수 = 순유출, 양수 = 순유입. 전입 − 전출",
+      "source": { "spec_id": "SP01", "c1_indicator_id": "population_net_migration", "locator": { "C3": "000" } },
+      "cards": []
+    },
+    {
+      "id": "population_movers",
+      "label": "전출지 → 전입 시도 이동자 수 (전연령)",
+      "unit": "명",
+      "period_type": "M",
+      "place_level": "sigungu",
+      "roll": { "method": "sum", "min_months": 12 },
+      "value_direction": "이동자 수. 방향 판정에 쓰지 않는다",
+      "source": { "spec_id": "SP02", "c1_indicator_id": "population_movers", "locator": {} },
+      "cards": ["C1"],
+      "added_by_card": "C1"
+    },
+    {
+      "id": "population_registered_total",
+      "label": "주민등록인구 (연말)",
+      "unit": "명",
+      "period_type": "Y",
+      "place_level": "sigungu",
+      "roll": { "method": "end_of_period" },
+      "value_direction": "인구 수",
+      "source": { "spec_id": "SP10", "c1_indicator_id": "population_registered", "locator": { "C2": "000" } },
+      "cards": ["C1", "A3"],
+      "added_by_card": "C1"
+    },
+    {
+      "id": "population_registered_19_39",
+      "label": "청년(19–39세) 주민등록인구 (연말)",
+      "unit": "명",
+      "period_type": "Y",
+      "place_level": "sigungu",
+      "roll": { "method": "end_of_period" },
+      "value_direction": "인구 수. 19–39세 각 나이(observation population_registered_19 – _39) 값의 합",
+      "source": {
+        "spec_id": "SP10",
+        "c1_indicator_id": "population_registered",
+        "locator": { "C2": ["1005", "1201", "1202", "1203", "1204", "1205", "1301", "1302", "1303", "1304", "1305", "1501", "1502", "1503", "1504", "1505", "1601", "1602", "1603", "1604", "1605"] }
+      },
+      "cards": ["C1"],
+      "added_by_card": "C1",
+      "target": "청년 19–39세"
+    },
+    {
+      "id": "population_youth_share_19_39",
+      "label": "청년(19–39세) 인구 비율",
+      "unit": "%",
+      "period_type": "Y",
+      "place_level": "sigungu",
+      "roll": { "method": "end_of_period" },
+      "value_direction": "클수록 청년 비중이 크다. 19–39세 주민등록인구 ÷ 전체 주민등록인구 × 100",
+      "source": { "spec_id": "SP10", "c1_indicator_id": "population_registered", "locator": {} },
+      "cards": ["C1"],
+      "added_by_card": "C1",
+      "target": "청년 19–39세",
+      "shape": "ratio",
+      "numerator_id": "population_registered_19_39",
+      "denominator_id": "population_registered_total",
+      "multiplier": 100
+    },
+    {
+      "id": "air_pm25",
+      "label": "초미세먼지(PM2.5) 월평균",
+      "unit": "µg/m³",
+      "period_type": "M",
+      "place_level": "station",
+      "roll": { "method": "mean", "min_months": 9 },
+      "value_direction": "클수록 나쁨. 월평균은 유효 시간 75% 이상인 달만 있다(air_monthly.value_mean)",
+      "source": { "spec_id": "airkorea_final_yeosu_gwangju", "c1_indicator_id": "air_pm25", "locator": {} },
+      "cards": ["A3"],
+      "added_by_card": "A3"
+    }
+  ]
+}

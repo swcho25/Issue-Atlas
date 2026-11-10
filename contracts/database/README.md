@@ -4,14 +4,30 @@ P1 수집·P3 지역·P7 서버가 공유하는 DB 기반. 구현은 backend/src
 
 | 테이블 | 식별자 | 핵심 저장 규칙 |
 | --- | --- | --- |
-| source | source_id text | 이름·기관·이용 조건·storage_scope 필수. 신뢰 등급·robots 결과는 확인 전 null 허용 |
+| source | source_id text | 이름·기관·이용 조건·storage_scope 필수. 신뢰 등급은 아래 「출처 등급」 표로 채우고(V0039) 표에 없는 출처는 null. robots 결과는 확인 전 null 허용 |
 | source_spec | spec_id text | source FK, method(api/file/board/rss), evidence_class 4종, params 객체 기본 {}. 수동 수집 schedule은 null |
 | job_run | job_run_id text | spec FK, collector_version·started_at 필수, stats 객체 기본 {}. 종료 전 status·finished_at 모두 null, 종료 시 둘 다 입력 |
 | raw_record | bigint identity | 실행과 spec이 일치하는 복합 FK. raw_url/file_name 중 하나 이상 필수. content_hash·payload null 허용. `c1_record`(V0005): 수집기가 이 원본에서 만든 C1 레코드(장부), jsonb 객체 또는 null. P1이 채우고 P2 정제가 읽는다([P2 계약](../p2/README.md)) |
 | place | place_id text | 계층 sido/sigungu/emd/station, parent 자기 FK. geography(Point,4326), 한국 범위 경도 124~132·위도 33~39 |
 | place_code_map | bigint identity | place FK, C1 코드 체계 5종, 코드·유효 날짜 연결 |
 
+## 출처 등급 (S15P31C108-232, V0039)
+
+질문 실행은 등급이 있는 출처로만 통계 · 기존 대응 근거를 만들고, 한정어는 A · B 출처 수를 센다([C2 「근거 충실도 규칙표」](../c2/README.md)). 기준은 자료를 누가 만들었는가 하나다.
+
+| 등급 | 기준 | 출처 (`source_id`) |
+| --- | --- | --- |
+| A | 국가 · 공공기관이 측정 · 집계한 원자료(승인통계 · 측정망) | KOSIS 인구이동 · 주민등록인구 `S01`, 에어코리아 확정자료 `airkorea_final` · 측정소 정보 `airkorea_station` |
+| B | 기관이 발표 · 공시한 행정 자료(기관 입장이 들어갈 수 있음) | 지방재정365 세출 `lofin`, 온통청년 청년정책 `youthcenter`, 여수시 보도자료 `press_yeosu`, 광주광역시 보도자료 `press_gwangju` |
+| C | 언론 보도 | 빅카인즈 뉴스 `bigkinds` |
+
+- 값은 함수 `source_default_grade(source_id)` 한 곳에 있다. V0039 가 이미 있는 행의 빈 등급을 채우고, 트리거가 **넣을 때** 등급이 비어 있으면 같은 값으로 채운다(수집기는 등급 없이 넣는다). 넣은 뒤 사람이 비우거나 바꾼 값은 건드리지 않는다
+- 표에 없는 출처는 null 로 남아 근거를 만들지 않는다. 새 출처를 붙이면 새 마이그레이션에서 함수와 이 표를 함께 고친다
+- `lofin` 행은 V0040 이 세출 수집기와 같은 값으로 넣는다. 옛 수집기(lofin-0.1.0)로 들어간 세출은 출처 행을 남기지 않아서, 행이 없으면 세출 기존 대응 후보가 근거가 되지 않는다
+
 ## 카드 목록 조회 (S15P31C108-132, V0013)
+
+카드 저장·승인 확장: [C3 v0.1](../c3/README.md), S15P31C108-174(-180~-184), V0027/V0028 초안. 기존 card 6칸과 실행 결과를 유지하며 legacy v1을 승인본으로 간주하지 않는다. 최초 실제 승인 v2부터 불변 spec과 지표/규칙/의존성 스냅샷을 저장한다. 새 후보는 공개 목록·질문에서 제외된다. 운영 seed·승인 자동 실행은 없다. 배포 순서는 P7 리뷰에서 확정한다.
 
 - `card`: 카드 ID·이름·대분류·상위 질문·카드 버전·분류 버전. C2 예시의 C1(청년 유출·정착)·A3(대기질) 메타만 seed한다. 논증 판정 규칙이나 카드 승인 기능은 포함하지 않는다.
 - `card_evidence_status`: `(place_id, card_id, card_version, period_start, period_end, kind)`별 확정 상태. 종류는 C2 근거 4종, 상태는 C2의 5가지다. 기간은 날짜 `[start,end)`이며 정확히 같은 기간·카드 버전만 조회에 사용한다. 다른 기간과 겹친다는 이유로 확보 상태를 재사용하지 않는다.
@@ -72,3 +88,29 @@ V0006은 `vector` 확장만 활성화한다. 벡터 칼럼과 벡터 인덱스�
 - v0.1.8 (2026-10-28): 지역 6곳(광주 5구 · 여수시)과 KOSIS 옛 · 새 코드를 `place` · `place_code_map` 에 넣는다(V0011). place_id 는 [C2 예시](../c2/examples/place-list.json)와 같다. `GET /v1/places` 가 이 표를 읽는다.
 - v0.1.9 (2026-10-29): 기사 본문 표 `news_article` · `news_article_ready` 뷰를 지운다(V0012, S15P31C108-128). 기사는 C1 기사 칸으로 `raw_record` → `normalized_record` 에 저장한다. V0007 은 이미 적용돼 있어 그대로 둔다. 개발 서버 표에 있던 행도 함께 지워진다.
 - v0.1.10 (2026-10-29): 근거 표 `evidence` 추가(V0014, S15P31C108-134). 논증 카드의 근거 하나가 한 행이며 원본 여러 건을 묶을 수 있다(원본 위치는 `locator`). 출처 등급 · 이용허락 · 저장 범위는 근거를 만든 때의 값을 함께 둔다. `link_only` 는 `display` 를 둘 수 없다(CHECK). 채우는 쪽은 질문 실행(S15P31C108-133). `GET /v1/evidence/{evidence_id}` 가 읽는다.
+- v0.1.11 (2026-10-29): 지방 세출 표 `local_expenditure` 추가(V0015). 지방재정365 세부사업별 세출현황의 광주 본청 · 5구 · 여수시 행. 기반 6개 테이블과 FK 없이 따로 두고 칸 · 규칙은 [지방 세출 계약](../expenditure/README.md)에 둔다. `storage_scope = full` CHECK.
+- v0.1.12 (2026-10-30): 기사 사건 표 `news_event` 추가(V0016, S15P31C108-148). 기사 하나에 요약 · 사건 시간대 · 위치 · 지역(시도 · 시군 · 구) 한 행이며 P3 가 채운다. 기반 6개 테이블과 FK 없이 따로 두고 칸 · 규칙은 [P3 계약](../p3/README.md)에 둔다.
+- v0.1.13 (2026-10-30): 측정소 22곳(여수 9 · 광주 13)을 `place`(`plc_stn_<코드>`, 부모 시군구, exact 좌표)와 `place_code_map`(`airkorea_station`)에 넣고, 시군구 6곳에 행정 중심 좌표(`admin_centroid`)와 `attrs` {sido, sigun, gu}를 채운다(V0017, S15P31C108-148). 입력은 P3 지역표. `GET /v1/observations` 가 이 행을 읽는다.
+- v0.1.14 (2026-11-01): 시도 18곳(KOSIS 시도 2자리 17곳 + 통합시 12)을 `place`(`kr-<코드>`, `level = sido`, `admin_centroid`)에 넣고 `place_code_map` 에 KOSIS 시도 2자리 · 광주 전체 `29` · 온통청년 `bjd` 시군구 코드 · 측정소 이름(`airkorea_station_name`)을 잇는다(V0018). 칸 · 규칙은 [P3 계약](../p3/README.md) v0.2. `GET /v1/places` 는 시도를 내보내지 않는다.
+- v0.1.15 (2026-11-01): 행정동 123곳(광주 5구 · 여수시)을 `place`(`level = emd`, `kr-<KOSIS 시군구><읍면동 3자리>`, `admin_centroid`)에 넣고 `place_code_map` 에 SGIS 행정동 코드(`sgis`, 통합 전 · 뒤 두 줄)를 잇는다(V0019). 칸 · 규칙은 [P3 계약](../p3/README.md) v0.3. `GET /v1/places?parent_id=` 가 시군구의 행정동을 돌려준다.
+- v0.1.16 (2026-11-01): 기사 사건 표 `news_event` 에 지역 배열 `regions`(jsonb, 기본 `[]`, 배열 CHECK, GIN `jsonb_path_ops`)를 더한다(V0020, S15P31C108-168). 원소는 `{sido, sigun, gu}`, 첫 원소가 대표 지역으로 기존 `sido` · `sigun` · `gu` 칸과 같고, 기존 행은 그 칸 하나로 채운다. 칸 · 규칙은 [P3 계약](../p3/README.md) v0.4.
+- v0.1.17 (2026-11-01): 시군구 6곳의 상위 지역을 잇는다(V0021): 광주 5개 구 → `kr-29`, 여수시 → `kr-46`. 상위 지역 코드에 붙은 자료(광주 본청 세출 · 광주시 보도자료)를 구에서 찾는 법은 [P3 계약](../p3/README.md) v0.5.
+- v0.1.18 (2026-11-01): 질문 · 실행 표 `question` · `argument_run` · `argument_run_source` 추가(V0023, S15P31C108-133). 질문 하나에 실행 여럿, 실행 하나 = 결과(C2 argument jsonb) 하나이며 고치지 않는다. `argument_run_source` 는 실행이 쓴 근거(`evidence`)와 기존 대응 후보(`existing_response`, 판) — 출처 등급이 없어 근거로 못 만든 후보는 `response_id` 만. `card_id` null = 신규 카드 후보.
+- v0.1.19 (2026-11-02): 시군구 6곳 `place_id` 를 `plc_*` 에서 `kr-<KOSIS 새 시군구 5자리>` 로 바꾼다(V0024). 새 ID 로 행을 복사하고 참조(`place.parent_id` · `place_code_map` · `card_evidence_status` · `existing_response` · `question`, `argument_run.result` 의 `question.place_id`)를 옮긴 뒤 옛 행을 지운다. 칸 · 대응표는 [P3 계약](../p3/README.md) v0.6. 측정소 `plc_stn_*` 은 그대로.
+- v0.1.20 (2026-11-02): 관측 행 view `observation` 추가(V0025). 새 표 없이 `normalized_ready`(SP01 · SP02 · SP10) · `air_monthly` · `news_event` 를 한 모양으로 읽는다. SP10 연령 22코드를 `population_registered_total` · `_19` – `_39` 로 나눠 전에 빠졌던 378행이 행이 된다. 칸 · 매핑은 [관측 행 계약](../observation/README.md).
+- v0.1.21 (2026-11-02): `local_expenditure` 에 `job_run_id`(FK `job_run`, null 허용)와 최신본 뷰 `local_expenditure_latest` 추가(V0026, S15P31C108-173). 세출 수집 실행마다 `job_run` 을 남기고 그 파일의 행에 실행을 찍는다. 뷰는 회계연도마다 마지막 실행의 행만. 칸 · 규칙은 [지방 세출 계약](../expenditure/README.md) v0.2.
+- v0.1.22 (2026-11-02): 카드 저장 · 승인 표 추가(V0027 · V0028, S15P31C108-174). `card` 에 상태 · 초안 · 현재 승인 버전을 더하고 지표 사전 `indicator` · 승인본 `card_version` · 변경 이력 `card_revision` 등을 둔다. 새 후보는 공개 목록 · 질문에서 빠진다. 칸 · 규칙은 [C3 계약](../c3/README.md) v0.1.
+- v0.1.23 (2026-11-02): `normalized_record` 에 `record -> 'locator' ->> 'news_id'` 인덱스 추가(V0029). 근거 기사 목록(C2 `articles[].url`)이 빅카인즈 원본 레코드의 `document.link` 를 기사마다 찾는다.
+- v0.1.24 (2026-11-02): 카드 검사 · 승인 함수를 #171 카드 설계도에 맞춰 다시 정의(V0030, S15P31C108-174 리뷰). 표는 그대로. 지표 `target` 선택 · `place_level` sido · sigungu · emd · station · 연령은 지표 ID 기준 · 저장 승인 기록 `card_approval`. 칸 · 규칙은 [C3 계약](../c3/README.md) v0.1.1.
+- v0.1.25 (2026-11-02): `observation` view 의 통계 카드 태그를 지표 사전에 맞춰 다시 정의(V0031, S15P31C108-196). `population_movers` · SP10 19–39세 각 나이 → C1, `population_registered_total` → C1 · A3. 칸 · 순서 · 행은 그대로.
+- v0.1.26 (2026-11-03): 측정소 22곳 `place_id` 를 `plc_stn_<코드>` 에서 `kr-<부모 시군구 5자리>-s<코드>` 로 바꾼다(V0032, S15P31C108-198). V0024 처럼 새 ID 로 행을 복사하고 참조(`place_code_map` · `card_evidence_status` · `existing_response` · `question` · 저장된 실행 결과의 측정소 ID)를 옮긴 뒤 옛 행을 지운다. 옛 형식이 남으면 멈춘다
+- v0.1.27 (2026-11-03): 재실행 로그(5차 멘토링 표 2, 11/13). `argument_run` 에 `previous_run_id`(같은 지역 × 카드 × 기간의 바로 앞 실행) · `filled_cells`(논증 6칸 중 자동으로 찬 칸 수, 채움률 = ÷ 6) · `edit_count`(사람이 고친 칸 수, 검수 기능 전이라 null) · `duration_ms`(실행 시간)를 더한다(V0033). C2 응답(`result`)에는 넣지 않는다(11/4 동결). 실행마다 서버 로그 한 줄에 앞 실행과의 차이를 남긴다.
+- v0.1.28 (2026-11-03): 기사 사건 표 `news_event` 에 만든 판 칸 `prompt_version` · `summary_version` · `model`(text, null 허용)을 더한다(V0038, S15P31C108-218). null 은 판을 기록하기 전 적재. 마이그레이션에서 채우지 않는다
+- v0.1.29 (2026-11-04): 출처 등급을 정했다(V0039, S15P31C108-232). 「출처 등급」 표대로 이미 있는 출처 행의 빈 `reliability_grade` 를 채우고, 넣을 때 등급이 빈 행도 같은 값으로 채우는 트리거를 둔다. 칸 · 제약은 그대로
+- v0.1.30 (2026-11-04): 세출 출처 행 `lofin` 을 넣는다(V0040, S15P31C108-234). 값은 세출 수집기 `LofinQuery` 와 같고 등급은 V0039 트리거가 B 로 채운다. 이미 있으면 그대로 둔다
+- v0.1.31 (2026-11-04): 시군구 · 행정동 경계 표 `place_boundary`(V0041, S15P31C108-230): `place_id` PK · FK, `boundary geography(MultiPolygon, 4326)`(GIST, 비지 않고 올바른 도형만), 출처 `source` · `source_year` · `source_code`. V0042 이 SGIS 2025 경계 129행을 넣고, 시군구 · 행정동 place 중 경계 없는 곳이 있으면 멈춘다. 칸 · 규칙은 [P3 계약](../p3/README.md) v0.12 「경계」
+- v0.1.32 (2026-11-04): 옛 보도자료 표 `press_release`(V0010)를 지운다(V0044, S15P31C108-240). 옛 표의 모든 행이 원본 장부(`press_yeosu` · `press_gwangju`, `payload.press_id`)에 있을 때만 지우고, 하나라도 없으면 표를 남기고 알림만 낸다
+- v0.1.33 (2026-11-04): 논증 문장화 기록 `argument_phrasing` 추가(V0046, S15P31C108-231). 실행(`argument_run`) 한 건에 한 행: 응답의 ③ 보증 · ⑤ 반박이 AI 문장(`done`)인지 카드 문구인지, 아니면 사유 코드(AI 계약 v0.2 7종 + engine 에 못 닿은 `ENGINE_DISABLED` · `ENGINE_TIMEOUT` · `ENGINE_ERROR`), 떨어진 검사 `problems`, 인용 · 원문 위치 `citations`, `model` · `prompt_version` · `duration_ms`. `done` ⇔ 사유 없음. 승인본이 없는 실행(신규 카드 후보 · legacy)은 행이 없다. C2 응답(`result`)에는 넣지 않는다(11/4 동결). 칸 · 사유는 [AI 계약](../ai/README.md) v0.2 「문장화」
+- v0.1.34 (2026-11-05): 기사 전재 묶음 표 `news_syndication` 추가(V0047, S15P31C108-267). 정제된 최신 기사 하나에 한 행(`news_id` PK · `group_id` · `group_size` · `rule_version` · `grouped_at`), `group_id` 인덱스. 다른 표와 FK 없음. P2 가 통째로 다시 계산해 바꿔 쓴다. 칸 · 규칙은 [P2 계약](../p2/README.md) 「전재 묶음」
+- v0.1.35 (2026-11-05): 통계 · 분모 근거(`evidence.kind` = `statistics` · `denominators`)의 `observed_at` 을 하루 앞당긴다(V0048, S15P31C108-272). 질문 실행이 마지막 관측의 끝 경계(`when_end`, 다음 달 1일 0시 · 포함 안 함)를 넣고 있었다 → 그 기간의 마지막 날 한국 0시. 관측 기간은 모두 하루보다 길다(월 · 연). 스키마 변경 없음, 저장된 실행 결과는 그대로
+- v0.1.36 (2026-11-10): 논증 문장화 기록 `argument_phrasing` 에 검색 기록 `retrieval` 추가(V0054, S15P31C108-326). ⑤ 반박 근거 구절을 어떻게 골랐는지 — `{method: rebuttal_r3 | card_tags, query_version, k, candidates, picked[{rebuttal, rank, source_id, score, cosine, lexical}]}`, jsonb 객체 또는 null(engine 이 고르기 전에 멈춤 · engine 에 못 닿음 · 옛 engine). C2 응답에는 넣지 않는다. 칸은 [AI 계약](../ai/README.md) v0.5 「반박별 근거 기사」

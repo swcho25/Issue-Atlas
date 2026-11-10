@@ -4,6 +4,7 @@
 Python 3.13 · uv · ruff · pytest. 규칙은 `AGENTS.md`.
 
 수집기 서버 실행·자동 버전 갱신: [EC2 수집기 배포](../deploy/collector/README.md).
+논증 문장화 API(engine/api) 개발 서버 실행: [개발 서버 engine](../deploy/dev/README.md#논증-문장화-engine-s15p31c108-243).
 
 ```bash
 uv --directory engine sync   # 처음 한 번 (.venv 생성)
@@ -20,10 +21,33 @@ uv --directory engine run python -m pipeline.refine --db
 # robots.txt 를 지키고 같은 사이트 요청 사이에 1초를 둔다. 출력에 기사 본문이 들어가므로 저장소 밖에 저장한다
 uv --directory engine run python -m pipeline.article <빅카인즈 응답 JSON 파일> > <저장소 밖 경로>.jsonl
 # DB 저장은 빅카인즈 수집기(pipeline.collect.bigkinds)가 raw_record 에 한다 (pipeline/collect/README.md 「빅카인즈 뉴스」)
+# 기존 대응 후보: 정제된 온통청년 정책 · local_expenditure → existing_response (같은 판은 건너뜀, 건수 JSON)
+uv --directory engine run python -m pipeline.responses --db
+# 기사 전재 묶기: 정제된 최신 기사 → news_syndication 통째로 다시 계산(제목 bigram 0.7 · 3일, contracts/p2 「전재 묶음」)
+# 기본 시험 실행(건수 JSON), --apply 로 커밋
+uv --directory engine run python -m pipeline.refine.syndication --db [--apply]
+# P3 지역 · 시간: 아직 안 돌린 기사 → JSONL(본문 포함, 저장소 밖에) → 모델 서버 추출 → news_event
+# region.load 는 기본 시험 실행(되돌림). --apply 로 커밋, --delete-bodies 로 요약된 기사 본문 지우기
+uv --directory engine run python -m pipeline.region.export --db --output <저장소 밖 경로>.jsonl
+uv --directory engine run python -m pipeline.region.extract --input <내보낸 JSONL> --output <저장소 밖 경로>.jsonl   # .env 의 P3_LLM_*
+uv --directory engine run python -m pipeline.region.load --db --extract <추출 결과 JSONL> [--apply]
+# P3 경계: SGIS 행정구역 경계 → Flyway 시드 SQL(시군구 6 · 행정동 123, 10 m 단순화). 연도가 바뀔 때 새 번호로
+uv --directory engine run python -m pipeline.region.boundary --year 2025 --output ../backend/src/main/resources/db/migration/V<번호>__seed_place_boundaries.sql
+# P4 기사→카드 1차 분류: C1·A3 승인본과 최신 정제 기사 제목·요약 사용
+# 기본은 시험 실행, --apply에서만 저장. 로컬 별도 DB는 --database issue_atlas_p4
+uv --directory engine run python -m ai.classify embed-docs --db [--apply]
+uv --directory engine run python -m ai.classify embed-cards --db [--apply]   # 카드 프로필 + ⑤ 반박 검색 질의(반박마다 하나)
+# 카드 승인 판이 바뀌면 embed-cards --apply 뒤 score --apply 를 이어서 돌린다
+uv --directory engine run python -m ai.classify score --db [--apply]   # thresholds.json 카드별 방식(cosine · f4)
+uv --directory engine run python -m ai.classify sample --db --output <저장소 밖 경로>.csv
+# F4 모델 파일 다시 만들기: 저장소 밖 학습 입력 JSON(기사 문장 · 벡터 · 라벨) → ai/classify/f4_model.json. DB · API 안 씀, scikit-learn(dev)
+uv --directory engine run python -m ai.classify train --input <저장소 밖 경로>.json
+# P5 ⑤ 반박 문장화 시험: 가상 판정 입력(fixture) + 기사 목록 → 결과 JSON. DB 에 쓰지 않음 (.env 의 GMS_API_KEY)
+uv --directory engine run python -m ai.argument <판정 입력 JSON> <기사 목록 JSON>
 # PostGIS 통합 테스트 (Docker 필요, pnpm engine:test 에는 안 들어감)
 uv --directory engine run pytest tests_postgres
 
-# HTTP 입구: backend 가 바로 응답을 기다리는 요청만 받는다 (지금은 GET /health)
+# HTTP 입구: backend 가 바로 응답을 기다리는 요청만 받는다. GET /health · POST /v1/argument/phrase(논증 문장화, .env 의 GMS_API_KEY)
 uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 ```
 
@@ -34,4 +58,8 @@ uv --directory engine run uvicorn api.main:app   # http://127.0.0.1:8000/health
 | `pipeline/refine/` | 박준우 | P2 정제 — 검증·정규화·저장 범위 게이트·중복 |
 | `pipeline/article/` | 박준우 | 기사 본문 수집 — 빅카인즈 원문 링크 → 본문(같은 기사 확인). 요약은 P3. 빅카인즈 수집기가 불러 `raw_record` 에 저장 ([계약](../contracts/article/)) |
 | `pipeline/collect/` | 장성우 | P1 KOSIS·에어코리아 수집·원천 저장·C1 출력 ([KOSIS](pipeline/collect/README.md), [에어코리아](pipeline/collect/AIRKOREA.md)) |
-| `api/` | (미정) | FastAPI HTTP 입구 — pipeline 함수를 부르기만 한다 |
+| `pipeline/region/` | 정우현 | P3 지역 · 시간 — 기사 지역 · 여러 지역 · 위치 · 사건 시간대 · 요약 → `news_event`, 요약 뒤 본문 지우기. 규칙(이름 체계 · 지명 사전 · 본문 정리 · 여러 지역 · 적재 검사)과 서버 명령(`export` · `extract` · `load`), 경계 시드(`boundary`). 추출은 OpenAI 호환 모델 서버(.env `P3_LLM_*`), 적재 전 장소 확인은 주소 API(.env `JUSO_SEARCH_KEY`), 위치 좌표는 SGIS(.env `SGIS_KEY` · `SGIS_SECRET`) ([계약](../contracts/p3/)) |
+| `pipeline/responses/` | 장성우 | P8 카드 근거 ③ 「기존 대응」 후보 — 온통청년 정책 · 세출에서 규칙으로 골라 `existing_response` 에 저장 ([계약](../contracts/existing-response/)) |
+| `ai/classify/` | 최동준 | P4 기사 제목·요약 → C1·A3 승인 카드 프로필 임베딩·cosine 점수, ⑤ 반박 검색 질의 임베딩(`card_rebuttal_profile`), F4 학습 분류기 확률(`f4.py` · `f4_model.json`, 추론은 scikit-learn 없이), `thresholds.json` 의 카드별 방식 · 기준값으로 선택 ([계약](../contracts/article-card-search/README.md)) |
+| `ai/argument/` | 최동준 | P5 논증 카드 ⑤ 반박(`llm_judgment`) 문장화와 출력 검사(인용 · 원문 위치 · 수치 · 판정 고정 · 금지어). ① 판단 · ③ 보증은 규칙 · 카드 문장이라 쓰지 않는다(-282). 탈락하면 빈 반박. 입력은 [판정 입력](../contracts/ai/) + 그 실행의 카드 승인본 + 근거 자료 구절(자료 종류 공통 모양, 지금은 기사 요약). 반박 검색 재료가 오면 반박마다 지역 · 기간 기사에서 R3(코사인 + 글자 TF-IDF) 상위 5건을 골라 구절로 쓴다(`retrieve.py`, -326). 카드 목록 없이 승인본으로 판정한 실행이면 부른다 |
+| `api/` | 최동준 | FastAPI HTTP 입구 — pipeline · ai 함수를 부르기만 한다. `POST /v1/argument/phrase` 는 [AI 계약](../contracts/ai/) v0.2 「문장화」 |

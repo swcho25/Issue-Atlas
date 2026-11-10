@@ -2,12 +2,21 @@
 
 import itertools
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
 from pipeline.collect import press
-from pipeline.collect.press import PressError, collect_pages, main, parse_gwangju, parse_yeosu
+from pipeline.collect.press import (
+    PressError,
+    PressQuery,
+    collect_pages,
+    main,
+    parse_gwangju,
+    parse_yeosu,
+    to_c1,
+)
+from pipeline.refine.run import refine_records
 
 AT = "2026-10-28T00:00:00Z"
 
@@ -90,6 +99,44 @@ def test_parse_keeps_visible_fields_and_full_title():
         "published_on": "2025-06-29",
     }
     assert parse_yeosu(EMPTY_YEOSU) == []
+
+
+def test_yeosu_today_row_shows_time_and_gets_today(monkeypatch):
+    monkeypatch.setattr(press, "_today_kst", lambda: "2026-10-30")
+    [y] = parse_yeosu(yeosu_page([(584262, "행정", "여수시, 오늘 보도", "홍보과", "11:01:13")]))
+    assert y["published_on"] == "2026-10-30"
+
+
+def test_yeosu_today_uses_korean_date_at_utc_day_boundary(monkeypatch):
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 29, 15, 1, tzinfo=UTC).astimezone(tz)
+
+    monkeypatch.setattr(press, "datetime", FixedDatetime)
+    [row] = parse_yeosu(yeosu_page(rows_yeosu(1, ["00:01:00"])))
+    assert row["published_on"] == "2026-10-30"
+
+
+def test_yeosu_time_only_today_does_not_stop_historical_collection(monkeypatch):
+    monkeypatch.setattr(press, "_today_kst", lambda: "2026-10-30")
+    monkeypatch.setattr(press, "PAGE_SIZE", 2)
+    web = Web(
+        {
+            1: (200, yeosu_page(rows_yeosu(4, ["11:01:13", "2026-10-29"]))),
+            2: (200, yeosu_page(rows_yeosu(2, ["2025-12-31", "2022-12-31"]))),
+        }
+    )
+    pages = list(collect_pages("yeosu", date(2023, 1, 1), date(2025, 12, 31), **web.options()))
+    assert pages[0] == []
+    assert [r["press_id"] for page in pages for r in page] == ["yeosu:2"]
+
+
+@pytest.mark.parametrize("day", ["24:00:00", "11:60:00", "11:01:60", "unknown"])
+def test_yeosu_invalid_time_is_not_assumed_to_be_today(day):
+    web = Web({1: (200, yeosu_page(rows_yeosu(1, [day])))})
+    with pytest.raises(PressError, match="^PRESS_UNRECOGNIZED_ROW$"):
+        list(collect_pages("yeosu", date(2023, 1, 1), date(2025, 12, 31), **web.options()))
 
 
 def test_yeosu_walks_until_older_than_start_and_respects_crawl_delay(monkeypatch):
@@ -187,8 +234,13 @@ def test_cli_prints_jsonl_without_db(capsysbinary, monkeypatch):
     )
     out, err = capsysbinary.readouterr()
     [line] = out.decode().splitlines()
-    assert json.loads(line)["title"] == "가상시 보도 3"
+    assert json.loads(line)["document"]["title"] == "가상시 보도 3"
     assert json.loads(err) == {"records": 1}
+
+
+def test_cli_from_table_needs_db(capsys):
+    assert main(["--site", "gwangju", "--from-table"]) == 2
+    assert capsys.readouterr().err.strip() == "PRESS_FROM_TABLE_NEEDS_DB"
 
 
 def test_cli_output_file_replaces_stdout(capsysbinary, monkeypatch, tmp_path):
@@ -199,7 +251,7 @@ def test_cli_output_file_replaces_stdout(capsysbinary, monkeypatch, tmp_path):
     out, err = capsysbinary.readouterr()
     assert out == b"" and json.loads(err) == {"records": 1}
     [line] = path.read_bytes().splitlines()
-    assert json.loads(line)["press_id"] == "yeosu:3"
+    assert json.loads(line)["locator"] == {"press_id": "yeosu:3"}
 
 
 def test_transient_failure_is_retried_with_same_interval(monkeypatch):
@@ -220,3 +272,79 @@ def test_transient_failure_is_retried_with_same_interval(monkeypatch):
     assert [r["press_id"] for p in pages for r in p] == ["yeosu:3"]
     times = [t for url, t in web.calls if "page=1" in url]
     assert len(times) == 3 and all(b - a >= 30 for a, b in itertools.pairwise(times))
+
+
+def listings(site, rows, at=AT):
+    web = Web({1: (200, (yeosu_page if site == "yeosu" else gwangju_page)(rows))})
+    options = web.options() | {"now": lambda: at}
+    [page] = collect_pages(site, date(2025, 1, 1), date(2025, 12, 31), **options)
+    return page
+
+
+def test_c1_record_is_metadata_press_document():
+    [listing] = listings("yeosu", rows_yeosu(3, ["2025-05-01"]))
+    payload, record = to_c1(listing, "run-1")
+    assert payload == {
+        "press_id": "yeosu:3",
+        "category": "행정",
+        "department": "홍보과",
+        "title": "가상시 보도 3",
+        "published_on": "2025-05-01",
+        "url": "https://www.yeosu.go.kr/www/govt/news/release/press?idx=3&mode=view",
+    }
+    query = PressQuery("yeosu")
+    assert (record["source_id"], record["spec_id"]) == (query.source_id, query.spec_id)
+    # 원본 주소는 쪽 번호가 없는 게시판이라 같은 글은 어느 쪽에서 읽어도 같다
+    assert record["raw_url"] == "https://www.yeosu.go.kr/www/govt/news/release/press"
+    assert record["published_at"] == "2025-05-01T00:00:00+09:00"
+    assert (record["place_code_raw"], record["place_code_system"]) == ("46130", "kosis")
+    assert (record["license_type"], record["storage_scope"]) == ("KOGL-4", "metadata")
+    assert record["document"] | {"title": None} == {
+        "kind": "press_release",
+        "title": None,
+        "publisher": "여수시",
+        "categories": ["행정"],
+        "keywords": [],
+        "entities": {"locations": [], "persons": [], "organizations": []},
+        "excerpt": None,
+        "link": payload["url"],
+        "fetch": None,
+        "body": None,
+    }
+
+
+@pytest.mark.parametrize(
+    ("site", "rows"),
+    [
+        ("yeosu", rows_yeosu(3, ["2025-05-01"])),
+        ("gwangju", [(7, "", "가상 보도 7", "2025-05-01")]),
+    ],
+)
+def test_press_documents_pass_refine(site, rows):
+    [listing] = listings(site, rows)
+    [out] = refine_records([to_c1(listing, "run-1")[1]])
+    assert (out["validation_status"], out["issues"], out["is_latest"]) == ("pass", [], True)
+    assert out["storage_scope"] == "metadata" and out["document"]["body"] is None
+
+
+def test_recollecting_same_post_is_the_same_original():
+    [first] = listings("yeosu", rows_yeosu(3, ["2025-05-01"]))
+    [again] = listings("yeosu", rows_yeosu(3, ["2025-05-01"]), at="2026-11-02T00:00:00Z")
+    a, b = to_c1(first, "run-1")[1], to_c1(again, "run-2")[1]
+    assert a["content_hash"] == b["content_hash"] and a["dedup_key"] == b["dedup_key"]
+    assert len(refine_records([a, b])) == 1
+
+
+def test_corrected_title_is_a_new_revision_and_only_latest_is_ready():
+    [old] = listings("yeosu", rows_yeosu(3, ["2025-05-01"]))
+    corrected = [(3, "행정", "가상시 보도 3 (정정)", "홍보과", "2025-05-01")]
+    [new] = listings("yeosu", corrected, at="2026-11-02T00:00:00Z")
+    a, b = to_c1(old, "run-1")[1], to_c1(new, "run-2")[1]
+    assert a["content_hash"] != b["content_hash"] and a["dedup_key"] != b["dedup_key"]
+    refined = refine_records([a, b])
+    assert [r["validation_status"] for r in refined] == ["pass", "pass"]
+    assert len({r["obs_key"] for r in refined}) == 1
+    assert [(r["document"]["title"], r["is_latest"]) for r in refined] == [
+        ("가상시 보도 3", False),
+        ("가상시 보도 3 (정정)", True),
+    ]

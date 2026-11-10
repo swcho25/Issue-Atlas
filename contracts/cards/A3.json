@@ -1,0 +1,89 @@
+{
+  "card_id": "A3",
+  "name": "대기질",
+  "parent_question": "도시의 생태환경은 어디서, 얼마나 빠르게 변화하는가?",
+  "domain": "A 환경·기후",
+  "st_type": ["분포형", "변화형"],
+  "status": "candidate",
+  "card_version": 1,
+  "inclusion": ["측정소 PM2.5 · O3 관측값", "나쁨 일수", "비상저감조치", "대기 개선 사업"],
+  "exclusion": ["악취 민원(측정 불가, 후속 카드)", "화학사고(B4)"],
+  "claim_template": "{지역}의 측정소 {n}곳에서 {기간} 초미세먼지(PM2.5) 연평균이 {판정값}",
+  "claim_items": [{ "indicator_id": "air_pm25", "role": "main" }],
+  "comparability": {
+    "same_indicator": "지표 사전의 같은 행(air_pm25), 같은 측정소(station_code)",
+    "same_period_length": "연. 측정소 연평균은 유효한 달(유효 시간 75% 이상) 9개 이상일 때만",
+    "same_boundary": "시군구 안 측정소 가운데 기간 안 모든 해에 연평균이 있는 측정소(공통 측정소)만 쓴다. 이전 · 교체가 확인된 측정소는 이전 전후를 다른 측정소로 본다",
+    "same_method": "시군구 연 값 = 공통 측정소별 연평균의 평균. 판단 문장의 {n} 은 공통 측정소 수"
+  },
+  "rule": {
+    "rule_id": "first_last_diff",
+    "formula_version": "a3-pm25-diff-0.2",
+    "indicator_id": "air_pm25",
+    "min_years": 3,
+    "thresholds": { "worse": 3.0, "better": -3.0, "unit": "µg/m³" },
+    "outcomes": [
+      { "when": "fewer_than_min_years", "label": "근거 부족", "claim": "insufficient", "meaning": "측정소 연평균이 하나라도 있는 해가 3개 미만. 측정소가 하나도 없는 해는 건너뛰고 남은 해를 본다" },
+      { "when": "no_common_station", "label": "비교 불가", "claim": "not_comparable", "meaning": "남은 모든 해에 연평균이 있는 측정소가 없음",
+        "claim_text": "{지역}에는 {기간} 모든 해에 연평균이 있는 측정소가 없어 초미세먼지(PM2.5) 연평균을 비교할 수 없습니다." },
+      { "when": "diff_at_least_worse", "label": "악화", "claim": "increasing", "meaning": "공통 측정소 평균으로 끝해 − 첫해 연평균이 +3µg/m³ 이상",
+        "claim_text": "{지역} 측정소 {n}곳의 초미세먼지(PM2.5) 연평균은 {첫해}년 {첫값}µg/m³에서 {끝해}년 {끝값}µg/m³로 높아졌습니다." },
+      { "when": "diff_at_most_better", "label": "개선", "claim": "decreasing", "meaning": "공통 측정소 평균으로 끝해 − 첫해 연평균이 −3µg/m³ 이하",
+        "claim_text": "{지역} 측정소 {n}곳의 초미세먼지(PM2.5) 연평균은 {첫해}년 {첫값}µg/m³에서 {끝해}년 {끝값}µg/m³로 낮아졌습니다." },
+      { "when": "otherwise", "label": "불분명", "claim": "unclear", "meaning": "−3 과 +3 사이(경계값은 악화 · 개선)",
+        "claim_text": "{지역} 측정소 {n}곳의 초미세먼지(PM2.5) 연평균은 {첫해}년 {첫값}µg/m³, {끝해}년 {끝값}µg/m³로 차이가 판정 기준(±3µg/m³)보다 작습니다." }
+    ]
+  },
+  "max_claim_level": "calculated",
+  "applicability": {
+    "place_level": "sigungu",
+    "min_complete_years": 3,
+    "min_stations": 1
+  },
+  "evidence": {
+    "statistics": [{ "spec_id": "airkorea_final_yeosu_gwangju", "indicator_id": "air_pm25" }],
+    "documents": [
+      { "spec_id": "bigkinds_news_yeosu_gwangju", "note": "빅카인즈 기사. 본문은 요약 · 분류 뒤 폐기(2026-11-01 결정)" },
+      { "spec_id": "press_release_yeosu", "note": "여수시 보도자료 목록(제목 · 등록일 · 링크). 공공누리 4유형이라 본문 없음" },
+      { "spec_id": "press_release_gwangju", "note": "광주광역시 보도자료 목록. 공공누리 표시 없음(협의 전)이라 본문 없음. 발행 기관 지역은 시 전체(29)" }
+    ],
+    "existing_responses": [
+      { "spec_id": "lofin_expenditure_gwangju_yeosu", "note": "지방재정365 세출 최신본(local_expenditure_latest) 환경보호 대기 → existing_response" }
+    ],
+    "denominators": [{ "spec_id": "SP10", "indicator_id": "population_registered_total", "note": "노출 인구 맥락 표시만" }]
+  },
+  "expected_gaps": [
+    { "what": "기상 자료(강수 · 풍향)", "status": "not_collected" },
+    { "what": "확정자료 최근 2개월", "status": "not_published" }
+  ],
+  "required_for_claim": {
+    "statistics": "required",
+    "documents": "optional",
+    "existing_responses": "optional",
+    "denominators": "optional"
+  },
+  "warrant": {
+    "status": "draft",
+    "text": "같은 측정소에서 PM2.5 연평균과 나쁨 일수가 늘면 그 지점 주변의 대기질이 나빠졌다고 본다. 측정소 값은 반경 수 km의 대표값이며 도시 전체를 대표하지 않는다"
+  },
+  "rebuttals": {
+    "status": "draft",
+    "items": [
+      { "id": "A3-R1", "text": "기상 변동(강수일 · 풍향 · 정체)" },
+      { "id": "A3-R2", "text": "국외 유입(황사 · 장거리 이동)" },
+      { "id": "A3-R3", "text": "측정소 이전 · 장비 교체 · 결측 시간 편차" },
+      { "id": "A3-R4", "text": "등급 기준값 개정" }
+    ]
+  },
+  "ceiling": ["발생원", "건강 영향", "정책 효과", "기상 요인 분리", "측정소 없는 지역으로 일반화"],
+  "map_mode": "측정소 점 + 월 슬라이더. 값은 점 색, 선 없음",
+  "legend_text": ["측정소 값, 도시 평균 아님", "첫 관측 순서, 옮겨 간 경로·원인 아님"],
+  "forbidden_terms": ["확산", "전파", "원인", "효과", "소멸", "오염 유입", "배출원"],
+  "keywords": ["미세먼지", "초미세먼지", "오존", "대기질", "비상저감조치", "고농도", "산단 대기"],
+  "approval": {
+    "approved_by": "대표",
+    "approved_at": "2026-11-01",
+    "approved_fields": ["claim_items", "rule", "applicability", "required_for_claim", "ceiling", "legend_text"],
+    "source": "회사 노션 「Issue Atlas — 5차 멘토링 검토 및 2주 개발 플랜 (11/2 ~ 11/13)」 표 1 결정 3 · 4 · 5"
+  }
+}

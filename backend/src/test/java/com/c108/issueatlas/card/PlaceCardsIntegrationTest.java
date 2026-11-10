@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.c108.issueatlas.C2Contract;
 import com.c108.issueatlas.TestcontainersConfiguration;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,6 +45,7 @@ class PlaceCardsIntegrationTest {
         String response =
                 mvc.perform(request("cards-test", "2023-01-01", "2026-01-01"))
                         .andExpect(status().isOk())
+                        .andExpect(C2Contract.matches("place-cards"))
                         .andExpect(jsonPath("$.schema_version").value("c2-0.1"))
                         .andExpect(jsonPath("$.place_id").value("cards-test"))
                         .andExpect(jsonPath("$.period_end").value("2026-01-01"))
@@ -84,6 +86,7 @@ class PlaceCardsIntegrationTest {
         put("cards-test", "A3", 0, "2023-01-01", "2026-01-01", "documents", "available", 0);
         mvc.perform(request("cards-test", "2023-01-01", "2026-01-01"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("place-cards"))
                 .andExpect(jsonPath("$.cards[0].available_kinds").value(0))
                 .andExpect(jsonPath("$.cards[1].available_kinds").value(1))
                 .andExpect(jsonPath("$.cards[1].review_pending_count").value(3))
@@ -94,13 +97,15 @@ class PlaceCardsIntegrationTest {
 
     @Test
     void sortsKoreanNamesInsideDomainRatherThanByAvailability() throws Exception {
-        jdbc.update("INSERT INTO card VALUES ('C9','고령화','C 인구·지역소멸','test',0,'tax-2026.10')");
+        jdbc.update(
+                "INSERT INTO card(card_id,name,domain,parent_question,card_version,taxonomy_version,status) VALUES ('C9','고령화','C 인구·지역소멸','test',0,'tax-2026.10','legacy')");
         for (String kind :
                 new String[] {"statistics", "documents", "existing_responses", "denominators"}) {
             put("cards-test", "C1", 1, "2023-01-01", "2026-01-01", kind, "available", 0);
         }
         mvc.perform(request("cards-test", "2023-01-01", "2026-01-01"))
                 .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("place-cards"))
                 .andExpect(jsonPath("$.cards[1].card_id").value("C9"))
                 .andExpect(jsonPath("$.cards[2].card_id").value("C1"))
                 .andExpect(jsonPath("$.cards[2].available_kinds").value(4));
@@ -121,12 +126,12 @@ class PlaceCardsIntegrationTest {
     }
 
     @Test
-    void requiresLogin() throws Exception {
+    void readableWithoutLogin() throws Exception {
         mvc.perform(
                         get("/v1/places/cards-test/cards")
                                 .param("period_start", "2023-01-01")
                                 .param("period_end", "2026-01-01"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -144,6 +149,29 @@ class PlaceCardsIntegrationTest {
                                         "not_collected",
                                         0))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void listDoesNotReadPastRunResults() throws Exception {
+        // 근거 상태는 고를 때마다 자료에서 센다(질문 실행과 같은 규칙, QuestionApiTest). 지난 실행의 근거 수요표는 읽지 않는다
+        int version =
+                jdbc.queryForObject(
+                        "SELECT card_version FROM card WHERE card_id = 'C1'", Integer.class);
+        jdbc.update(
+                "INSERT INTO question(question_id,place_id,card_id,period_start,period_end)"
+                        + " VALUES ('q-old','cards-test','C1','2023-01-01','2026-01-01')");
+        jdbc.update(
+                "INSERT INTO argument_run(run_id,question_id,run_status,card_version,taxonomy_version,"
+                        + "result,created_at) VALUES ('run-q-old','q-old','ready',?,'tax-2026.10',"
+                        + "'{\"evidence_table\": [{\"kind\": \"statistics\", \"status\": \"available\","
+                        + " \"review_pending_count\": 0}]}'::jsonb, now())",
+                version);
+        mvc.perform(request("cards-test", "2023-01-01", "2026-01-01"))
+                .andExpect(status().isOk())
+                .andExpect(C2Contract.matches("place-cards"))
+                .andExpect(jsonPath("$.cards[1].card_id").value("C1"))
+                .andExpect(jsonPath("$.cards[1].evidence[0].status").value("not_collected"))
+                .andExpect(jsonPath("$.cards[1].available_kinds").value(0));
     }
 
     private MockHttpServletRequestBuilder request(String place, String start, String end) {
