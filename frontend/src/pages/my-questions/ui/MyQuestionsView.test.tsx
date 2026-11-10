@@ -58,7 +58,7 @@ describe("MyQuestionsView", () => {
     const row = (label: string) =>
       within(panel).getByRole("rowheader", { name: label }).closest("tr") as HTMLTableRowElement;
     expect(await within(panel).findByRole("rowheader", { name: "분석 결과" })).toBeInTheDocument();
-    expect(row("분석 결과")).toHaveTextContent("분석 안 함증가바뀜");
+    expect(row("분석 결과")).toHaveTextContent("분석 안 함청년 순유출 확대바뀜");
     expect(row("근거 4종")).toHaveTextContent("1 / 44 / 4+3");
     expect(row("근거 수준")).toHaveTextContent("낮음높음▲ 올라감");
     expect(within(panel).getByRole("link", { name: /결과 열기/ })).toHaveAttribute(

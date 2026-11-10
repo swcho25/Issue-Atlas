@@ -39,7 +39,8 @@ function rows(runs: Argument[]): Row[] {
   return [
     {
       label: "분석 결과",
-      cells: runs.map((a) => ({ text: claimBadge[a.claim.value].label })),
+      // 카드 결과 이름(「청년 순유출 확대」)이 있으면 그것을, C2 v1 전 실행이면 증가 · 감소 배지 글자
+      cells: runs.map((a) => ({ text: a.claim.label ?? claimBadge[a.claim.value].label })),
       change: before && {
         text: before.claim.value === now.claim.value ? "같음" : "바뀜",
         className: before.claim.value === now.claim.value ? "text-text-3" : "text-primary-text",
