@@ -14,6 +14,7 @@ import {
   rebuttalBadge,
 } from "../../model/labels";
 import { cardRefs } from "../../model/footnotes";
+import { qualifierGap, qualifierRule } from "../../model/qualifier";
 import { emptyRefsText, kindCount, refsTitle } from "../../model/sources";
 import { sourcesHref } from "../tabs";
 import { CellMenu } from "./CellMenu";
@@ -225,6 +226,12 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
                 {qualifierNote(qualifier.components)}
               </span>
             </div>
+            {/* 처음 본 사람도 등급이 왜 나왔는지 알도록: 기준과 한 단계 위까지 모자란 것 */}
+            <p className="text-caption-12 text-text-3">
+              {[qualifierGap(qualifier.grade, qualifier.components), qualifierRule]
+                .filter(Boolean)
+                .join(" — ")}
+            </p>
           </Cell>
 
           <Cell
