@@ -161,7 +161,7 @@ export function QuestionBuilder({
             <div className="flex items-baseline gap-2">
               <h2 className="text-heading-16 text-text-1">③ 답할 수 있는 이슈</h2>
               <span className="text-body-13 text-text-3">
-                {placeName} · {period.short} · 미리 계산
+                {placeName} · {period.short} 기준
               </span>
             </div>
             {cardsState === "loading" && (
