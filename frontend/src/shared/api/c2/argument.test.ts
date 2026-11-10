@@ -59,9 +59,12 @@ describe("argumentSchema — 계약 예시", () => {
     expect(argumentSchema.parse(example("argument-unsupported.json")).applicability).toEqual([]);
   });
 
-  it("그림 줄 모양을 칸으로 가른다(막대 · 이동)", () => {
+  it("그림 줄 모양을 칸으로 가른다(막대 · 이동 · 기사 건수)", () => {
     const a = argumentSchema.parse(example("argument-c1-ready.json"));
-    expect(a.series.map(seriesShape)).toEqual(["bar", "flow"]);
+    // 통계 막대 1 · 이동 1 · 기사 건수(지역마다) 4
+    expect(a.series.map(seriesShape)).toEqual(["bar", "flow", "tag", "tag", "tag", "tag"]);
+    // 근거 기사도 실제 응답처럼 들어 있다(화면 개발용 가짜 값)
+    expect(a.articles).toHaveLength(8);
   });
 
   it("계약에 없는 칸은 버리고 통과시킨다", () => {

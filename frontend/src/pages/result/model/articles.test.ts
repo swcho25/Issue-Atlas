@@ -7,7 +7,7 @@ import { approxLabel, articleMarks, markInMonth } from "./articles";
 
 const ready = argumentSchema.parse(readyJson);
 
-// 계약 예시에는 기사가 없어(dev 실제 실행에는 있음) 기사 · 기사 건수 줄만 얹어 본다
+// 규칙은 기사 · 기사 건수 줄을 직접 만들어 본다(계약 예시의 기사는 아래 「계약 예시」 에서)
 const article = (
   id: string,
   precision: Argument["articles"][number]["precision"],
@@ -96,8 +96,24 @@ describe("기사 점", () => {
     expect(markInMonth({ dates: [null] }, "2024-06")).toBe(true);
   });
 
+  it("계약 예시(여수 C1): 같은 자리 2건 · 한 건 · 위치 근사 묶음 셋, 위치 없는 기사는 빠진다", () => {
+    const { dots, groups } = articleMarks(ready);
+    expect(dots.map((d) => [d.place, d.ids.length, d.name])).toEqual([
+      ["여수시청", 2, "여수시청 · 기사 2건"],
+      ["여수세계박람회장", 1, "2024-03-05 · 여수세계박람회장에서 청년 취업 박람회가 열렸다."],
+    ]);
+    expect(groups.map((g) => g.name)).toEqual([
+      "위치 근사 · 여수시 중심 2건",
+      "위치 근사 · 쌍봉동 중심 1건",
+      "위치 근사 · 만덕동 중심 1건",
+    ]);
+    // 8건 중 지도에 놓이는 것은 7건(위치 없음 1건)
+    const placed = [...dots, ...groups].reduce((n, m) => n + m.ids.length, 0);
+    expect([ready.articles.length, placed]).toEqual([8, 7]);
+  });
+
   it("기사가 없으면 아무것도 그리지 않는다", () => {
-    expect(articleMarks(ready)).toEqual({ dots: [], groups: [] });
+    expect(articleMarks({ ...ready, articles: [] })).toEqual({ dots: [], groups: [] });
     expect(approxLabel({ area: "만덕동", count: 7 })).toBe("위치 근사 · 만덕동 중심 7건");
   });
 });
