@@ -38,26 +38,28 @@ async function OverviewContent({ searchParams }: { searchParams: Promise<SearchP
         <PeriodTabs days={days} />
       </header>
 
+      {/* 위 세 칸은 기간과 상관없는 지금 상태(완료 상태는 누적), 아래 「최근 N일 처리」는 기간 안 기록이라
+          같은 「보류」라도 수가 다를 수 있다(계약 operations) — 그래서 「지금」 · 「누적」을 붙인다 */}
       <div className="grid grid-cols-3 gap-3">
         <QueueCard
           icon="shield"
           title="검수 대기"
           value={reviews.pending}
-          sub={`보류 ${reviews.on_hold} · 승인 대기 ${reviews.approval_pending}`}
+          sub={`지금 보류 ${reviews.on_hold} · 승인 대기 ${reviews.approval_pending}`}
           href="/admin/reviews"
         />
         <QueueCard
           icon="cards"
           title="카드 승인 대기"
           value={approvals.pending}
-          sub={`보류 ${approvals.on_hold} · 승인 ${approvals.approved} · 반려 ${approvals.rejected}`}
+          sub={`지금 보류 ${approvals.on_hold} · 누적 승인 ${approvals.approved} · 반려 ${approvals.rejected}`}
           href="/admin/cards"
         />
         <QueueCard
           icon="db"
           title="CSV 적재 대기"
           value={imports.pending}
-          sub={`검증 실패 ${imports.validation_failed} · 실패 ${imports.failed} · 완료 보고 ${imports.completed}`}
+          sub={`누적 검증 실패 ${imports.validation_failed} · 실패 ${imports.failed} · 완료 보고 ${imports.completed}`}
           href="/admin/sources/imports?status=pending"
         />
       </div>
