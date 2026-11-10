@@ -11,11 +11,13 @@ from .model import (
     INPUT_VERSION,
     MODEL,
     PROFILE_VERSION,
+    REBUTTAL_QUERY_VERSION,
     CardRule,
     card_profile,
     decide,
     digest,
     document_input,
+    rebuttal_queries,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -189,6 +191,94 @@ def save_card(conn, card_id: str, version: int, text: str, vector: list[float] |
                    WHERE card_id = %s AND card_version = %s AND profile_version = %s""",
                 (card_id, version, PROFILE_VERSION),
             )
+
+
+def card_rebuttals(conn) -> list[tuple[str, int, str, str]]:
+    """승인 카드 판의 반박 검색 질의: (card_id, card_version, rebuttal_id, 질의 문장)"""
+    with conn.cursor() as cur:
+        cur.execute(CARDS)
+        rows = cur.fetchall()
+    return [
+        (card_id, version, rebuttal_id, text)
+        for card_id, version, spec in rows
+        for rebuttal_id, text in rebuttal_queries(spec)
+    ]
+
+
+def current_rebuttal(conn, card_id: str, version: int, rebuttal_id: str, query_hash: str):
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT is_active FROM card_rebuttal_profile
+               WHERE card_id = %s AND card_version = %s AND rebuttal_id = %s
+                 AND query_version = %s AND query_hash = %s AND model = %s""",
+            (card_id, version, rebuttal_id, REBUTTAL_QUERY_VERSION, query_hash, MODEL),
+        )
+        row = cur.fetchone()
+    return None if row is None else row[0]
+
+
+def save_rebuttal(
+    conn, card_id: str, version: int, rebuttal_id: str, text: str, vector: list[float] | None
+):
+    """(카드, 반박)마다 활성 하나. 같은 판 · 질의 판이 이미 있으면 vector=None 으로 다시 켠다."""
+    with conn.transaction(), conn.cursor() as cur:
+        cur.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 2))", (f"{card_id}|{rebuttal_id}",)
+        )
+        cur.execute(
+            "UPDATE card_rebuttal_profile SET is_active = false "
+            "WHERE card_id = %s AND rebuttal_id = %s AND is_active",
+            (card_id, rebuttal_id),
+        )
+        if vector is not None:
+            cur.execute(
+                """INSERT INTO card_rebuttal_profile
+                   (card_id, card_version, rebuttal_id, query_version, query_text, query_hash,
+                    model, embedding, is_active)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector, true)
+                   ON CONFLICT (card_id, card_version, rebuttal_id, query_version)
+                   DO UPDATE SET query_text = EXCLUDED.query_text,
+                     query_hash = EXCLUDED.query_hash, model = EXCLUDED.model,
+                     embedding = EXCLUDED.embedding, is_active = true, embedded_at = now()""",
+                (
+                    card_id,
+                    version,
+                    rebuttal_id,
+                    REBUTTAL_QUERY_VERSION,
+                    text,
+                    digest(text),
+                    MODEL,
+                    str(vector),
+                ),
+            )
+        else:
+            cur.execute(
+                """UPDATE card_rebuttal_profile SET is_active = true
+                   WHERE card_id = %s AND card_version = %s AND rebuttal_id = %s
+                     AND query_version = %s""",
+                (card_id, version, rebuttal_id, REBUTTAL_QUERY_VERSION),
+            )
+
+
+def deactivate_missing_rebuttals(conn, keep: set[tuple[str, int, str]]) -> int:
+    """승인본에서 빠진 반박 · 옛 판 · 옛 질의 판의 활성 질의를 끈다."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT card_id, card_version, rebuttal_id, query_version "
+            "FROM card_rebuttal_profile WHERE is_active"
+        )
+        stale = [
+            row for row in cur.fetchall() if row[:3] not in keep or row[3] != REBUTTAL_QUERY_VERSION
+        ]
+    with conn.transaction(), conn.cursor() as cur:
+        for row in stale:
+            cur.execute(
+                "UPDATE card_rebuttal_profile SET is_active = false "
+                "WHERE card_id = %s AND card_version = %s AND rebuttal_id = %s "
+                "AND query_version = %s AND is_active",
+                row,
+            )
+    return len(stale)
 
 
 def scores(conn):
