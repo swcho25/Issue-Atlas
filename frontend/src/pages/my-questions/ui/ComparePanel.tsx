@@ -39,7 +39,8 @@ function rows(runs: Argument[]): Row[] {
   return [
     {
       label: "분석 결과",
-      cells: runs.map((a) => ({ text: claimBadge[a.claim.value].label })),
+      // 카드 결과 이름(「청년 순유출 확대」)이 있으면 그것을, C2 v1 전 실행이면 증가 · 감소 배지 글자
+      cells: runs.map((a) => ({ text: a.claim.label ?? claimBadge[a.claim.value].label })),
       change: before && {
         text: before.claim.value === now.claim.value ? "같음" : "바뀜",
         className: before.claim.value === now.claim.value ? "text-text-3" : "text-primary-text",
@@ -134,7 +135,7 @@ function RunCompare({ question: q }: { question: MyQuestion }) {
         <p className="text-body-13 text-text-3">
           {before
             ? `${monthDay(before.created_at)} → ${monthDay(now.created_at)} · 같은 질문 · ${
-                sameRule ? "같은 규칙 버전" : "규칙 버전이 바뀜"
+                sameRule ? "같은 분석 기준" : "분석 기준이 바뀜"
               }`
             : `${monthDay(now.created_at)} 실행 · ${q.place_name} · ${yearSpan(q.period_start, q.period_end)}`}
         </p>
@@ -164,11 +165,7 @@ function RunCompare({ question: q }: { question: MyQuestion }) {
                   {h}
                 </th>
               ))}
-              {before && (
-                <th className="py-2.5 pr-3 font-normal">
-                  <span className="sr-only">변화</span>
-                </th>
-              )}
+              {before && <th className="py-2.5 pr-3 font-normal">변화</th>}
             </tr>
           </thead>
           <tbody>

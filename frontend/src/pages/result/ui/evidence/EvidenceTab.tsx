@@ -8,7 +8,7 @@ import {
   evidenceStatusBadge,
   yearSpan,
 } from "../../model/labels";
-import { emptyRefsText, refsTitle } from "../../model/sources";
+import { emptyRefsText, kindCount, refsTitle } from "../../model/sources";
 
 // 05 · 근거 수요표 본문(Figma 05 · 근거 수요표 탭): 표(근거 4행) → 비교 조건 4가지 → 빈칸 안내.
 // 판단보다 먼저 「무엇이 있고 무엇이 없는지」를 보여 준다(FR-B2). 없는 근거는 0 이 아니라 상태 · 사유로
@@ -35,9 +35,8 @@ const col = Object.fromEntries(columns.map((c) => [c.key, `${c.width} shrink-0`]
  * 소스 칸: 대표 자료 첫 줄(+ 외 N건 — 건수 칸과 같은 전체 건수로)과 출처 · 등급 · 기간.
  * 대표 자료가 없으면 「자료 N건 · 목록 없음」 또는 사유 · 상태
  */
-function sourceOf(row: EvidenceRow, refs: EvidenceRef[]) {
+function sourceOf(row: EvidenceRow, refs: EvidenceRef[], count: number) {
   const first = refs[0];
-  const count = Math.max(row.count, refs.length);
   if (!first) return { title: emptyRefsText(row, count), sub: null };
   return {
     title: refsTitle(first, count),
@@ -76,7 +75,9 @@ export function EvidenceTab({ argument }: { argument: Argument }) {
           </div>
           {argument.evidence_table.map((row) => {
             const badge = evidenceStatusBadge[row.status];
-            const source = sourceOf(row, argument.data[row.kind]);
+            // 건수는 다른 탭 · 탭 바와 같은 수(보도 기사 포함, model/sources)
+            const count = kindCount(argument, row);
+            const source = sourceOf(row, argument.data[row.kind], count);
             return (
               <div
                 key={row.kind}
@@ -96,7 +97,7 @@ export function EvidenceTab({ argument }: { argument: Argument }) {
                   <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
                 </span>
                 <span role="cell" className={`${col.count} text-label-13 text-text-1`}>
-                  {row.count}
+                  {count}
                 </span>
                 <span role="cell" className={`${col.pending} text-caption-12 text-text-1`}>
                   {row.review_pending_count}

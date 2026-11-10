@@ -842,6 +842,18 @@
   font-size: 18px;
 }
 
+/* 지역 줄 위 한 줄: 흐르는 도시 가운데 지금 볼 수 있는 곳을 글로 */
+.openNote {
+  margin: 48px 0 0;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--landing-text-2);
+}
+
+.openNote + .places {
+  margin-top: 20px;
+}
+
 .places {
   position: relative;
   display: grid;

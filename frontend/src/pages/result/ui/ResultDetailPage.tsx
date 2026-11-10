@@ -5,7 +5,7 @@ import type { Argument } from "@/shared/api";
 
 import { getArgument } from "../api/getResult";
 import { cardRefs } from "../model/footnotes";
-import { pickEvidence } from "../model/sources";
+import { kindCount, pickEvidence } from "../model/sources";
 import { ArgumentPanel } from "./argument/ArgumentPanel";
 import { CardFootnotesButton } from "./argument/CardFootnotesButton";
 import { ArgumentTab } from "./argument/ArgumentTab";
@@ -43,12 +43,8 @@ const heads: Record<DetailTab, (a: Argument) => { title: string; caption: string
   }),
   argument: (a) => ({
     title: "분석 근거",
-    caption: [
-      a.question.card_name,
-      a.card_version !== null && `카드 v${a.card_version}`,
-      a.formula_version && `판정 규칙 ${a.formula_version}`,
-      `근거 수준 규칙 ${a.qualifier.formula_version}`,
-    ]
+    // 판정 · 근거 수준 규칙 ID 는 사용자에게 뜻이 없어 쓰지 않는다(내 질문 비교가 규칙이 바뀌었는지 알려 준다)
+    caption: [a.question.card_name, a.card_version !== null && `카드 ${a.card_version}판`]
       .filter(Boolean)
       .join(" · "),
   }),
@@ -70,7 +66,13 @@ async function DetailContent({ params, searchParams }: Props) {
         tab={tab}
         title={head.title}
         caption={head.caption}
-        action={<EvidenceCsvButton runId={argument.run_id} rows={argument.evidence_table} />}
+        action={
+          <EvidenceCsvButton
+            runId={argument.run_id}
+            // 화면 표와 같은 건수(보도 기사 포함)
+            rows={argument.evidence_table.map((r) => ({ ...r, count: kindCount(argument, r) }))}
+          />
+        }
         panel={<EvidencePanel argument={argument} />}
       >
         <EvidenceTab argument={argument} />

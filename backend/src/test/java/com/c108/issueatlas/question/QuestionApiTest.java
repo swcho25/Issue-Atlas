@@ -696,8 +696,7 @@ class QuestionApiTest {
                         jsonPath("$.ceiling.items")
                                 .value(
                                         org.hamcrest.Matchers.hasItems(
-                                                "민원: 이용 허락이 없어 쓰지 않는다 (license_blocked)",
-                                                "읍면동 순이동: 공표되지 않는다 (not_published)")))
+                                                "민원: 이용 허락이 없어 쓰지 않아요", "읍면동 순이동: 아직 공표되지 않았어요")))
                 .andExpect(jsonPath("$.ceiling.items.length()").value(7))
                 .andExpect(jsonPath("$.series[0].values.length()").value(36))
                 // 분모 지표(SP10 주민등록인구) 관측이 없으면 분모 칸은 비고, 빈 칸마다 없는 이유가 있다

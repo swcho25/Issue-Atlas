@@ -17,6 +17,8 @@ export function AskSection() {
         볼까요?
       </h2>
       <StartButton />
+      {/* 흐르는 줄의 다른 도시는 꾸밈이라, 실제로 고를 수 있는 곳을 글로 적는다 */}
+      <p className={styles.openNote}>지금은 광주 5개 구 · 여수시를 볼 수 있어요</p>
       <div className={styles.places} role="img" aria-label="지금 볼 수 있는 곳: 광주 · 여수">
         {ROWS.map((row, r) => (
           <div key={row} className={`${styles.row} ${r ? styles.rev : ""}`}>
