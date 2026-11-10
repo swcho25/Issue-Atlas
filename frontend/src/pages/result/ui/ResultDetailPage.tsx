@@ -38,22 +38,22 @@ export function ResultDetailPage({ params, searchParams }: Props) {
 // 탭마다 제목 · 설명(Figma 05 머리)
 const heads: Record<DetailTab, (a: Argument) => { title: string; caption: string }> = {
   evidence: () => ({
-    title: "근거 수요표",
-    caption: "판단보다 먼저 — 이 질문에 필요한 근거 4종 중 있는 것과 없는 것",
+    title: "자료 현황",
+    caption: "분석 결과보다 먼저 — 이 질문에 필요한 근거 4종 중 있는 것과 없는 것",
   }),
   argument: (a) => ({
-    title: "논증 카드",
+    title: "분석 근거",
     caption: [
       a.question.card_name,
       a.card_version !== null && `카드 v${a.card_version}`,
       a.formula_version && `판정 규칙 ${a.formula_version}`,
-      `근거 충실도 규칙 ${a.qualifier.formula_version}`,
+      `근거 수준 규칙 ${a.qualifier.formula_version}`,
     ]
       .filter(Boolean)
       .join(" · "),
   }),
   sources: (a) => ({
-    title: "원문",
+    title: "출처",
     caption: `${a.question.place_name} · ${a.question.card_name ?? "목록에 없는 질문"}에 쓴 근거 자료`,
   }),
 };

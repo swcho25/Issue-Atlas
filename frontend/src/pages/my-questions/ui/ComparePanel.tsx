@@ -22,7 +22,7 @@ type Row = { label: string; cells: Cell[]; change?: Cell };
 const available = (a: Argument) => a.evidence_table.filter((r) => r.status === "available").length;
 const pending = (a: Argument) => a.evidence_table.reduce((n, r) => n + r.review_pending_count, 0);
 
-/** 수의 변화. more = 늘면 좋은 값(근거)인지, 줄면 좋은 값(검수 대기)인지 */
+/** 수의 변화. more = 늘면 좋은 값(근거)인지, 줄면 좋은 값(검증 대기)인지 */
 function delta(before: number, now: number, more: "good" | "bad"): Cell | undefined {
   const d = now - before;
   if (d === 0) return undefined;
@@ -38,7 +38,7 @@ function rows(runs: Argument[]): Row[] {
   const grade = (a: Argument) => qualifierGrade[a.qualifier.grade];
   return [
     {
-      label: "판단",
+      label: "분석 결과",
       cells: runs.map((a) => ({ text: claimBadge[a.claim.value].label })),
       change: before && {
         text: before.claim.value === now.claim.value ? "같음" : "바뀜",
@@ -51,7 +51,7 @@ function rows(runs: Argument[]): Row[] {
       change: before && delta(available(before), available(now), "good"),
     },
     {
-      label: "근거 충실도",
+      label: "근거 수준",
       cells: runs.map((a) => ({ text: grade(a).label, className: grade(a).className })),
       change:
         before && before.qualifier.grade !== now.qualifier.grade
@@ -61,7 +61,7 @@ function rows(runs: Argument[]): Row[] {
           : undefined,
     },
     {
-      label: "독립 근거",
+      label: "교차 확인",
       cells: runs.map((a) => ({ text: `${a.qualifier.components.independent_evidence}건` })),
       change:
         before &&
@@ -72,7 +72,7 @@ function rows(runs: Argument[]): Row[] {
         ),
     },
     {
-      label: "검수 대기",
+      label: "검증 대기",
       cells: runs.map((a) => ({ text: `${pending(a)}건` })),
       change: before && delta(pending(before), pending(now), "bad"),
     },
