@@ -1,0 +1,51 @@
+{
+  "schema_version": "ai-phrasing-result-0.4",
+  "run_id": "run_c1_yeosu_2023_2025",
+  "status": "done",
+  "reason_code": null,
+  "rebuttals": [
+    {
+      "text": "대학 진학·군 입대 연령(19–24세)의 구조적 전출",
+      "status": "needs_review",
+      "provenance": "llm_judgment"
+    },
+    {
+      "text": "통계 기준 변경(2026-07 행정구역 개편, 주민등록 정비)",
+      "status": "not_found",
+      "provenance": "llm_judgment"
+    },
+    {
+      "text": "산단·대형 사업장 고용 변동에 따른 일시 전입·전출 — 산단 업체 가동 축소 뒤 협력업체 직원 300여 명이 옮겼다는 보도가 있다.",
+      "status": "supported",
+      "provenance": "llm_judgment"
+    }
+  ],
+  "citations": {
+    "R1": [],
+    "R2": [],
+    "R3": [
+      {
+        "passage": "P2",
+        "quote": "협력업체 직원 300여 명이 일자리를 찾아 다른 지역으로 옮긴 것으로 알려졌다.",
+        "locator": {
+          "kind": "article",
+          "source_id": "fx-001",
+          "field": "summary",
+          "date": "2024-02-14",
+          "url": "https://example.com/news/1",
+          "sentence": 2
+        }
+      }
+    ]
+  },
+  "problems": [
+    {
+      "check": "quote_not_in_source",
+      "where": "R1",
+      "detail": "P3"
+    }
+  ],
+  "model": "gemini-2.5-flash",
+  "prompt_version": "argument-phrasing-v5",
+  "retryable": false
+}

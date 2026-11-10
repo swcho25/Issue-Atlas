@@ -1,6 +1,7 @@
 """모델 출력 검사. 네트워크 없이 문장화 입력(prompt.build)과 출력만 본다.
 
-떨어진 곳마다 Problem 하나. 검사 이름
+떨어진 곳마다 Problem 하나. where 가 반박 ID 면 phrase 가 그 반박만 needs_review 로 낮추고,
+아니면(모양 · 판단 값 · 경쟁 설명 목록) 출력 전체를 되돌린다(v0.4). 검사 이름
 - format: 모양 · judgment_changed: 판단 값 · 경쟁 설명 목록이 입력과 다름
 - unknown_citation: 입력에 없는 구절 ID · quote_not_in_source: 구절에 글자 그대로 없음
 - number_mismatch: 입력에 없는 숫자 · unsupported: 근거 구절 없이 supported · forbidden_term: 금지어
