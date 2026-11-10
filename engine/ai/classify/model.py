@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 INPUT_VERSION = "news-title-summary-v1"
 PROFILE_VERSION = "card-profile-v1"
+REBUTTAL_QUERY_VERSION = "rebuttal-query-v1"
 MODEL = "gemini-embedding-2"
 DIMENSIONS = 1536
 
@@ -46,6 +47,22 @@ def card_profile(spec: dict) -> str:
         f"키워드: {', '.join(spec['keywords'])}",
     ]
     return "\n".join(lines)
+
+
+def rebuttal_queries(spec: dict) -> list[tuple[str, str]]:
+    """승인본 rebuttals.items → (반박 ID, 검색 질의). ⑤ 반박 근거 후보를 고를 때 쓴다.
+
+    질의는 「{카드 이름}의 다른 설명: {반박 문장}」(rebuttal-query-v1, S15P31C108-326).
+    반박 실험에서 반박 문장만 쓴 질의보다 카드 이름을 붙인 질의를 주 설정으로 골랐다.
+    ID 나 문장이 빈 항목은 뺀다.
+    """
+    found = []
+    for item in spec.get("rebuttals", {}).get("items", []):
+        rebuttal_id = (item.get("id") or "").strip()
+        text = (item.get("text") or "").strip()
+        if rebuttal_id and text:
+            found.append((rebuttal_id, f"{spec['name']}의 다른 설명: {text}"))
+    return found
 
 
 def select(score: float, threshold: float) -> bool:

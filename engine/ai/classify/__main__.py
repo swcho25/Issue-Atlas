@@ -10,7 +10,14 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from . import f4, gms, store
-from .model import INPUT_VERSION, PROFILE_VERSION, card_rules, decide, digest
+from .model import (
+    INPUT_VERSION,
+    PROFILE_VERSION,
+    REBUTTAL_QUERY_VERSION,
+    card_rules,
+    decide,
+    digest,
+)
 
 THRESHOLDS = Path(__file__).with_name("thresholds.json")
 
@@ -58,7 +65,27 @@ def command_embed_cards(conn, apply: bool, embed=gms.embed):
         stats["embedded" if vector is not None else "reactivated"] += 1
         if apply:
             store.save_card(conn, card_id, version, text, vector)
-    return dict(stats) | {"profile_version": PROFILE_VERSION}
+    # ⑤ 반박 검색 질의(S15P31C108-326): 승인본 반박 후보마다 하나
+    rebuttals = store.card_rebuttals(conn)
+    stats["rebuttals"] = len(rebuttals)
+    for card_id, version, rebuttal_id, text in rebuttals:
+        state = store.current_rebuttal(conn, card_id, version, rebuttal_id, digest(text))
+        if state is True:
+            stats["rebuttal_already_active"] += 1
+            continue
+        vector = embed(text) if state is None else None
+        stats["rebuttal_embedded" if vector is not None else "rebuttal_reactivated"] += 1
+        if apply:
+            store.save_rebuttal(conn, card_id, version, rebuttal_id, text, vector)
+    if apply:
+        stats["rebuttal_deactivated"] = store.deactivate_missing_rebuttals(
+            conn,
+            {(card_id, version, rebuttal_id) for card_id, version, rebuttal_id, _ in rebuttals},
+        )
+    return dict(stats) | {
+        "profile_version": PROFILE_VERSION,
+        "rebuttal_query_version": REBUTTAL_QUERY_VERSION,
+    }
 
 
 def f4_probabilities(conn, rows, rules, version: str, model_path: Path = f4.MODEL_FILE):

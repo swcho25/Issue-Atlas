@@ -146,6 +146,8 @@ sudo issueatlas-collect refine
 sudo issueatlas-collect embed-docs --apply
 sudo issueatlas-collect embed-cards --apply
 sudo issueatlas-collect score --apply
+# 카드 승인 판이 바뀌면(시드 재실행 등) embed-cards --apply → score --apply 를 이어서 다시 돌린다.
+# embed-cards 는 카드 프로필과 함께 ⑤ 반박 검색 질의(반박마다 하나, V0053 card_rebuttal_profile)도 만든다.
 
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
 sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023
