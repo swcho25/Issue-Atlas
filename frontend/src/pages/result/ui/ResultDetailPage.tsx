@@ -5,7 +5,7 @@ import type { Argument } from "@/shared/api";
 
 import { getArgument } from "../api/getResult";
 import { cardRefs } from "../model/footnotes";
-import { pickEvidence } from "../model/sources";
+import { kindCount, pickEvidence } from "../model/sources";
 import { ArgumentPanel } from "./argument/ArgumentPanel";
 import { CardFootnotesButton } from "./argument/CardFootnotesButton";
 import { ArgumentTab } from "./argument/ArgumentTab";
@@ -70,7 +70,13 @@ async function DetailContent({ params, searchParams }: Props) {
         tab={tab}
         title={head.title}
         caption={head.caption}
-        action={<EvidenceCsvButton runId={argument.run_id} rows={argument.evidence_table} />}
+        action={
+          <EvidenceCsvButton
+            runId={argument.run_id}
+            // 화면 표와 같은 건수(보도 기사 포함)
+            rows={argument.evidence_table.map((r) => ({ ...r, count: kindCount(argument, r) }))}
+          />
+        }
         panel={<EvidencePanel argument={argument} />}
       >
         <EvidenceTab argument={argument} />
