@@ -70,9 +70,15 @@ describe("변화형 막대", () => {
   it("사람 수는 해마다 합계(Figma −1,537 · −1,935 · −2,262)", () => {
     const s = changeSeries(ready)!;
     expect(yearlyBars(s)).toEqual([
-      { year: "2023", value: -1537 },
-      { year: "2024", value: -1935 },
-      { year: "2025", value: -2262 },
+      { year: "2023", value: -1537, active: true },
+      { year: "2024", value: -1935, active: true },
+      { year: "2025", value: -2262, active: true },
+    ]);
+    // 달을 고르면 그 달이 든 해만 강조하고, 값은 그 해 전체 그대로(판정에 쓰는 값)
+    expect(yearlyBars(s, "2024-03")).toEqual([
+      { year: "2023", value: -1537, active: false },
+      { year: "2024", value: -1935, active: true },
+      { year: "2025", value: -2262, active: false },
     ]);
     expect(barNumber(-1537, "sum")).toBe("−1,537");
   });
@@ -85,8 +91,8 @@ describe("변화형 막대", () => {
       statuses: ["available", "not_collected", "not_collected"],
     };
     expect(yearlyBars(s as (typeof a3.series)[0])).toEqual([
-      { year: "2024", value: 10 },
-      { year: "2025", value: null },
+      { year: "2024", value: 10, active: true },
+      { year: "2025", value: null, active: true },
     ]);
     expect(barNumber(11.04, "mean")).toBe("11.0");
   });

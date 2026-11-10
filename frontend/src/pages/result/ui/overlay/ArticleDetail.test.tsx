@@ -108,6 +108,7 @@ describe("기사 창", () => {
           area: "여수시",
           count: 2,
           name: "위치 근사 · 여수시 중심 2건",
+          dates: ["2023-01-27", "2024-02-01"],
           ids: ["a", "b"],
         }}
         articles={articles}

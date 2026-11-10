@@ -6,10 +6,8 @@ import a3Json from "../../../../../contracts/c2/examples/argument-a3-not-compara
 import readyJson from "../../../../../contracts/c2/examples/argument-c1-ready.json";
 import {
   aqGrade,
-  defaultMonth,
   distributionMonths,
   missingLabel,
-  monthlyMeans,
   monthSummary,
   statChip,
   stationPoints,
@@ -27,32 +25,10 @@ describe("분포형", () => {
     expect(stationSeries(argumentSchema.parse(readyJson))).toEqual([]);
   });
 
-  it("달은 질문 기간의 36개월, 처음엔 값이 있는 마지막 달", () => {
+  it("달은 질문 기간의 36개월(처음 달 · 고르기는 공통 시간 슬라이더 — timeline.test)", () => {
     const months = distributionMonths(stations);
     expect(months).toHaveLength(36);
-    expect(defaultMonth(stations)).toBe("2025-12");
-    const emptyLast = stations.map((s) => ({ ...s, values: [...s.values.slice(0, -1), null] }));
-    expect(defaultMonth(emptyLast)).toBe("2025-11");
-  });
-
-  it("시간 막대 높이: 달마다 값이 있는 측정소의 평균, 모두 없으면 null", () => {
-    const series = [
-      {
-        ...stations[0],
-        periods: ["2024-01", "2024-02"],
-        values: [10, null],
-        statuses: ["available", "not_published"],
-      },
-      {
-        ...stations[0],
-        station_id: "s2",
-        periods: ["2024-01", "2024-02"],
-        values: [20, null],
-        statuses: ["available", "not_published"],
-      },
-    ] as typeof stations;
-    expect(monthlyMeans(series)).toEqual([15, null]);
-    expect(monthlyMeans(stations)).toHaveLength(36);
+    expect([months[0], months.at(-1)]).toEqual(["2023-01", "2025-12"]);
   });
 
   it("환경부 4단계: PM2.5 15 · 35 · 75 이하, PM10 30 · 80 · 150 이하, 기준 없는 지표는 null", () => {
