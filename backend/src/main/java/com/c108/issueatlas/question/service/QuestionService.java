@@ -11,6 +11,7 @@ import com.c108.issueatlas.question.dto.ArgumentResponse;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Applicability;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Baseline;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Ceiling;
+import com.c108.issueatlas.question.dto.ArgumentResponse.Citation;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Claim;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Comparability;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Components;
@@ -50,7 +51,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -213,7 +216,13 @@ public class QuestionService {
                                 request.rawText(),
                                 askedBy);
                     }
-                    save(request, draft.questionId(), run, result, phrased, started);
+                    save(
+                            request,
+                            draft.questionId(),
+                            run,
+                            withCitationEvidence(result),
+                            phrased,
+                            started);
                 });
         return new QuestionCreateResponse(
                 SCHEMA_VERSION,
@@ -221,6 +230,24 @@ public class QuestionService {
                 result.runId(),
                 run.status(),
                 request.cardId() == null);
+    }
+
+    /**
+     * ⑤ 반박이 인용한 기사마다 문서 근거 행을 만들고 인용에 그 ID 를 채운다(S15P31C108-343). 원문 탭과 같은 근거 상세로 열린다. 인용이 없으면 그대로.
+     */
+    private ArgumentResponse withCitationEvidence(ArgumentResponse result) {
+        Set<String> cited =
+                result.rebuttals().stream()
+                        .filter(r -> r.citations() != null)
+                        .flatMap(r -> r.citations().stream())
+                        .map(Citation::articleId)
+                        .collect(Collectors.toCollection(TreeSet::new));
+        if (cited.isEmpty()) {
+            return result;
+        }
+        Map<String, String> evidence = questions.createCitedArticleEvidence(cited);
+        return result.withRebuttals(
+                result.rebuttals().stream().map(r -> r.withEvidence(evidence)).toList());
     }
 
     /** ① 판정과 C2 결과 조립(카드 문구). 기존 대응 후보 → 근거만 쓰고, 질문 · 실행 행은 ③에서 쓴다. */

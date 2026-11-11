@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 
 /** C2 argument — 근거 수요표 + 논증 카드 6칸. 칸 이름은 snake_case 설정(application.yml)으로 나간다. */
 public record ArgumentResponse(
@@ -180,7 +181,38 @@ public record ArgumentResponse(
     public record Qualifier(
             String grade, Components components, String formulaVersion, String provenance) {}
 
-    public record Rebuttal(String text, String status, String provenance) {}
+    /**
+     * ⑤ 반박 한 줄. citations 는 C2 선택 칸(S15P31C108-343) — 「근거 있음」 반박이 인용한 기사 요약 문장. 다른 상태 · 지난 실행은 칸이
+     * 없다.
+     */
+    public record Rebuttal(
+            String text,
+            String status,
+            String provenance,
+            @JsonInclude(JsonInclude.Include.NON_NULL) List<Citation> citations) {
+        public Rebuttal withCitations(List<Citation> found) {
+            return new Rebuttal(text, status, provenance, found);
+        }
+
+        /** 인용 기사마다 문서 근거 ID(news_id → evidence_id)를 채운다. 없는 기사는 null. */
+        public Rebuttal withEvidence(Map<String, String> evidence) {
+            return citations == null
+                    ? this
+                    : withCitations(
+                            citations.stream()
+                                    .map(
+                                            c ->
+                                                    new Citation(
+                                                            c.articleId(),
+                                                            c.date(),
+                                                            c.quote(),
+                                                            evidence.get(c.articleId())))
+                                    .toList());
+        }
+    }
+
+    /** 반박 인용 한 건. evidenceId 는 그 기사의 문서 근거 행(근거 상세), 못 만들면 null. */
+    public record Citation(String articleId, LocalDate date, String quote, String evidenceId) {}
 
     public record Ceiling(List<String> items, String provenance) {}
 }

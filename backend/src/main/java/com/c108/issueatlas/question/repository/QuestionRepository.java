@@ -81,7 +81,7 @@ public class QuestionRepository {
     // 근거 기사: 카드 태그가 있고 질문 지역(앞자리가 같은 읍면동 포함) · 기간 안인 기사(명세 6절).
     // 근거 상세에 쓸 값(제목 · 이용 조건 · 원문 위치 · 링크)은 수집 원본(빅카인즈 레코드)에만 있다. 본문은 옮기지 않는다.
     // 기사 근거 ID 는 정제 판마다 하나: ev_news_<md5(obs_key|content_hash)> (보도자료 ev_doc_ 와 같은 규칙)
-    private static final String ARTICLE_MATCHES =
+    private static final String ARTICLE_ROWS =
             """
             SELECT o.what_id AS id, o.when_start, o.place_id, o.lon, o.lat, o.location_precision, o.summary,
                    e.place_name, p.name AS area_name, ST_X(p.geometry::geometry) AS area_lon,
@@ -104,10 +104,41 @@ public class QuestionRepository {
                 WHERE r.source_id = 'bigkinds' AND r.record -> 'locator' ->> 'news_id' = e.news_id
                 ORDER BY r.refined_at DESC LIMIT 1
             ) n ON true
-            WHERE o.source_table = 'news_event' AND :card = ANY (o.tags) AND starts_with(o.place_id, :place)
-              AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
-              AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
             """;
+
+    private static final String ARTICLE_MATCHES =
+            ARTICLE_ROWS
+                    + """
+                    WHERE o.source_table = 'news_event' AND :card = ANY (o.tags) AND starts_with(o.place_id, :place)
+                      AND o.when_start >= CAST(:start AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+                      AND o.when_start < CAST(:end AS date)::timestamp AT TIME ZONE 'Asia/Seoul'
+                    """;
+
+    // ⑤ 반박이 인용한 기사(S15P31C108-343): 태그 · 지역 · 기간과 상관없이 news_id 로
+    private static final String CITED_ARTICLES =
+            ARTICLE_ROWS + " WHERE o.source_table = 'news_event' AND o.what_id IN (:ids)";
+
+    // 기사 문서 근거 행: 같은 기사 같은 판은 같은 ID. 출처 등급 · 제목이 없으면 만들지 않는다. 앞에 "WITH a AS (기사 행" 을 붙인다
+    private static final String INSERT_ARTICLE_EVIDENCE =
+            """
+            ) INSERT INTO evidence (evidence_id, kind, title, source_id, source_grade, license_type,
+                storage_scope, observed_at, published_at, collected_at, location_precision, locator, url,
+                display)
+            SELECT DISTINCT ON (a.news_evidence_id) a.news_evidence_id, 'documents', a.title,
+                   s.source_id, s.reliability_grade, coalesce(a.license_type, s.license_type),
+                   coalesce(a.storage_scope, s.storage_scope), a.when_start, a.published_at,
+                   coalesce(a.collected_at, now()),
+                   CASE WHEN a.location_precision IN ('exact', 'address', 'admin_centroid')
+                        THEN a.location_precision ELSE 'none' END,
+                   a.locator, a.url,
+                   -- 이 질문에 쓴 값 = 우리가 만든 요약(원문 인용이 아니라 AI 요약이라고 밝힌다)
+                   CASE WHEN coalesce(a.storage_scope, s.storage_scope) = 'link_only' OR a.summary IS NULL
+                        THEN NULL ELSE 'AI 요약 · ' || a.summary END
+            FROM a JOIN source s ON s.source_id = 'bigkinds'
+            WHERE s.reliability_grade IS NOT NULL AND a.news_evidence_id IS NOT NULL
+              AND a.title IS NOT NULL
+            """
+                    + FILL_DISPLAY;
 
     // ⑤ 반박별 근거 기사 재료(S15P31C108-326, AI 계약 v0.5): 질문 지역(앞자리가 같은 읍면동 포함) · 기간의 기사 중
     // 활성 벡터가 있는 것 전부(카드 태그와 상관없음)와, 그 판의 활성 반박 질의마다 1 - 코사인 거리. 한 행 = 기사 × 질의
@@ -630,33 +661,34 @@ public class QuestionRepository {
      */
     public void createArticleEvidence(
             String cardId, String placeId, LocalDate start, LocalDate end) {
-        jdbc.sql(
-                        "WITH a AS ("
-                                + ARTICLE_MATCHES
-                                + """
-                ) INSERT INTO evidence (evidence_id, kind, title, source_id, source_grade, license_type,
-                    storage_scope, observed_at, published_at, collected_at, location_precision, locator, url,
-                    display)
-                SELECT DISTINCT ON (a.news_evidence_id) a.news_evidence_id, 'documents', a.title,
-                       s.source_id, s.reliability_grade, coalesce(a.license_type, s.license_type),
-                       coalesce(a.storage_scope, s.storage_scope), a.when_start, a.published_at,
-                       coalesce(a.collected_at, now()),
-                       CASE WHEN a.location_precision IN ('exact', 'address', 'admin_centroid')
-                            THEN a.location_precision ELSE 'none' END,
-                       a.locator, a.url,
-                       -- 이 질문에 쓴 값 = 우리가 만든 요약(원문 인용이 아니라 AI 요약이라고 밝힌다)
-                       CASE WHEN coalesce(a.storage_scope, s.storage_scope) = 'link_only' OR a.summary IS NULL
-                            THEN NULL ELSE 'AI 요약 · ' || a.summary END
-                FROM a JOIN source s ON s.source_id = 'bigkinds'
-                WHERE s.reliability_grade IS NOT NULL AND a.news_evidence_id IS NOT NULL
-                  AND a.title IS NOT NULL
-                """
-                                + FILL_DISPLAY)
+        jdbc.sql("WITH a AS (" + ARTICLE_MATCHES + INSERT_ARTICLE_EVIDENCE)
                 .param("card", cardId)
                 .param("place", placeId)
                 .param("start", start)
                 .param("end", end)
                 .update();
+    }
+
+    /**
+     * ⑤ 반박이 인용한 기사마다 문서 근거 행을 만들고(articles 와 같은 규칙 · 같은 ID) news_id → 근거 ID 를 돌려준다(S15P31C108-343).
+     * 출처 등급이 없거나 원본 레코드를 못 찾은 기사는 빠진다.
+     */
+    public Map<String, String> createCitedArticleEvidence(Collection<String> newsIds) {
+        if (newsIds.isEmpty()) {
+            return Map.of();
+        }
+        jdbc.sql("WITH a AS (" + CITED_ARTICLES + INSERT_ARTICLE_EVIDENCE)
+                .param("ids", newsIds)
+                .update();
+        Map<String, String> found = new HashMap<>();
+        jdbc.sql(
+                        "SELECT a.id, ev.evidence_id FROM ("
+                                + CITED_ARTICLES
+                                + ") a JOIN evidence ev ON ev.evidence_id = a.news_evidence_id")
+                .param("ids", newsIds)
+                .query((rs, n) -> found.put(rs.getString(1), rs.getString(2)))
+                .list();
+        return found;
     }
 
     public List<ArticleRow> articles(
