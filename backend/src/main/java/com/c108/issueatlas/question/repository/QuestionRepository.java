@@ -670,23 +670,28 @@ public class QuestionRepository {
     }
 
     /**
-     * ⑤ 반박이 인용한 기사마다 문서 근거 행을 만들고(articles 와 같은 규칙 · 같은 ID) news_id → 근거 ID 를 돌려준다(S15P31C108-343).
-     * 출처 등급이 없거나 원본 레코드를 못 찾은 기사는 빠진다.
+     * ⑤ 반박이 인용한 기사마다 문서 근거 행을 만들고(articles 와 같은 규칙 · 같은 ID) news_id → 제목 · 원문 링크 · 근거 ID 를 돌려준다
+     * (S15P31C108-343). 출처 등급이 없으면 근거 ID 만 null, 원본 레코드를 못 찾은 기사는 빠진다.
      */
-    public Map<String, String> createCitedArticleEvidence(Collection<String> newsIds) {
+    public Map<String, CitedArticle> citedArticles(Collection<String> newsIds) {
         if (newsIds.isEmpty()) {
             return Map.of();
         }
         jdbc.sql("WITH a AS (" + CITED_ARTICLES + INSERT_ARTICLE_EVIDENCE)
                 .param("ids", newsIds)
                 .update();
-        Map<String, String> found = new HashMap<>();
+        Map<String, CitedArticle> found = new HashMap<>();
         jdbc.sql(
-                        "SELECT a.id, ev.evidence_id FROM ("
+                        "SELECT a.id, a.title, a.url, ev.evidence_id FROM ("
                                 + CITED_ARTICLES
-                                + ") a JOIN evidence ev ON ev.evidence_id = a.news_evidence_id")
+                                + ") a LEFT JOIN evidence ev ON ev.evidence_id = a.news_evidence_id")
                 .param("ids", newsIds)
-                .query((rs, n) -> found.put(rs.getString(1), rs.getString(2)))
+                .query(
+                        (rs, n) ->
+                                found.putIfAbsent(
+                                        rs.getString(1),
+                                        new CitedArticle(
+                                                rs.getString(2), rs.getString(3), rs.getString(4))))
                 .list();
         return found;
     }
@@ -792,6 +797,9 @@ public class QuestionRepository {
             String promptVersion,
             int durationMs,
             String retrieval) {}
+
+    /** 반박이 인용한 기사의 제목 · 원문 링크 · 문서 근거 ID(없으면 null). */
+    public record CitedArticle(String title, String url, String evidenceId) {}
 
     /** 반박 검색 질의 한 개(card_rebuttal_profile). */
     public record RebuttalQuery(String rebuttalId, String queryText, String queryVersion) {}

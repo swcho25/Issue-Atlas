@@ -29,6 +29,7 @@ import com.c108.issueatlas.question.dto.QuestionCreateRequest;
 import com.c108.issueatlas.question.dto.QuestionCreateResponse;
 import com.c108.issueatlas.question.repository.QuestionRepository;
 import com.c108.issueatlas.question.repository.QuestionRepository.CardRow;
+import com.c108.issueatlas.question.repository.QuestionRepository.CitedArticle;
 import com.c108.issueatlas.question.repository.QuestionRepository.EvidenceRef;
 import com.c108.issueatlas.question.repository.QuestionRepository.MatchedResponse;
 import com.c108.issueatlas.question.repository.QuestionRepository.MyRunRow;
@@ -233,7 +234,8 @@ public class QuestionService {
     }
 
     /**
-     * ⑤ 반박이 인용한 기사마다 문서 근거 행을 만들고 인용에 그 ID 를 채운다(S15P31C108-343). 원문 탭과 같은 근거 상세로 열린다. 인용이 없으면 그대로.
+     * ⑤ 반박이 인용한 기사마다 문서 근거 행을 만들고 인용에 기사 제목 · 원문 링크 · 근거 ID 를 채운다(S15P31C108-343). 화면은 인용 모달에 제목을
+     * 보이고 원문을 새 탭으로 연다. 인용이 없으면 그대로.
      */
     private ArgumentResponse withCitationEvidence(ArgumentResponse result) {
         Set<String> cited =
@@ -245,9 +247,25 @@ public class QuestionService {
         if (cited.isEmpty()) {
             return result;
         }
-        Map<String, String> evidence = questions.createCitedArticleEvidence(cited);
+        Map<String, CitedArticle> found = questions.citedArticles(cited);
         return result.withRebuttals(
-                result.rebuttals().stream().map(r -> r.withEvidence(evidence)).toList());
+                result.rebuttals().stream()
+                        .map(
+                                r ->
+                                        r.citations() == null
+                                                ? r
+                                                : r.withCitations(
+                                                        r.citations().stream()
+                                                                .map(c -> withSource(c, found))
+                                                                .toList()))
+                        .toList());
+    }
+
+    private static Citation withSource(Citation citation, Map<String, CitedArticle> found) {
+        CitedArticle article = found.get(citation.articleId());
+        return article == null
+                ? citation
+                : citation.withSource(article.title(), article.url(), article.evidenceId());
     }
 
     /** ① 판정과 C2 결과 조립(카드 문구). 기존 대응 후보 → 근거만 쓰고, 질문 · 실행 행은 ③에서 쓴다. */

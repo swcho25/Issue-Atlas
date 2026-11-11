@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Map;
 
 /** C2 argument — 근거 수요표 + 논증 카드 6칸. 칸 이름은 snake_case 설정(application.yml)으로 나간다. */
 public record ArgumentResponse(
@@ -193,26 +192,23 @@ public record ArgumentResponse(
         public Rebuttal withCitations(List<Citation> found) {
             return new Rebuttal(text, status, provenance, found);
         }
-
-        /** 인용 기사마다 문서 근거 ID(news_id → evidence_id)를 채운다. 없는 기사는 null. */
-        public Rebuttal withEvidence(Map<String, String> evidence) {
-            return citations == null
-                    ? this
-                    : withCitations(
-                            citations.stream()
-                                    .map(
-                                            c ->
-                                                    new Citation(
-                                                            c.articleId(),
-                                                            c.date(),
-                                                            c.quote(),
-                                                            evidence.get(c.articleId())))
-                                    .toList());
-        }
     }
 
-    /** 반박 인용 한 건. evidenceId 는 그 기사의 문서 근거 행(근거 상세), 못 만들면 null. */
-    public record Citation(String articleId, LocalDate date, String quote, String evidenceId) {}
+    /**
+     * 반박 인용 한 건. title · url 은 기사 원본 레코드의 제목 · 언론사 원문 링크(화면이 새 탭으로 연다), evidenceId 는 그 기사의 문서 근거
+     * 행(근거 상세). 못 찾거나 못 만들면 null.
+     */
+    public record Citation(
+            String articleId,
+            LocalDate date,
+            String quote,
+            String title,
+            String url,
+            String evidenceId) {
+        public Citation withSource(String foundTitle, String foundUrl, String foundEvidenceId) {
+            return new Citation(articleId, date, quote, foundTitle, foundUrl, foundEvidenceId);
+        }
+    }
 
     public record Ceiling(List<String> items, String provenance) {}
 }
