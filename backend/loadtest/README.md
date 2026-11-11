@@ -60,6 +60,11 @@ PYTHONIOENCODING=utf-8 python backend/loadtest/journey_report.py backend/loadtes
 ```
 `python` 이 없으면 `PYTHON="uv run --no-project python"` 을 앞에 붙인다(가짜 engine 실행에 쓴다).
 
+준비물: Docker · Java 21(jar 빌드) · Python 3 또는 uv · bash(Windows 는 Git Bash). dev 덤프에는 EC2 SSH 키가 필요하다.
+키가 없는 팀원은 덤프 받은 사람에게 덤프 폴더(약 50 MB, `dev-noraw.dump` · `raw_subset.copy.gz` · `app_user.copy`)를 받아
+`restore` 만 하면 된다. 2026-11-10 Windows 11 + Docker Desktop 에서만 돌려 봤다. Linux Docker 는 `host.docker.internal` 이
+기본으로 없어서 `journey.sh` 의 backend `docker run` 에 `--add-host host.docker.internal:host-gateway` 를 더해야 가짜 engine 에 닿는다.
+
 | 환경 변수 | 기본 | 뜻 |
 | --- | --- | --- |
 | `MODE` | journey | `read` 면 질문 없이 결과 화면만 |
