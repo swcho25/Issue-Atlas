@@ -172,12 +172,21 @@
                 "article_id": { "description": "news_id", "type": "string", "minLength": 1 },
                 "date": { "$ref": "common.schema.json#/$defs/date" },
                 "quote": { "type": "string", "minLength": 1 },
+                "title": {
+                  "description": "기사 제목(2026-11-11 추가). 빅카인즈 원본 레코드의 제목, 못 찾으면 null",
+                  "type": ["string", "null"]
+                },
+                "url": {
+                  "description": "언론사 원문 링크(2026-11-11 추가). 화면은 새 탭으로 연다. 원본 레코드에 링크가 없으면 null",
+                  "type": ["string", "null"],
+                  "format": "uri"
+                },
                 "evidence_id": {
                   "description": "기사의 문서 근거 ID(ev_news_<md5>). GET /v1/evidence/{evidence_id} 로 원문 위치 · 링크를 연다. 출처 등급이 없거나 원본 레코드를 못 찾으면 null",
                   "oneOf": [{ "$ref": "common.schema.json#/$defs/id" }, { "type": "null" }]
                 }
               },
-              "required": ["article_id", "date", "quote", "evidence_id"],
+              "required": ["article_id", "date", "quote", "title", "url", "evidence_id"],
               "additionalProperties": false
             }
           }
