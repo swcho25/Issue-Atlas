@@ -123,7 +123,7 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 | ② 근거 | `data` `{statistics[], documents[], existing_responses[], denominators[]}` | — |
 | ③ 보증 | `warrant` `{text}` | 보통 `card` |
 | ④ 한정어 | `qualifier` `{grade, components, formula_version}` | `rule`·`card` 만 |
-| ⑤ 반박 | `rebuttals[]` `{text, status}` | 근거 유무 판정은 `llm_judgment` 가능 |
+| ⑤ 반박 | `rebuttals[]` `{text, status, citations?}` | 근거 유무 판정은 `llm_judgment` 가능. `supported` 면 선택 칸 `citations[] = {article_id, date, quote, evidence_id}` — AI 가 인용한 기사 요약 문장(-343) |
 | ⑥ 상한선 | `ceiling` `{items[]}` | `rule`·`card` 만 |
 
 스키마가 막는 규칙
@@ -281,3 +281,4 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - c2-0.1 값 변경 (2026-11-09, S15P31C108-320 후속): 기존 대응 `display` 의 금액을 억 · 만 원으로(「472,497만 원」 → 「47억 2,497만 원」). 칸 그대로
 - c2-0.1 값 변경 (2026-11-10): 상한선 ⑥ 의 예상 빈칸 문장에서 상태 코드를 빼고 「-요」체로(「민원: 이용 허락이 없어 쓰지 않는다 (license_blocked)」 → 「민원: 이용 허락이 없어 쓰지 않아요」). 칸 · 타입 그대로, 새 실행부터
 - 예시 보강 (2026-11-10, S15P31C108-341): `argument-c1-ready.json` 에 근거 기사 `articles[]` 8건과 기사 건수 줄 4줄(`series[]` 의 `tag` 모양)을 넣는다 — 지금까지 `articles: []` 라 화면 개발용 목 서버에서 기사 점 · 관측 순서를 볼 수 없었다(실제 응답에는 늘 있다). 스키마 · 응답 모양은 그대로, 예시 값만 더한다. 기사 값은 가짜(「예시 값」)
+- C2 선택 칸 추가 (2026-11-11, S15P31C108-343): argument `rebuttals[]` 에 선택 칸 `citations[] = {article_id, date, quote, evidence_id}` — ⑤ 「근거 있음」(`supported`) 반박이 인용한 기사 요약 문장. engine 이 원문과 글자가 같은지 검사한 인용만 오고([AI 계약](../ai/README.md) 「출력 검사」), 같은 기사 같은 인용문은 한 번. `evidence_id` 는 인용 기사마다 실행 때 만드는 문서 근거 행(`ev_news_<md5>`, `articles[]` 와 같은 규칙)으로 근거 상세를 연다. 다른 상태 · 지난 실행 · 문장화 실패에는 칸이 없다. 동결 뒤 추가라 [동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」에 기록

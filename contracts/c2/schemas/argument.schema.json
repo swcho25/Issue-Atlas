@@ -161,7 +161,26 @@
         "properties": {
           "text": { "type": "string" },
           "status": { "$ref": "common.schema.json#/$defs/rebuttal_status" },
-          "provenance": { "$ref": "common.schema.json#/$defs/provenance" }
+          "provenance": { "$ref": "common.schema.json#/$defs/provenance" },
+          "citations": {
+            "description": "반박 근거 기사(선택, 2026-11-11, S15P31C108-343): status 가 supported 이고 AI 가 기사 요약 문장을 인용했을 때만. 인용문은 그 기사 요약에 글자 그대로 있다(engine 검사). 같은 기사 같은 인용문은 한 번. 다른 상태 · 지난 실행에는 칸이 없다",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "article_id": { "description": "news_id", "type": "string", "minLength": 1 },
+                "date": { "$ref": "common.schema.json#/$defs/date" },
+                "quote": { "type": "string", "minLength": 1 },
+                "evidence_id": {
+                  "description": "기사의 문서 근거 ID(ev_news_<md5>). GET /v1/evidence/{evidence_id} 로 원문 위치 · 링크를 연다. 출처 등급이 없거나 원본 레코드를 못 찾으면 null",
+                  "oneOf": [{ "$ref": "common.schema.json#/$defs/id" }, { "type": "null" }]
+                }
+              },
+              "required": ["article_id", "date", "quote", "evidence_id"],
+              "additionalProperties": false
+            }
+          }
         },
         "required": ["text", "status", "provenance"],
         "additionalProperties": false

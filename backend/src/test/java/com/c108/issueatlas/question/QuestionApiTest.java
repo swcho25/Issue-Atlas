@@ -1562,6 +1562,87 @@ class QuestionApiTest {
                 .isEqualTo("rebuttal_r3 n-r3");
     }
 
+    // 반박 4개 모두 답한 engine 결과(AI v0.5): C1-R3 만 근거 있음. n-cite 를 같은 인용문으로 두 번 · 원본 없는 n-gone 한 번 인용.
+    // 근거 없음 반박에 딸린 인용은 버린다
+    private static final String PHRASED_CITED =
+            """
+            {"schema_version": "ai-phrasing-result-0.5", "run_id": "x", "status": "done",
+             "reason_code": null, "retryable": false,
+             "rebuttals": [
+               {"text": "대학 진학 · 군 입대 연령의 구조적 전출", "status": "not_found", "provenance": "llm_judgment"},
+               {"text": "통계 기준 변경", "status": "needs_review", "provenance": "llm_judgment"},
+               {"text": "산단 · 대형 사업장 고용 변동", "status": "supported", "provenance": "llm_judgment"},
+               {"text": "코로나 이후 이동 회복", "status": "not_found", "provenance": "llm_judgment"}],
+             "citations": {
+               "C1-R1": [{"passage": "P3", "quote": "근거 없음 반박의 인용",
+                 "locator": {"kind": "article", "source_id": "n-cite", "field": "summary", "sentence": 1,
+                             "date": "2024-05-01", "url": null}}],
+               "C1-R2": [],
+               "C1-R3": [
+                 {"passage": "P1", "quote": "산단 공장이 문을 닫았다",
+                  "locator": {"kind": "article", "source_id": "n-cite", "field": "summary", "sentence": 1,
+                              "date": "2024-05-01", "url": null}},
+                 {"passage": "P1", "quote": "산단 공장이 문을 닫았다",
+                  "locator": {"kind": "article", "source_id": "n-cite", "field": "summary", "sentence": 1,
+                              "date": "2024-05-01", "url": null}},
+                 {"passage": "P2", "quote": "협력업체 직원이 옮겼다",
+                  "locator": {"kind": "article", "source_id": "n-gone", "field": "summary", "sentence": 1,
+                              "date": "2024-06-01", "url": null}}],
+               "C1-R4": []},
+             "problems": [], "model": "gemini-2.5-flash", "prompt_version": "argument-phrasing-v6",
+             "retrieval": null}
+            """;
+
+    @Test
+    void supportedRebuttalCarriesItsCitedArticlesAndOpensTheirEvidence() throws Exception {
+        engineAnswer = new EngineAnswer(200, PHRASED_CITED, 0);
+        // 인용 기사는 카드 태그가 없어도(반박별 검색) 근거 행을 만든다
+        embeddedArticle("n-cite", "kr-12130110", "산단 공장이 문을 닫았다.");
+        bigkindsRecord("n-cite");
+        jdbc.update(
+                "INSERT INTO source(source_id,name,org,license_type,storage_scope,reliability_grade)"
+                        + " VALUES ('bigkinds','빅카인즈 뉴스','한국언론진흥재단','BIGKINDS-이용약관',"
+                        + "'metadata','C')");
+        String id = "ev_news_" + md5("obs:" + "f".repeat(64) + "|sha256:news-n-cite");
+        String runId = judgedC1Run();
+        argument(runId)
+                .andExpect(jsonPath("$.rebuttals[0].citations").doesNotExist())
+                .andExpect(jsonPath("$.rebuttals[1].citations").doesNotExist())
+                .andExpect(jsonPath("$.rebuttals[3].citations").doesNotExist())
+                // 같은 기사 같은 인용문은 한 번
+                .andExpect(jsonPath("$.rebuttals[2].citations.length()").value(2))
+                .andExpect(jsonPath("$.rebuttals[2].citations[0].article_id").value("n-cite"))
+                .andExpect(jsonPath("$.rebuttals[2].citations[0].date").value("2024-05-01"))
+                .andExpect(jsonPath("$.rebuttals[2].citations[0].quote").value("산단 공장이 문을 닫았다"))
+                .andExpect(jsonPath("$.rebuttals[2].citations[0].evidence_id").value(id))
+                // 원본 레코드가 없는 기사는 근거 행을 못 만든다
+                .andExpect(jsonPath("$.rebuttals[2].citations[1].article_id").value("n-gone"))
+                .andExpect(jsonPath("$.rebuttals[2].citations[1].evidence_id").value(nullValue()));
+        mvc.perform(get("/v1/evidence/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kind").value("documents"))
+                .andExpect(jsonPath("$.title").value("여수 청년 유출 기사"))
+                .andExpect(jsonPath("$.display").value("AI 요약 · 산단 공장이 문을 닫았다."));
+        // 같은 질문을 다시 해도(캐시) 근거 행은 한 행
+        argument(runId(ask(body("C1", "2023-01-01", "2026-01-01").replace(PLACE, "kr-12130"))))
+                .andExpect(jsonPath("$.rebuttals[2].citations[0].evidence_id").value(id));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM evidence WHERE evidence_id = ?",
+                                Integer.class,
+                                id))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void rebuttalsWithoutMatchingCandidatesCarryNoCitations() throws Exception {
+        // 반박 수가 경쟁 설명 수(4)와 다르면 어느 반박의 인용인지 몰라 붙이지 않는다
+        engineAnswer = new EngineAnswer(200, PHRASED, 0);
+        argument(judgedC1Run())
+                .andExpect(jsonPath("$.rebuttals[0].status").value("supported"))
+                .andExpect(jsonPath("$.rebuttals[0].citations").doesNotExist());
+    }
+
     @Test
     void rebuttalSearchNeedsAQueryForEveryRebuttal() throws Exception {
         engineAnswer = new EngineAnswer(200, PHRASED, 0);
