@@ -57,10 +57,10 @@ async function OverviewContent({ searchParams }: { searchParams: Promise<SearchP
         />
         <QueueCard
           icon="db"
-          title="CSV 적재 대기"
+          title="CSV 반영 대기"
           value={imports.pending}
-          sub={`누적 검증 실패 ${imports.validation_failed} · 실패 ${imports.failed} · 완료 보고 ${imports.completed}`}
-          href="/admin/sources/imports?status=pending"
+          sub={`누적 검증 오류 ${imports.validation_failed} · 반영 실패 ${imports.failed} · 반영 완료 ${imports.completed}`}
+          href="/admin/sources?view=imports"
         />
       </div>
 
@@ -160,7 +160,7 @@ function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays 
         ["성공", a.jobs_started.ok],
         ["실패", a.jobs_started.failed],
         ["중단", a.jobs_started.aborted],
-        ["끝 기록 없음", a.jobs_started.running],
+        ["종료 미확인", a.jobs_started.running],
       ],
     },
   ];
@@ -234,9 +234,9 @@ function Sources({ sources }: { sources: SourceStatus[] }) {
       <ul>
         {sources.map((s) => (
           <li key={s.source_id} className="border-t border-border-1">
-            {/* 줄을 누르면 그 출처의 수집 이력(/admin/sources/jobs?source=) */}
+            {/* 줄을 누르면 데이터 소스에서 그 출처로 거른 수집 기록(/admin/sources?source=) */}
             <Link
-              href={`/admin/sources/jobs?source=${encodeURIComponent(s.source_id)}`}
+              href={`/admin/sources?source=${encodeURIComponent(s.source_id)}`}
               className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2"
             >
               <div className="flex min-w-0 flex-1 flex-col">

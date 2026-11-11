@@ -48,7 +48,7 @@ describe("UploadForm", () => {
     document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
   });
 
-  it("파일을 골라야 올리고, 양식 1 · 담당자 · 요청 키를 multipart 로 보낸 뒤 상세로", async () => {
+  it("파일을 골라야 올리고, 양식 1 · 반영 담당자 · 요청 키를 multipart 로 보낸 뒤 상세로", async () => {
     // jsdom 의 File 은 undici formData() 가 못 읽어 multipart 본문을 글자로 읽는다
     let body = "";
     mswServer.use(
@@ -64,7 +64,9 @@ describe("UploadForm", () => {
     const file = new File(["data_kind,source_id\n"], "a.csv", { type: "text/csv" });
     await userEvent.upload(screen.getByLabelText("CSV 파일"), file);
     await userEvent.click(send);
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/sources/imports/import_9"));
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/admin/sources?view=imports&id=import_9"),
+    );
     expect(body).toMatch(/name="template_version"\s+1\s/);
     expect(body).toMatch(/name="assignee_id"\s+1\s/);
     expect(body).toMatch(/name="request_key"\s+[0-9a-f-]{36}\s/);
