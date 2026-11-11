@@ -127,6 +127,16 @@ const article = z.object({
   source_grade: sourceGrade.nullish(),
 });
 
+/** 반박 인용 한 건(-343). title · url 은 나중에 더한 칸이라 앞 판 응답에는 없을 수 있다 */
+const citation = z.object({
+  article_id: id,
+  date,
+  quote: z.string().min(1),
+  title: z.string().nullish(),
+  url: z.url().nullish(),
+  evidence_id: id.nullish(),
+});
+
 const argumentObject = z.object({
   schema_version: schemaVersion,
   run_id: id,
@@ -174,7 +184,15 @@ const argumentObject = z.object({
     formula_version: z.literal("qualifier-0.1"),
     provenance: ruleProvenance,
   }),
-  rebuttals: z.array(z.object({ text: z.string(), status: rebuttalStatus, provenance })),
+  rebuttals: z.array(
+    z.object({
+      text: z.string(),
+      status: rebuttalStatus,
+      provenance,
+      /** 「근거 있음」 반박이 인용한 기사 요약 문장(선택 칸, -343). 다른 상태 · 지난 실행은 칸이 없다 */
+      citations: z.array(citation).optional(),
+    }),
+  ),
   ceiling: z.object({ items: z.array(z.string()), provenance: ruleProvenance }),
   series: z.array(series),
   articles: z.array(article),
