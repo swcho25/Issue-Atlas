@@ -18,6 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DELAY = float(os.environ.get("DELAY_SECONDS", "13"))
 PORT = int(os.environ.get("PORT", "18000"))
+HOST = os.environ.get("HOST", "127.0.0.1")  # backend 를 컨테이너로 띄우면 0.0.0.0
 
 lock = threading.Lock()
 stats = {"calls": 0, "in_flight": 0, "max_in_flight": 0}
@@ -79,7 +80,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    server = ThreadingHTTPServer((HOST, PORT), Handler)
     server.daemon_threads = True
-    print(f"fake engine 127.0.0.1:{PORT} delay {DELAY}s", flush=True)
+    print(f"fake engine {HOST}:{PORT} delay {DELAY}s", flush=True)
     server.serve_forever()
