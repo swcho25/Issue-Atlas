@@ -180,7 +180,8 @@ public class ArgumentPhraser {
 
     /**
      * 「근거 있음」 반박에만 engine 인용(반박 ID → 인용문 · 원문 위치)을 붙인다(C2 선택 칸, S15P31C108-343). 기사 인용만, 같은 기사 같은
-     * 인용문은 한 번. 반박 수가 경쟁 설명 수와 다르면 어느 반박의 인용인지 모르므로 붙이지 않는다. evidenceId 는 실행을 저장할 때 채운다.
+     * 인용문은 한 번. 반박 수가 경쟁 설명 수와 다르면 어느 반박의 인용인지 모르므로 붙이지 않는다. 제목 · 원문 링크 · evidenceId 는 실행을 저장할 때
+     * 채운다.
      */
     static List<Rebuttal> cite(List<Rebuttal> rebuttals, List<String> ids, JsonNode citations) {
         if (rebuttals.size() != ids.size()) {
@@ -205,6 +206,8 @@ public class ArgumentPhraser {
                                         article,
                                         LocalDate.parse(at.path("date").asText()),
                                         quote,
+                                        null,
+                                        null,
                                         null));
                     } catch (DateTimeParseException e) {
                         // 날짜를 못 읽는 인용은 보이지 않는다

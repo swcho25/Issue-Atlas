@@ -1615,9 +1615,16 @@ class QuestionApiTest {
                 .andExpect(jsonPath("$.rebuttals[2].citations[0].date").value("2024-05-01"))
                 .andExpect(jsonPath("$.rebuttals[2].citations[0].quote").value("산단 공장이 문을 닫았다"))
                 .andExpect(jsonPath("$.rebuttals[2].citations[0].evidence_id").value(id))
+                // 모달이 근거 상세를 따로 받지 않고 제목을 보이고 원문을 새 탭으로 연다
+                .andExpect(jsonPath("$.rebuttals[2].citations[0].title").value("여수 청년 유출 기사"))
+                .andExpect(
+                        jsonPath("$.rebuttals[2].citations[0].url")
+                                .value("https://news.test/n-cite"))
                 // 원본 레코드가 없는 기사는 근거 행을 못 만든다
                 .andExpect(jsonPath("$.rebuttals[2].citations[1].article_id").value("n-gone"))
-                .andExpect(jsonPath("$.rebuttals[2].citations[1].evidence_id").value(nullValue()));
+                .andExpect(jsonPath("$.rebuttals[2].citations[1].evidence_id").value(nullValue()))
+                .andExpect(jsonPath("$.rebuttals[2].citations[1].title").value(nullValue()))
+                .andExpect(jsonPath("$.rebuttals[2].citations[1].url").value(nullValue()));
         mvc.perform(get("/v1/evidence/" + id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.kind").value("documents"))

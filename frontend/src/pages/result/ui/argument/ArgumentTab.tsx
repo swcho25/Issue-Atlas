@@ -18,6 +18,7 @@ import { qualifierGap, qualifierRule } from "../../model/qualifier";
 import { emptyRefsText, kindCount, refsTitle } from "../../model/sources";
 import { sourcesHref } from "../tabs";
 import { CellMenu } from "./CellMenu";
+import { RebuttalCitations } from "./RebuttalCitations";
 import { ReportProvider, type ReportTarget } from "./report";
 
 // 05 · 논증 카드 본문(Figma 05 · 논증 카드 탭): 두 열(폭 546 · 사이 12)에 칸 여섯.
@@ -251,6 +252,7 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
                 {rebuttals.map((r) => (
                   <li key={r.text} className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 text-body-13 text-text-1">{r.text}</span>
+                    <RebuttalCitations rebuttal={r} />
                     <StatusBadge tone={rebuttalBadge[r.status].tone}>
                       {rebuttalBadge[r.status].label}
                     </StatusBadge>
