@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import type { Argument } from "@/shared/api";
 
 import { boundariesQuery } from "../../api/boundariesQuery";
-import { articleMarks } from "../../model/articles";
+import { articleMarks, hasLaterMarks } from "../../model/articles";
 import { hasAqBands, monthSummary, stationPoints, stationSeries } from "../../model/distribution";
 import { judgmentBadge } from "../../model/labels";
 import { movementBars, movementDots } from "../../model/movement";
@@ -180,7 +180,7 @@ export function MapOverlays({ argument }: { argument: Argument }) {
                 <ArticleLegend
                   hasDots={articles.dots.length > 0}
                   hasGroups={articles.groups.length > 0}
-                  dimsOthers={month !== null}
+                  dimsLater={hasLaterMarks([...articles.dots, ...articles.groups], month)}
                 />
               </div>
             </>

@@ -21,6 +21,13 @@ export const adminMenu: MenuItem[] = [
   { label: "데이터 소스", href: "/admin/sources", icon: "db" },
 ];
 
+/**
+ * 띠 로고가 가는 곳: 로그인한 사람의 첫 화면(관리자 = 운영 요약, 그 밖 = 새 질문).
+ * 랜딩(/)으로 보내면 앱 밖으로 나가 버린다
+ */
+export const homeHref = (role: "viewer" | "admin") =>
+  (role === "admin" ? adminMenu : viewerMenu)[0].href;
+
 export function isActive(item: MenuItem, pathname: string) {
   if (item.exact) return pathname === item.href;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);

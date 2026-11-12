@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { adminMenu, isActive, viewerMenu } from "./menu";
+import { adminMenu, homeHref, isActive, viewerMenu } from "./menu";
 
 const [ask] = viewerMenu;
 const [summary, reviews] = adminMenu;
@@ -19,5 +19,12 @@ describe("isActive", () => {
     expect(isActive(summary, "/admin")).toBe(true);
     expect(isActive(summary, "/admin/reviews")).toBe(false);
     expect(isActive(reviews, "/admin/reviews/7")).toBe(true);
+  });
+});
+
+describe("homeHref", () => {
+  it("띠 로고는 랜딩이 아니라 역할의 첫 화면으로 간다", () => {
+    expect(homeHref("viewer")).toBe("/ask");
+    expect(homeHref("admin")).toBe("/admin");
   });
 });
