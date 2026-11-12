@@ -48,6 +48,30 @@ def test_month_is_kept_when_text_says_so_or_close(start, basis):
     assert t0.startswith(start) and "달_고침" not in note
 
 
+@pytest.mark.parametrize(
+    ("published", "start", "basis", "want"),
+    [
+        # 발행일 뒤로는 옮기지 않는다(「오는」 없음): 6/13 기사의 「20일」 5/20 → 6/20 은 발행일 뒤
+        ("2024-06-13", "2024-05-20", "20일", None),
+        ("2025-05-13", "2025-04-14", "14일", None),  # 하루 뒤(5/14)여도 뒤로는 안 민다
+        ("2024-08-21", "2024-08-05", "5일", None),  # 16일 전 — 9/5 로 밀지 않는다
+        # 발행일 당일로는 옮긴다: 2/1 기사의 「1일」을 1/1 로 잡은 것
+        ("2023-02-01", "2023-01-01", "1일", "2023-02-01"),
+        ("2025-12-02", "2025-11-02", "2일 오전", "2025-12-02"),
+        # 「오는」이 있으면 발행일 뒤에서 고른다
+        ("2024-06-13", "2024-05-20", "오는 20일", "2024-06-20"),
+        # 「지난」: 발행일 이전에서만(표시가 없을 때와 같다)
+        ("2024-06-13", "2024-07-02", "지난 2일", "2024-06-02"),
+    ],
+)
+def test_bare_day_is_not_pushed_past_published_unless_ahead(published, start, basis, want):
+    t0, _, _, note = period(start, basis, published=f"{published}T09:00:00.000+09:00")
+    if want is None:
+        assert t0.startswith(start) and "달_고침" not in note
+    else:
+        assert t0.startswith(want) and note["달_고침"] == f"{start} → {want}"
+
+
 def test_period_moves_with_start():
     t0, t1, unit, note = period("2025-12-29", "29~30일", end="2025-12-30")
     assert (t0[:10], t1[:10], unit) == ("2025-11-29", "2025-12-01", "day")  # 끝은 미포함 경계

@@ -12,6 +12,8 @@ s1 서버 기사 3,478건 중 47건이 본문을 옮겼다.
 s1.2 (2026-11-04): 프롬프트는 s1 그대로. 글에 달 없이 「N일」만 있는데 발행일과 15일 넘게
 떨어진 날짜를 발행일에 가장 가까운 그 날로 옮긴다(nearest_month) — 검수 v3(dev 120건)에서
 12월 1일 기사의 「30일」을 12월 30일로 잡은 것 3건(실제 11월 30일).
+발행일 뒤로는 옮기지 않는다(「오는 · 다음」이 있을 때만 뒤로) — 적재 3,477건 어림(2026-11-10)에서
+앞 달 날짜를 다음 달로 미는 14건 중 9건이 발행일 뒤(틀린 것이 섞임), 남는 5건은 발행일 당일.
 """
 
 import re
@@ -126,8 +128,10 @@ def nearest_year(t0: datetime, t1: datetime | None, basis: str, pub: date):
 def nearest_month(t0: datetime, t1: datetime | None, basis: str, pub: date):
     """글에 달 · 연도 없이 「N일」만 있는데 발행일과 MONTH_GAP 일 넘게 떨어진 날짜 →
     발행 달 앞뒤의 그 날 중 발행일에 가장 가까운 날로 옮긴다.
-    「지난」은 발행일 이전, 「오는 · 다음」은 이후에서만 고른다.
-    예: 발행 12월 1일 「30일」 → 11월 30일 (s1 이 12월 30일로 잡은 것, 검수 v3 3건)"""
+    발행일 당일이거나 그 전에서만 고른다. 「오는 · 다음」이 있으면 당일이거나 그 뒤에서만 고른다
+    (기사는 대개 지난 일을 쓴다 — 표시 없이 발행일 뒤로 밀면 틀린 것이 섞인다).
+    예: 발행 12월 1일 「30일」 → 11월 30일 (s1 이 12월 30일로 잡은 것, 검수 v3 3건)
+        발행 6월 13일 「20일」(5월 20일로 잡힘) → 그대로 (6월 20일은 발행일 뒤)"""
     days = {int(d) for d in _DAY_IN_BASIS.findall(basis)}
     gap = abs((t0.date() - pub).days)
     if (
@@ -137,7 +141,7 @@ def nearest_month(t0: datetime, t1: datetime | None, basis: str, pub: date):
         or gap <= MONTH_GAP
     ):
         return t0, t1, None
-    past, ahead = _PAST.search(basis), _AHEAD.search(basis)
+    ahead = _AHEAD.search(basis)
     best = None
     for k in (-1, 0, 1):
         y, m = divmod(pub.year * 12 + pub.month - 1 + k, 12)
@@ -145,7 +149,7 @@ def nearest_month(t0: datetime, t1: datetime | None, basis: str, pub: date):
             c = t0.replace(year=y, month=m + 1)
         except ValueError:  # 31일이 없는 달
             continue
-        if (past and c.date() > pub) or (ahead and c.date() < pub):
+        if (c.date() < pub) if ahead else (c.date() > pub):
             continue
         if (g := abs((c.date() - pub).days)) < gap:
             best, gap = c, g
