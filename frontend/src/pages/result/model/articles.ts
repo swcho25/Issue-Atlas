@@ -100,11 +100,17 @@ export function articleMarks(a: Argument): { dots: ArticleDot[]; groups: ApproxG
 }
 
 /**
- * 고른 달의 기사가 하나라도 있는 자리인가(명세 7절 「기사 점: 고른 달은 진하게, 다른 달은 흐린 점」).
+ * 고른 달까지 나온 기사가 하나라도 있는 자리인가 — 그 달 뒤에만 나온 자리는 흐리게 한다.
+ * 명세 7절은 「고른 달은 진하게, 다른 달은 흐린 점」 인데, 한 달에 기사가 몇 건뿐이라 처음 화면(마지막 달)에서
+ * 점이 거의 다 흐려 안 보였다 → 관측 순서처럼 「슬라이더 달까지」 로 쌓는다(처음 화면은 모두 진하다).
  * 날짜를 모르는 기사는 흐리게 하지 않는다
  */
-export const markInMonth = (mark: { dates: (string | null)[] }, month: string) =>
-  mark.dates.some((d) => !d || monthOf(d) === month);
+export const markUpToMonth = (mark: { dates: (string | null)[] }, month: string) =>
+  mark.dates.some((d) => !d || d.slice(0, 7) <= month);
+
+/** 고른 달 뒤에만 나온 자리가 있는가(범례의 흐린 점 줄을 보일지) */
+export const hasLaterMarks = (marks: { dates: (string | null)[] }[], month: string | null) =>
+  month !== null && marks.some((m) => !markUpToMonth(m, month));
 
 /** 같은 자리 점 이름: 「여수세계박람회장 · 기사 7건」 */
 export const stackLabel = (d: Pick<ArticleDot, "place" | "ids">) =>

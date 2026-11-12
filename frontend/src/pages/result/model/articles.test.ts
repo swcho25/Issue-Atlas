@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { type Argument, argumentSchema } from "@/shared/api";
 
 import readyJson from "../../../../../contracts/c2/examples/argument-c1-ready.json";
-import { approxLabel, articleMarks, markInMonth } from "./articles";
+import { approxLabel, articleMarks, hasLaterMarks, markUpToMonth } from "./articles";
 
 const ready = argumentSchema.parse(readyJson);
 
@@ -77,7 +77,7 @@ describe("기사 점", () => {
     ]);
   });
 
-  it("고른 달의 기사가 하나라도 있는 자리만 진하게(다른 달은 흐리게), 날짜를 모르면 흐리게 하지 않는다", () => {
+  it("고른 달까지 나온 기사가 하나라도 있는 자리는 진하게(그 달 뒤에만 나온 자리는 흐리게), 날짜를 모르면 흐리게 하지 않는다", () => {
     const a = {
       ...ready,
       articles: [
@@ -89,11 +89,17 @@ describe("기사 점", () => {
     } as Argument;
     const { dots, groups } = articleMarks(a);
     expect(dots.map((d) => d.dates)).toEqual([["2023-01-27", "2024-06-03"], ["2023-02-10"]]);
-    // 같은 자리 두 건 중 하나가 2024-06 → 진하게, 2023-02 한 건뿐인 자리는 흐리게
-    expect(dots.map((d) => markInMonth(d, "2024-06"))).toEqual([true, false]);
-    expect(markInMonth(groups[0], "2024-06")).toBe(true);
-    expect(markInMonth(groups[0], "2024-07")).toBe(false);
-    expect(markInMonth({ dates: [null] }, "2024-06")).toBe(true);
+    // 2024-06: 모두 그 달까지 나왔다 → 모두 진하게(범례의 흐린 점 줄 없음)
+    expect(dots.map((d) => markUpToMonth(d, "2024-06"))).toEqual([true, true]);
+    expect(markUpToMonth(groups[0], "2024-06")).toBe(true);
+    expect(hasLaterMarks([...dots, ...groups], "2024-06")).toBe(false);
+    // 2023-01: 같은 자리 두 건 중 하나가 2023-01 → 진하게, 2023-02 · 2024-06 에만 나온 자리는 흐리게
+    expect(dots.map((d) => markUpToMonth(d, "2023-01"))).toEqual([true, false]);
+    expect(markUpToMonth(groups[0], "2023-01")).toBe(false);
+    expect(hasLaterMarks([...dots, ...groups], "2023-01")).toBe(true);
+    expect(markUpToMonth({ dates: [null] }, "2023-01")).toBe(true);
+    // 달이 없는 결과는 흐리게 하지 않는다
+    expect(hasLaterMarks([...dots, ...groups], null)).toBe(false);
   });
 
   it("계약 예시(여수 C1): 같은 자리 2건 · 한 건 · 위치 근사 묶음 셋, 위치 없는 기사는 빠진다", () => {

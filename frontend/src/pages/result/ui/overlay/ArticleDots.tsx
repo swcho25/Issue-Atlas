@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 
 import { useMapInstance } from "@/shared/ui/map";
 
-import { type ApproxGroup, type ArticleDot, markInMonth } from "../../model/articles";
+import { type ApproxGroup, type ArticleDot, markUpToMonth } from "../../model/articles";
 import { pressable } from "./pressable";
 
 // 기사 점(Figma 「기사 점」): 주소 기사 = 남색 점 10 · 흰 테두리 2 · 옅은 그림자,
@@ -14,7 +14,7 @@ import { pressable } from "./pressable";
 // 분포형 측정소 점처럼 지도 층이 아니라 Marker 로(바탕을 갈아 끼워도 남는다)
 
 /**
- * 고른 달의 기사가 없는 자리는 흐리게(명세 7절 「기사 점: 고른 달은 진하게, 다른 달은 흐린 점」).
+ * 고른 달까지 나온 기사가 없는 자리(그 달 뒤에만 나온 자리)는 흐리게 — model/articles 의 markUpToMonth.
  * MapLibre 가 Marker 요소의 opacity 를 직접 쓰므로(가림 처리) 요소 자신이 아니라 안쪽에 건다
  */
 const DIM = "*:opacity-35";
@@ -151,11 +151,11 @@ export function ArticleDots({
     for (const [key, el] of placed.current) markSelected(el, key === selected);
   }, [selected, dots, groups]);
 
-  // 고른 달 기사가 없으면 흐리게. 점을 다시 놓은 뒤(map · dots · groups)에도 다시 건다
+  // 고른 달까지 나온 기사가 없으면 흐리게. 점을 다시 놓은 뒤(map · dots · groups)에도 다시 건다
   useEffect(() => {
     const marks = placed.current;
     const dim = (key: string, mark: { dates: (string | null)[] }) =>
-      marks.get(key)?.classList.toggle(DIM, month !== null && !markInMonth(mark, month));
+      marks.get(key)?.classList.toggle(DIM, month !== null && !markUpToMonth(mark, month));
     for (const d of dots) dim(articleMark(d.key), d);
     for (const g of groups) dim(groupMark(g.key), g);
   }, [map, dots, groups, month]);
@@ -164,17 +164,17 @@ export function ArticleDots({
 
 /**
  * 기사 점 범례(Figma Legend · 기사 점 193 × 112: 흰 면 · 모서리 12 · 안쪽 12 · 14 · 사이 8, 「보도 기사」 Bold 13 · 줄 Regular 13 text-2).
- * Figma 의 「고른 달」(◆) 줄은 「다른 달」(흐린 점)로 — 고른 달 기사가 진한 쪽이고 모양은 바꾸지 않아서
+ * Figma 의 「고른 달」(◆) 줄은 「고른 달 뒤 기사」(흐린 점)로 — 고른 달까지가 진한 쪽이고 모양은 바꾸지 않아서
  */
 export function ArticleLegend({
   hasDots,
   hasGroups,
-  dimsOthers = false,
+  dimsLater = false,
 }: {
   hasDots: boolean;
   hasGroups: boolean;
-  /** 달을 골라 다른 달 기사가 흐려지는가 */
-  dimsOthers?: boolean;
+  /** 고른 달 뒤에만 나와 흐려진 자리가 있는가 */
+  dimsLater?: boolean;
 }) {
   return (
     <section
@@ -197,10 +197,10 @@ export function ArticleLegend({
           위치 근사 (행정구역 중심)
         </p>
       )}
-      {dimsOthers && (
+      {dimsLater && (
         <p className="flex items-center gap-2 text-body-13 text-text-2">
           <span aria-hidden className="size-[9px] shrink-0 rounded-full bg-map-region opacity-35" />
-          다른 달 기사
+          고른 달 뒤 기사
         </p>
       )}
     </section>
