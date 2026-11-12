@@ -8,7 +8,7 @@ import { useTheme } from "@/shared/lib/theme";
 import { Icon } from "@/shared/ui/icon";
 import { AtlasMark } from "@/shared/ui/logo";
 
-import { adminMenu, isActive, type MenuItem, viewerMenu } from "../model/menu";
+import { adminMenu, homeHref, isActive, type MenuItem, viewerMenu } from "../model/menu";
 import { AccountMenu, type RailUser } from "./AccountMenu";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -87,8 +87,8 @@ export function AppRail({
     >
       {/* 로고에 올리면 지도책이 펼쳐진다(docs/design/logo.md) */}
       <Link
-        href="/"
-        aria-label="Issue Atlas 처음 화면"
+        href={homeHref(role)}
+        aria-label="Issue Atlas 첫 화면"
         className="mb-[calc(18*var(--u))]"
         onPointerEnter={() => setLogoOpen(true)}
         onPointerLeave={() => setLogoOpen(false)}
