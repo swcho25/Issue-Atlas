@@ -12,9 +12,10 @@ import { hasAqBands, monthSummary, stationPoints, stationSeries } from "../../mo
 import { judgmentBadge } from "../../model/labels";
 import { movementBars, movementDots } from "../../model/movement";
 import { observationOrder } from "../../model/observationOrder";
-import { defaultMonth, periodMonths } from "../../model/timeline";
+import { periodMonths } from "../../model/timeline";
 import { changeSeries, openViews, type ViewType, viewTypes } from "../../model/views";
 import { summaryHref } from "../tabs";
+import { useViewState } from "../viewState";
 import { ArticleDetail, ArticleGroupDetail, ArticleStackDetail } from "./ArticleDetail";
 import { ArticleDots, ArticleLegend, articleMark, groupMark } from "./ArticleDots";
 import { ChangeSheet } from "./ChangeSheet";
@@ -35,13 +36,13 @@ import { TimeSlider } from "./TimeSlider";
 const FREE_LEFT = "left-[448px]";
 
 export function MapOverlays({ argument }: { argument: Argument }) {
-  const { enabled, initial } = openViews(argument);
-  const [view, setView] = useState<ViewType | null>(initial);
+  const { enabled } = openViews(argument);
+  // 고른 유형 · 달은 카드도 읽는다(ViewStateProvider) — 처음 값은 ResultPage 가 정한다
+  const { view, setView, month, setMonth } = useViewState();
 
   // 공통 시간 슬라이더: 질문 기간의 달에서 하나를 고른다. 처음엔 값이 있는 마지막 달, 유형을 바꿔도 그대로.
   // 응답의 그림 줄은 모두 같은 칸(달 · 값)이라 모든 유형이 이 달 하나를 쓴다. 보이는 것만 바꾼다(판단은 질문 기간 그대로)
   const months = useMemo(() => periodMonths(argument), [argument]);
-  const [month, setMonth] = useState(() => defaultMonth(argument));
 
   // 측정소 점: 고른 달 값. 분포형, 그리고 막대 그림 줄이 없는 변화형(A3 — C1 은 순이동 막대 시트)
   const stations = useMemo(() => stationSeries(argument), [argument]);
