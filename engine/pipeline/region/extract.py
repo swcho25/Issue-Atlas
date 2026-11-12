@@ -4,7 +4,7 @@ python -m pipeline.region.extract --input <articles.jsonl> --output <extract.jso
                                   [--done <이전 결과>]
                                                                      → 건수 JSON (stdout)
 - 모델 서버는 .env 의 P3_LLM_* (llm.py). 없으면 아무것도 쓰지 않고 P3_LLM_NOT_CONFIGURED 로 끝난다
-- 기사마다 지역(answer_region, p9.1) · 요약 · 시간(answer_summary, s1.1)을 동시에 묻는다(묶음 64건)
+- 기사마다 지역(answer_region, p9.1) · 요약 · 시간(answer_summary, s1.2)을 동시에 묻는다(묶음 64건)
 - 한 묶음에서 절반 넘게 답이 깨지면(지역 JSON 아님 · 요약 없음) 그 묶음은 쓰지 않고 멈춘다 —
   vLLM AWQ 가 동시 요청에 「{"!!!!…」를 내거나 엔진이 죽은 일(2026-10-29 · 11-01). 다시 돌릴 때
   --done 에 이전 결과를 주면 이미 뽑은 기사는 건너뛴다(결과 파일은 실행마다 새로 쓴다)
