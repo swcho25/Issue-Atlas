@@ -1,8 +1,10 @@
 import importlib.util
+import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 SPEC = importlib.util.spec_from_file_location(
     "collector_runner", Path(__file__).resolve().parents[1] / "collector/run_collector.py"
@@ -71,9 +73,7 @@ class CollectorRunnerTests(unittest.TestCase):
 
     def test_successful_collection_refines_only_changed_sources(self):
         started = "2026-11-02T06:00:00+00:00"
-        self.assertEqual(
-            runner.refine_after("press", 0, started), ["--changed-since", started]
-        )
+        self.assertEqual(runner.refine_after("press", 0, started), ["--changed-since", started])
         self.assertEqual(
             runner.command(self.app, "refine", ["--changed-since", started])[-5:],
             ["-m", "pipeline.refine", "--db", "--changed-since", started],
@@ -106,3 +106,59 @@ class CollectorRunnerTests(unittest.TestCase):
             runner.run_arguments("youth-policy", ["--regions", "12130"], "T"),
             ["--regions", "12130", "--output", "/app/outputs/T/c1.json"],
         )
+
+    def test_only_committed_summary_load_starts_classification(self):
+        result = {"apply": True, "load": {"inserted": 1, "summarized": 1}}
+        args = ["--extract", "/inputs/a.jsonl", "--apply"]
+        self.assertTrue(runner.should_classify("region-load", args, 0, result))
+        for mode, arguments, code, payload in (
+            ("region-load", args[:-1], 0, result),  # 시험 실행
+            ("region-load", ["--delete-bodies", "--apply"], 0, result),
+            ("region-load", ["--relocate", "--apply"], 0, result),
+            ("region-load", args, 1, result),
+            ("region-load", args, 0, {"apply": True, "load": {"summarized": 0}}),
+            ("region-load", args, 0, {"apply": True, "load": {"skipped": {"보류": 1}}}),
+            ("region-load", args, 0, None),
+        ):
+            with self.subTest(arguments=arguments, code=code, payload=payload):
+                self.assertFalse(runner.should_classify(mode, arguments, code, payload))
+
+    def test_classify_checks_count_and_stops_at_limit_without_embedding(self):
+        called = []
+
+        def run(command, **kwargs):
+            called.append(command[command.index("-m") + 2])
+            return SimpleNamespace(returncode=0, stdout='{"eligible": 240, "new_embeddings": 180}')
+
+        code, steps = runner.run_classification(self.app, {}, io.StringIO(), run=run)
+        self.assertEqual(code, 3)
+        self.assertEqual(called, ["count-docs"])
+        self.assertEqual(steps["count-docs"]["reason"], "new_embeddings_limit_exceeded")
+        self.assertEqual(steps["embed-docs"], {"status": "skipped"})
+
+    def test_classify_failure_stops_next_stage_and_retry_reuses_cache(self):
+        called = []
+        outputs = {
+            "count-docs": '{"eligible": 1, "new_embeddings": 0, "cached_embeddings": 1}',
+            "embed-docs": '{"eligible": 1, "already_active": 1}',
+            "embed-cards": '{"approved": 2, "already_active": 2}',
+            "score": '{"scores": {"C1": 1}, "selected": {"C1": 1}}',
+        }
+        fail_card = True
+
+        def run(command, **kwargs):
+            mode = command[command.index("-m") + 2]
+            called.append(mode)
+            code = 1 if mode == "embed-cards" and fail_card else 0
+            return SimpleNamespace(returncode=code, stdout="card failed" if code else outputs[mode])
+
+        code, steps = runner.run_classification(self.app, {}, io.StringIO(), run=run)
+        self.assertEqual(code, 1)
+        self.assertEqual(called, ["count-docs", "embed-docs", "embed-cards"])
+        self.assertEqual(steps["score"], {"status": "skipped"})
+        called.clear()
+        fail_card = False
+        code, steps = runner.run_classification(self.app, {}, io.StringIO(), run=run)
+        self.assertEqual(code, 0)
+        self.assertEqual(called, ["count-docs", "embed-docs", "embed-cards", "score"])
+        self.assertEqual(steps["embed-docs"]["result"]["already_active"], 1)

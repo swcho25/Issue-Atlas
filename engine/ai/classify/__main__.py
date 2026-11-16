@@ -53,6 +53,17 @@ def command_embed_docs(conn, apply: bool, limit: int | None, embed=gms.embed):
     return dict(stats)
 
 
+def command_count_docs(conn):
+    """외부 임베딩 API 없이 새 벡터가 필요한 최신 기사 수를 센다."""
+    found = store.documents(conn)
+    existing = store.existing_document_inputs(conn, [item.input_id for item in found])
+    return {
+        "eligible": len(found),
+        "new_embeddings": len(found) - len(existing),
+        "cached_embeddings": len(existing),
+    }
+
+
 def command_embed_cards(conn, apply: bool, embed=gms.embed):
     found = store.cards(conn)
     stats = Counter({"approved": len(found)})
@@ -187,7 +198,7 @@ def command_sample(conn, output: Path):
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="기사→C1·A3 분류. --apply에서만 DB를 변경")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("embed-docs", "embed-cards", "score", "sample"):
+    for name in ("count-docs", "embed-docs", "embed-cards", "score", "sample"):
         sub = commands.add_parser(name)
         sub.add_argument("--db", action="store_true", required=True)
         sub.add_argument("--database", help="로컬 테스트 DB 이름. 생략하면 .env의 DB_NAME")
@@ -210,7 +221,9 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, ensure_ascii=False, sort_keys=True))
             return 0
         with store.connect(args.database) as conn:
-            if args.command == "embed-docs":
+            if args.command == "count-docs":
+                result = command_count_docs(conn)
+            elif args.command == "embed-docs":
                 if args.limit is not None and args.limit < 1:
                     parser.error("--limit는 1 이상이어야 합니다")
                 result = command_embed_docs(conn, args.apply, args.limit)

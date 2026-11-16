@@ -81,6 +81,18 @@ def documents(conn):
         return [document_input(*row) for row in cur.fetchall()]
 
 
+def existing_document_inputs(conn, input_ids: list[str]) -> set[str]:
+    """이미 저장된 벡터의 입력 ID. 비활성 벡터도 재사용 대상이다."""
+    if not input_ids:
+        return set()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT input_id FROM document_embedding_v1 WHERE input_id = ANY(%s)",
+            (input_ids,),
+        )
+        return {row[0] for row in cur.fetchall()}
+
+
 def cards(conn):
     with conn.cursor() as cur:
         cur.execute(CARDS)
