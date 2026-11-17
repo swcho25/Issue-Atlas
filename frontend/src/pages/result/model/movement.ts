@@ -1,7 +1,8 @@
 import { type Argument, type ArgumentSeries, seriesShape } from "@/shared/api";
 
 // 04 이동형(Figma 「결과 · 이동형 · 청년 유출」 — 전출지별 막대 · 선 없음 · 집계 이동량).
-// 응답의 이동 줄(flow 모양, 도착 시도마다 한 줄 · 월별 이동자 수)을 마지막 해 합계로 묶어 도착 시도별 막대로.
+// 응답의 이동 줄(flow 모양, 도착 시도마다 한 줄 · 월별 이동자 수)에서 고른 달 값을 도착 시도별 막대로
+// (명세 7절 「이동: 고른 달 값 + 도착지별 막대」 — 공통 시간 슬라이더).
 // 11/01 대표 결정: 그림만 · 판정 없음 · 고정 문구 「집계 이동량, 이동 경로 아님」, 지도에 선 · 화살표를 그리지 않는다
 
 type FlowSeries = Extract<ArgumentSeries, { to: string }>;
@@ -57,34 +58,34 @@ const lonLatOf = (p: [number | null, number | null] | null | undefined): [number
   p && p[0] != null && p[1] != null ? [p[0], p[1]] : null;
 
 /**
- * 이동형 막대: 마지막 해의 도착 시도별 합계(값 없는 달은 빼고, 한 해가 모두 비면 그 시도는 뺀다).
+ * 이동형 막대: 고른 달의 도착 시도별 이동자 수(그 달 값이 없는 시도는 뺀다). 달을 주지 않으면 줄의 마지막 달.
  * 출발지와 같은 시도(parentId — 경계 응답의 그 지역 parent_id)로 간 이동은 막대 밖 한 줄,
  * 나머지는 모두 큰 순서로 막대(시트는 7줄씩 보이고 스크롤)
  */
-export function movementBars(a: Argument, parentId: string | null) {
+export function movementBars(a: Argument, parentId: string | null, month?: string) {
   const flows = flowSeries(a);
-  const year = flows[0]?.periods.at(-1)?.slice(0, 4);
-  if (!year) return null;
+  // 이동 줄이 없는 결과(A3 등)는 달을 골라도 그리지 않는다
+  const picked = flows.length ? (month ?? flows[0].periods.at(-1)) : undefined;
+  if (!picked) return null;
 
   const rows: MovementBar[] = flows.flatMap((s) => {
-    const values = s.values.filter(
-      (v, i): v is number => v !== null && s.periods[i]?.startsWith(year),
-    );
-    if (!values.length) return [];
+    const value = s.values[s.periods.indexOf(picked)] ?? null;
+    if (value === null) return [];
     const fullName = cleanName(s.to_name ?? s.to);
     return [
       {
         to: s.to,
         name: sidoShort(fullName),
         fullName,
-        value: values.reduce((x, y) => x + y, 0),
+        value,
         at: lonLatOf(s.to_coordinates),
       },
     ];
   });
   const inside = parentId ? (rows.find((r) => r.to === parentId) ?? null) : null;
   return {
-    year,
+    /** 막대가 보이는 달 「YYYY-MM」 */
+    month: picked,
     unit: flows[0].unit,
     /** 출발지 대표점(점은 찍지 않고 지도 범위에만 넣는다) */
     from: lonLatOf(flows[0].from_coordinates),

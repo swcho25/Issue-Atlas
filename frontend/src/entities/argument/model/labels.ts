@@ -13,17 +13,17 @@ export const claimBadge: Record<ClaimValue, { tone: StatusTone; label: string }>
   decreasing: { tone: "amber", label: "감소" },
   unclear: { tone: "gray", label: "뚜렷하지 않음" },
   not_comparable: { tone: "gray", label: "비교 불가" },
-  insufficient: { tone: "red", label: "판단 안 함" },
+  insufficient: { tone: "red", label: "분석 안 함" },
 };
 
-/** ④ 근거 충실도 상 · 중 · 하. Figma 예는 상(초록)뿐 — 중 · 하는 상태 색 순서를 따른다 */
+/** ④ 근거 수준 높음 · 보통 · 낮음(계약 high · medium · low). Figma 예는 상(초록)뿐 — 중 · 하는 상태 색 순서를 따른다 */
 export const qualifierGrade: Record<
   Argument["qualifier"]["grade"],
   { label: string; className: string }
 > = {
-  high: { label: "상", className: "text-status-green" },
-  medium: { label: "중", className: "text-status-amber" },
-  low: { label: "하", className: "text-status-red" },
+  high: { label: "높음", className: "text-status-green" },
+  medium: { label: "보통", className: "text-status-amber" },
+  low: { label: "낮음", className: "text-status-red" },
 };
 
 /** 기간(끝 미포함)을 연도로: 2023-01-01 ~ 2026-01-01 → 2023–2025 */

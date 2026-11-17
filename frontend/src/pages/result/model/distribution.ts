@@ -17,31 +17,41 @@ export const stationSeries = (a: Argument) =>
       s.coordinates[1] != null,
   );
 
-/** 고를 수 있는 달(질문 기간의 달 모두, 앞에서부터) */
+/** 측정소 줄의 달(질문 기간의 달 모두, 앞에서부터). 고르는 달 · 처음 달은 공통 시간 슬라이더(model/timeline) */
 export const distributionMonths = (series: PlaceSeries[]) => series[0]?.periods ?? [];
 
+/** 결과 카드 칩(Figma Panel > Meta > stats): 측정소 수 · 기간 전체에서 가장 높은 · 낮은 측정소 월평균과 그 달 */
+export type StationStats = {
+  count: number;
+  unit: string | null;
+  high: { value: number; month: string; station: string } | null;
+  low: { value: number; month: string; station: string } | null;
+};
+
 /**
- * 시간 막대(A3 변화형)의 달마다 높이: 그 달 값이 있는 측정소의 평균. 값이 하나도 없는 달은 null.
- * 점은 측정소 값 그대로이고(「측정소 값, 도시 평균 아님」), 이 평균은 달을 고르기 위한 모양일 뿐이다
+ * 카드 칩에 쓸 관측 요약. 최고 · 최저는 달 평균이 아니라 측정소 값 그대로(분포형 유리 바 「9–41」 과 같은 값).
+ * 같은 값이 여럿이면 가장 이른 달. 측정소 줄이 없으면 null, 값이 하나도 없으면 high · low 가 null.
+ * 해마다 평균의 변화(Figma 「연평균 17.0 → 14.7」)는 판정 규칙의 값이라 여기서 계산하지 않는다
  */
-export function monthlyMeans(series: PlaceSeries[]): (number | null)[] {
-  return distributionMonths(series).map((month) => {
-    const values = series.flatMap((s) => {
-      const v = s.values[s.periods.indexOf(month)];
-      return v == null ? [] : [v];
-    });
-    return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
-  });
+export function stationStats(series: PlaceSeries[]): StationStats | null {
+  if (!series.length) return null;
+  let high: StationStats["high"] = null;
+  let low: StationStats["low"] = null;
+  for (const month of distributionMonths(series)) {
+    for (const s of series) {
+      const value = s.values[s.periods.indexOf(month)];
+      if (value == null) continue;
+      const at = { value, month, station: s.name ?? "이름 없는 측정소" };
+      if (!high || value > high.value) high = at;
+      if (!low || value < low.value) low = at;
+    }
+  }
+  return { count: series.length, unit: series[0].unit, high, low };
 }
 
-/** 처음 보여 줄 달: 값이 하나라도 있는 마지막 달(없으면 기간의 마지막 달) */
-export function defaultMonth(series: PlaceSeries[]) {
-  const months = distributionMonths(series);
-  for (let i = months.length - 1; i >= 0; i--) {
-    if (series.some((s) => s.values[i] != null)) return months[i];
-  }
-  return months.at(-1) ?? null;
-}
+/** 칩 글자: 「최고 41 · 2024-03」(유리 바처럼 정수) */
+export const statChip = (label: string, at: { value: number; month: string }) =>
+  `${label} ${Math.round(at.value)} · ${at.month}`;
 
 /** 환경부 대기질 4단계(예보 등급, µg/m³ 이하): 좋음 · 보통 · 나쁨 · 그 위 매우나쁨 */
 export const aqGrades = [

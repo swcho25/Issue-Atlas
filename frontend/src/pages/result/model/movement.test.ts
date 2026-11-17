@@ -15,7 +15,7 @@ import {
 const ready = argumentSchema.parse(readyJson);
 const [seoul] = flowSeries(ready);
 
-/** 계약 예시의 여수 → 서울 줄을 본떠 도착지 · 2025 월 값만 바꾼 줄(2025 합계 = 월 값 × 12) */
+/** 계약 예시의 여수 → 서울 줄을 본떠 도착지 · 2025 월 값만 바꾼 줄(2025 는 달마다 그 값, 그 밖은 1) */
 const flowTo = (to: string, toName: string, monthly2025: number) => ({
   ...seoul,
   to,
@@ -27,12 +27,15 @@ const flowTo = (to: string, toName: string, monthly2025: number) => ({
 const withFlows = (flows: ReturnType<typeof flowTo>[]) => ({ ...ready, series: flows });
 
 describe("이동형 막대", () => {
-  it("계약 예시: 여수 → 서울 2025 합계 1,531명(Figma 서울 막대와 같은 값)", () => {
+  it("계약 예시: 고른 달의 여수 → 서울 이동자 수, 달을 주지 않으면 마지막 달", () => {
     const data = movementBars(ready, "kr-46");
-    expect(data?.year).toBe("2025");
+    expect(data?.month).toBe("2025-12");
     expect(data?.bars).toEqual([
-      { to: "kr-11", name: "서울", fullName: "서울특별시", value: 1531, at: seoul.to_coordinates },
+      { to: "kr-11", name: "서울", fullName: "서울특별시", value: 141, at: seoul.to_coordinates },
     ]);
+    // 슬라이더로 다른 달을 고르면 그 달 값
+    const march = movementBars(ready, "kr-46", "2025-03");
+    expect([march?.month, march?.bars[0].value]).toEqual(["2025-03", 161]);
     expect(data?.inside).toBeNull();
     expect(data?.from).toEqual(seoul.from_coordinates);
   });
@@ -52,7 +55,7 @@ describe("이동형 막대", () => {
     // 큰 순서라 작은 원이 나중(위)에 놓인다. 가장 작은 원도 두 글자가 들어가는 24 이상
     expect(dots.map((d) => d.size)).toEqual([...dots.map((d) => d.size)].sort((a, b) => b - a));
     expect(Math.min(...dots.map((d) => d.size))).toBeGreaterThanOrEqual(24);
-    expect(dots[0]).toMatchObject({ name: "kr-41도", label: "kr-41도 4,800명" });
+    expect(dots[0]).toMatchObject({ name: "kr-41도", label: "kr-41도 400명" });
     // 대표점이 없는 도착지는 그리지 않는다
     const noPoint = {
       ...flowTo("kr-11", "서울특별시", 10),
@@ -89,8 +92,8 @@ describe("이동형 막대", () => {
       "제주",
     ]);
     expect(data.bars.length).toBeGreaterThan(VISIBLE_BARS);
-    expect(data.inside?.value).toBe(18000);
-    expect(insideLine(data.inside!, "명")).toBe("전남 도 안 이동 18,000명 (막대 밖, 같은 도 안)");
+    expect(data.inside?.value).toBe(1500);
+    expect(insideLine(data.inside!, "명")).toBe("전남 도 안 이동 1,500명 (막대 밖, 같은 도 안)");
   });
 
   it("출발지의 시도를 모르면(경계를 못 받음) 도 안 이동도 막대로, 광역시 안이면 「시 안」", () => {
@@ -100,15 +103,15 @@ describe("이동형 막대", () => {
     ]);
     expect(movementBars(flows, null)?.bars.map((b) => b.name)).toEqual(["광주", "서울"]);
     const inGwangju = movementBars(flows, "kr-29")!;
-    expect(insideLine(inGwangju.inside!, "명")).toBe(
-      "광주 시 안 이동 2,400명 (막대 밖, 같은 시 안)",
-    );
+    expect(insideLine(inGwangju.inside!, "명")).toBe("광주 시 안 이동 200명 (막대 밖, 같은 시 안)");
   });
 
-  it("마지막 해 값이 모두 빈 도착지는 빼고, 이동 줄이 없으면 그리지 않는다", () => {
+  it("고른 달 값이 빈 도착지는 빼고, 이동 줄이 없으면 그리지 않는다", () => {
     const empty = { ...flowTo("kr-11", "서울특별시", 0), values: seoul.periods.map(() => null) };
     expect(movementBars(withFlows([empty]), "kr-46")?.bars).toEqual([]);
     expect(movementBars({ ...ready, series: [] }, "kr-46")).toBeNull();
+    // 이동 줄이 없는 결과(A3)에 슬라이더의 달이 넘어와도 죽지 않는다
+    expect(movementBars({ ...ready, series: [] }, "kr-46", "2025-12")).toBeNull();
   });
 
   it("시도 짧은 이름: 괄호를 떼고 두 글자로, 모르는 이름은 괄호만 뗀다", () => {

@@ -141,7 +141,7 @@ describe("AskPage", () => {
     document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
   });
 
-  it("여수시로 시작하고, 근거가 있는 이슈를 먼저 고르며 근거 n/4 를 보여 준다", async () => {
+  it("여수시로 시작하고, 근거가 있는 이슈를 먼저 고르며 근거 n/4종 을 보여 준다", async () => {
     renderWithQuery(<AskPage />);
 
     expect(await screen.findByRole("radio", { name: /청년 유출·정착/ })).toHaveAttribute(
@@ -149,7 +149,7 @@ describe("AskPage", () => {
       "true",
     );
     expect(screen.getByRole("combobox", { name: "지역" })).toHaveValue("kr-12130");
-    expect(screen.getByRole("radio", { name: /대기질/ })).toHaveTextContent("근거 0/4");
+    expect(screen.getByRole("radio", { name: /대기질/ })).toHaveTextContent("근거 0/4종");
     expect(screen.getByText("여수시 · 청년 유출·정착 · 2023–2025")).toBeInTheDocument();
   });
 

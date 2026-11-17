@@ -1,0 +1,33 @@
+{
+  "items": [
+    {
+      "question_id": "q_6f1d2c3a-8b7e-4c55-9a10-2f4e6d8b1c01",
+      "place_id": "kr-12130",
+      "place_name": "여수시",
+      "period_start": "2024-01-01",
+      "period_end": "2025-01-01",
+      "issue_name": "관광객 수",
+      "reason": "축제 뒤 방문객이 늘었는지 보고 싶다",
+      "sentence": "2024년 여수 관광객 수는 어떻게 변했나",
+      "raw_text": "2024년 여수 관광객 수는 어떻게 변했나\n이슈 이름: 관광객 수\n궁금한 까닭: 축제 뒤 방문객이 늘었는지 보고 싶다",
+      "asked_by": { "id": 7, "name": "조회자", "email": "viewer@example.com" },
+      "created_at": "2026-11-11T14:02:31.512+09:00"
+    },
+    {
+      "question_id": "q_0a9b8c7d-6e5f-4a3b-8c2d-1e0f9a8b7c02",
+      "place_id": "kr-12210",
+      "place_name": "광주 동구",
+      "period_start": "2023-01-01",
+      "period_end": "2026-01-01",
+      "issue_name": "청년 주거비 부담",
+      "reason": null,
+      "sentence": "광주 동구 청년 주거비 부담은 어떤가요?",
+      "raw_text": "광주 동구 청년 주거비 부담은 어떤가요?\n이슈 이름: 청년 주거비 부담",
+      "asked_by": null,
+      "created_at": "2026-11-10T09:15:00+09:00"
+    }
+  ],
+  "total": 2,
+  "page": 1,
+  "size": 20
+}

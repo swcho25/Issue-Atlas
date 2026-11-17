@@ -13,7 +13,7 @@ import type { Overview, SourceStatus } from "../model/schema";
 
 // /admin — 07 · 운영 요약(Figma 2374:6586). 관리자 첫 화면. 들어오는 것은 AdminLayout 이 ADMIN 만 통과시킨다.
 // 값은 모두 GET /v1/admin/overview. Figma 초안 맨 위 「자동 채움률 · 검수 수정 · 정답 일치율」 은 이 API 에 없어
-// (실행 비교 · 정답 세트가 필요) 기간 안 처리 건수로 바꿨다. 카드 · 데이터 소스 화면이 생기면 그 칸도 링크로 잇는다
+// (실행 비교 · 정답 세트가 필요) 기간 안 처리 건수로 바꿨다. 대기 칸 · 출처 줄은 그 화면(카드 승인 · CSV 적재 · 수집 이력)으로 잇는다
 
 export function AdminOverviewPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
@@ -38,25 +38,29 @@ async function OverviewContent({ searchParams }: { searchParams: Promise<SearchP
         <PeriodTabs days={days} />
       </header>
 
+      {/* 위 세 칸은 기간과 상관없는 지금 상태(완료 상태는 누적), 아래 「최근 N일 처리」는 기간 안 기록이라
+          같은 「보류」라도 수가 다를 수 있다(계약 operations) — 그래서 「지금」 · 「누적」을 붙인다 */}
       <div className="grid grid-cols-3 gap-3">
         <QueueCard
           icon="shield"
           title="검수 대기"
           value={reviews.pending}
-          sub={`보류 ${reviews.on_hold} · 승인 대기 ${reviews.approval_pending}`}
+          sub={`지금 보류 ${reviews.on_hold} · 승인 대기 ${reviews.approval_pending}`}
           href="/admin/reviews"
         />
         <QueueCard
           icon="cards"
           title="카드 승인 대기"
           value={approvals.pending}
-          sub={`보류 ${approvals.on_hold} · 승인 ${approvals.approved} · 반려 ${approvals.rejected}`}
+          sub={`지금 보류 ${approvals.on_hold} · 누적 승인 ${approvals.approved} · 반려 ${approvals.rejected}`}
+          href="/admin/cards"
         />
         <QueueCard
           icon="db"
-          title="CSV 적재 대기"
+          title="CSV 반영 대기"
           value={imports.pending}
-          sub={`검증 실패 ${imports.validation_failed} · 실패 ${imports.failed} · 완료 보고 ${imports.completed}`}
+          sub={`누적 검증 오류 ${imports.validation_failed} · 반영 실패 ${imports.failed} · 반영 완료 ${imports.completed}`}
+          href="/admin/sources?view=imports"
         />
       </div>
 
@@ -156,7 +160,7 @@ function Activity({ overview: o, days }: { overview: Overview; days: PeriodDays 
         ["성공", a.jobs_started.ok],
         ["실패", a.jobs_started.failed],
         ["중단", a.jobs_started.aborted],
-        ["끝 기록 없음", a.jobs_started.running],
+        ["종료 미확인", a.jobs_started.running],
       ],
     },
   ];
@@ -202,6 +206,11 @@ function Inventory({ overview: o }: { overview: Overview }) {
   return (
     <section aria-label="수집 현황" className={`${card} flex flex-col gap-2 p-4`}>
       <h2 className="text-heading-16 text-text-1">수집 현황</h2>
+      {/* 단계마다 세는 것이 달라 원본 → 정제에서 크게 준다(contracts/p2 · operations) */}
+      <p className="text-caption-12 text-text-3">
+        원본은 받은 그대로(에어코리아 시간값 포함), 정제는 검사를 거친 자료(시간값은 월별 집계로만
+        남겨 여기서 빠짐), 사용 가능은 정제 가운데 보류가 아닌 최신본이에요. 단계끼리 더하지 않아요.
+      </p>
       {rows.map(([label, v]) => (
         <div
           key={label}
@@ -224,30 +233,34 @@ function Sources({ sources }: { sources: SourceStatus[] }) {
       </div>
       <ul>
         {sources.map((s) => (
-          <li
-            key={s.source_id}
-            className="flex items-center gap-3 border-t border-border-1 px-4 py-2.5"
-          >
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-body-13 text-text-1">
-                {s.name} <span className="text-caption-12 text-text-3">{s.source_id}</span>
-              </span>
-              <span className="truncate text-caption-12 text-text-3">
-                {[
-                  s.storage_scope && (storageLabel[s.storage_scope] ?? s.storage_scope),
-                  s.reliability_grade && `등급 ${s.reliability_grade}`,
-                  `명세 ${s.spec_count}${s.never_run_spec_count ? ` (안 돈 것 ${s.never_run_spec_count})` : ""}`,
-                  s.last_successful_at
-                    ? `마지막 성공 ${monthDayTime(s.last_successful_at)}`
-                    : "성공 기록 없음",
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            </div>
-            <StatusBadge tone={jobBadge[s.latest_job_status].tone}>
-              {jobBadge[s.latest_job_status].label}
-            </StatusBadge>
+          <li key={s.source_id} className="border-t border-border-1">
+            {/* 줄을 누르면 데이터 소스에서 그 출처로 거른 수집 기록(/admin/sources?source=) */}
+            <Link
+              href={`/admin/sources?source=${encodeURIComponent(s.source_id)}`}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2"
+            >
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-body-13 text-text-1">
+                  {s.name} <span className="text-caption-12 text-text-3">{s.source_id}</span>
+                </span>
+                <span className="truncate text-caption-12 text-text-3">
+                  {[
+                    s.storage_scope && (storageLabel[s.storage_scope] ?? s.storage_scope),
+                    s.reliability_grade && `등급 ${s.reliability_grade}`,
+                    `명세 ${s.spec_count}${s.never_run_spec_count ? ` (안 돈 것 ${s.never_run_spec_count})` : ""}`,
+                    s.last_successful_at
+                      ? `마지막 성공 ${monthDayTime(s.last_successful_at)}`
+                      : "성공 기록 없음",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </div>
+              <StatusBadge tone={jobBadge[s.latest_job_status].tone}>
+                {jobBadge[s.latest_job_status].label}
+              </StatusBadge>
+              <Icon name="chevronRight" className="size-4 text-text-3" />
+            </Link>
           </li>
         ))}
       </ul>

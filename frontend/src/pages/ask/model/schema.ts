@@ -49,12 +49,15 @@ export const placeCardsSchema = z.object({
 });
 export type IssueCard = z.infer<typeof placeCardsSchema>["cards"][number];
 
-/** 근거 4종 이름(근거 수요표와 같은 말) */
+/**
+ * 근거 4종 이름(결과 화면 분석 근거 칸 result/model/labels evidenceKindShort 와 같은 말).
+ * 「통계 · 기사·보도 있음」처럼 「 · 」로 이어 쓰므로 기사·보도는 띄우지 않는다
+ */
 export const evidenceLabel: Record<EvidenceKind, string> = {
   statistics: "통계",
-  documents: "문서",
+  documents: "기사·보도",
   existing_responses: "기존 대응",
-  denominators: "분모",
+  denominators: "참고 지표",
 };
 
 /** 근거가 하나라도 있으면 판단할 수 있는 이슈로 묶는다. 없으면 실행해도 빈칸이 결과다 */

@@ -19,21 +19,37 @@ import {
 // 연도별 막대(data-navy · 모서리 2). 해 수 · 부호가 어떻든 그릴 수 있게 배치는 barLayout 이 정한다(막대 최소 4, 넘치면 좌우 스크롤)
 // (3개까지 Figma 칸 122 · 사이 28 · 막대 56, 부호가 섞이면 0 선이 가운데쯤 · 양수 위로 · 음수 아래로)
 
-export function ChangeSheet({ argument }: { argument: Argument }) {
+export function ChangeSheet({
+  argument,
+  month,
+}: {
+  argument: Argument;
+  /** 고른 달(공통 시간 슬라이더). 그 달이 든 해를 진하게 하고 그 달 값을 한 줄로 보인다. 해마다 값은 그대로 */
+  month?: string;
+}) {
   const series = changeSeries(argument);
   if (!series) return null;
-  return <Chart argument={argument} series={series} />;
+  return <Chart argument={argument} series={series} month={month} />;
 }
 
 function Chart({
   argument,
   series,
+  month,
 }: {
   argument: Argument;
   series: NonNullable<ReturnType<typeof changeSeries>>;
+  month?: string;
 }) {
   const agg = yearlyAggregate(series.unit);
-  const bars = yearlyBars(series);
+  const bars = yearlyBars(series, month);
+  // 고른 달의 값(달마다 값은 응답 그대로). 값이 없는 달이면 「값 없음」
+  const picked =
+    month === undefined ? undefined : (series.values[series.periods.indexOf(month)] ?? null);
+  const pickedLine =
+    month === undefined
+      ? null
+      : `${month} · ${picked == null ? "값 없음" : `${barNumber(picked, agg)}${series.unit ?? ""}`}`;
   const layout = barLayout(bars.map((b) => b.value));
   const baseline = baselineNote(series);
   const source = argument.data.statistics[0];
@@ -66,7 +82,13 @@ function Chart({
       </header>
 
       {/* API 가 그래프 기준선(baseline)을 준 줄만: 기준선과 그 위 · 아래 뜻. 막대가 많아도 겹치지 않게 그림 위 한 줄로 */}
-      {baseline && <p className="text-caption-12 leading-3.5 text-text-2">{baseline}</p>}
+      {(baseline || pickedLine) && (
+        <p className="flex justify-between gap-3 text-caption-12 leading-3.5 text-text-2">
+          <span>{baseline}</span>
+          {/* 고른 달 값: 슬라이더를 옮기면 이 줄이 바뀐다 */}
+          {pickedLine && <span className="shrink-0 text-text-1">{pickedLine}</span>}
+        </p>
+      )}
 
       {/* 막대가 많아 그림 칸이 시트(422)보다 넓으면 좌우 스크롤, 처음엔 최근 해(오른쪽 끝)를 보인다.
           넓지 않으면 스크롤 칸을 두지 않는다(양끝 연도 글자가 칸 밖으로 조금 넘쳐도 잘리지 않게) */}
@@ -103,7 +125,8 @@ function Chart({
                 {item && (
                   <span
                     aria-hidden
-                    className="absolute left-1/2 -translate-x-1/2 rounded-[2px] bg-data-navy"
+                    // 고른 달이 든 해만 진하게(값은 그 해 전체 그대로)
+                    className={`absolute left-1/2 -translate-x-1/2 rounded-[2px] ${b.active ? "bg-data-navy" : "bg-data-navy/40"}`}
                     style={{ top: item.barTop, height: item.height, width: layout.barWidth }}
                   />
                 )}

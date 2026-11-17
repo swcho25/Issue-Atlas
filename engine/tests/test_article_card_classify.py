@@ -6,6 +6,7 @@ from contextlib import nullcontext
 from ai.classify import model, store
 from ai.classify.__main__ import (
     choose_sample,
+    command_count_docs,
     command_embed_cards,
     command_embed_docs,
     command_score,
@@ -47,6 +48,18 @@ def test_dry_run_embeds_with_fake_provider_without_saving(monkeypatch):
     assert saved == []
     command_embed_docs(None, True, None, embed=lambda text: [0.1] * 1536)
     assert len(saved) == 1
+
+
+def test_count_docs_uses_existing_vectors_without_embedding_api(monkeypatch):
+    items = [model.document_input(f"news-{i}", "제목", "요약", f"raw-{i}") for i in range(3)]
+    monkeypatch.setattr("ai.classify.store.documents", lambda conn: items)
+    monkeypatch.setattr(
+        "ai.classify.store.existing_document_inputs", lambda conn, ids: {ids[0], ids[1]}
+    )
+    monkeypatch.setattr(
+        "ai.classify.gms.embed", lambda text: (_ for _ in ()).throw(AssertionError("API called"))
+    )
+    assert command_count_docs(None) == {"eligible": 3, "new_embeddings": 1, "cached_embeddings": 2}
 
 
 def test_unapproved_card_stops_before_embedding(monkeypatch):

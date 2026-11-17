@@ -11,6 +11,7 @@ import com.c108.issueatlas.question.dto.ArgumentResponse;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Applicability;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Baseline;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Ceiling;
+import com.c108.issueatlas.question.dto.ArgumentResponse.Citation;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Claim;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Comparability;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Components;
@@ -28,6 +29,7 @@ import com.c108.issueatlas.question.dto.QuestionCreateRequest;
 import com.c108.issueatlas.question.dto.QuestionCreateResponse;
 import com.c108.issueatlas.question.repository.QuestionRepository;
 import com.c108.issueatlas.question.repository.QuestionRepository.CardRow;
+import com.c108.issueatlas.question.repository.QuestionRepository.CitedArticle;
 import com.c108.issueatlas.question.repository.QuestionRepository.EvidenceRef;
 import com.c108.issueatlas.question.repository.QuestionRepository.MatchedResponse;
 import com.c108.issueatlas.question.repository.QuestionRepository.MyRunRow;
@@ -50,7 +52,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -213,7 +217,13 @@ public class QuestionService {
                                 request.rawText(),
                                 askedBy);
                     }
-                    save(request, draft.questionId(), run, result, phrased, started);
+                    save(
+                            request,
+                            draft.questionId(),
+                            run,
+                            withCitationEvidence(result),
+                            phrased,
+                            started);
                 });
         return new QuestionCreateResponse(
                 SCHEMA_VERSION,
@@ -221,6 +231,41 @@ public class QuestionService {
                 result.runId(),
                 run.status(),
                 request.cardId() == null);
+    }
+
+    /**
+     * ⑤ 반박이 인용한 기사마다 문서 근거 행을 만들고 인용에 기사 제목 · 원문 링크 · 근거 ID 를 채운다(S15P31C108-343). 화면은 인용 모달에 제목을
+     * 보이고 원문을 새 탭으로 연다. 인용이 없으면 그대로.
+     */
+    private ArgumentResponse withCitationEvidence(ArgumentResponse result) {
+        Set<String> cited =
+                result.rebuttals().stream()
+                        .filter(r -> r.citations() != null)
+                        .flatMap(r -> r.citations().stream())
+                        .map(Citation::articleId)
+                        .collect(Collectors.toCollection(TreeSet::new));
+        if (cited.isEmpty()) {
+            return result;
+        }
+        Map<String, CitedArticle> found = questions.citedArticles(cited);
+        return result.withRebuttals(
+                result.rebuttals().stream()
+                        .map(
+                                r ->
+                                        r.citations() == null
+                                                ? r
+                                                : r.withCitations(
+                                                        r.citations().stream()
+                                                                .map(c -> withSource(c, found))
+                                                                .toList()))
+                        .toList());
+    }
+
+    private static Citation withSource(Citation citation, Map<String, CitedArticle> found) {
+        CitedArticle article = found.get(citation.articleId());
+        return article == null
+                ? citation
+                : citation.withSource(article.title(), article.url(), article.evidenceId());
     }
 
     /** ① 판정과 C2 결과 조립(카드 문구). 기존 대응 후보 → 근거만 쓰고, 질문 · 실행 행은 ③에서 쓴다. */
@@ -829,7 +874,8 @@ public class QuestionService {
 
     /**
      * 상한선 ⑥ = 카드 상한선 + 카드 설계도의 예상 빈칸(C5 expected_gaps)을 문장으로(S15P31C108-265). 인수 기준 ③
-     * 「license_blocked · not_published 숨김 없이 표시」를 C2 v1(expected_gaps[] 칸) 전까지 이미 있는 칸으로 보인다.
+     * 「license_blocked · not_published 숨김 없이 표시」를 C2 v1(expected_gaps[] 칸) 전까지 이미 있는 칸으로 보인다. 화면에
+     * 그대로 나가는 문장이라 상태 코드는 붙이지 않고 「-요」체로 쓴다.
      */
     static List<String> ceilingItems(JsonNode spec) {
         List<String> items = new ArrayList<>(strings(spec.path("ceiling")));
@@ -838,13 +884,13 @@ public class QuestionService {
             String status = gap.path("status").asText();
             String phrase =
                     switch (status) {
-                        case "license_blocked" -> "이용 허락이 없어 쓰지 않는다";
-                        case "not_published" -> "공표되지 않는다";
-                        case "not_collected" -> "수집하지 않는다";
+                        case "license_blocked" -> "이용 허락이 없어 쓰지 않아요";
+                        case "not_published" -> "아직 공표되지 않았어요";
+                        case "not_collected" -> "수집하지 않아요";
                         default -> null;
                     };
             if (!what.isBlank() && phrase != null) {
-                items.add(what + ": " + phrase + " (" + status + ")");
+                items.add(what + ": " + phrase);
             }
         }
         return items;

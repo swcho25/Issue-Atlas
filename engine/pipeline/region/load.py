@@ -155,6 +155,8 @@ def load(conn, extracted: list[dict]) -> dict:
                 continue
             cur.execute(UPSERT, row | {"regions": Jsonb(row["regions"])})
             stats["inserted" if cur.fetchone()[0] else "updated"] += 1
+            if row["summary"]:
+                stats["summarized"] += 1
     return {"input": len(extracted), **stats, "skipped": dict(skipped)}
 
 

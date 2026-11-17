@@ -180,7 +180,35 @@ public record ArgumentResponse(
     public record Qualifier(
             String grade, Components components, String formulaVersion, String provenance) {}
 
-    public record Rebuttal(String text, String status, String provenance) {}
+    /**
+     * ⑤ 반박 한 줄. citations 는 C2 선택 칸(S15P31C108-343) — 「근거 있음」 반박이 인용한 기사 요약 문장. 다른 상태 · 지난 실행은 칸이
+     * 없다.
+     */
+    public record Rebuttal(
+            String text,
+            String status,
+            String provenance,
+            @JsonInclude(JsonInclude.Include.NON_NULL) List<Citation> citations) {
+        public Rebuttal withCitations(List<Citation> found) {
+            return new Rebuttal(text, status, provenance, found);
+        }
+    }
+
+    /**
+     * 반박 인용 한 건. title · url 은 기사 원본 레코드의 제목 · 언론사 원문 링크(화면이 새 탭으로 연다), evidenceId 는 그 기사의 문서 근거
+     * 행(근거 상세). 못 찾거나 못 만들면 null.
+     */
+    public record Citation(
+            String articleId,
+            LocalDate date,
+            String quote,
+            String title,
+            String url,
+            String evidenceId) {
+        public Citation withSource(String foundTitle, String foundUrl, String foundEvidenceId) {
+            return new Citation(articleId, date, quote, foundTitle, foundUrl, foundEvidenceId);
+        }
+    }
 
     public record Ceiling(List<String> items, String provenance) {}
 }

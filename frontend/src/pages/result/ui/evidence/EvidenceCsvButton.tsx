@@ -12,7 +12,7 @@ const cell = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`;
 export function EvidenceCsvButton({ runId, rows }: { runId: string; rows: EvidenceRow[] }) {
   const download = () => {
     const lines = [
-      ["근거 종류", "필수", "상태", "건수", "검수 대기", "사유"],
+      ["근거 종류", "필수", "상태", "건수", "검증 대기", "사유"],
       ...rows.map((r) => [
         evidenceKindLabel[r.kind],
         r.required ? "필수" : "선택",
@@ -27,7 +27,7 @@ export function EvidenceCsvButton({ runId, rows }: { runId: string; rows: Eviden
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = `근거수요표_${runId}.csv`;
+    a.download = `자료현황_${runId}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

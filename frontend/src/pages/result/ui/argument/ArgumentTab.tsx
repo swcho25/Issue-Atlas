@@ -14,13 +14,16 @@ import {
   rebuttalBadge,
 } from "../../model/labels";
 import { cardRefs } from "../../model/footnotes";
+import { qualifierGap, qualifierRule } from "../../model/qualifier";
 import { emptyRefsText, kindCount, refsTitle } from "../../model/sources";
 import { sourcesHref } from "../tabs";
 import { CellMenu } from "./CellMenu";
+import { RebuttalCitations } from "./RebuttalCitations";
 import { ReportProvider, type ReportTarget } from "./report";
 
 // 05 · 논증 카드 본문(Figma 05 · 논증 카드 탭): 두 열(폭 546 · 사이 12)에 칸 여섯.
-// 왼쪽 ① 판단 · ② 근거, 오른쪽 ③ 보증 · ④ 한정어 · ⑤ 반박 · ⑥ 상한선. 칸마다 누가 채웠는지 배지를 단다.
+// 왼쪽 ① 분석 결과 · ② 근거 자료, 오른쪽 ③ 해석 기준 · ④ 근거 수준 · ⑤ 다른 해석 가능성 · ⑥ 분석 범위 밖
+// (계약 claim · data · warrant · qualifier · rebuttals · ceiling, 화면 이름은 통계 사이트에서 쓰는 말). 칸마다 누가 채웠는지 배지를 단다.
 // 빈 칸은 빈 상자로 두지 않고 왜 비었는지 한 문장으로 쓴다
 
 /** 칸 하나: 모서리 12 · 테두리 1(자리 차지) · 안쪽 위 12 · 옆 · 아래 14 · 칸 사이 8. 머리 끝에 ⋯ 메뉴 */
@@ -63,7 +66,7 @@ function Empty({ children }: { children: ReactNode }) {
   return <p className="text-body-13 text-text-3">{children}</p>;
 }
 
-/** 근거 충실도 구성: 「A 출처 2 · 독립 근거 3 · 최신 2025-12-31」(최신은 한국 날짜) */
+/** 근거 수준 구성: 「공식 통계 2 · 교차 확인 3건 · 기준 시점 2025-12-31」(한국 날짜) */
 function qualifierNote(c: Argument["qualifier"]["components"]) {
   const latest =
     c.latest_observed_at &&
@@ -71,9 +74,9 @@ function qualifierNote(c: Argument["qualifier"]["components"]) {
       new Date(c.latest_observed_at),
     );
   return [
-    `A 출처 ${c.a_grade_sources}`,
-    `독립 근거 ${c.independent_evidence}`,
-    latest ? `최신 ${latest}` : "최신 자료 없음",
+    `공식 통계 ${c.a_grade_sources}`,
+    `교차 확인 ${c.independent_evidence}건`,
+    latest ? `기준 시점 ${latest}` : "기준 시점 없음",
   ].join(" · ");
 }
 
@@ -105,12 +108,12 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <Cell
             no="①"
-            title="판단"
+            title="분석 결과"
             provenance={claim.provenance}
             menu={menu({
               cell: "claim",
               no: "①",
-              title: "판단",
+              title: "분석 결과",
               provenance: claim.provenance,
               quote: claim.text,
             })}
@@ -119,18 +122,20 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
               <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
               <span className="text-caption-11 text-text-3">{claimLevelLabel[claim.level]}</span>
             </div>
-            <p className="text-heading-16 text-text-1">{claim.text ?? "판단 문장이 없어요."}</p>
+            <p className="text-heading-16 text-text-1">
+              {claim.text ?? "분석 결과 문장이 없어요."}
+            </p>
           </Cell>
 
           <Cell
             no="②"
-            title="근거"
+            title="근거 자료"
             provenance={data.provenance}
             menu={menu(
               {
                 cell: "data",
                 no: "②",
-                title: "근거",
+                title: "근거 자료",
                 provenance: data.provenance,
                 quote: lines(refs.map((r) => r.title)),
               },
@@ -184,13 +189,13 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <Cell
             no="③"
-            title="보증"
+            title="해석 기준"
             provenance={warrant.provenance}
             tone="warrant"
             menu={menu({
               cell: "warrant",
               no: "③",
-              title: "보증",
+              title: "해석 기준",
               provenance: warrant.provenance,
               quote: warrant.text,
             })}
@@ -199,19 +204,19 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
               <p className="text-body-13 text-text-1">{warrant.text}</p>
             ) : (
               <Empty>
-                {judged ? "카드에 보증 문장이 없어요." : "판단하지 않아 보증 문장을 쓰지 않았어요."}
+                {judged ? "카드에 해석 기준이 없어요." : "분석하지 않아 해석 기준을 쓰지 않았어요."}
               </Empty>
             )}
           </Cell>
 
           <Cell
             no="④"
-            title="한정어 · 근거 충실도"
+            title="근거 수준"
             provenance={qualifier.provenance}
             menu={menu({
               cell: "qualifier",
               no: "④",
-              title: "한정어 · 근거 충실도",
+              title: "근거 수준",
               provenance: qualifier.provenance,
               quote: `${grade.label} · ${qualifierNote(qualifier.components)}`,
             })}
@@ -222,16 +227,22 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
                 {qualifierNote(qualifier.components)}
               </span>
             </div>
+            {/* 처음 본 사람도 등급이 왜 나왔는지 알도록: 기준과 한 단계 위까지 모자란 것 */}
+            <p className="text-caption-12 text-text-3">
+              {[qualifierGap(qualifier.grade, qualifier.components), qualifierRule]
+                .filter(Boolean)
+                .join(" — ")}
+            </p>
           </Cell>
 
           <Cell
             no="⑤"
-            title="반박 · 다른 설명"
+            title="다른 해석 가능성"
             provenance={rebuttalProvenance}
             menu={menu({
               cell: "rebuttals",
               no: "⑤",
-              title: "반박 · 다른 설명",
+              title: "다른 해석 가능성",
               provenance: rebuttalProvenance,
               quote: lines(rebuttals.map((r) => r.text)),
             })}
@@ -241,6 +252,7 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
                 {rebuttals.map((r) => (
                   <li key={r.text} className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 text-body-13 text-text-1">{r.text}</span>
+                    <RebuttalCitations rebuttal={r} />
                     <StatusBadge tone={rebuttalBadge[r.status].tone}>
                       {rebuttalBadge[r.status].label}
                     </StatusBadge>
@@ -249,19 +261,19 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
               </ul>
             ) : (
               <Empty>
-                {judged ? "찾은 다른 설명이 없어요." : "판단하지 않아 다른 설명을 찾지 않았어요."}
+                {judged ? "찾은 다른 해석이 없어요." : "분석하지 않아 다른 해석을 찾지 않았어요."}
               </Empty>
             )}
           </Cell>
 
           <Cell
             no="⑥"
-            title="상한선 · 말하지 않는 것"
+            title="분석 범위 밖"
             provenance={ceiling.provenance}
             menu={menu({
               cell: "ceiling",
               no: "⑥",
-              title: "상한선 · 말하지 않는 것",
+              title: "분석 범위 밖",
               provenance: ceiling.provenance,
               quote: lines(ceiling.items),
             })}
@@ -278,8 +290,8 @@ export function ArgumentTab({ argument }: { argument: Argument }) {
             ) : (
               <Empty>
                 {argument.question.card_id
-                  ? "카드에 적힌 상한선이 없어요."
-                  : "카드가 없어 상한선이 없어요."}
+                  ? "카드에 적어 둔 항목이 없어요."
+                  : "카드가 없어 적어 둔 항목이 없어요."}
               </Empty>
             )}
           </Cell>

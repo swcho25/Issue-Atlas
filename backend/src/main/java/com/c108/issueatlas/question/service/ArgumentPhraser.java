@@ -4,6 +4,7 @@ import com.c108.issueatlas.question.client.ArgumentEngineClient;
 import com.c108.issueatlas.question.client.ArgumentEngineClient.Reply;
 import com.c108.issueatlas.question.dto.ApprovedCard;
 import com.c108.issueatlas.question.dto.ArgumentResponse;
+import com.c108.issueatlas.question.dto.ArgumentResponse.Citation;
 import com.c108.issueatlas.question.dto.ArgumentResponse.Rebuttal;
 import com.c108.issueatlas.question.repository.QuestionRepository;
 import com.c108.issueatlas.question.repository.QuestionRepository.PhrasingRow;
@@ -13,6 +14,7 @@ import com.c108.issueatlas.question.service.CardJudge.Judgment;
 import com.c108.issueatlas.question.service.PhrasingCache.Lookup;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -92,7 +94,7 @@ public class ArgumentPhraser {
         ObjectNode request = request(result, approved, judgment);
         Lookup lookup = cache.get(request, () -> engine.phrase(request), ArgumentPhraser::reusable);
         int durationMs = (int) ((System.nanoTime() - started) / 1_000_000);
-        Phrased phrased = apply(result, lookup.reply(), durationMs);
+        Phrased phrased = apply(result, lookup.reply(), durationMs, rebuttalIds(request));
         log.info(
                 "argument_phrasing {} {} {} {}ms {}",
                 result.runId(),
@@ -111,7 +113,7 @@ public class ArgumentPhraser {
                 && r.path("rebuttals").isArray();
     }
 
-    private Phrased apply(ArgumentResponse result, Reply reply, int durationMs) {
+    private Phrased apply(ArgumentResponse result, Reply reply, int durationMs, List<String> ids) {
         JsonNode r = reply.result();
         String status = r == null ? null : r.path("status").asText();
         String reason =
@@ -149,11 +151,75 @@ public class ArgumentPhraser {
         }
         try {
             // engine 이 옛 판(결과 v0.2)이라 warrant 를 같이 보내도 쓰지 않는다
-            return new Phrased(
-                    List.of(json.treeToValue(r.get("rebuttals"), Rebuttal[].class)), row);
+            List<Rebuttal> rebuttals =
+                    List.of(json.treeToValue(r.get("rebuttals"), Rebuttal[].class));
+            return new Phrased(cite(rebuttals, ids, r.path("citations")), row);
         } catch (JacksonException | IllegalArgumentException e) {
-            return apply(result, new Reply(null, "ENGINE_ERROR"), durationMs);
+            return apply(result, new Reply(null, "ENGINE_ERROR"), durationMs, ids);
         }
+    }
+
+    /**
+     * 요청의 경쟁 설명마다 engine 이 쓰는 반박 ID(AI 계약 「rebuttal_candidates」): 규칙이 정하지 않은 것만 카드 반박 ID, 없으면 R1 ….
+     * 규칙이 정한 것은 null.
+     */
+    static List<String> rebuttalIds(JsonNode request) {
+        List<String> ids = new ArrayList<>();
+        int n = 0;
+        for (JsonNode candidate : request.path("judgment").path("rebuttal_candidates")) {
+            if (!candidate.path("decided_by_rule").isNull()) {
+                ids.add(null);
+                continue;
+            }
+            n++;
+            String id = candidate.path("id").asText();
+            ids.add(id.isBlank() ? "R" + n : id);
+        }
+        return ids;
+    }
+
+    /**
+     * 「근거 있음」 반박에만 engine 인용(반박 ID → 인용문 · 원문 위치)을 붙인다(C2 선택 칸, S15P31C108-343). 기사 인용만, 같은 기사 같은
+     * 인용문은 한 번. 반박 수가 경쟁 설명 수와 다르면 어느 반박의 인용인지 모르므로 붙이지 않는다. 제목 · 원문 링크 · evidenceId 는 실행을 저장할 때
+     * 채운다.
+     */
+    static List<Rebuttal> cite(List<Rebuttal> rebuttals, List<String> ids, JsonNode citations) {
+        if (rebuttals.size() != ids.size()) {
+            return rebuttals;
+        }
+        List<Rebuttal> cited = new ArrayList<>();
+        for (int i = 0; i < rebuttals.size(); i++) {
+            Rebuttal rebuttal = rebuttals.get(i);
+            Map<String, Citation> found = new LinkedHashMap<>();
+            if ("supported".equals(rebuttal.status()) && ids.get(i) != null) {
+                for (JsonNode c : citations.path(ids.get(i))) {
+                    JsonNode at = c.path("locator");
+                    String article = at.path("source_id").asText();
+                    String quote = c.path("quote").asText();
+                    if (!"article".equals(at.path("kind").asText())
+                            || article.isBlank()
+                            || quote.isBlank()) continue;
+                    try {
+                        found.putIfAbsent(
+                                article + "|" + quote,
+                                new Citation(
+                                        article,
+                                        LocalDate.parse(at.path("date").asText()),
+                                        quote,
+                                        null,
+                                        null,
+                                        null));
+                    } catch (DateTimeParseException e) {
+                        // 날짜를 못 읽는 인용은 보이지 않는다
+                    }
+                }
+            }
+            cited.add(
+                    found.isEmpty()
+                            ? rebuttal
+                            : rebuttal.withCitations(List.copyOf(found.values())));
+        }
+        return cited;
     }
 
     /** contracts/ai phrasing-request: 판정 입력 + 그 실행의 articles[] + 카드 승인본 (+ 반박 검색 재료, v0.5). */

@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { type Argument, argumentSchema } from "@/shared/api";
 
 import readyJson from "../../../../../contracts/c2/examples/argument-c1-ready.json";
-import { approxLabel, articleMarks } from "./articles";
+import { approxLabel, articleMarks, hasLaterMarks, markUpToMonth } from "./articles";
 
 const ready = argumentSchema.parse(readyJson);
 
-// 계약 예시에는 기사가 없어(dev 실제 실행에는 있음) 기사 · 기사 건수 줄만 얹어 본다
+// 규칙은 기사 · 기사 건수 줄을 직접 만들어 본다(계약 예시의 기사는 아래 「계약 예시」 에서)
 const article = (
   id: string,
   precision: Argument["articles"][number]["precision"],
@@ -49,17 +49,77 @@ describe("기사 점", () => {
       ],
     } as Argument;
     const { dots, groups } = articleMarks(a);
-    expect(dots.map((d) => d.id)).toEqual(["n1", "n2"]);
+    expect(dots.map((d) => d.ids)).toEqual([["n1"], ["n2"]]);
     expect(dots[0].name).toBe("2023-01-27 · 요약 n1");
     expect(groups.map((g) => [g.area, g.count, g.name])).toEqual([
       ["여수시", 2, "위치 근사 · 여수시 중심 2건"],
       // 기사 건수 줄에 이름이 없는 지역
       ["행정구역", 1, "위치 근사 · 행정구역 중심 1건"],
     ]);
+    // 묶음을 누르면 목록 창 — 묶음에 든 기사 id
+    expect(groups.map((g) => g.ids)).toEqual([["n3", "n4"], ["n5"]]);
+  });
+
+  it("같은 주소의 기사는 점 하나에 모은다(겹쳐 놓으면 맨 위 하나만 눌린다 — 여수 C1 실제: 17건이 4곳)", () => {
+    const a = {
+      ...ready,
+      articles: [
+        { ...article("e1", "address", [127.747131, 34.750901]), place_name: "여수세계박람회장" },
+        { ...article("e2", "address", [127.747132, 34.750902]), place_name: "여수세계박람회장" },
+        { ...article("e3", "address", [127.747131, 34.750901]), place_name: "여수세계박람회장" },
+        { ...article("s1", "address", [127.661524, 34.760494]), place_name: "여수시청" },
+      ],
+    } as Argument;
+    const { dots } = articleMarks(a);
+    expect(dots.map((d) => [d.ids, d.name])).toEqual([
+      [["e1", "e2", "e3"], "여수세계박람회장 · 기사 3건"],
+      [["s1"], "2023-01-27 · 요약 s1"],
+    ]);
+  });
+
+  it("고른 달까지 나온 기사가 하나라도 있는 자리는 진하게(그 달 뒤에만 나온 자리는 흐리게), 날짜를 모르면 흐리게 하지 않는다", () => {
+    const a = {
+      ...ready,
+      articles: [
+        { ...article("e1", "address", [127.747131, 34.750901]), date: "2023-01-27" },
+        { ...article("e2", "address", [127.747131, 34.750901]), date: "2024-06-03" },
+        { ...article("s1", "address", [127.661524, 34.760494]), date: "2023-02-10" },
+        { ...article("g1", "admin_centroid", [127.662203, 34.760374]), date: "2024-06-30" },
+      ],
+    } as Argument;
+    const { dots, groups } = articleMarks(a);
+    expect(dots.map((d) => d.dates)).toEqual([["2023-01-27", "2024-06-03"], ["2023-02-10"]]);
+    // 2024-06: 모두 그 달까지 나왔다 → 모두 진하게(범례의 흐린 점 줄 없음)
+    expect(dots.map((d) => markUpToMonth(d, "2024-06"))).toEqual([true, true]);
+    expect(markUpToMonth(groups[0], "2024-06")).toBe(true);
+    expect(hasLaterMarks([...dots, ...groups], "2024-06")).toBe(false);
+    // 2023-01: 같은 자리 두 건 중 하나가 2023-01 → 진하게, 2023-02 · 2024-06 에만 나온 자리는 흐리게
+    expect(dots.map((d) => markUpToMonth(d, "2023-01"))).toEqual([true, false]);
+    expect(markUpToMonth(groups[0], "2023-01")).toBe(false);
+    expect(hasLaterMarks([...dots, ...groups], "2023-01")).toBe(true);
+    expect(markUpToMonth({ dates: [null] }, "2023-01")).toBe(true);
+    // 달이 없는 결과는 흐리게 하지 않는다
+    expect(hasLaterMarks([...dots, ...groups], null)).toBe(false);
+  });
+
+  it("계약 예시(여수 C1): 같은 자리 2건 · 한 건 · 위치 근사 묶음 셋, 위치 없는 기사는 빠진다", () => {
+    const { dots, groups } = articleMarks(ready);
+    expect(dots.map((d) => [d.place, d.ids.length, d.name])).toEqual([
+      ["여수시청", 2, "여수시청 · 기사 2건"],
+      ["여수세계박람회장", 1, "2024-03-05 · 여수세계박람회장에서 청년 취업 박람회가 열렸다."],
+    ]);
+    expect(groups.map((g) => g.name)).toEqual([
+      "위치 근사 · 여수시 중심 2건",
+      "위치 근사 · 쌍봉동 중심 1건",
+      "위치 근사 · 만덕동 중심 1건",
+    ]);
+    // 8건 중 지도에 놓이는 것은 7건(위치 없음 1건)
+    const placed = [...dots, ...groups].reduce((n, m) => n + m.ids.length, 0);
+    expect([ready.articles.length, placed]).toEqual([8, 7]);
   });
 
   it("기사가 없으면 아무것도 그리지 않는다", () => {
-    expect(articleMarks(ready)).toEqual({ dots: [], groups: [] });
+    expect(articleMarks({ ...ready, articles: [] })).toEqual({ dots: [], groups: [] });
     expect(approxLabel({ area: "만덕동", count: 7 })).toBe("위치 근사 · 만덕동 중심 7건");
   });
 });

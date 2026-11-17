@@ -8,7 +8,7 @@ import type {
 } from "@/shared/api";
 import type { ProvKind, StatusTone } from "@/shared/ui/badge";
 
-// 판단 배지 · 근거 충실도 · 기간 연도는 내 질문과 함께 쓴다(entities/argument)
+// 판단 배지 · 근거 수준 · 기간 연도는 내 질문과 함께 쓴다(entities/argument)
 import { claimBadge, qualifierGrade, yearSpan } from "@/entities/argument";
 
 export { claimBadge, qualifierGrade, yearSpan };
@@ -20,24 +20,29 @@ export const evidenceKindLabel: Record<EvidenceKind, string> = {
   statistics: "통계",
   documents: "기사 · 보도 · 민원",
   existing_responses: "기존 대응",
-  denominators: "분모 · 맥락",
+  denominators: "참고 지표",
 };
 
 export const evidenceStatusBadge: Record<EvidenceStatus, { tone: StatusTone; label: string }> = {
-  available: { tone: "green", label: "확보" },
+  available: { tone: "green", label: "수집 완료" },
   not_collected: { tone: "amber", label: "미수집" },
   not_published: { tone: "gray", label: "미공표" },
-  review_pending: { tone: "blue", label: "검수 대기" },
+  review_pending: { tone: "blue", label: "검증 대기" },
   license_blocked: { tone: "red", label: "이용 제한" },
 };
 
-/** 05 패널의 실행 상태(Figma 는 영어 상태 이름을 배지에 그대로 쓴다) */
-export const runStatusInfo: Record<RunStatus, { tone: StatusTone; legend: string }> = {
-  ready: { tone: "green", legend: "필수 근거가 모두 있음" },
-  partial: { tone: "amber", legend: "선택 근거만 빠짐 — 판단은 함" },
-  blocked: { tone: "red", legend: "필수 근거가 없음 — 판단 안 함" },
-  unsupported: { tone: "gray", legend: "카드 조건 밖 · 카드 없음" },
-};
+/** 실행 상태(04 결과 카드 · 05 패널). 영어 상태 이름 대신 통계 사이트에서 쓰는 말로 */
+export const runStatusInfo: Record<RunStatus, { tone: StatusTone; label: string; legend: string }> =
+  {
+    ready: { tone: "green", label: "분석 완료", legend: "필수 근거가 모두 있음" },
+    partial: { tone: "amber", label: "일부 자료 누락", legend: "선택 근거만 빠짐 — 분석은 함" },
+    blocked: { tone: "red", label: "자료 부족", legend: "필수 근거가 없음 — 분석 안 함" },
+    unsupported: {
+      tone: "gray",
+      label: "분석 대상 아님",
+      legend: "적용 조건 미충족 · 목록에 없는 질문",
+    },
+  };
 
 /**
  * 판단 배지(C2 v1): 글자는 API 의 claim.label 그대로(카드 결과 이름 「청년 순유출 확대」), 색은 claim.value 로.
@@ -57,12 +62,12 @@ export function judgmentBadge({ claim, run_status }: Argument): {
 /** 못 채운 카드 적용 조건(C2 v1, passed false). 하나라도 있으면 unsupported */
 export const unmetConditions = (a: Argument) => a.applicability.filter((c) => c.passed === false);
 
-/** 비교 조건 4가지(FR-C4) */
+/** 비교 가능성 4가지(FR-C4 비교 조건) */
 export const comparabilityLabel = {
-  same_indicator: "같은 지표",
-  same_period_length: "같은 기간 길이",
-  same_boundary: "같은 경계",
-  same_method: "같은 산출 방식",
+  same_indicator: "동일 지표",
+  same_period_length: "동일 기간 길이",
+  same_boundary: "동일 행정구역",
+  same_method: "동일 산출 방식",
 } as const;
 
 /** 논증 카드 ② 근거 칸의 짧은 종류 이름(Figma 칸 폭 64) */
@@ -70,7 +75,7 @@ export const evidenceKindShort: Record<EvidenceKind, string> = {
   statistics: "통계",
   documents: "기사·보도",
   existing_responses: "기존 대응",
-  denominators: "분모·맥락",
+  denominators: "참고 지표",
 };
 
 /** 칸을 누가 채웠나 → 배지 종류. AI 문장화 · AI 판단은 둘 다 AI */
@@ -82,22 +87,22 @@ export const provKind: Record<Provenance, ProvKind> = {
   human: "human",
 };
 
-/** ① 판단 수준(Figma 「계산값」) */
+/** ① 분석 결과의 수준 */
 export const claimLevelLabel: Record<Argument["claim"]["level"], string> = {
-  observed_fact: "관측 사실",
-  calculated: "계산값",
-  associated: "연관",
+  observed_fact: "관측값",
+  calculated: "산출값",
+  associated: "상관",
   insufficient_evidence: "근거 부족",
 };
 
-/** ⑤ 반박 상태. Figma: 검토 필요 amber · 근거 없음 gray. 근거 있음(판단을 약하게 함)은 red(디자이너 확인) */
+/** ⑤ 다른 해석 가능성의 상태. 검토 필요 amber · 해당 자료 없음 gray · 해당 자료 있음(분석 결과를 약하게 함) red(디자이너 확인) */
 export const rebuttalBadge: Record<
   Argument["rebuttals"][number]["status"],
   { tone: StatusTone; label: string }
 > = {
   needs_review: { tone: "amber", label: "검토 필요" },
-  not_found: { tone: "gray", label: "근거 없음" },
-  supported: { tone: "red", label: "근거 있음" },
+  not_found: { tone: "gray", label: "해당 자료 없음" },
+  supported: { tone: "red", label: "해당 자료 있음" },
 };
 
 /** 출처 등급(원문 탭 읽기 배지). Figma 예는 A(초록)뿐 — B · C 는 디자이너 확인 */
@@ -130,18 +135,27 @@ export function kstDate(iso: string, withTime = false) {
   return withTime ? `${day} ${get("hour")}:${get("minute")}` : day;
 }
 
-/** 원문 위치(locator)를 한 줄로: 「tbl_id DT_1B26001 · C1 46130 · prd_de 2023 · 2024 · 2025」 */
-export function locatorLine(locator: Record<string, unknown>) {
+/** 원문 위치에서 뺄 칸: 해시 · 수집 검색 조건 */
+const hidden = /hash$|^obs_key$|^search_/i;
+
+/**
+ * 원문 위치(locator)를 한 줄로: 「tbl_id DT_1B26001 · C1 46130 · prd_de 2023 · 2024 · 2025」.
+ * 안에 든 객체(빅카인즈 locator …)는 한 단계만 풀고 더 깊은 것은 뺀다. 해시(content_hash · obs_key)와
+ * 수집할 때 쓴 검색 조건(search_query · search_category)도 원문을 다시 찾는 값이 아니라 뺀다
+ */
+export function locatorLine(locator: Record<string, unknown>, depth = 0): string {
   return Object.entries(locator)
-    .filter(([, value]) => value !== null && value !== undefined)
+    .filter(([key, value]) => value !== null && value !== undefined && !hidden.test(key))
     .map(([key, value]) => {
-      const text = Array.isArray(value)
-        ? value.map(String).join(" · ")
-        : typeof value === "object" && value !== null
-          ? JSON.stringify(value)
-          : String(value);
-      return `${key} ${text}`;
+      if (Array.isArray(value)) {
+        const scalars = value.filter((v) => typeof v !== "object" || v === null);
+        return scalars.length ? `${key} ${scalars.map(String).join(" · ")}` : "";
+      }
+      if (typeof value === "object")
+        return depth ? "" : locatorLine(value as Record<string, unknown>, depth + 1);
+      return `${key} ${String(value)}`;
     })
+    .filter(Boolean)
     .join(" · ");
 }
 

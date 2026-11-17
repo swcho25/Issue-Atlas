@@ -14,7 +14,8 @@ scrape_configs:
         labels: {environment: production, service: backend}
       - targets: [http://issueatlas-development-frontend-frontend-1:3000/healthz]
         labels: {environment: development, service: frontend}
-      # 운영 FE의 최초 EC2 배포가 확인되면 이 파일에 health 대상을 추가한다.
+      - targets: [http://issueatlas-production-frontend-frontend-1:3000/healthz]
+        labels: {environment: production, service: frontend}
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

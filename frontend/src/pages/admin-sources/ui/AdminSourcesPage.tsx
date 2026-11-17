@@ -1,124 +1,99 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { monthDayTime } from "@/shared/lib/format";
-import { href } from "@/shared/lib/url";
-import { StatusBadge } from "@/shared/ui/badge";
-import { table } from "@/shared/ui/table";
+import { countPendingFor } from "@/entities/csv-import";
+import type { SearchParams } from "@/shared/lib/url";
+import { buttonClass } from "@/shared/ui/button";
+import { Icon } from "@/shared/ui/icon";
+import { SegmentLinks } from "@/shared/ui/segment";
 
-import { getImports, getJobTotal, getLatestJobs, getSources } from "../api/server";
-import { jobBadge, methodLabel, storageLabel } from "../model/labels";
-import { SourcesNav } from "./SourcesNav";
+import { getImports, getMe, getSources } from "../api/server";
+import { sourcesHref, sourcesQuery } from "../model/query";
+import { ImportPanel } from "./ImportPanel";
+import { JobLog } from "./JobLog";
+import { SourceStatus } from "./SourceStatus";
 
-// /admin/sources — 07 · 데이터 소스: 출처마다 등급 · 이용 조건 · 저장 범위 · 수집 명세(마지막 성공) · 가장 최근 실행.
-// 줄을 누르면 그 출처의 수집 이력
-export function AdminSourcesPage() {
+// /admin/sources — 07 · 데이터 소스 한 화면(위에서 아래로 한 줄). 출처 보기는 출처 상태(출처마다 최근 수집 점 줄) 아래에
+// 수집 기록(기본 전체, 출처 · 실행 상태로 거르기), CSV 업로드 보기는 업로드 표 → 업로드 하나 · 올리기 양식. 상태는 모두 주소에 둔다
+export function AdminSourcesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
-    <main className="flex h-full flex-col gap-4 overflow-y-auto bg-bg-app px-7 pt-6 pb-10">
-      <Suspense fallback={<p className="text-body-13 text-text-3">출처를 불러오는 중이에요</p>}>
-        <SourcesContent />
+    <main className="flex h-full flex-col gap-6 overflow-y-auto bg-bg-app px-7 pt-6 pb-10 *:shrink-0">
+      <Suspense
+        fallback={<p className="text-body-13 text-text-3">데이터 소스를 불러오는 중이에요</p>}
+      >
+        <SourcesContent searchParams={searchParams} />
       </Suspense>
     </main>
   );
 }
 
-async function SourcesContent() {
-  const [sources, jobTotal, imports] = await Promise.all([
+async function SourcesContent({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const q = sourcesQuery(await searchParams);
+  const [sources, me, all] = await Promise.all([
     getSources(),
-    getJobTotal(),
-    getImports({ status: null, page: 1 }),
+    getMe(),
+    getImports({ page: 1, size: 1 }),
   ]);
-  const latest = await getLatestJobs(sources.map((s) => s.source_id));
+  const mine = await countPendingFor(me.id);
   return (
     <>
-      <h1 className="text-heading-24 text-text-1">데이터 소스</h1>
-      <SourcesNav
-        current="sources"
-        counts={{ sources: sources.length, jobs: jobTotal, imports: imports.total }}
-      />
-      <div className={table.wrap}>
-        <table className={table.box}>
-          <colgroup>
-            <col className="w-64" />
-            <col className="w-40" />
-            <col className="w-28" />
-            <col className="w-16" />
-            <col />
-            <col className="w-36" />
-          </colgroup>
-          <thead className={table.headRow}>
-            <tr>
-              <th className={table.headCell}>출처</th>
-              <th className={table.headCell}>이용 조건</th>
-              <th className={table.headCell}>저장 범위</th>
-              <th className={table.headCell}>등급</th>
-              <th className={table.headCell}>수집 명세</th>
-              <th className={table.headCell}>최근 실행</th>
-            </tr>
-          </thead>
-          <tbody className="text-body-13">
-            {sources.map((s) => {
-              const job = latest[s.source_id];
-              return (
-                <tr
-                  key={s.source_id}
-                  className="relative border-t border-border-1 align-top hover:bg-surface-2"
-                >
-                  <td className={table.bodyCell}>
-                    <Link
-                      href={href("/admin/sources/jobs", { source: s.source_id })}
-                      className="flex flex-col after:absolute after:inset-0"
-                    >
-                      <span className="text-text-1">{s.name}</span>
-                      <span className="text-caption-12 text-text-3">
-                        {s.source_id} · {s.org}
-                      </span>
-                    </Link>
-                  </td>
-                  <td className={`${table.bodyCell} break-all text-text-2`}>{s.license_type}</td>
-                  <td className={`${table.bodyCell} text-text-2`}>
-                    {storageLabel[s.storage_scope]}
-                  </td>
-                  <td className={`${table.bodyCell} text-text-2`}>{s.source_grade ?? "—"}</td>
-                  <td className={table.bodyCell}>
-                    {s.specs.length === 0 ? (
-                      <span className="text-text-3">명세 없음</span>
-                    ) : (
-                      <ul className="flex flex-col gap-1">
-                        {s.specs.map((sp) => (
-                          <li key={sp.spec_id} className="flex flex-wrap gap-x-2 text-text-2">
-                            <span className="break-all text-text-1">{sp.spec_id}</span>
-                            <span className="text-text-3">
-                              {methodLabel[sp.method]} ·{" "}
-                              {sp.last_success_at
-                                ? `마지막 성공 ${monthDayTime(sp.last_success_at)}`
-                                : "성공 기록 없음"}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                  <td className={table.bodyCell}>
-                    {job ? (
-                      <span className="flex flex-col items-start gap-1">
-                        <StatusBadge tone={jobBadge[job.status].tone}>
-                          {jobBadge[job.status].label}
-                        </StatusBadge>
-                        <span className="text-caption-12 text-text-3">
-                          {monthDayTime(job.started_at)}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-text-3">기록 없음</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <header className="flex flex-wrap items-center gap-4">
+        <h1 className="text-heading-24 text-text-1">데이터 소스</h1>
+        <SegmentLinks
+          label="보기"
+          items={[
+            {
+              key: "sources",
+              label: "출처",
+              count: sources.length,
+              href: sourcesHref({}),
+              active: q.view === "sources",
+            },
+            {
+              key: "imports",
+              label: "CSV 업로드",
+              count: all.total,
+              href: sourcesHref({ view: "imports" }),
+              active: q.view === "imports",
+            },
+          ]}
+        />
+        {/* CSV 업로드 보기에는 「전체 · 처리 필요」 칸이 있어 출처 보기에서만 */}
+        {q.view === "sources" && mine > 0 && (
+          <Link
+            href={sourcesHref({ view: "imports", mine: true })}
+            className="flex items-center gap-1.5 text-label-13 text-primary-text hover:underline"
+          >
+            {/* 왼쪽 띠 「데이터 소스」 알림 점과 같은 빨간 점 */}
+            <span aria-hidden className="size-2 shrink-0 rounded-full bg-status-red" />
+            CSV 처리 필요 {mine}
+          </Link>
+        )}
+        <Link
+          href={sourcesHref({ view: "imports", isNew: true })}
+          className={buttonClass({ className: "ml-auto" })}
+        >
+          <Icon name="plus" />
+          CSV 올리기
+        </Link>
+      </header>
+      {q.view === "sources" ? (
+        <>
+          <SourceStatus sources={sources} q={q} />
+          <Suspense
+            key={`${q.source}:${q.status}:${q.page}`}
+            fallback={<p className="text-body-13 text-text-3">수집 기록을 불러오는 중이에요</p>}
+          >
+            <JobLog q={q} sources={sources} />
+          </Suspense>
+        </>
+      ) : (
+        <Suspense
+          fallback={<p className="text-body-13 text-text-3">CSV 업로드를 불러오는 중이에요</p>}
+        >
+          <ImportPanel q={q} me={me} mineTotal={mine} allTotal={all.total} />
+        </Suspense>
+      )}
     </>
   );
 }

@@ -59,7 +59,7 @@
 
 - 판단(claim · 비교 조건 · 통계 · 문서 · 분모 근거)은 실행 시 카드 버전의 승인본을 읽어 `rule_id`별 `RuleType`으로 계산한다. C1(`net_migration_trend`)과 A3(`first_last_diff`)를 지원하며, 승인본 없는 legacy 카드는 `unsupported`다. 판단 ① 문장은 고른 결과의 문장(승인본 `rule.outcomes[].claim_text`)에 판정에 쓴 첫해 · 끝해 연 값을 넣는다(S15P31C108-282, 예: 「여수시 청년(19–39세) 순유출은 2023년 1,537명에서 2025년 2,262명으로 매년 커졌습니다.」, [카드 계약](../cards/README.md) 「판단 문장」). 결과 문장이 없는 승인본(v3 전)은 승인 `claim_template`의 `{판정값}`에 결과 `label`을 넣는다(예: 「여수시에서 2023–2025 청년(19–39세) 순이동이 청년 순유출 확대.」). 규칙 결과가 증가 · 감소인데 비교 조건이 하나라도 통과가 아니면 실행이 실패한다(고쳐 쓰지 않음). 아직 지원하지 않는 `rule_id`는 판단하지 않는다.
 - 필수 근거(통계) 상태: 카드 확보 상태(`card_evidence_status`)가 `not_collected`(등록 없음 포함)면 규칙의 주 지표 월 관측(observation)으로 정한다 — available 한 달이 있으면 `available`, 없고 미공표 달이 있으면 `not_published`. 통계 근거는 실행 때 지역 · 기간 · 지표마다 한 행(`ev_stat_<md5>`)을 만들고, 출처 등급이 없는 출처면 만들지 않는다(기존 대응과 같은 규칙)
-- 6칸 문장은 템플릿으로 만든다. 보증 ③ · 상한선 ⑥ 은 카드 정의(규칙이 함께 줌), 반박 ⑤ 는 `[]`. 상한선 ⑥ 끝에는 카드 설계도의 예상 빈칸(`expected_gaps`)을 「무엇: 문장 (상태)」로 붙인다 — `license_blocked` 「이용 허락이 없어 쓰지 않는다」 · `not_published` 「공표되지 않는다」 · `not_collected` 「수집하지 않는다」(예: 「민원: 이용 허락이 없어 쓰지 않는다 (license_blocked)」). 인수 기준 ③ 을 C2 v1 `expected_gaps[]` 칸 전까지 이 칸으로 보인다(S15P31C108-265). 승인본이 있는 실행은 engine 논증 문장화([AI 계약](../ai/README.md) v0.3 「문장화」)를 부르고, 결과가 `done` 이면 ⑤ 만 카드 경쟁 설명마다 근거 유무(`supported` · `not_found` · `needs_review`, `llm_judgment` · 규칙이 정한 것은 `rule`)로 바꾼다. 판단 ① · 근거 ② · 보증 ③(늘 카드 문장, `card`) · 한정어 ④ · 상한선 ⑥ 은 바꾸지 않는다(S15P31C108-282, Figma: 「AI」 칩은 ⑤ 만). engine 이 꺼져 있거나(`ENGINE_URL` 없음) 실패 · 시간 초과(40초) · 검사 탈락이면 위 템플릿 그대로이고, 사유는 [DB](../database/README.md) `argument_phrasing` 에 남긴다. 칸 · enum 은 그대로(동결 문서 「해도 된다」: 빈 배열이 차는 것 · 값이 바뀌는 것)
+- 6칸 문장은 템플릿으로 만든다. 보증 ③ · 상한선 ⑥ 은 카드 정의(규칙이 함께 줌), 반박 ⑤ 는 `[]`. 상한선 ⑥ 끝에는 카드 설계도의 예상 빈칸(`expected_gaps`)을 「무엇: 문장」으로 붙인다 — `license_blocked` 「이용 허락이 없어 쓰지 않아요」 · `not_published` 「아직 공표되지 않았어요」 · `not_collected` 「수집하지 않아요」(예: 「민원: 이용 허락이 없어 쓰지 않아요」). 화면에 그대로 나가는 문장이라 상태 코드는 붙이지 않는다(2026-11-10). 인수 기준 ③ 을 C2 v1 `expected_gaps[]` 칸 전까지 이 칸으로 보인다(S15P31C108-265). 승인본이 있는 실행은 engine 논증 문장화([AI 계약](../ai/README.md) v0.3 「문장화」)를 부르고, 결과가 `done` 이면 ⑤ 만 카드 경쟁 설명마다 근거 유무(`supported` · `not_found` · `needs_review`, `llm_judgment` · 규칙이 정한 것은 `rule`)로 바꾼다. 판단 ① · 근거 ② · 보증 ③(늘 카드 문장, `card`) · 한정어 ④ · 상한선 ⑥ 은 바꾸지 않는다(S15P31C108-282, Figma: 「AI」 칩은 ⑤ 만). engine 이 꺼져 있거나(`ENGINE_URL` 없음) 실패 · 시간 초과(40초) · 검사 탈락이면 위 템플릿 그대로이고, 사유는 [DB](../database/README.md) `argument_phrasing` 에 남긴다. 칸 · enum 은 그대로(동결 문서 「해도 된다」: 빈 배열이 차는 것 · 값이 바뀌는 것)
 - 「기존 대응」: [-136 후보](../existing-response/) 중 같은 카드 · 지역(`place_id`)이고 기간이 겹치는 현재 판만 잇는다. 세출은 회계연도 `[Y-01-01, Y+1-01-01)`, 온통청년은 사업 기간으로 겹침을 본다. 기간을 모르는 후보와 광역 후보(광주 본청 `kr-29` · `place_id` null)는 시군구 질문에 잇지 않는다. 출처 등급(`source.reliability_grade`)이 정해진 출처의 후보만 근거(`evidence`, ID `ev_<후보 해시>`)로 만들고, 등급 없는 후보는 근거 수요표에 `review_pending`(보류 수 = 후보 수)으로만 센다
 - 근거 수요표 상태는 「카드 목록 구현」과 같은 규칙(`CardEvidenceStatus`)이다: 등록된 `card_evidence_status`(정확히 같은 기간 · 카드 판)가 먼저, 기존 대응은 이번 실행이 이은 후보가 있으면 그것으로 정한다
 - 「분모」: 승인본 `evidence.denominators` 의 지표마다 질문 지역 · 기간에 available 관측(observation) 행이 있으면 근거 한 행(`ev_den_<md5>`, 이름은 지표 사전 `label`)을 만들어 `data.denominators` 에 넣는다. 판정이 이은 분모 · 문서 근거가 있으면 확보 상태 `not_collected`(등록 없음 포함)를 `available` 로 본다(통계와 같은 임시 방식). 분모는 한정어 구성 값에서 뺀다. 지금 C1 · A3 승인본의 분모는 SP10 전체 인구(`population_registered_total`)뿐 — 19–39세 인구는 관측 view 에 합계 행이 없어 아직 잇지 않는다
@@ -123,7 +123,7 @@ argument 응답에 「시공간 표시 개발 명세」 5 · 6절의 그림 자�
 | ② 근거 | `data` `{statistics[], documents[], existing_responses[], denominators[]}` | — |
 | ③ 보증 | `warrant` `{text}` | 보통 `card` |
 | ④ 한정어 | `qualifier` `{grade, components, formula_version}` | `rule`·`card` 만 |
-| ⑤ 반박 | `rebuttals[]` `{text, status}` | 근거 유무 판정은 `llm_judgment` 가능 |
+| ⑤ 반박 | `rebuttals[]` `{text, status, citations?}` | 근거 유무 판정은 `llm_judgment` 가능. `supported` 면 선택 칸 `citations[] = {article_id, date, quote, title, url, evidence_id}` — AI 가 인용한 기사 요약 문장(-343) |
 | ⑥ 상한선 | `ceiling` `{items[]}` | `rule`·`card` 만 |
 
 스키마가 막는 규칙
@@ -230,6 +230,7 @@ PRD 1.2(근거 상태 5가지)와 카드 양식 C6(ready·partial·blocked·unsu
 
 - `argument-a3-not-comparable.json` 의 여천동(여수) 측정소 주소 차이는 실제로 확인한 사실이다(2024 확정자료 vs 현재 측정소 정보). 이전 여부는 아직 모른다.
 - 예시끼리 ID를 맞췄다: `argument-c1-ready` 의 통계 근거 `ev_kosis_net_yeosu` → `evidence-kosis.json`.
+- `argument-c1-ready.json` 의 근거 기사 `articles[]` 8건과 기사 건수 줄(`series[]` 의 `tag` 모양 4줄)은 화면 개발용 가짜 값이다(기사 ID `00000000.…` · 요약 · 링크 `news.example.com`). 지역 ID · 지역 대표점 · 장소 좌표(여수시청 · 여수세계박람회장)만 실제 값이다. 기사 건수 줄의 달 값은 `articles[]` 와 맞췄다(지역마다 그 달 기사 수). `evidence_id` · `source_grade` 는 null — 예시에 기사 근거 상세가 없다. 주소 2건이 같은 자리(여수시청), 위치 근사 4건, 위치 없음 1건으로 화면의 세 경우를 모두 낸다
 
 ## 검증 방법
 
@@ -278,3 +279,7 @@ pnpm --package=@redocly/cli@1 dlx redocly lint contracts/c2/openapi.yaml
 - C2 선택 칸 추가 (2026-11-09, S15P31C108-318): argument `articles[]` 에 선택 칸 `evidence_id` · `source_grade` — 근거 기사를 보도자료처럼 근거 상세(`GET /v1/evidence/{evidence_id}`)로 연다. 기사마다 실행 때 `ev_news_<md5>` 문서 근거 행을 만든다(같은 판이면 한 행). 없어도 되는 칸이라 지난 실행 · 예시는 그대로 통과한다. 동결 뒤 추가라 [동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」에 기록
 - c2-0.1 값 변경 (2026-11-09, S15P31C108-320): 근거 상세 `display`(「이 질문에 쓴 값」)를 근거 종류마다 채운다 — 통계 · 분모 연 값, 기존 대응 예산 · 대상, 보도자료 맞은 키워드, 기사 AI 요약. 칸 · 타입 그대로(null 이던 칸에 값이 차는 것). 이미 있는 근거 행은 비어 있을 때만 채운다. 「근거 상세 `display`」 절
 - c2-0.1 값 변경 (2026-11-09, S15P31C108-320 후속): 기존 대응 `display` 의 금액을 억 · 만 원으로(「472,497만 원」 → 「47억 2,497만 원」). 칸 그대로
+- c2-0.1 값 변경 (2026-11-10): 상한선 ⑥ 의 예상 빈칸 문장에서 상태 코드를 빼고 「-요」체로(「민원: 이용 허락이 없어 쓰지 않는다 (license_blocked)」 → 「민원: 이용 허락이 없어 쓰지 않아요」). 칸 · 타입 그대로, 새 실행부터
+- 예시 보강 (2026-11-10, S15P31C108-341): `argument-c1-ready.json` 에 근거 기사 `articles[]` 8건과 기사 건수 줄 4줄(`series[]` 의 `tag` 모양)을 넣는다 — 지금까지 `articles: []` 라 화면 개발용 목 서버에서 기사 점 · 관측 순서를 볼 수 없었다(실제 응답에는 늘 있다). 스키마 · 응답 모양은 그대로, 예시 값만 더한다. 기사 값은 가짜(「예시 값」)
+- C2 선택 칸 추가 (2026-11-11, S15P31C108-343): argument `rebuttals[]` 에 선택 칸 `citations[] = {article_id, date, quote, evidence_id}` — ⑤ 「근거 있음」(`supported`) 반박이 인용한 기사 요약 문장. engine 이 원문과 글자가 같은지 검사한 인용만 오고([AI 계약](../ai/README.md) 「출력 검사」), 같은 기사 같은 인용문은 한 번. `evidence_id` 는 인용 기사마다 실행 때 만드는 문서 근거 행(`ev_news_<md5>`, `articles[]` 와 같은 규칙)으로 근거 상세를 연다. 다른 상태 · 지난 실행 · 문장화 실패에는 칸이 없다. 동결 뒤 추가라 [동결 문서](../freeze-2026-11-04.md) 「동결 뒤 바꾸는 법」에 기록
+- C2 선택 칸 보강 (2026-11-11, S15P31C108-343): `rebuttals[].citations[]` 에 `title`(기사 제목) · `url`(언론사 원문 링크) — 화면이 근거 상세를 따로 받지 않고 인용 모달에 제목을 보이고 원문을 새 탭으로 연다. 원본 레코드에서 못 찾으면 null. 출처 등급이 없어 `evidence_id` 가 null 인 기사도 제목 · 링크는 있을 수 있다. 칸 자체가 선택이라 지난 실행은 그대로 통과한다

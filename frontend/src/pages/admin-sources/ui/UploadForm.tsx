@@ -10,12 +10,13 @@ import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 
 import { uploadImport } from "../api/imports";
+import { sourcesHref } from "../model/query";
 
-// CSV 올리기: 파일 · 담당자를 골라 올리면 서버가 양식 검증까지 끝내고 요청을 만든다(오류가 있어도 검증 실패로 보관).
+// CSV 올리기: 파일 · 반영 담당자를 골라 올리면 서버가 양식 검증까지 끝내고 요청을 만든다(오류가 있어도 검증 실패로 보관).
 // request_key 는 고른 파일 · 담당자마다 새로 만든다. 같은 것을 다시 보내면(네트워크 재시도) 같은 요청을 돌려받는다
 const failText = (e: unknown) => {
   if (e instanceof ApiError && e.status === 413) return "2 MiB 를 넘는 파일이에요.";
-  if (e instanceof ApiError && e.status === 400) return "파일 형식 · 담당자를 확인해 주세요.";
+  if (e instanceof ApiError && e.status === 400) return "파일 형식 · 반영 담당자를 확인해 주세요.";
   if (e instanceof ApiError && e.status === 409)
     return "같은 요청 키로 다른 내용이 이미 올라갔어요. 파일을 다시 골라 주세요.";
   if (e instanceof ApiError && (e.status === 401 || e.status === 403))
@@ -41,7 +42,7 @@ export function UploadForm({
     mutationFn: (input: { file: File; assigneeId: number }) =>
       uploadImport({ ...input, requestKey }),
     onSuccess: (r) =>
-      startMove(() => router.push(`/admin/sources/imports/${encodeURIComponent(r.import_id)}`)),
+      startMove(() => router.push(sourcesHref({ view: "imports", id: r.import_id }))),
   });
   const busy = upload.isPending || moving;
   const tooBig = !!file && file.size > maxBytes;
@@ -71,7 +72,7 @@ export function UploadForm({
         {tooBig && <span className="text-caption-12 text-status-red">2 MiB 초과</span>}
       </label>
       <label className="flex flex-col gap-1.5">
-        <span className="text-label-12 text-text-3">담당자</span>
+        <span className="text-label-12 text-text-3">반영 담당자</span>
         <select
           value={assignee ?? ""}
           disabled={busy}

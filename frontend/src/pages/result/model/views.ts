@@ -56,8 +56,11 @@ const COUNT_UNITS = new Set(["명", "건", "개", "가구", "세대"]);
 export const yearlyAggregate = (unit: string | null) =>
   unit && COUNT_UNITS.has(unit) ? ("sum" as const) : ("mean" as const);
 
-/** 월 값을 해마다 묶는다(빈 달은 빼고, 한 해가 모두 비면 null) */
-export function yearlyBars(s: ArgumentSeries) {
+/**
+ * 월 값을 해마다 묶는다(빈 달은 빼고, 한 해가 모두 비면 null).
+ * 값은 늘 그 해 전체(판정에 쓰는 값)이고, 달을 고르면 그 달이 든 해만 active(강조) — 명세 7절 「막대: 고른 달 강조」
+ */
+export function yearlyBars(s: ArgumentSeries, month?: string) {
   const agg = yearlyAggregate(s.unit);
   const years = new Map<string, number[]>();
   s.periods.forEach((p, i) => {
@@ -68,9 +71,10 @@ export function yearlyBars(s: ArgumentSeries) {
     years.set(y, list);
   });
   return [...years].map(([year, vs]) => {
-    if (!vs.length) return { year, value: null };
+    const active = !month || month.startsWith(year);
+    if (!vs.length) return { year, value: null, active };
     const sum = vs.reduce((a, b) => a + b, 0);
-    return { year, value: agg === "sum" ? sum : sum / vs.length };
+    return { year, value: agg === "sum" ? sum : sum / vs.length, active };
   });
 }
 

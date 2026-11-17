@@ -8,7 +8,7 @@ import {
   evidenceStatusBadge,
   yearSpan,
 } from "../../model/labels";
-import { emptyRefsText, refsTitle } from "../../model/sources";
+import { emptyRefsText, kindCount, refsTitle } from "../../model/sources";
 
 // 05 · 근거 수요표 본문(Figma 05 · 근거 수요표 탭): 표(근거 4행) → 비교 조건 4가지 → 빈칸 안내.
 // 판단보다 먼저 「무엇이 있고 무엇이 없는지」를 보여 준다(FR-B2). 없는 근거는 0 이 아니라 상태 · 사유로
@@ -20,7 +20,7 @@ const columns = [
   { key: "required", label: "필수", width: "w-[70px]" },
   { key: "status", label: "상태", width: "w-[100px]" },
   { key: "count", label: "건수", width: "w-[60px]" },
-  { key: "pending", label: "검수 대기", width: "w-[80px]" },
+  { key: "pending", label: "검증 대기", width: "w-[80px]" },
   { key: "source", label: "소스 · 사유", width: "w-[330px]" },
 ] as const;
 
@@ -35,9 +35,8 @@ const col = Object.fromEntries(columns.map((c) => [c.key, `${c.width} shrink-0`]
  * 소스 칸: 대표 자료 첫 줄(+ 외 N건 — 건수 칸과 같은 전체 건수로)과 출처 · 등급 · 기간.
  * 대표 자료가 없으면 「자료 N건 · 목록 없음」 또는 사유 · 상태
  */
-function sourceOf(row: EvidenceRow, refs: EvidenceRef[]) {
+function sourceOf(row: EvidenceRow, refs: EvidenceRef[], count: number) {
   const first = refs[0];
-  const count = Math.max(row.count, refs.length);
   if (!first) return { title: emptyRefsText(row, count), sub: null };
   return {
     title: refsTitle(first, count),
@@ -63,7 +62,7 @@ export function EvidenceTab({ argument }: { argument: Argument }) {
       {/* 근거 표: 테두리 1 이 자리를 차지하는 것까지 Figma 와 같다(안쪽 칸 x 1) */}
       <div
         role="table"
-        aria-label="근거 수요표"
+        aria-label="자료 현황"
         className="overflow-x-auto rounded-xl border border-border-1 bg-surface-1"
       >
         <div role="rowgroup" className="min-w-max">
@@ -76,7 +75,9 @@ export function EvidenceTab({ argument }: { argument: Argument }) {
           </div>
           {argument.evidence_table.map((row) => {
             const badge = evidenceStatusBadge[row.status];
-            const source = sourceOf(row, argument.data[row.kind]);
+            // 건수는 다른 탭 · 탭 바와 같은 수(보도 기사 포함, model/sources)
+            const count = kindCount(argument, row);
+            const source = sourceOf(row, argument.data[row.kind], count);
             return (
               <div
                 key={row.kind}
@@ -96,7 +97,7 @@ export function EvidenceTab({ argument }: { argument: Argument }) {
                   <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
                 </span>
                 <span role="cell" className={`${col.count} text-label-13 text-text-1`}>
-                  {row.count}
+                  {count}
                 </span>
                 <span role="cell" className={`${col.pending} text-caption-12 text-text-1`}>
                   {row.review_pending_count}
@@ -113,12 +114,12 @@ export function EvidenceTab({ argument }: { argument: Argument }) {
 
       {/* 비교 조건: 4개 모두 충족해야 증가 · 감소를 말할 수 있다(FR-C4) */}
       <section
-        aria-label="비교 조건"
+        aria-label="비교 가능성"
         className="flex flex-col gap-2 rounded-xl border border-border-1 bg-surface-1 p-4"
       >
         <div className="flex items-center gap-2">
           <h2 className="text-heading-16 text-text-1">
-            비교 조건 {passed} / {conditions.length}
+            비교 가능성 {passed} / {conditions.length}
           </h2>
           <p className="text-caption-12 text-text-3">4개 모두 충족해야 판정할 수 있어요</p>
         </div>

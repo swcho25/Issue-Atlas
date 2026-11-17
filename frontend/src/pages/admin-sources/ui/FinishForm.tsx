@@ -11,15 +11,15 @@ import { Icon } from "@/shared/ui/icon";
 import { finishImport } from "../api/imports";
 import type { ImportDetail } from "../model/schema";
 
-// 담당자 결과 보고(오른쪽 패널). 지정 담당자만 보고한다(그 밖은 403).
-// 완료는 적재 + 건너뜀 = 적재 대상, 실패는 합계 ≤ 적재 대상(contracts/csv-imports). 보고는 업무 DB 를 되돌리지 않는다
+// 반영 담당자의 결과 보고(요청 상세 아래). 지정 담당자만 보고한다(그 밖은 403).
+// 완료는 반영 + 건너뜀 = 반영 대상, 실패는 합계 ≤ 반영 대상(contracts/csv-imports 의 적재). 보고는 업무 DB 를 되돌리지 않는다
 const MAX_REASON = 2000;
 
 const failText = (e: unknown) => {
   if (e instanceof ApiError && e.status === 409)
     return "이미 보고됐거나 요청이 바뀌었어요. 최신 내용으로 다시 불러왔어요.";
   if (e instanceof ApiError && e.status === 400) return "건수 · 사유를 확인해 주세요.";
-  if (e instanceof ApiError && e.status === 403) return "지정 담당자만 보고할 수 있어요.";
+  if (e instanceof ApiError && e.status === 403) return "반영 담당자만 보고할 수 있어요.";
   if (e instanceof ApiError && e.status === 401) return "세션이 끝났어요. 다시 로그인해 주세요.";
   return "보고하지 못했어요. 다시 시도해 주세요.";
 };
@@ -60,13 +60,13 @@ export function FinishForm({
     "h-9 rounded-lg border border-border-1 bg-surface-1 px-3 text-body-14 text-text-1 outline-none focus:border-border-2 disabled:bg-surface-2";
 
   return (
-    <aside
+    <section
       aria-label="결과 보고"
-      className="m-4 flex w-90 shrink-0 flex-col gap-4 overflow-y-auto rounded-2xl bg-surface-1 p-5 shadow-panel"
+      className="flex max-w-xl flex-col gap-4 rounded-xl border border-border-1 bg-surface-1 p-5"
     >
-      <h2 className="text-heading-20 text-text-1">결과 보고</h2>
+      <h3 className="text-label-13 text-text-1">결과 보고</h3>
       <p className="text-body-13 text-text-2">
-        담당자 {assigneeName} · 적재 대상 {eligible}행
+        반영 담당자 {assigneeName} · 반영 대상 {eligible}행
       </p>
       <form
         className="flex flex-1 flex-col gap-4"
@@ -96,7 +96,7 @@ export function FinishForm({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1">
-            <span className="text-label-12 text-text-3">적재</span>
+            <span className="text-label-12 text-text-3">반영</span>
             <input
               inputMode="numeric"
               value={loaded}
@@ -118,7 +118,7 @@ export function FinishForm({
         </div>
         {!sumOk && (
           <p className="text-caption-12 text-status-amber">
-            {status === "completed" ? `적재 + 건너뜀 = ${eligible}` : `적재 + 건너뜀 ≤ ${eligible}`}
+            {status === "completed" ? `반영 + 건너뜀 = ${eligible}` : `반영 + 건너뜀 ≤ ${eligible}`}
           </p>
         )}
         <label className="flex flex-col gap-1">
@@ -140,13 +140,13 @@ export function FinishForm({
         )}
         <Button
           type="submit"
-          className="mt-auto w-full"
+          className="self-start"
           disabled={off || !sumOk || !reason.trim()}
           icon={<Icon name="check" />}
         >
           {busy ? "보고 중" : `${status === "completed" ? "완료" : "실패"} 보고`}
         </Button>
       </form>
-    </aside>
+    </section>
   );
 }

@@ -35,7 +35,7 @@ export function MovementSheet({
       className="pointer-events-auto flex w-[460px] flex-col gap-2.5 rounded-[18px] border border-text-1/6 bg-surface-1 px-6 py-5 shadow-legend"
     >
       <header className="grid gap-0.5">
-        <h2 className="text-heading-16 leading-4.5 text-text-1">전출지별 이동 · {data.year}</h2>
+        <h2 className="text-heading-16 leading-4.5 text-text-1">전출지별 이동 · {data.month}</h2>
         {/* Figma 「KOSIS 전출지→전입지 (SP02) · …」 — 응답에 이 줄의 출처 칸이 없어 지표 이름으로 */}
         <p className="text-caption-12 leading-3.5 text-text-3">
           {[

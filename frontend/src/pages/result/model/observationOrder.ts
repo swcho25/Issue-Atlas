@@ -16,7 +16,7 @@ export type OrderStop = {
   at: [number, number] | null;
   /** 처음 나온 달 「YYYY-MM」 */
   first: string;
-  /** 기간 안 기사 수 */
+  /** 기사 수(달을 고르면 그 달까지) */
   total: number;
   /** 순서. 같은 달에 처음 나온 지역은 같은 번호(1, 1, 3 …) */
   rank: number;
@@ -27,10 +27,15 @@ const countSeries = (a: Argument) => a.series.filter((s): s is CountSeries => "t
 /** 관측 순서를 켤 수 있는가(기사가 하나라도 있는 기사 건수 줄이 있음) */
 export const hasObservationOrder = (a: Argument) => observationOrder(a).length > 0;
 
-/** 지역마다 첫 관측 달 순서(이른 달 → 같은 달이면 기사가 많은 곳 → 이름). 기사가 한 건도 없는 줄은 뺀다 */
-export function observationOrder(a: Argument): OrderStop[] {
+/**
+ * 지역마다 첫 관측 달 순서(이른 달 → 같은 달이면 기사가 많은 곳 → 이름). 기사가 한 건도 없는 줄은 뺀다.
+ * upTo(「YYYY-MM」)를 주면 그 달까지만 센다(명세 7절 「슬라이더 달까지 나타난 곳만 표시」 — 공통 시간 슬라이더):
+ * 그 달까지 처음 나온 지역만 남고, 기사 수도 그 달까지의 것
+ */
+export function observationOrder(a: Argument, upTo?: string): OrderStop[] {
   const stops = countSeries(a).flatMap((s) => {
-    const i = s.values.findIndex((v) => (v ?? 0) > 0);
+    const seen = (k: number) => !upTo || (s.periods[k] ?? "") <= upTo;
+    const i = s.values.findIndex((v, k) => (v ?? 0) > 0 && seen(k));
     if (i === -1) return [];
     const at: [number, number] | null =
       s.coordinates && s.coordinates[0] != null && s.coordinates[1] != null
@@ -42,7 +47,7 @@ export function observationOrder(a: Argument): OrderStop[] {
         name: s.name ?? "이름 없는 지역",
         at,
         first: s.periods[i],
-        total: s.values.reduce<number>((sum, v) => sum + (v ?? 0), 0),
+        total: s.values.reduce<number>((sum, v, k) => sum + (seen(k) ? (v ?? 0) : 0), 0),
         rank: 0,
       },
     ];

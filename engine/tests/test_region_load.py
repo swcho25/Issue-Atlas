@@ -1,6 +1,6 @@
 """region-load 의 행 만들기 (DB 없이). 적재 · 본문 지우기는 tests_postgres/test_region_store.py"""
 
-from pipeline.region.load import event_row, merge_mentions
+from pipeline.region.load import event_row, load, merge_mentions
 
 PUBLISHED = "2025-03-02T09:00:00.000+09:00"
 
@@ -44,3 +44,28 @@ def test_mentions_file_fills_only_rows_without_mentions():
     rows = [{"id": "a"}, {"id": "b", "mentions": ["광주"]}]
     merged = merge_mentions(rows, [{"id": "a", "mentions": ["여수"]}, {"id": "b", "mentions": []}])
     assert [r["mentions"] for r in merged] == [["여수"], ["광주"]]
+
+
+def test_load_counts_only_stored_nonempty_summaries():
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def execute(self, *_):
+            pass
+
+        def fetchone(self):
+            return (True,)
+
+    class Connection:
+        def execute(self, *_):
+            return [("n1", "제목", "본문", PUBLISHED), ("n2", "제목", "본문", PUBLISHED)]
+
+        def cursor(self):
+            return Cursor()
+
+    result = load(Connection(), [extracted(), extracted(id="n2", summary=" ")])
+    assert result == {"input": 2, "inserted": 2, "summarized": 1, "skipped": {}}

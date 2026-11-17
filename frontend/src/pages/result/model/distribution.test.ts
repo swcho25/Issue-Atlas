@@ -6,13 +6,13 @@ import a3Json from "../../../../../contracts/c2/examples/argument-a3-not-compara
 import readyJson from "../../../../../contracts/c2/examples/argument-c1-ready.json";
 import {
   aqGrade,
-  defaultMonth,
   distributionMonths,
   missingLabel,
-  monthlyMeans,
   monthSummary,
+  statChip,
   stationPoints,
   stationSeries,
+  stationStats,
 } from "./distribution";
 
 const a3 = argumentSchema.parse(a3Json);
@@ -25,32 +25,10 @@ describe("분포형", () => {
     expect(stationSeries(argumentSchema.parse(readyJson))).toEqual([]);
   });
 
-  it("달은 질문 기간의 36개월, 처음엔 값이 있는 마지막 달", () => {
+  it("달은 질문 기간의 36개월(처음 달 · 고르기는 공통 시간 슬라이더 — timeline.test)", () => {
     const months = distributionMonths(stations);
     expect(months).toHaveLength(36);
-    expect(defaultMonth(stations)).toBe("2025-12");
-    const emptyLast = stations.map((s) => ({ ...s, values: [...s.values.slice(0, -1), null] }));
-    expect(defaultMonth(emptyLast)).toBe("2025-11");
-  });
-
-  it("시간 막대 높이: 달마다 값이 있는 측정소의 평균, 모두 없으면 null", () => {
-    const series = [
-      {
-        ...stations[0],
-        periods: ["2024-01", "2024-02"],
-        values: [10, null],
-        statuses: ["available", "not_published"],
-      },
-      {
-        ...stations[0],
-        station_id: "s2",
-        periods: ["2024-01", "2024-02"],
-        values: [20, null],
-        statuses: ["available", "not_published"],
-      },
-    ] as typeof stations;
-    expect(monthlyMeans(series)).toEqual([15, null]);
-    expect(monthlyMeans(stations)).toHaveLength(36);
+    expect([months[0], months.at(-1)]).toEqual(["2023-01", "2025-12"]);
   });
 
   it("환경부 4단계: PM2.5 15 · 35 · 75 이하, PM10 30 · 80 · 150 이하, 기준 없는 지표는 null", () => {
@@ -111,5 +89,41 @@ describe("분포형", () => {
     expect(monthSummary(stationPoints(series.slice(2), "2024-03"), "2024-03", "µg/m³")).toBe(
       "2024-03 한 달 · 측정소 0곳 · 값 없음 · 결측 1곳",
     );
+  });
+  it("카드 칩: 측정소 수 · 기간 전체에서 가장 높은 · 낮은 측정소 값과 그 달(같은 값이면 이른 달)", () => {
+    const series = [
+      {
+        ...stations[0],
+        name: "서강동",
+        periods: ["2024-02", "2024-03", "2024-08"],
+        values: [20, 40.6, 9.4],
+        statuses: ["available", "available", "available"],
+      },
+      {
+        ...stations[0],
+        station_id: "s2",
+        name: "여천동",
+        periods: ["2024-02", "2024-03", "2024-08"],
+        values: [40.6, null, 12],
+        statuses: ["available", "not_published", "available"],
+      },
+    ] as typeof stations;
+    const stats = stationStats(series);
+    expect(stats).toMatchObject({ count: 2, unit: "µg/m³" });
+    // 40.6 이 두 번 — 이른 달(2024-02 여천동). 달 평균(30.3)이 아니라 측정소 값
+    expect(stats?.high).toEqual({ value: 40.6, month: "2024-02", station: "여천동" });
+    expect(stats?.low).toEqual({ value: 9.4, month: "2024-08", station: "서강동" });
+    expect(statChip("최고", stats!.high!)).toBe("최고 41 · 2024-02");
+    expect(statChip("최저", stats!.low!)).toBe("최저 9 · 2024-08");
+  });
+
+  it("카드 칩: 측정소 줄이 없으면 null, 값이 하나도 없으면 최고 · 최저 없이 수만", () => {
+    expect(stationStats([])).toBeNull();
+    const empty = [{ ...stations[0], periods: ["2024-03"], values: [null] }] as typeof stations;
+    expect(stationStats(empty)).toMatchObject({ count: 1, high: null, low: null });
+    // 계약 예시(서강동 36개월): 값이 모두 있다
+    const real = stationStats(stations);
+    expect(real?.count).toBe(stations.length);
+    expect(real?.high?.value).toBeGreaterThan(real?.low?.value ?? Infinity);
   });
 });

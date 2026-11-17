@@ -131,6 +131,7 @@ sudo issueatlas-collect region-extract --input /inputs/articles.jsonl --done /in
 # ③ 추출 결과를 input 에 넣고 적재. 기본은 시험 실행(건수만, 되돌림) → 확인 뒤 --apply. mentions 는 추출 결과에 들어 있다.
 #    collector.env 에 JUSO_SEARCH_KEY 가 있으면 적재 전에 장소 주소로 지역을 바로잡는다(결과의 place_check — 없으면 off)
 #    SGIS_KEY · SGIS_SECRET 이 있으면 기사 위치(건물 좌표 · 행정동)도 정한다(결과의 locate — 없으면 off, 이미 있는 위치는 그대로)
+#    --extract --apply 가 성공하고 요약이 있는 기사를 한 건 이상 저장하면, 같은 잠금·로그에서 classify 를 자동 실행한다.
 sudo issueatlas-collect region-load --extract /inputs/extract.jsonl
 sudo issueatlas-collect region-load --extract /inputs/extract.jsonl --apply
 # ④ 요약이 제대로 생긴 기사의 본문 지우기(기사 계약 v0.3). 시험 실행으로 건수를 본 뒤 --apply, 이어서 refine(전체)
@@ -141,13 +142,17 @@ sudo issueatlas-collect region-load --relocate
 sudo issueatlas-collect region-load --relocate --apply
 sudo issueatlas-collect refine
 
-# P4 기사 임베딩·카드 1차 분류(개발 DB에 새 표 배포 후, 순서대로)
-# /etc/issueatlas/collector.env 에 GMS_API_KEY 가 있어야 한다.
-sudo issueatlas-collect embed-docs --apply
-sudo issueatlas-collect embed-cards --apply
-sudo issueatlas-collect score --apply
+# P4 기사 임베딩·기존 F4 카드 분류. /etc/issueatlas/collector.env 에 GMS_API_KEY 가 있어야 한다.
+# count-docs 는 외부 API를 호출하지 않고 결과 JSON의 result.new_embeddings 로 신규 건수를 보여 준다. 기본 자동 상한은 100건.
+sudo issueatlas-collect count-docs
+sudo issueatlas-collect classify
+# 기존 미처리 기사가 100건을 넘는 경우 자동 분류는 종료 코드 3으로 중단한다.
+# 운영자가 건수를 확인한 뒤 한 번의 수동 실행에 허용할 상한을 명시할 수 있다.
+sudo issueatlas-collect classify --max-new-docs 500
 # 카드 승인 판이 바뀌면(시드 재실행 등) embed-cards --apply → score --apply 를 이어서 다시 돌린다.
 # embed-cards 는 카드 프로필과 함께 ⑤ 반박 검색 질의(반박마다 하나, V0053 card_rebuttal_profile)도 만든다.
+
+`classify`는 `count-docs` 후 `embed-docs --apply → embed-cards --apply → score --apply`를 순서대로 실행한다. 단계별 JSON 결과와 종료 코드는 같은 실행의 로그와 요약 JSON(`classify_steps`)에 남고, 실패하면 뒤 단계를 건너뛴다. 재실행은 이미 저장된 활성·비활성 임베딩을 재사용한다. 자동 호출은 `region-load --extract ... --apply`가 성공해 요약이 있는 행을 한 건 이상 커밋한 직후다. 시험 실행, 본문 삭제만 하는 실행, 위치 재배치만 하는 실행, 보류·요약 없음·실패한 적재는 호출하지 않는다. 본문 삭제와 전체 재정제는 위 수동 순서대로 계속 진행한다.
 
 # 키·네트워크·DB 쓰기 없이 이미지 안의 예제로 실행 환경 확인
 sudo issueatlas-collect kosis --fixture /app/contracts/c1/examples/raw/kosis-sp01-monthly.json --export-only --regions 46130 --start-year 2023 --end-year 2023

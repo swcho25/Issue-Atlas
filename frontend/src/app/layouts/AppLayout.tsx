@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { countPendingFor } from "@/entities/csv-import";
 import { AppRail, AppRailPlaceholder } from "@/widgets/app-rail";
 
 import { getCurrentUser } from "./AuthLayout";
@@ -18,13 +19,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** 관리자면 관리 메뉴를 더 붙인다. 띠 때문에 화면이 깨지지 않게 /v1/auth/me 오류는 로그인 없음으로 본다 */
+/**
+ * 관리자면 관리 메뉴를 더 붙이고, 내가 반영 담당자인 반영 대기 CSV 가 있으면 「데이터 소스」에 알림 점을 단다.
+ * 띠 때문에 화면이 깨지지 않게 /v1/auth/me · 건수 오류는 로그인 없음 · 0건으로 본다
+ */
 export async function UserRail() {
   const me = await getCurrentUser().catch(() => null);
+  const admin = me?.role === "ADMIN";
+  const pending = admin ? await countPendingFor(me.id).catch(() => 0) : 0;
   return (
     <AppRail
-      role={me?.role === "ADMIN" ? "admin" : "viewer"}
+      role={admin ? "admin" : "viewer"}
       user={me ? { name: me.name, email: me.email } : undefined}
+      alerts={pending > 0 ? { "/admin/sources": `CSV 처리 필요 ${pending}건` } : undefined}
     />
   );
 }
